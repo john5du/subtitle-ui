@@ -95,3 +95,17 @@ export interface VisibleTreeNode {
   expanded: boolean;
 }
 
+export interface BatchSubtitleUploadItem {
+  video: Video;
+  file: File;
+  label: string;
+  sourceName?: string;
+}
+
+export interface BatchSubtitleUploadResult {
+  total: number;
+  success: number;
+  failed: number;
+  errors: string[];
+}
+

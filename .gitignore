@@ -1,5 +1,7 @@
 frontend/node_modules/
 frontend/dist/
+frontend/.next/
+frontend/out/
 
 tmp/
 media/

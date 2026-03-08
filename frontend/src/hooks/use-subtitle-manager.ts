@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ActiveTab,
+  BatchSubtitleUploadItem,
+  BatchSubtitleUploadResult,
   DirectoryScanResult,
   MediaType,
   OperationLog,
@@ -443,6 +445,34 @@ export function useSubtitleManager() {
     }
   }
 
+  async function listAllTvVideosInDirectory(directoryPath: string) {
+    const dir = directoryPath.trim();
+    if (!dir) {
+      return [] as Video[];
+    }
+
+    const out: Video[] = [];
+    let page = 1;
+    let totalPages = 1;
+    const pageSize = 200;
+
+    while (page <= totalPages) {
+      const params = new URLSearchParams();
+      params.set("mediaType", "tv");
+      params.set("dir", dir);
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
+
+      const raw = await request<unknown>(`/api/videos?${params.toString()}`);
+      const paged = normalizePagedVideosResponse(raw, page, pageSize);
+      out.push(...paged.items);
+      totalPages = Math.max(1, paged.totalPages || 1);
+      page += 1;
+    }
+
+    return out;
+  }
+
   async function loadScanStatus() {
     try {
       const payload = await request<unknown>("/api/scan/status");
@@ -668,6 +698,82 @@ export function useSubtitleManager() {
     }
   }
 
+  async function loadTvBatchCandidates() {
+    beginLoading();
+    try {
+      const dir = (selectedTvDirPath || tvRootPath || "").trim();
+      if (!dir) {
+        setMessage("TV season batch upload requires a selected directory.");
+        return [] as Video[];
+      }
+
+      const videos = await listAllTvVideosInDirectory(dir);
+      if (videos.length === 0) {
+        setMessage("No TV videos found in the selected directory.");
+      }
+      return videos;
+    } catch (error) {
+      const errText = error instanceof Error ? error.message : String(error);
+      setMessage(`Load TV batch candidates failed: ${errText}`);
+      return [] as Video[];
+    } finally {
+      endLoading();
+    }
+  }
+
+  async function uploadBatchSubtitles(items: BatchSubtitleUploadItem[]): Promise<BatchSubtitleUploadResult> {
+    if (items.length === 0) {
+      return { total: 0, success: 0, failed: 0, errors: [] };
+    }
+
+    beginLoading();
+    const errors: string[] = [];
+    let success = 0;
+
+    try {
+      for (const item of items) {
+        const body = new FormData();
+        body.append("file", item.file);
+        body.append("label", item.label || "");
+
+        try {
+          await request(`/api/videos/${item.video.id}/subtitles`, { method: "POST", body });
+          success += 1;
+        } catch (error) {
+          const errText = error instanceof Error ? error.message : String(error);
+          const source = item.sourceName || item.file.name;
+          errors.push(`${source} -> ${item.video.fileName}: ${errText}`);
+        }
+      }
+    } finally {
+      try {
+        await Promise.all([
+          loadVideosByType("tv", { page: tvPager.page || 1, dir: selectedTvDirPath || tvRootPath }),
+          loadLogs()
+        ]);
+      } catch (error) {
+        const errText = error instanceof Error ? error.message : String(error);
+        errors.push(`refresh after batch upload failed: ${errText}`);
+      }
+      endLoading();
+    }
+
+    const total = items.length;
+    const failed = total - success;
+    if (failed > 0) {
+      setMessage(`Batch upload finished: ${success}/${total} succeeded, ${failed} failed.`);
+    } else {
+      setMessage(`Batch upload finished: ${success}/${total} succeeded.`);
+    }
+
+    return {
+      total,
+      success,
+      failed,
+      errors
+    };
+  }
+
   useEffect(() => {
     if (!tvRootPath) return;
     setTvExpandedMap((prev) => ({ ...prev, [tvRootPath]: true }));
@@ -770,6 +876,8 @@ export function useSubtitleManager() {
     uploadSubtitle,
     replaceSubtitle,
     removeSubtitle,
+    loadTvBatchCandidates,
+    uploadBatchSubtitles,
     setMovieQuery: (value: string) => setQueryByType((prev) => ({ ...prev, movie: value })),
     setTvQuery: (value: string) => setQueryByType((prev) => ({ ...prev, tv: value })),
     formatTime

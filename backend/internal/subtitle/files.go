@@ -43,21 +43,15 @@ func EnsureWithinRoot(root string, target string) bool {
 }
 
 func BuildNewSubtitlePath(videoPath string, label string, ext string) (string, error) {
-	videoDir := filepath.Dir(videoPath)
-	videoName := filepath.Base(videoPath)
-	videoBase := strings.TrimSuffix(videoName, filepath.Ext(videoName))
-
-	safeLabel := normalizeLabel(label)
-	candidate := videoBase + ext
-	if safeLabel != "" {
-		candidate = fmt.Sprintf("%s.%s%s", videoBase, safeLabel, ext)
-	}
-
-	target := filepath.Join(videoDir, candidate)
+	target := BuildCanonicalSubtitlePath(videoPath, label, ext)
 	if !exists(target) {
 		return target, nil
 	}
 
+	videoDir := filepath.Dir(videoPath)
+	videoName := filepath.Base(videoPath)
+	videoBase := strings.TrimSuffix(videoName, filepath.Ext(videoName))
+	safeLabel := normalizeLabel(label)
 	for i := 1; i <= 9999; i++ {
 		next := filepath.Join(videoDir, fmt.Sprintf("%s.%s-%d%s", videoBase, safeLabelOrDefault(safeLabel), i, ext))
 		if !exists(next) {
@@ -66,6 +60,51 @@ func BuildNewSubtitlePath(videoPath string, label string, ext string) (string, e
 	}
 
 	return "", fmt.Errorf("unable to build unique subtitle filename for %s", videoPath)
+}
+
+func BuildCanonicalSubtitlePath(videoPath string, label string, ext string) string {
+	videoDir := filepath.Dir(videoPath)
+	videoName := filepath.Base(videoPath)
+	videoBase := strings.TrimSuffix(videoName, filepath.Ext(videoName))
+
+	normalizedExt := strings.ToLower(strings.TrimSpace(ext))
+	if normalizedExt != "" && !strings.HasPrefix(normalizedExt, ".") {
+		normalizedExt = "." + normalizedExt
+	}
+
+	safeLabel := normalizeLabel(label)
+	candidate := videoBase + normalizedExt
+	if safeLabel != "" {
+		candidate = fmt.Sprintf("%s.%s%s", videoBase, safeLabel, normalizedExt)
+	}
+
+	return filepath.Join(videoDir, candidate)
+}
+
+func InferLabelFromSubtitlePath(videoPath string, subtitlePath string) string {
+	videoName := filepath.Base(videoPath)
+	videoBase := strings.TrimSuffix(videoName, filepath.Ext(videoName))
+	subtitleName := filepath.Base(subtitlePath)
+	subtitleBase := strings.TrimSuffix(subtitleName, filepath.Ext(subtitleName))
+
+	if strings.EqualFold(subtitleBase, videoBase) {
+		return ""
+	}
+
+	if len(subtitleBase) <= len(videoBase) {
+		return ""
+	}
+	if !strings.EqualFold(subtitleBase[:len(videoBase)], videoBase) {
+		return ""
+	}
+
+	separator := subtitleBase[len(videoBase)]
+	if separator != '.' && separator != '_' && separator != '-' {
+		return ""
+	}
+
+	rawLabel := strings.TrimSpace(subtitleBase[len(videoBase)+1:])
+	return normalizeLabel(rawLabel)
 }
 
 func BackupFile(path string) (string, error) {
@@ -116,6 +155,10 @@ func WriteUploadedFile(file multipart.File, target string) error {
 		return err
 	}
 	return nil
+}
+
+func PathExists(path string) bool {
+	return exists(path)
 }
 
 func exists(path string) bool {

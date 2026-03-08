@@ -268,6 +268,7 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 	targetPath := ""
 	backupPath := ""
 	action := "upload"
+	replaceSourcePath := ""
 
 	if replaceID != "" {
 		existing, found := findSubtitle(video.Subtitles, replaceID)
@@ -277,11 +278,17 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 		if !s.isWithinMediaRoots(existing.Path) {
 			return domain.Subtitle{}, ErrUnsafePath
 		}
-		targetPath = existing.Path
+		replaceSourcePath = existing.Path
 		var err error
 		backupPath, err = subtitle.BackupFile(existing.Path)
 		if err != nil {
 			return domain.Subtitle{}, fmt.Errorf("backup before replace failed: %w", err)
+		}
+
+		preservedLabel := subtitle.InferLabelFromSubtitlePath(video.Path, existing.Path)
+		targetPath = subtitle.BuildCanonicalSubtitlePath(video.Path, preservedLabel, ext)
+		if !sameFilePath(targetPath, existing.Path) && subtitle.PathExists(targetPath) {
+			return domain.Subtitle{}, fmt.Errorf("%w: subtitle path conflict: %s", ErrBadRequest, filepath.Base(targetPath))
 		}
 		action = "replace"
 	} else {
@@ -297,6 +304,11 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 	}
 	if err := subtitle.WriteUploadedFile(file, targetPath); err != nil {
 		return domain.Subtitle{}, err
+	}
+	if replaceSourcePath != "" && !sameFilePath(targetPath, replaceSourcePath) {
+		if err := os.Remove(replaceSourcePath); err != nil {
+			return domain.Subtitle{}, fmt.Errorf("cleanup replaced subtitle failed: %w", err)
+		}
 	}
 
 	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, targetPath)
@@ -551,4 +563,10 @@ func combineErrors(errs ...error) error {
 		return nil
 	}
 	return errors.New(strings.Join(parts, "; "))
+}
+
+func sameFilePath(a string, b string) bool {
+	left := filepath.Clean(strings.TrimSpace(a))
+	right := filepath.Clean(strings.TrimSpace(b))
+	return strings.EqualFold(left, right)
 }

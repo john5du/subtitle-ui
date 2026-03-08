@@ -4,9 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  Archive,
   ArrowLeft,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
   Film,
   FileText,
   FolderTree,
@@ -22,6 +24,8 @@ import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useSubtitleManager } from "@/hooks/use-subtitle-manager";
 import type {
   ActiveTab,
+  BatchSubtitleUploadItem,
+  BatchSubtitleUploadResult,
   DirectoryScanResult,
   OperationLog,
   Pager,
@@ -30,6 +34,14 @@ import type {
   Video,
   VisibleTreeNode
 } from "@/lib/types";
+import { buildSubtitleSearchLinks } from "@/lib/subtitle-search";
+import {
+  extractSubtitleEntriesFromZip,
+  isSubtitleFileName,
+  isZipFileName,
+  toSubtitleFile,
+  type ZipSubtitleEntry
+} from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -67,6 +79,144 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type MobileView = "list" | "details";
+interface SeasonEpisodeInfo {
+  season: number;
+  episode: number;
+}
+
+interface SeasonBatchMappingRow {
+  id: string;
+  entry: ZipSubtitleEntry;
+  season: number | null;
+  episode: number | null;
+  autoVideoId: string;
+  selectedVideoId: string;
+}
+
+function parseSeasonEpisode(text: string): SeasonEpisodeInfo | null {
+  const patterns = [
+    /\bs(\d{1,2})e(\d{1,3})\b/i,
+    /\b(\d{1,2})x(\d{1,3})\b/i,
+    /\bseason[\s._-]*(\d{1,2})[\s._-]*episode[\s._-]*(\d{1,3})\b/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) {
+      continue;
+    }
+    return {
+      season: Number.parseInt(match[1], 10),
+      episode: Number.parseInt(match[2], 10)
+    };
+  }
+
+  return null;
+}
+
+function parseVideoSeasonEpisode(video: Video): SeasonEpisodeInfo | null {
+  return parseSeasonEpisode(`${video.fileName ?? ""} ${video.title ?? ""}`);
+}
+
+function formatSeasonEpisodeText(season: number | null, episode: number | null) {
+  if (season === null || episode === null) {
+    return "-";
+  }
+  return `S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}`;
+}
+
+function compareTvVideosByEpisode(a: Video, b: Video) {
+  const aa = parseVideoSeasonEpisode(a);
+  const bb = parseVideoSeasonEpisode(b);
+
+  const seasonA = aa?.season ?? Number.MAX_SAFE_INTEGER;
+  const seasonB = bb?.season ?? Number.MAX_SAFE_INTEGER;
+  if (seasonA !== seasonB) {
+    return seasonA - seasonB;
+  }
+
+  const episodeA = aa?.episode ?? Number.MAX_SAFE_INTEGER;
+  const episodeB = bb?.episode ?? Number.MAX_SAFE_INTEGER;
+  if (episodeA !== episodeB) {
+    return episodeA - episodeB;
+  }
+
+  const byName = (a.fileName ?? "").localeCompare(b.fileName ?? "");
+  if (byName !== 0) {
+    return byName;
+  }
+
+  return (a.title ?? "").localeCompare(b.title ?? "");
+}
+
+function buildSeasonBatchRows(videos: Video[], entries: ZipSubtitleEntry[]) {
+  const byEpisode = new Map<string, Video[]>();
+  for (const video of videos) {
+    const parsed = parseVideoSeasonEpisode(video);
+    if (!parsed) {
+      continue;
+    }
+    const key = `${parsed.season}-${parsed.episode}`;
+    const list = byEpisode.get(key) ?? [];
+    list.push(video);
+    byEpisode.set(key, list);
+  }
+
+  const rows = entries.map((entry) => {
+    const parsed = parseSeasonEpisode(`${entry.path} ${entry.fileName}`);
+    const season = parsed?.season ?? null;
+    const episode = parsed?.episode ?? null;
+    let autoVideoId = "";
+    if (season !== null && episode !== null) {
+      const key = `${season}-${episode}`;
+      const candidates = byEpisode.get(key) ?? [];
+      if (candidates.length === 1) {
+        autoVideoId = candidates[0].id;
+      }
+    }
+
+    return {
+      id: entry.id,
+      entry,
+      season,
+      episode,
+      autoVideoId,
+      selectedVideoId: autoVideoId
+    } satisfies SeasonBatchMappingRow;
+  });
+
+  rows.sort((a, b) => {
+    const seasonA = a.season ?? Number.MAX_SAFE_INTEGER;
+    const seasonB = b.season ?? Number.MAX_SAFE_INTEGER;
+    if (seasonA !== seasonB) {
+      return seasonA - seasonB;
+    }
+
+    const episodeA = a.episode ?? Number.MAX_SAFE_INTEGER;
+    const episodeB = b.episode ?? Number.MAX_SAFE_INTEGER;
+    if (episodeA !== episodeB) {
+      return episodeA - episodeB;
+    }
+
+    return a.entry.path.localeCompare(b.entry.path);
+  });
+
+  return rows;
+}
+
+function candidateVideosForBatchRow(row: SeasonBatchMappingRow, videos: Video[]) {
+  if (row.season === null) {
+    return [...videos].sort(compareTvVideosByEpisode);
+  }
+
+  const sameSeason = videos.filter((video) => parseVideoSeasonEpisode(video)?.season === row.season);
+  if (sameSeason.length > 0) {
+    sameSeason.sort(compareTvVideosByEpisode);
+    return sameSeason;
+  }
+
+  return [...videos].sort(compareTvVideosByEpisode);
+}
 
 export function SubtitleManagerApp() {
   const {
@@ -99,6 +249,8 @@ export function SubtitleManagerApp() {
     uploadSubtitle,
     replaceSubtitle,
     removeSubtitle,
+    loadTvBatchCandidates,
+    uploadBatchSubtitles,
     setMovieQuery,
     setTvQuery,
     formatTime
@@ -282,6 +434,9 @@ export function SubtitleManagerApp() {
                 onSelectVideo={handleTvSelect}
                 onSetPage={setTvPage}
                 isExpanded={isTvExpanded}
+                busy={loading}
+                onLoadBatchCandidates={loadTvBatchCandidates}
+                onUploadBatch={uploadBatchSubtitles}
               />
             )}
 
@@ -516,6 +671,9 @@ interface TvListPanelProps {
   onSelectVideo: (video: Video) => void;
   onSetPage: (page: number) => void;
   isExpanded: (path: string) => boolean;
+  busy: boolean;
+  onLoadBatchCandidates: () => Promise<Video[]>;
+  onUploadBatch: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;
 }
 
 function TvListPanel({
@@ -530,12 +688,135 @@ function TvListPanel({
   onSelectDirectory,
   onSelectVideo,
   onSetPage,
-  isExpanded
+  isExpanded,
+  busy,
+  onLoadBatchCandidates,
+  onUploadBatch
 }: TvListPanelProps) {
+  const batchInputRef = useRef<HTMLInputElement | null>(null);
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [batchPreparing, setBatchPreparing] = useState(false);
+  const [batchZipFileName, setBatchZipFileName] = useState("");
+  const [batchRows, setBatchRows] = useState<SeasonBatchMappingRow[]>([]);
+  const [batchCandidates, setBatchCandidates] = useState<Video[]>([]);
+  const [batchLabel, setBatchLabel] = useState("zh");
+  const [batchError, setBatchError] = useState("");
+  const [batchResult, setBatchResult] = useState<BatchSubtitleUploadResult | null>(null);
+
+  function resetBatchState() {
+    setBatchPreparing(false);
+    setBatchZipFileName("");
+    setBatchRows([]);
+    setBatchCandidates([]);
+    setBatchLabel("zh");
+    setBatchError("");
+    setBatchResult(null);
+  }
+
+  async function onBatchZipSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!file) {
+      return;
+    }
+    if (!isZipFileName(file.name)) {
+      setBatchError("Season batch upload only accepts .zip files.");
+      return;
+    }
+
+    setBatchPreparing(true);
+    setBatchError("");
+    setBatchResult(null);
+
+    try {
+      const candidates = await onLoadBatchCandidates();
+      if (candidates.length === 0) {
+        setBatchError("No TV episodes available in the selected directory.");
+        return;
+      }
+
+      const entries = await extractSubtitleEntriesFromZip(file);
+      if (entries.length === 0) {
+        setBatchError("No subtitle files found inside the ZIP archive.");
+        return;
+      }
+
+      const rows = buildSeasonBatchRows(candidates, entries);
+      setBatchZipFileName(file.name);
+      setBatchCandidates(candidates);
+      setBatchRows(rows);
+      setBatchDialogOpen(true);
+    } catch (error) {
+      const errText = error instanceof Error ? error.message : String(error);
+      setBatchError(`Parse ZIP failed: ${errText}`);
+    } finally {
+      setBatchPreparing(false);
+    }
+  }
+
+  async function submitSeasonBatch() {
+    if (batchRows.length === 0 || batchCandidates.length === 0) {
+      return;
+    }
+
+    const map = new Map(batchCandidates.map((video) => [video.id, video]));
+    const label = batchLabel.trim();
+    const items: BatchSubtitleUploadItem[] = [];
+    for (const row of batchRows) {
+      if (!row.selectedVideoId) {
+        continue;
+      }
+      const matchedVideo = map.get(row.selectedVideoId);
+      if (!matchedVideo) {
+        continue;
+      }
+      items.push({
+        video: matchedVideo,
+        file: toSubtitleFile(row.entry),
+        label,
+        sourceName: row.entry.path
+      });
+    }
+
+    if (items.length === 0) {
+      setBatchError("Please map at least one subtitle file to an episode.");
+      return;
+    }
+
+    setBatchError("");
+    const result = await onUploadBatch(items);
+    setBatchResult(result);
+  }
+
+  const autoMatchedCount = batchRows.filter((row) => row.autoVideoId !== "").length;
+  const mappedCount = batchRows.filter((row) => row.selectedVideoId !== "").length;
+
   return (
     <Card className="border bg-card">
       <CardHeader className="space-y-3 p-4">
         <CardTitle className="text-lg">TV Directory Tree</CardTitle>
+        <input
+          ref={batchInputRef}
+          type="file"
+          accept=".zip"
+          className="hidden"
+          onChange={(event) => {
+            void onBatchZipSelected(event);
+          }}
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={busy || batchPreparing}
+            onClick={() => batchInputRef.current?.click()}
+          >
+            <Archive className="h-4 w-4" />
+            Season Batch Upload (ZIP)
+          </Button>
+          {batchError && <p className="text-xs text-rose-600">{batchError}</p>}
+        </div>
         <Input
           value={query}
           aria-label="Filter TV videos in selected directory"
@@ -639,6 +920,135 @@ function TvListPanel({
 
         <PagerView pager={pager} onSetPage={onSetPage} />
       </CardContent>
+
+      <Dialog
+        open={batchDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBatchDialogOpen(false);
+            resetBatchState();
+            return;
+          }
+          setBatchDialogOpen(true);
+        }}
+      >
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>TV Season Batch Upload</DialogTitle>
+            <DialogDescription>
+              ZIP: {batchZipFileName || "-"} | Auto matched: {autoMatchedCount}/{batchRows.length} | Selected: {mappedCount}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Label</span>
+            <Input
+              className="w-[120px]"
+              value={batchLabel}
+              maxLength={32}
+              placeholder="zh"
+              onChange={(event) => setBatchLabel(event.target.value)}
+            />
+            <span className="text-xs text-muted-foreground">
+              Saved as media-name[.label].ext. Leave empty for default naming.
+            </span>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Subtitle File</TableHead>
+                  <TableHead className="w-[120px]">Parsed</TableHead>
+                  <TableHead>Target Episode</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {batchRows.map((row) => {
+                  const candidates = candidateVideosForBatchRow(row, batchCandidates);
+                  const selectValue = row.selectedVideoId || "__UNASSIGNED__";
+                  return (
+                    <TableRow key={row.id}>
+                      <TableCell className="break-all text-xs">{row.entry.path}</TableCell>
+                      <TableCell className="text-xs">{formatSeasonEpisodeText(row.season, row.episode)}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={selectValue}
+                          onValueChange={(value) => {
+                            setBatchRows((prev) =>
+                              prev.map((item) =>
+                                item.id === row.id
+                                  ? {
+                                      ...item,
+                                      selectedVideoId: value === "__UNASSIGNED__" ? "" : value
+                                    }
+                                  : item
+                              )
+                            );
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Choose episode" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__UNASSIGNED__">Skip</SelectItem>
+                            {candidates.map((video) => (
+                              <SelectItem key={`${row.id}-${video.id}`} value={video.id}>
+                                {video.fileName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+
+                {batchRows.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
+                      No subtitle files ready for mapping.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {batchResult && (
+            <div className="rounded-md border bg-muted/30 p-3 text-xs">
+              <p>
+                Result: {batchResult.success}/{batchResult.total} succeeded, {batchResult.failed} failed.
+              </p>
+              {batchResult.errors.length > 0 && (
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  {batchResult.errors.slice(0, 8).map((item) => (
+                    <li key={item} className="break-all">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setBatchDialogOpen(false);
+                resetBatchState();
+              }}
+            >
+              Close
+            </Button>
+            <Button type="button" disabled={busy || batchPreparing || batchRows.length === 0} onClick={() => void submitSeasonBatch()}>
+              Upload Mapped Subtitles
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -676,6 +1086,30 @@ function SubtitleDetailsPanel({
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   const [uploadLabel, setUploadLabel] = useState("zh");
+  const [zipPickDialogOpen, setZipPickDialogOpen] = useState(false);
+  const [zipPickMode, setZipPickMode] = useState<"upload" | "replace">("upload");
+  const [zipPickFileName, setZipPickFileName] = useState("");
+  const [zipPickEntries, setZipPickEntries] = useState<ZipSubtitleEntry[]>([]);
+  const [zipPickTargetSubtitle, setZipPickTargetSubtitle] = useState<Subtitle | null>(null);
+  const [zipPickError, setZipPickError] = useState("");
+  const [zipLoading, setZipLoading] = useState(false);
+
+  const searchLinks = useMemo(() => {
+    if (!selectedVideo) {
+      return null;
+    }
+    return buildSubtitleSearchLinks(selectedVideo);
+  }, [selectedVideo]);
+
+  function resetZipPickState() {
+    setZipPickDialogOpen(false);
+    setZipPickMode("upload");
+    setZipPickFileName("");
+    setZipPickEntries([]);
+    setZipPickTargetSubtitle(null);
+    setZipPickError("");
+    setZipLoading(false);
+  }
 
   function resetUploadState() {
     setUploadDialogOpen(false);
@@ -685,16 +1119,48 @@ function SubtitleDetailsPanel({
 
   useEffect(() => {
     resetUploadState();
+    resetZipPickState();
   }, [selectedVideo?.id]);
 
   function openUploadPicker() {
     uploadInputRef.current?.click();
   }
 
+  async function openZipPicker(file: File, mode: "upload" | "replace", targetSubtitle: Subtitle | null) {
+    setZipLoading(true);
+    setZipPickError("");
+
+    try {
+      const entries = await extractSubtitleEntriesFromZip(file);
+      if (entries.length === 0) {
+        setZipPickError("No subtitle files found in the ZIP archive.");
+        return;
+      }
+      setZipPickMode(mode);
+      setZipPickTargetSubtitle(targetSubtitle);
+      setZipPickFileName(file.name);
+      setZipPickEntries(entries);
+      setZipPickDialogOpen(true);
+    } catch (error) {
+      const errText = error instanceof Error ? error.message : String(error);
+      setZipPickError(`Parse ZIP failed: ${errText}`);
+    } finally {
+      setZipLoading(false);
+    }
+  }
+
   function onUploadFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     event.target.value = "";
     if (!file) return;
+    if (isZipFileName(file.name)) {
+      void openZipPicker(file, "upload", null);
+      return;
+    }
+    if (!isSubtitleFileName(file.name)) {
+      setZipPickError("Unsupported file type. Please select subtitle files or ZIP.");
+      return;
+    }
     setPendingUploadFile(file);
     setUploadDialogOpen(true);
   }
@@ -709,7 +1175,37 @@ function SubtitleDetailsPanel({
     const file = event.target.files?.[0] ?? null;
     event.target.value = "";
     if (!file || !selectedVideo) return;
+    if (isZipFileName(file.name)) {
+      await openZipPicker(file, "replace", subtitle);
+      return;
+    }
+    if (!isSubtitleFileName(file.name)) {
+      setZipPickError("Unsupported file type. Please select subtitle files or ZIP.");
+      return;
+    }
     await onReplace(selectedVideo, subtitle, file);
+  }
+
+  async function onZipEntryPicked(entry: ZipSubtitleEntry) {
+    if (!selectedVideo) {
+      return;
+    }
+
+    const selectedFile = toSubtitleFile(entry);
+    if (zipPickMode === "upload") {
+      setPendingUploadFile(selectedFile);
+      setUploadDialogOpen(true);
+      setZipPickDialogOpen(false);
+      return;
+    }
+
+    if (!zipPickTargetSubtitle) {
+      setZipPickError("Missing target subtitle for replace.");
+      return;
+    }
+
+    await onReplace(selectedVideo, zipPickTargetSubtitle, selectedFile);
+    resetZipPickState();
   }
 
   return (
@@ -749,13 +1245,31 @@ function SubtitleDetailsPanel({
               <input
                 ref={uploadInputRef}
                 type="file"
-                accept=".srt,.ass,.ssa,.vtt,.sub"
+                accept=".srt,.ass,.ssa,.vtt,.sub,.zip"
                 className="hidden"
                 onChange={onUploadFileChange}
               />
-              <Button type="button" onClick={openUploadPicker} disabled={busy}>
-                Upload Subtitle
+              <Button type="button" onClick={openUploadPicker} disabled={busy || zipLoading}>
+                Upload Subtitle / ZIP
               </Button>
+              {searchLinks && (
+                <>
+                  <Button type="button" variant="outline" asChild>
+                    <a href={searchLinks.zimuku} target="_blank" rel="noreferrer" className="gap-1">
+                      Zimuku
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </Button>
+                  <Button type="button" variant="outline" asChild>
+                    <a href={searchLinks.subhd} target="_blank" rel="noreferrer" className="gap-1">
+                      SubHD
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </Button>
+                </>
+              )}
+              {zipLoading && <span className="text-xs text-muted-foreground">Parsing ZIP...</span>}
+              {zipPickError && <span className="text-xs text-rose-600">{zipPickError}</span>}
             </div>
 
             <div className="rounded-md border">
@@ -784,7 +1298,7 @@ function SubtitleDetailsPanel({
                               replaceInputRef.current[subtitle.id] = node;
                             }}
                             type="file"
-                            accept=".srt,.ass,.ssa,.vtt,.sub"
+                            accept=".srt,.ass,.ssa,.vtt,.sub,.zip"
                             className="hidden"
                             onChange={(event) => {
                               void onReplaceFilePicked(subtitle, event);
@@ -881,6 +1395,71 @@ function SubtitleDetailsPanel({
               disabled={!pendingUploadFile || !selectedVideo || busy}
             >
               Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={zipPickDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            resetZipPickState();
+            return;
+          }
+          setZipPickDialogOpen(true);
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Select Subtitle From ZIP</DialogTitle>
+            <DialogDescription>
+              ZIP: {zipPickFileName || "-"} | {zipPickEntries.length} subtitle files found.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>File Path</TableHead>
+                  <TableHead className="w-[100px] text-right">Size</TableHead>
+                  <TableHead className="w-[120px]">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {zipPickEntries.map((entry) => (
+                  <TableRow key={entry.id}>
+                    <TableCell className="break-all text-xs">{entry.path}</TableCell>
+                    <TableCell className="text-right text-xs">{Math.max(1, Math.round(entry.size / 1024))} KB</TableCell>
+                    <TableCell>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void onZipEntryPicked(entry)}
+                      >
+                        Use This File
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+
+                {zipPickEntries.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
+                      No subtitle entries.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={resetZipPickState}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
