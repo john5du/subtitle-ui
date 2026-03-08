@@ -1,0 +1,79 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 221.2 83.2% 53.3%;
+  --radius: 0.5rem;
+}
+
+[data-theme="dark"] {
+  --background: 228 46% 6%;
+  --foreground: 210 40% 96%;
+  --card: 226 44% 8%;
+  --card-foreground: 210 40% 98%;
+  --popover: 226 44% 8%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217 92% 64%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 224 30% 14%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 223 28% 16%;
+  --muted-foreground: 215 22% 68%;
+  --accent: 223 30% 16%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 63% 38%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 223 24% 20%;
+  --input: 223 24% 20%;
+  --ring: 216 95% 66%;
+}
+
+* {
+  @apply border-border;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  @apply bg-background text-foreground;
+}
+
+[data-theme="dark"] body {
+  background-image:
+    radial-gradient(1050px 500px at 16% -22%, rgba(49, 80, 180, 0.35), transparent 52%),
+    radial-gradient(980px 540px at 86% -20%, rgba(22, 44, 112, 0.28), transparent 58%),
+    linear-gradient(180deg, #050912 0%, #070d1c 52%, #050a17 100%);
+  background-attachment: fixed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
