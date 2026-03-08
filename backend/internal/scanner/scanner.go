@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"subtitle/backend/internal/domain"
+	"subtitle-ui/backend/internal/domain"
 )
 
 var videoExtensions = map[string]struct{}{

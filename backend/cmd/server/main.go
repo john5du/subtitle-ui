@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	"subtitle/backend/internal/api"
-	"subtitle/backend/internal/app"
-	"subtitle/backend/internal/config"
+	"subtitle-ui/backend/internal/api"
+	"subtitle-ui/backend/internal/app"
+	"subtitle-ui/backend/internal/config"
 )
 
 func main() {

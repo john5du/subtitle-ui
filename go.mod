@@ -1,4 +1,4 @@
-module subtitle
+module subtitle-ui
 
 go 1.26
 

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"subtitle/backend/internal/domain"
+	"subtitle-ui/backend/internal/domain"
 )
 
 func TestStoreScanAndLogs(t *testing.T) {

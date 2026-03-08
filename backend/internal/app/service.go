@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"subtitle/backend/internal/config"
-	"subtitle/backend/internal/domain"
-	"subtitle/backend/internal/scanner"
-	"subtitle/backend/internal/store"
-	"subtitle/backend/internal/subtitle"
+	"subtitle-ui/backend/internal/config"
+	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/scanner"
+	"subtitle-ui/backend/internal/store"
+	"subtitle-ui/backend/internal/subtitle"
 )
 
 var (

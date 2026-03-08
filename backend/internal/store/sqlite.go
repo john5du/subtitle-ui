@@ -11,7 +11,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"subtitle/backend/internal/domain"
+	"subtitle-ui/backend/internal/domain"
 )
 
 const migrationV1 = `

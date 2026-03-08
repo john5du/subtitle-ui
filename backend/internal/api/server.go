@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"subtitle/backend/internal/app"
+	"subtitle-ui/backend/internal/app"
 )
 
 type Server struct {
