@@ -47,3 +47,21 @@ func TestScanReadsVideoMetadataAndSubtitles(t *testing.T) {
 		t.Fatalf("unexpected language: %q", video.Subtitles[0].Language)
 	}
 }
+
+func TestScanSkipsVideoWithoutNFO(t *testing.T) {
+	root := t.TempDir()
+	videoPath := filepath.Join(root, "movie_without_nfo.mkv")
+
+	if err := os.WriteFile(videoPath, []byte("video-data"), 0o644); err != nil {
+		t.Fatalf("write video: %v", err)
+	}
+
+	sc := New()
+	videos, err := sc.Scan(root)
+	if err != nil {
+		t.Fatalf("scan failed: %v", err)
+	}
+	if len(videos) != 0 {
+		t.Fatalf("expected 0 videos when nfo is missing, got %d", len(videos))
+	}
+}

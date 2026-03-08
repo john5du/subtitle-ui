@@ -13,11 +13,15 @@ function buildKeyword(video: Video) {
   return title;
 }
 
-export function buildSubtitleSearchLinks(video: Video) {
-  const keyword = buildKeyword(video);
+export function buildSubtitleSearchLinksByKeyword(rawKeyword: string) {
+  const keyword = normalizeKeywordPart(rawKeyword);
   const encoded = encodeURIComponent(keyword);
   return {
     zimuku: `https://zimuku.org/search?q=${encoded}`,
     subhd: `https://subhd.tv/search/${encoded}`
   };
+}
+
+export function buildSubtitleSearchLinks(video: Video) {
+  return buildSubtitleSearchLinksByKeyword(buildKeyword(video));
 }

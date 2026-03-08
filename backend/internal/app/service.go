@@ -342,15 +342,11 @@ func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {
 		return ErrUnsafePath
 	}
 
-	backupPath, err := subtitle.BackupFile(existing.Path)
-	if err != nil {
-		return fmt.Errorf("backup before delete failed: %w", err)
-	}
 	if err := os.Remove(existing.Path); err != nil {
 		return err
 	}
 
-	_, _, err = s.refreshVideoSubtitles(videoID, "")
+	_, _, err := s.refreshVideoSubtitles(videoID, "")
 	if err != nil {
 		return err
 	}
@@ -361,7 +357,6 @@ func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {
 		Action:     "delete",
 		VideoID:    videoID,
 		TargetPath: existing.Path,
-		BackupPath: backupPath,
 		Status:     "ok",
 	})
 	return nil

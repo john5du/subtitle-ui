@@ -35,6 +35,8 @@ var subtitleExtensions = map[string]struct{}{
 	".sub": {},
 }
 
+var errMetadataNotFound = errors.New("metadata nfo not found")
+
 type Scanner struct{}
 
 type nfoMetadata struct {
@@ -255,9 +257,11 @@ func (s *Scanner) buildVideo(path string, mediaType string) (domain.Video, error
 	base := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
 	title, year, source := readMetadata(dir, base)
+	if source == "" {
+		return domain.Video{}, errMetadataNotFound
+	}
 	if title == "" {
 		title = base
-		source = "filename"
 	}
 
 	subtitles, err := s.ScanSubtitlesForVideo(absPath)

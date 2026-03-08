@@ -12,6 +12,8 @@ import type {
   ScanDirectory,
   ScanStatus,
   Subtitle,
+  TvSeasonOption,
+  TvSeriesSummary,
   TreeNode,
   Video,
   VideoPage,
@@ -55,6 +57,46 @@ function joinPath(base: string, segment: string) {
     return `${base}${segment}`;
   }
   return `${base}${separator}${segment}`;
+}
+
+function deriveTreeRootPath(entries: ScanDirectory[], configuredRoot: string) {
+  const preferred = String(configuredRoot || "").trim();
+  if (preferred) {
+    return preferred;
+  }
+  if (entries.length === 0) {
+    return "";
+  }
+
+  const normalized = entries
+    .map((entry) => normalizeForCompare(entry.path))
+    .filter((value) => value !== "");
+  if (normalized.length === 0) {
+    return String(entries[0]?.path || "").trim();
+  }
+
+  let prefix = normalized[0];
+  for (let i = 1; i < normalized.length; i += 1) {
+    const current = normalized[i];
+    let nextLen = Math.min(prefix.length, current.length);
+    while (nextLen > 0 && prefix.slice(0, nextLen) !== current.slice(0, nextLen)) {
+      nextLen -= 1;
+    }
+    prefix = prefix.slice(0, nextLen);
+    if (!prefix) {
+      break;
+    }
+  }
+
+  const slash = prefix.lastIndexOf("/");
+  const trimmed = slash >= 0 ? prefix.slice(0, slash) : prefix;
+  if (!trimmed) {
+    return String(entries[0]?.path || "").trim();
+  }
+
+  const useBackslash = String(entries[0]?.path || "").includes("\\");
+  const separator = useBackslash ? "\\" : "/";
+  return trimmed.replace(/\//g, separator);
 }
 
 function sortTree(node: TreeNode) {
@@ -177,6 +219,96 @@ function parseTvSeasonEpisode(video: Video) {
   };
 }
 
+function pathSegments(pathValue: string | undefined | null) {
+  return String(pathValue ?? "")
+    .replace(/[\\/]+/g, "/")
+    .replace(/^\/+|\/+$/g, "")
+    .split("/")
+    .filter(Boolean);
+}
+
+function resolveTvSeriesFromVideo(video: Video, tvRootPath: string) {
+  const dirSegments = pathSegments(video.directory || video.path || "");
+  const rootSegments = pathSegments(tvRootPath);
+
+  let offset = 0;
+  while (
+    offset < rootSegments.length &&
+    offset < dirSegments.length &&
+    dirSegments[offset].toLowerCase() === rootSegments[offset].toLowerCase()
+  ) {
+    offset += 1;
+  }
+
+  const seriesName =
+    dirSegments[offset] ||
+    dirSegments[dirSegments.length - 1] ||
+    basenamePath(video.directory || video.path || "") ||
+    "Unknown";
+  const seriesPath = tvRootPath ? joinPath(tvRootPath, seriesName) : video.directory || video.path || seriesName;
+
+  return {
+    key: normalizeForCompare(seriesPath) || normalizeForCompare(seriesName),
+    title: seriesName,
+    path: seriesPath
+  };
+}
+
+function parseYear(value: string | undefined) {
+  if (!value) return null;
+  const year = Number.parseInt(value, 10);
+  if (!Number.isFinite(year) || year <= 0) return null;
+  return year;
+}
+
+function buildTvSeriesSummaries(videos: Video[], tvRootPath: string): TvSeriesSummary[] {
+  const map = new Map<string, { row: TvSeriesSummary; year: number | null; updatedTime: number }>();
+
+  for (const video of videos) {
+    const resolved = resolveTvSeriesFromVideo(video, tvRootPath);
+    const existing = map.get(resolved.key);
+    const year = parseYear(video.year);
+    const updatedTime = new Date(video.updatedAt || "").getTime();
+    const validUpdatedTime = Number.isFinite(updatedTime) ? updatedTime : 0;
+
+    if (!existing) {
+      map.set(resolved.key, {
+        row: {
+          key: resolved.key,
+          path: resolved.path,
+          title: resolved.title,
+          latestEpisodeYear: year ? String(year) : undefined,
+          updatedAt: video.updatedAt || "",
+          videoCount: 1,
+          noSubtitleCount: (video.subtitles?.length || 0) === 0 ? 1 : 0
+        },
+        year,
+        updatedTime: validUpdatedTime
+      });
+      continue;
+    }
+
+    existing.row.videoCount += 1;
+    if ((video.subtitles?.length || 0) === 0) {
+      existing.row.noSubtitleCount += 1;
+    }
+
+    if (year !== null && (existing.year === null || year > existing.year)) {
+      existing.year = year;
+      existing.row.latestEpisodeYear = String(year);
+    }
+
+    if (validUpdatedTime > existing.updatedTime) {
+      existing.updatedTime = validUpdatedTime;
+      existing.row.updatedAt = video.updatedAt || "";
+    }
+  }
+
+  return Array.from(map.values())
+    .map((item) => item.row)
+    .sort((a, b) => a.title.localeCompare(b.title));
+}
+
 function normalizePagedVideosResponse(payload: unknown, fallbackPage: number, fallbackPageSize: number): VideoPage {
   if (Array.isArray(payload)) {
     return {
@@ -265,7 +397,9 @@ export function useSubtitleManager() {
     movie: "",
     tv: ""
   });
+  const [allTvVideos, setAllTvVideos] = useState<Video[]>([]);
   const [selectedTvDirPath, setSelectedTvDirPath] = useState("");
+  const [selectedTvSeason, setSelectedTvSeason] = useState("all");
   const [tvExpandedMap, setTvExpandedMap] = useState<Record<string, boolean>>({});
   const [queryByType, setQueryByType] = useState<Record<MediaType, string>>({ movie: "", tv: "" });
   const [paginationByType, setPaginationByType] = useState<Record<MediaType, Pager>>({
@@ -280,13 +414,65 @@ export function useSubtitleManager() {
 
   const pendingLoadsRef = useRef(0);
   const skipMovieQueryRef = useRef(true);
-  const skipTvQueryRef = useRef(true);
 
   const movieVideos = useMemo(() => videosByType.movie ?? [], [videosByType.movie]);
-  const tvVideos = useMemo(() => videosByType.tv ?? [], [videosByType.tv]);
 
-  const sortedTvVideos = useMemo(() => {
-    const items = [...tvVideos];
+  const moviePager = useMemo(() => paginationByType.movie, [paginationByType.movie]);
+  const tvPager = useMemo(() => paginationByType.tv, [paginationByType.tv]);
+
+  const tvRootPath = useMemo(() => {
+    return deriveTreeRootPath(directoryScan.tv ?? [], directoryScan.tvRoot);
+  }, [directoryScan.tv, directoryScan.tvRoot]);
+
+  const tvTreeRoot = useMemo(() => {
+    if ((directoryScan.tv ?? []).length === 0 && !tvRootPath) {
+      return null;
+    }
+    return buildDirectoryTree(directoryScan.tv ?? [], tvRootPath, "TV Root");
+  }, [directoryScan.tv, tvRootPath]);
+
+  const isTvExpanded = useCallback((path: string) => {
+    return Boolean(tvExpandedMap[path]);
+  }, [tvExpandedMap]);
+
+  const tvVisibleNodes = useMemo(() => {
+    if (!tvTreeRoot) {
+      return [] as VisibleTreeNode[];
+    }
+    const out: VisibleTreeNode[] = [];
+    flattenTree(tvTreeRoot, 0, out, isTvExpanded);
+    return out;
+  }, [isTvExpanded, tvTreeRoot]);
+
+  const tvSeriesAll = useMemo(() => {
+    return buildTvSeriesSummaries(allTvVideos, tvRootPath || directoryScan.tvRoot);
+  }, [allTvVideos, tvRootPath, directoryScan.tvRoot]);
+
+  const tvSeriesRows = useMemo(() => {
+    const keyword = (queryByType.tv || "").trim().toLowerCase();
+    if (!keyword) {
+      return tvSeriesAll;
+    }
+    return tvSeriesAll.filter((item) => {
+      return item.title.toLowerCase().includes(keyword) || item.path.toLowerCase().includes(keyword);
+    });
+  }, [queryByType.tv, tvSeriesAll]);
+
+  const selectedTvSeries = useMemo(() => {
+    const selectedNorm = normalizeForCompare(selectedTvDirPath);
+    return tvSeriesAll.find((item) => normalizeForCompare(item.path) === selectedNorm) ?? null;
+  }, [selectedTvDirPath, tvSeriesAll]);
+
+  const seriesKey = selectedTvSeries?.key || "";
+  const selectedTvSeriesVideos = useMemo(() => {
+    if (!seriesKey) {
+      return [] as Video[];
+    }
+
+    const items = allTvVideos.filter((video) => {
+      return resolveTvSeriesFromVideo(video, tvRootPath || directoryScan.tvRoot).key === seriesKey;
+    });
+
     items.sort((a, b) => {
       const aa = parseTvSeasonEpisode(a);
       const bb = parseTvSeasonEpisode(b);
@@ -297,30 +483,40 @@ export function useSubtitleManager() {
       return (a.title ?? "").localeCompare(b.title ?? "");
     });
     return items;
-  }, [tvVideos]);
+  }, [allTvVideos, directoryScan.tvRoot, seriesKey, tvRootPath]);
 
-  const moviePager = useMemo(() => paginationByType.movie, [paginationByType.movie]);
-  const tvPager = useMemo(() => paginationByType.tv, [paginationByType.tv]);
+  const tvSeasonOptions = useMemo(() => {
+    const seasons = new Set<number>();
+    for (const video of selectedTvSeriesVideos) {
+      const parsed = parseTvSeasonEpisode(video);
+      if (Number.isFinite(parsed.season) && parsed.season !== Number.MAX_SAFE_INTEGER) {
+        seasons.add(parsed.season);
+      }
+    }
 
-  const tvRootPath = useMemo(() => {
-    const configured = String(directoryScan.tvRoot || "").trim();
-    if (configured) return configured;
-    return String(directoryScan.tv?.[0]?.path ?? "").trim();
-  }, [directoryScan.tv, directoryScan.tvRoot]);
+    const sortedSeasons = Array.from(seasons).sort((a, b) => a - b);
+    const options: TvSeasonOption[] = [
+      { value: "all", label: "All Seasons" },
+      ...sortedSeasons.map((season) => ({
+        value: `s${String(season).padStart(2, "0")}`,
+        label: `Season ${String(season).padStart(2, "0")}`,
+        season
+      }))
+    ];
 
-  const tvTreeRoot = useMemo(() => {
-    return buildDirectoryTree(directoryScan.tv ?? [], tvRootPath, "TV Root");
-  }, [directoryScan.tv, tvRootPath]);
+    return options;
+  }, [selectedTvSeriesVideos]);
 
-  const isTvExpanded = useCallback((path: string) => {
-    return Boolean(tvExpandedMap[path]);
-  }, [tvExpandedMap]);
-
-  const tvVisibleNodes = useMemo(() => {
-    const out: VisibleTreeNode[] = [];
-    flattenTree(tvTreeRoot, 0, out, isTvExpanded);
-    return out;
-  }, [isTvExpanded, tvTreeRoot]);
+  const sortedTvVideos = useMemo(() => {
+    if (selectedTvSeason === "all") {
+      return selectedTvSeriesVideos;
+    }
+    const selectedOption = tvSeasonOptions.find((item) => item.value === selectedTvSeason);
+    if (!selectedOption?.season) {
+      return selectedTvSeriesVideos;
+    }
+    return selectedTvSeriesVideos.filter((video) => parseTvSeasonEpisode(video).season === selectedOption.season);
+  }, [selectedTvSeason, selectedTvSeriesVideos, tvSeasonOptions]);
 
   const selectedVideo = useMemo(() => {
     if (activeTab === "movie") {
@@ -390,11 +586,7 @@ export function useSubtitleManager() {
   }
 
   function pickDefaultTvDirectory(fromScan: DirectoryScanResult) {
-    const available = new Set((fromScan.tv ?? []).map((item) => item.path));
     const root = String(fromScan.tvRoot || "").trim() || String(fromScan.tv?.[0]?.path || "").trim();
-    if (selectedTvDirPath && (available.has(selectedTvDirPath) || selectedTvDirPath === root)) {
-      return selectedTvDirPath;
-    }
     if (root) return root;
     return fromScan.tv?.[0]?.path || "";
   }
@@ -473,6 +665,43 @@ export function useSubtitleManager() {
     return out;
   }
 
+  async function loadAllTvVideos(rootPathHint = "") {
+    beginLoading();
+    try {
+      const rootPath = (rootPathHint || tvRootPath || directoryScan.tvRoot || "").trim();
+      if (!rootPath) {
+        setAllTvVideos([]);
+        setVideosByType((prev) => ({ ...prev, tv: [] }));
+        setPaginationByType((prev) => ({
+          ...prev,
+          tv: { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0, totalPages: 0 }
+        }));
+        return [] as Video[];
+      }
+
+      const videos = await listAllTvVideosInDirectory(rootPath);
+      setAllTvVideos(videos);
+      setVideosByType((prev) => ({ ...prev, tv: videos }));
+      setPaginationByType((prev) => ({
+        ...prev,
+        tv: {
+          page: 1,
+          pageSize: videos.length > 0 ? videos.length : DEFAULT_PAGE_SIZE,
+          total: videos.length,
+          totalPages: videos.length > 0 ? 1 : 0
+        }
+      }));
+
+      return videos;
+    } catch (error) {
+      const errText = error instanceof Error ? error.message : String(error);
+      setMessage(`Load TV videos failed: ${errText}`);
+      return [] as Video[];
+    } finally {
+      endLoading();
+    }
+  }
+
   async function loadScanStatus() {
     try {
       const payload = await request<unknown>("/api/scan/status");
@@ -527,8 +756,8 @@ export function useSubtitleManager() {
 
     if (tab === "tv") {
       const defaultDir = await loadDirectoryScanResult();
-      const dir = defaultDir || selectedTvDirPath || tvRootPath;
-      await loadVideosByType("tv", { dir, page: tvPager.page || 1 });
+      const rootDir = defaultDir || tvRootPath || directoryScan.tvRoot;
+      await loadAllTvVideos(rootDir);
       return;
     }
 
@@ -567,7 +796,7 @@ export function useSubtitleManager() {
 
       await Promise.all([
         loadVideosByType("movie", { page: 1 }),
-        loadVideosByType("tv", { page: 1, dir: defaultDir || selectedTvDirPath || tvRootPath }),
+        loadAllTvVideos(defaultDir || tvRootPath || discovered.tvRoot),
         loadLogs()
       ]);
 
@@ -596,10 +825,7 @@ export function useSubtitleManager() {
     }
 
     if (activeTab === "tv") {
-      await loadVideosByType("tv", {
-        page: tvPager.page || 1,
-        dir: selectedTvDirPath || tvRootPath
-      });
+      await loadAllTvVideos(tvRootPath || directoryScan.tvRoot);
       setMessage("TV data refreshed.");
       return;
     }
@@ -617,7 +843,6 @@ export function useSubtitleManager() {
   function setTvPage(nextPage: number) {
     const totalPages = Math.max(1, tvPager.totalPages || 1);
     if (nextPage < 1 || nextPage > totalPages) return;
-    void loadVideosByType("tv", { page: nextPage, dir: selectedTvDirPath || tvRootPath });
   }
 
   function selectMovieVideo(video: Video) {
@@ -628,10 +853,10 @@ export function useSubtitleManager() {
     setSelectedVideoIdByType((prev) => ({ ...prev, tv: video.id }));
   }
 
-  async function selectTvDirectory(path: string) {
+  function selectTvDirectory(path: string) {
     setSelectedTvDirPath(path);
+    setSelectedTvSeason("all");
     expandPathAncestors(path);
-    await loadVideosByType("tv", { page: 1, dir: path });
   }
 
   function toggleTvNode(node: VisibleTreeNode) {
@@ -646,13 +871,11 @@ export function useSubtitleManager() {
 
     try {
       await request(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
-      await Promise.all([
-        loadVideosByType(video.mediaType || (activeTab === "tv" ? "tv" : "movie"), {
-          page: paginationByType[video.mediaType || (activeTab === "tv" ? "tv" : "movie")].page || 1,
-          dir: video.mediaType === "tv" ? selectedTvDirPath : ""
-        }),
-        loadLogs()
-      ]);
+      if (video.mediaType === "tv") {
+        await Promise.all([loadAllTvVideos(tvRootPath || directoryScan.tvRoot), loadLogs()]);
+      } else {
+        await Promise.all([loadVideosByType("movie", { page: moviePager.page || 1 }), loadLogs()]);
+      }
       setMessage(`Uploaded subtitle for "${video.title}".`);
     } catch (error) {
       const errText = error instanceof Error ? error.message : String(error);
@@ -667,13 +890,11 @@ export function useSubtitleManager() {
 
     try {
       await request(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
-      await Promise.all([
-        loadVideosByType(video.mediaType || (activeTab === "tv" ? "tv" : "movie"), {
-          page: paginationByType[video.mediaType || (activeTab === "tv" ? "tv" : "movie")].page || 1,
-          dir: video.mediaType === "tv" ? selectedTvDirPath : ""
-        }),
-        loadLogs()
-      ]);
+      if (video.mediaType === "tv") {
+        await Promise.all([loadAllTvVideos(tvRootPath || directoryScan.tvRoot), loadLogs()]);
+      } else {
+        await Promise.all([loadVideosByType("movie", { page: moviePager.page || 1 }), loadLogs()]);
+      }
       setMessage(`Replaced subtitle "${subtitle.fileName}".`);
     } catch (error) {
       const errText = error instanceof Error ? error.message : String(error);
@@ -684,13 +905,11 @@ export function useSubtitleManager() {
   async function removeSubtitle(video: Video, subtitle: Subtitle) {
     try {
       await request(`/api/videos/${video.id}/subtitles/${subtitle.id}`, { method: "DELETE" });
-      await Promise.all([
-        loadVideosByType(video.mediaType || (activeTab === "tv" ? "tv" : "movie"), {
-          page: paginationByType[video.mediaType || (activeTab === "tv" ? "tv" : "movie")].page || 1,
-          dir: video.mediaType === "tv" ? selectedTvDirPath : ""
-        }),
-        loadLogs()
-      ]);
+      if (video.mediaType === "tv") {
+        await Promise.all([loadAllTvVideos(tvRootPath || directoryScan.tvRoot), loadLogs()]);
+      } else {
+        await Promise.all([loadVideosByType("movie", { page: moviePager.page || 1 }), loadLogs()]);
+      }
       setMessage(`Deleted subtitle "${subtitle.fileName}".`);
     } catch (error) {
       const errText = error instanceof Error ? error.message : String(error);
@@ -701,7 +920,7 @@ export function useSubtitleManager() {
   async function loadTvBatchCandidates() {
     beginLoading();
     try {
-      const dir = (selectedTvDirPath || tvRootPath || "").trim();
+      const dir = (selectedTvSeries?.path || selectedTvDirPath || tvRootPath || "").trim();
       if (!dir) {
         setMessage("TV season batch upload requires a selected directory.");
         return [] as Video[];
@@ -748,7 +967,7 @@ export function useSubtitleManager() {
     } finally {
       try {
         await Promise.all([
-          loadVideosByType("tv", { page: tvPager.page || 1, dir: selectedTvDirPath || tvRootPath }),
+          loadAllTvVideos(tvRootPath || directoryScan.tvRoot),
           loadLogs()
         ]);
       } catch (error) {
@@ -777,8 +996,32 @@ export function useSubtitleManager() {
   useEffect(() => {
     if (!tvRootPath) return;
     setTvExpandedMap((prev) => ({ ...prev, [tvRootPath]: true }));
-    setSelectedTvDirPath((prev) => prev || tvRootPath);
   }, [tvRootPath]);
+
+  useEffect(() => {
+    if (tvSeriesAll.length === 0) {
+      setSelectedTvDirPath("");
+      return;
+    }
+
+    const selectedNorm = normalizeForCompare(selectedTvDirPath);
+    const exists = tvSeriesAll.some((item) => normalizeForCompare(item.path) === selectedNorm);
+    if (exists) return;
+
+    setSelectedTvDirPath(tvSeriesAll[0].path);
+  }, [selectedTvDirPath, tvSeriesAll]);
+
+  useEffect(() => {
+    setSelectedTvSeason("all");
+  }, [selectedTvDirPath]);
+
+  useEffect(() => {
+    if (selectedTvSeason === "all") return;
+    const exists = tvSeasonOptions.some((item) => item.value === selectedTvSeason);
+    if (!exists) {
+      setSelectedTvSeason("all");
+    }
+  }, [selectedTvSeason, tvSeasonOptions]);
 
   useEffect(() => {
     setSelectedVideoIdByType((prev) => {
@@ -806,7 +1049,7 @@ export function useSubtitleManager() {
     });
   }, [sortedTvVideos]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     if (skipMovieQueryRef.current) {
       skipMovieQueryRef.current = false;
@@ -820,38 +1063,28 @@ export function useSubtitleManager() {
     return () => window.clearTimeout(timer);
   }, [queryByType.movie]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (skipTvQueryRef.current) {
-      skipTvQueryRef.current = false;
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      void loadVideosByType("tv", { page: 1, dir: selectedTvDirPath || tvRootPath });
-    }, 350);
-
-    return () => window.clearTimeout(timer);
-  }, [queryByType.tv, selectedTvDirPath, tvRootPath]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     void (async () => {
       await Promise.all([loadScanStatus(), loadLogs()]);
       const defaultDir = await loadDirectoryScanResult();
       await Promise.all([
         loadVideosByType("movie", { page: 1 }),
-        loadVideosByType("tv", { page: 1, dir: defaultDir || selectedTvDirPath || tvRootPath })
+        loadAllTvVideos(defaultDir)
       ]);
     })();
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   return {
     activeTab,
     movieQuery: queryByType.movie,
     tvQuery: queryByType.tv,
     movieVideos,
+    tvSeriesRows,
+    selectedTvSeries,
     sortedTvVideos,
+    tvSeasonOptions,
+    selectedTvSeason,
     selectedVideoIdByType,
     selectedVideo,
     moviePager,
@@ -880,6 +1113,7 @@ export function useSubtitleManager() {
     uploadBatchSubtitles,
     setMovieQuery: (value: string) => setQueryByType((prev) => ({ ...prev, movie: value })),
     setTvQuery: (value: string) => setQueryByType((prev) => ({ ...prev, tv: value })),
+    setSelectedTvSeason,
     formatTime
   };
 }

@@ -109,3 +109,19 @@ export interface BatchSubtitleUploadResult {
   errors: string[];
 }
 
+export interface TvSeriesSummary {
+  key: string;
+  path: string;
+  title: string;
+  latestEpisodeYear?: string;
+  updatedAt: string;
+  videoCount: number;
+  noSubtitleCount: number;
+}
+
+export interface TvSeasonOption {
+  value: string;
+  label: string;
+  season?: number;
+}
+
