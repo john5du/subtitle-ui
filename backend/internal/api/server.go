@@ -37,7 +37,9 @@ func NewServer(service *app.Service, uiDist string) *Server {
 	s.mux.HandleFunc("/api/scan/directories", s.handleScanDirectories)
 	s.mux.HandleFunc("/api/scan/files", s.handleScanFiles)
 	s.mux.HandleFunc("/api/scan/status", s.handleScanStatus)
+	s.mux.HandleFunc("/api/version", s.handleVersion)
 	s.mux.HandleFunc("/api/videos", s.handleVideos)
+	s.mux.HandleFunc("/api/tv/series", s.handleTVSeries)
 	s.mux.HandleFunc("/api/videos/", s.handleVideoRoute)
 	s.mux.HandleFunc("/api/logs", s.handleLogs)
 	s.mux.HandleFunc("/", s.handleUI)
@@ -110,6 +112,14 @@ func (s *Server) handleScanStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.service.ScanStatus())
 }
 
+func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	writeJSON(w, http.StatusOK, s.service.VersionInfo())
+}
+
 func (s *Server) handleVideos(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -120,7 +130,23 @@ func (s *Server) handleVideos(w http.ResponseWriter, r *http.Request) {
 	directory := r.URL.Query().Get("dir")
 	page := parsePositiveIntOrDefault(r.URL.Query().Get("page"), 1)
 	pageSize := parsePositiveIntOrDefault(r.URL.Query().Get("pageSize"), 30)
-	writeJSON(w, http.StatusOK, s.service.ListVideosPage(query, mediaType, directory, page, pageSize))
+	sortBy := r.URL.Query().Get("sortBy")
+	sortOrder := r.URL.Query().Get("sortOrder")
+	writeJSON(w, http.StatusOK, s.service.ListVideosPage(query, mediaType, directory, page, pageSize, sortBy, sortOrder))
+}
+
+func (s *Server) handleTVSeries(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	query := r.URL.Query().Get("q")
+	page := parsePositiveIntOrDefault(r.URL.Query().Get("page"), 1)
+	pageSize := parsePositiveIntOrDefault(r.URL.Query().Get("pageSize"), 30)
+	sortYear := r.URL.Query().Get("sortYear")
+	sortOrder := r.URL.Query().Get("sortOrder")
+	writeJSON(w, http.StatusOK, s.service.ListTVSeriesPage(query, page, pageSize, sortYear, sortOrder))
 }
 
 func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {

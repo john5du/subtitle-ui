@@ -9,6 +9,8 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +20,7 @@ import (
 	"subtitle-ui/backend/internal/scanner"
 	"subtitle-ui/backend/internal/store"
 	"subtitle-ui/backend/internal/subtitle"
+	"subtitle-ui/backend/internal/version"
 )
 
 var (
@@ -210,7 +213,7 @@ func (s *Service) ScanStatus() domain.ScanStatus {
 	return status
 }
 
-func (s *Service) ListVideosPage(query string, mediaType string, directory string, page int, pageSize int) domain.VideoPage {
+func (s *Service) ListVideosPage(query string, mediaType string, directory string, page int, pageSize int, sortBy string, sortOrder string) domain.VideoPage {
 	if page <= 0 {
 		page = 1
 	}
@@ -221,7 +224,7 @@ func (s *Service) ListVideosPage(query string, mediaType string, directory strin
 		pageSize = 200
 	}
 
-	videos, total, err := s.store.ListVideos(query, mediaType, directory, page, pageSize)
+	videos, total, err := s.store.ListVideos(query, mediaType, directory, page, pageSize, sortBy, sortOrder)
 	if err != nil {
 		return domain.VideoPage{
 			Items:      []domain.Video{},
@@ -244,6 +247,67 @@ func (s *Service) ListVideosPage(query string, mediaType string, directory strin
 		PageSize:   pageSize,
 		TotalPages: totalPages,
 	}
+}
+
+func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortYear string, sortOrder string) domain.TVSeriesPage {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 30
+	}
+	if pageSize > 200 {
+		pageSize = 200
+	}
+
+	videos, err := s.listAllTVVideos()
+	if err != nil {
+		return domain.TVSeriesPage{
+			Items:      []domain.TVSeriesSummary{},
+			Total:      0,
+			Page:       page,
+			PageSize:   pageSize,
+			TotalPages: 0,
+		}
+	}
+
+	rows := buildTVSeriesSummaries(videos, s.cfg.TVMediaRoot)
+	rows = filterTVSeriesSummaries(rows, query)
+	sortTVSeriesSummaries(rows, sortYear, sortOrder)
+
+	total := len(rows)
+	totalPages := 0
+	if total > 0 {
+		totalPages = (total + pageSize - 1) / pageSize
+	}
+
+	start := (page - 1) * pageSize
+	if start >= total {
+		return domain.TVSeriesPage{
+			Items:      []domain.TVSeriesSummary{},
+			Total:      total,
+			Page:       page,
+			PageSize:   pageSize,
+			TotalPages: totalPages,
+		}
+	}
+
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+
+	return domain.TVSeriesPage{
+		Items:      rows[start:end],
+		Total:      total,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: totalPages,
+	}
+}
+
+func (s *Service) VersionInfo() domain.VersionInfo {
+	return domain.VersionInfo{Version: version.Value}
 }
 
 func (s *Service) GetVideo(videoID string) (domain.Video, bool) {
@@ -368,6 +432,181 @@ func (s *Service) ListLogs(limit int) []domain.OperationLog {
 		return []domain.OperationLog{}
 	}
 	return logs
+}
+
+func (s *Service) listAllTVVideos() ([]domain.Video, error) {
+	out := make([]domain.Video, 0, 256)
+	page := 1
+	pageSize := 200
+	total := 0
+
+	for {
+		items, itemTotal, err := s.store.ListVideos("", domain.MediaTypeTV, "", page, pageSize, "", "")
+		if err != nil {
+			return nil, err
+		}
+		if page == 1 {
+			total = itemTotal
+		}
+
+		out = append(out, items...)
+		if len(items) == 0 || len(out) >= total {
+			break
+		}
+		page += 1
+	}
+
+	return out, nil
+}
+
+func buildTVSeriesSummaries(videos []domain.Video, tvRootPath string) []domain.TVSeriesSummary {
+	type group struct {
+		item        domain.TVSeriesSummary
+		latestYear  int
+		updatedTime time.Time
+	}
+	bySeries := make(map[string]*group, 128)
+
+	for _, video := range videos {
+		key, seriesPath, seriesTitle := resolveTVSeriesFromVideo(video, tvRootPath)
+		item, ok := bySeries[key]
+		if !ok {
+			item = &group{
+				item: domain.TVSeriesSummary{
+					Key:             key,
+					Path:            seriesPath,
+					Title:           seriesTitle,
+					UpdatedAt:       video.UpdatedAt.UTC().Format(time.RFC3339Nano),
+					VideoCount:      0,
+					NoSubtitleCount: 0,
+				},
+				latestYear:  0,
+				updatedTime: video.UpdatedAt.UTC(),
+			}
+			bySeries[key] = item
+		}
+
+		item.item.VideoCount += 1
+		if len(video.Subtitles) == 0 {
+			item.item.NoSubtitleCount += 1
+		}
+
+		if year := parseYearNumber(video.Year); year > item.latestYear {
+			item.latestYear = year
+			item.item.LatestEpisodeYear = strconv.Itoa(year)
+		}
+
+		if video.UpdatedAt.After(item.updatedTime) {
+			item.updatedTime = video.UpdatedAt.UTC()
+			item.item.UpdatedAt = video.UpdatedAt.UTC().Format(time.RFC3339Nano)
+		}
+	}
+
+	rows := make([]domain.TVSeriesSummary, 0, len(bySeries))
+	for _, row := range bySeries {
+		rows = append(rows, row.item)
+	}
+	return rows
+}
+
+func filterTVSeriesSummaries(items []domain.TVSeriesSummary, query string) []domain.TVSeriesSummary {
+	needle := strings.TrimSpace(strings.ToLower(query))
+	if needle == "" {
+		return items
+	}
+
+	filtered := make([]domain.TVSeriesSummary, 0, len(items))
+	for _, item := range items {
+		if strings.Contains(strings.ToLower(item.Title), needle) || strings.Contains(strings.ToLower(item.Path), needle) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func sortTVSeriesSummaries(items []domain.TVSeriesSummary, _ string, sortOrder string) {
+	order := normalizeSortOrder(sortOrder)
+
+	sort.Slice(items, func(i int, j int) bool {
+		yearA := parseYearNumber(items[i].LatestEpisodeYear)
+		yearB := parseYearNumber(items[j].LatestEpisodeYear)
+		hasYearA := yearA > 0
+		hasYearB := yearB > 0
+
+		if hasYearA != hasYearB {
+			return hasYearA
+		}
+		if hasYearA && hasYearB && yearA != yearB {
+			if order == "asc" {
+				return yearA < yearB
+			}
+			return yearA > yearB
+		}
+
+		titleA := strings.ToLower(items[i].Title)
+		titleB := strings.ToLower(items[j].Title)
+		if titleA != titleB {
+			return titleA < titleB
+		}
+		return strings.ToLower(items[i].Path) < strings.ToLower(items[j].Path)
+	})
+}
+
+func resolveTVSeriesFromVideo(video domain.Video, tvRootPath string) (string, string, string) {
+	videoDir := strings.TrimSpace(video.Directory)
+	if videoDir == "" {
+		videoDir = filepath.Dir(video.Path)
+	}
+	seriesPath := filepath.Clean(videoDir)
+	seriesTitle := filepath.Base(seriesPath)
+	if seriesTitle == "" || seriesTitle == "." || seriesTitle == string(filepath.Separator) {
+		seriesTitle = strings.TrimSpace(video.Title)
+	}
+	if seriesTitle == "" {
+		seriesTitle = "Unknown"
+	}
+
+	root := strings.TrimSpace(tvRootPath)
+	if root != "" {
+		rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(videoDir))
+		if err == nil {
+			rel = filepath.ToSlash(rel)
+			if rel != "." && rel != ".." && !strings.HasPrefix(rel, "../") {
+				parts := strings.Split(rel, "/")
+				if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
+					seriesTitle = parts[0]
+					seriesPath = filepath.Join(filepath.Clean(root), seriesTitle)
+				}
+			}
+		}
+	}
+
+	key := strings.ToLower(filepath.ToSlash(filepath.Clean(seriesPath)))
+	if key == "" {
+		key = strings.ToLower(seriesTitle)
+	}
+	return key, seriesPath, seriesTitle
+}
+
+func parseYearNumber(raw string) int {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return 0
+	}
+	year, err := strconv.Atoi(trimmed)
+	if err != nil || year <= 0 {
+		return 0
+	}
+	return year
+}
+
+func normalizeSortOrder(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "asc":
+		return "asc"
+	default:
+		return "desc"
+	}
 }
 
 func (s *Service) refreshVideoSubtitles(videoID string, targetPath string) (domain.Video, domain.Subtitle, error) {

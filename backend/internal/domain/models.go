@@ -75,3 +75,25 @@ type VideoPage struct {
 	PageSize   int     `json:"pageSize"`
 	TotalPages int     `json:"totalPages"`
 }
+
+type TVSeriesSummary struct {
+	Key               string `json:"key"`
+	Path              string `json:"path"`
+	Title             string `json:"title"`
+	LatestEpisodeYear string `json:"latestEpisodeYear,omitempty"`
+	UpdatedAt         string `json:"updatedAt"`
+	VideoCount        int    `json:"videoCount"`
+	NoSubtitleCount   int    `json:"noSubtitleCount"`
+}
+
+type TVSeriesPage struct {
+	Items      []TVSeriesSummary `json:"items"`
+	Total      int               `json:"total"`
+	Page       int               `json:"page"`
+	PageSize   int               `json:"pageSize"`
+	TotalPages int               `json:"totalPages"`
+}
+
+type VersionInfo struct {
+	Version string `json:"version"`
+}

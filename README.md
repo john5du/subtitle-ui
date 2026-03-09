@@ -2,6 +2,8 @@
 
 A Go + Next.js web application for managing subtitle files. Video metadata is loaded from Jellyfin-scraped sidecar files (NFO) in the media library.
 
+Current Release Version: 0.0.2
+
 中文文档：[`README.zh-CN.md`](./README.zh-CN.md)
 
 ## Implemented in this iteration
@@ -20,8 +22,11 @@ A Go + Next.js web application for managing subtitle files. Video metadata is lo
 - `GET /api/scan/directories` (get last discovered directory result)
 - `POST /api/scan/files` (scan files from selected directories, body: `movieDirs[]`, `tvDirs[]`)
 - `GET /api/scan/status`
-- `GET /api/videos` (query: `mediaType=movie|tv`, optional `q`, `dir`, `page`, `pageSize`)
+- `GET /api/version`
+- `GET /api/videos` (query: `mediaType=movie|tv`, optional `q`, `dir`, `page`, `pageSize`, `sortBy`, `sortOrder`)
   - response: `{ items: Video[], total, page, pageSize, totalPages }`
+- `GET /api/tv/series` (query: optional `q`, `page`, `pageSize`, `sortYear`, `sortOrder`)
+  - response: `{ items: TVSeriesSummary[], total, page, pageSize, totalPages }`
 - `GET /api/videos/{videoId}`
 - `POST /api/videos/{videoId}/subtitles` (multipart `file`, optional `label`, optional `replaceId`)
 - `DELETE /api/videos/{videoId}/subtitles/{subtitleId}`
@@ -150,7 +155,12 @@ docker compose up -d
 - Registry: `ghcr.io/john5du/subtitle-ui`
 - Tags published:
   - semantic tag (`v0.1.0`)
+  - semantic version tag (`0.1.0`)
+  - moving tag (`latest`)
   - commit SHA tag (`sha-<short>`)
+- Version sync workflow: `.github/workflows/version-sync.yml`
+  - Trigger: push tag matching `v*`
+  - Behavior: sync project version files to the pushed tag (for example `v0.1.0` -> `0.1.0`) and commit back to default branch
 
 ## Configuration
 

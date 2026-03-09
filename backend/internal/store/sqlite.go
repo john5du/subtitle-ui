@@ -180,7 +180,7 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	return tx.Commit()
 }
 
-func (s *Store) ListVideos(query string, mediaType string, directory string, page int, pageSize int) ([]domain.Video, int, error) {
+func (s *Store) ListVideos(query string, mediaType string, directory string, page int, pageSize int, sortBy string, sortOrder string) ([]domain.Video, int, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -226,7 +226,7 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 	}
 
 	offset := (page - 1) * pageSize
-	baseQuery += ` ORDER BY title ASC, path ASC LIMIT ? OFFSET ?`
+	baseQuery += " " + buildVideoOrderBy(sortBy, sortOrder) + ` LIMIT ? OFFSET ?`
 	args = append(args, pageSize, offset)
 
 	rows, err := s.db.Query(baseQuery, args...)
@@ -592,6 +592,34 @@ func normalizeMediaType(mediaType string) string {
 	default:
 		return ""
 	}
+}
+
+func normalizeSortBy(sortBy string) string {
+	switch strings.ToLower(strings.TrimSpace(sortBy)) {
+	case "year":
+		return "year"
+	default:
+		return ""
+	}
+}
+
+func normalizeSortOrder(sortOrder string) string {
+	switch strings.ToLower(strings.TrimSpace(sortOrder)) {
+	case "asc":
+		return "asc"
+	default:
+		return "desc"
+	}
+}
+
+func buildVideoOrderBy(sortBy string, sortOrder string) string {
+	if normalizeSortBy(sortBy) == "year" {
+		if normalizeSortOrder(sortOrder) == "asc" {
+			return `ORDER BY CASE WHEN trim(ifnull(year, '')) = '' THEN 1 ELSE 0 END ASC, CAST(year AS INTEGER) ASC, title ASC, path ASC`
+		}
+		return `ORDER BY CASE WHEN trim(ifnull(year, '')) = '' THEN 1 ELSE 0 END ASC, CAST(year AS INTEGER) DESC, title ASC, path ASC`
+	}
+	return `ORDER BY title ASC, path ASC`
 }
 
 func defaultMediaType(mediaType string) string {

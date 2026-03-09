@@ -119,9 +119,21 @@ export interface TvSeriesSummary {
   noSubtitleCount: number;
 }
 
+export interface TvSeriesPage {
+  items: TvSeriesSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface TvSeasonOption {
   value: string;
   label: string;
   season?: number;
+}
+
+export interface VersionInfo {
+  version: string;
 }
 

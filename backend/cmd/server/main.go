@@ -10,6 +10,7 @@ import (
 	"subtitle-ui/backend/internal/api"
 	"subtitle-ui/backend/internal/app"
 	"subtitle-ui/backend/internal/config"
+	"subtitle-ui/backend/internal/version"
 )
 
 func main() {
@@ -44,6 +45,7 @@ func main() {
 	}
 
 	log.Printf("subtitle manager api listening on %s", cfg.ServerAddr)
+	log.Printf("version: %s", version.Value)
 	log.Printf("movie media root: %s", cfg.MovieMediaRoot)
 	log.Printf("tv media root: %s", cfg.TVMediaRoot)
 	log.Printf("db path: %s", cfg.DBPath)
