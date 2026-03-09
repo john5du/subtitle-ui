@@ -2,7 +2,7 @@
 
 A Go + Next.js web application for managing subtitle files. Video metadata is loaded from Jellyfin-scraped sidecar files (NFO) in the media library.
 
-Current Release Version: 0.0.2
+Current Release Version: 0.1.0
 
 中文文档：[`README.zh-CN.md`](./README.zh-CN.md)
 

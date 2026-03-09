@@ -1,6 +1,6 @@
 # subtitle-ui
 
-Current Release Version: 0.0.2
+Current Release Version: 0.1.0
 
 基于 Go + Next.js 开发的字幕文件管理 Web 应用。视频元数据从 Jellyfin 刮取的 NFO 元数据文件读取。
 
