@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 
-import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useSubtitleManager } from "@/hooks/use-subtitle-manager";
 import type {
   ActiveTab,
@@ -74,9 +73,6 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-type MobileView = "list" | "details";
 interface SeasonEpisodeInfo {
   season: number;
   episode: number;
@@ -228,7 +224,6 @@ export function SubtitleManagerApp() {
     tvSeasonOptions,
     selectedTvSeason,
     selectedVideoIdByType,
-    selectedVideo,
     moviePager,
     selectedTvDirPath,
     logs,
@@ -254,27 +249,36 @@ export function SubtitleManagerApp() {
     formatTime
   } = useSubtitleManager();
 
-  const isMobile = useIsMobile(960);
-  const [movieMobileView, setMovieMobileView] = useState<MobileView>("list");
+  const [movieManagerOpen, setMovieManagerOpen] = useState(false);
   const [tvManagerOpen, setTvManagerOpen] = useState(false);
   const [tvBatchOpen, setTvBatchOpen] = useState(false);
 
-  const refreshText = useMemo(() => {
-    if (activeTab === "dashboard") return "Refresh Dashboard";
-    if (activeTab === "logs") return "Refresh Logs";
-    return "Refresh";
-  }, [activeTab]);
+  const navItems: Array<{ key: ActiveTab; icon: React.ReactNode; label: string }> = [
+    { key: "dashboard", icon: <LayoutDashboard className="h-4 w-4" />, label: "Overview" },
+    { key: "movie", icon: <Film className="h-4 w-4" />, label: "Movie" },
+    { key: "tv", icon: <Tv className="h-4 w-4" />, label: "TV" },
+    { key: "logs", icon: <FileText className="h-4 w-4" />, label: "Logs" }
+  ];
 
-  useEffect(() => {
-    if (!isMobile) {
-      setMovieMobileView("list");
-      return;
-    }
+  const refreshText = "Refresh";
 
-    if (activeTab === "movie") {
-      setMovieMobileView("list");
-    }
-  }, [activeTab, isMobile]);
+  const selectedMovie = useMemo(() => {
+    return movieVideos.find((video) => video.id === selectedVideoIdByType.movie) ?? null;
+  }, [movieVideos, selectedVideoIdByType.movie]);
+
+  const selectedTvVideo = useMemo(() => {
+    return sortedTvVideos.find((video) => video.id === selectedVideoIdByType.tv) ?? null;
+  }, [selectedVideoIdByType.tv, sortedTvVideos]);
+
+  const movieSearchLinks = useMemo(() => {
+    if (!selectedMovie) return null;
+    return buildSubtitleSearchLinks(selectedMovie);
+  }, [selectedMovie]);
+
+  const tvSearchLinks = useMemo(() => {
+    if (!selectedTvSeries?.title) return null;
+    return buildSubtitleSearchLinksByKeyword(selectedTvSeries.title);
+  }, [selectedTvSeries?.title]);
 
   function handleMovieSelect(video: Video) {
     selectMovieVideo(video);
@@ -284,51 +288,51 @@ export function SubtitleManagerApp() {
     selectTvVideo(video);
   }
 
+  function openTvManager() {
+    if (!selectedVideoIdByType.tv && sortedTvVideos.length > 0) {
+      selectTvVideo(sortedTvVideos[0]);
+    }
+    setTvManagerOpen(true);
+  }
+
   return (
-    <div className="mx-auto grid w-full max-w-[1440px] gap-3 p-3 md:gap-4 md:p-6">
-      <Tabs value={activeTab} onValueChange={(value) => void switchTab(value as ActiveTab)} className="space-y-3">
-        <Card className="border bg-card dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(7,12,27,0.95),rgba(3,8,20,0.94))]">
-          <CardContent className="flex items-center justify-between gap-3 overflow-x-auto p-3">
-            <div className="min-w-max">
-              <TabsList className="inline-flex h-11 w-auto min-w-max items-center gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1 text-slate-600 dark:border-slate-700/70 dark:bg-[#050810]/90 dark:text-slate-300">
-                <TabsTrigger
-                  value="dashboard"
-                  className="h-9 gap-2 rounded-xl px-3 text-sm font-medium transition-all hover:text-slate-900 data-[state=active]:bg-[radial-gradient(circle_at_12%_12%,rgba(96,165,250,0.28),rgba(9,28,63,0.9)_60%)] data-[state=active]:text-white data-[state=active]:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_8px_24px_rgba(0,0,0,0.45)] dark:hover:text-white"
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </TabsTrigger>
-                <TabsTrigger
-                  value="movie"
-                  className="h-9 gap-2 rounded-xl px-3 text-sm font-medium transition-all hover:text-slate-900 data-[state=active]:bg-[radial-gradient(circle_at_12%_12%,rgba(255,94,94,0.32),rgba(46,8,18,0.9)_58%)] data-[state=active]:text-white data-[state=active]:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_8px_24px_rgba(0,0,0,0.45)] dark:hover:text-white"
-                >
-                  <Film className="h-4 w-4" />
-                  Movie
-                </TabsTrigger>
-                <TabsTrigger
-                  value="tv"
-                  className="h-9 gap-2 rounded-xl px-3 text-sm font-medium transition-all hover:text-slate-900 data-[state=active]:bg-[radial-gradient(circle_at_12%_12%,rgba(96,165,250,0.28),rgba(9,28,63,0.9)_60%)] data-[state=active]:text-white data-[state=active]:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_8px_24px_rgba(0,0,0,0.45)] dark:hover:text-white"
-                >
-                  <Tv className="h-4 w-4" />
-                  TV
-                </TabsTrigger>
-                <TabsTrigger
-                  value="logs"
-                  className="h-9 gap-2 rounded-xl px-3 text-sm font-medium transition-all hover:text-slate-900 data-[state=active]:bg-[radial-gradient(circle_at_12%_12%,rgba(248,113,113,0.3),rgba(71,15,17,0.9)_58%)] data-[state=active]:text-white data-[state=active]:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_8px_24px_rgba(0,0,0,0.45)] dark:hover:text-white"
-                >
-                  <FileText className="h-4 w-4" />
-                  Logs
-                </TabsTrigger>
-              </TabsList>
+    <div className="h-full w-full px-3 py-3 md:px-6 md:py-5">
+      <div className="mx-auto grid h-full w-full max-w-[1560px] gap-3 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <Card className="border bg-card lg:h-full">
+          <CardContent className="flex h-full flex-col gap-4 p-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Subtitle UI</p>
+              <p className="mt-1 text-xs text-muted-foreground">Simple, efficient subtitle operations.</p>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="grid gap-1">
+              {navItems.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={cn(
+                    "flex items-center rounded-lg border px-3 py-2 text-left",
+                    activeTab === item.key
+                      ? "border-primary/70 bg-primary/10 text-foreground"
+                      : "border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground"
+                  )}
+                  onClick={() => void switchTab(item.key)}
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    {item.icon}
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-auto space-y-2">
               <ThemeModeSelect />
-              <Button type="button" onClick={() => void triggerScan()} disabled={loading} className="h-9 gap-2">
+              <Button type="button" onClick={() => void triggerScan()} disabled={loading} className="h-9 w-full gap-2">
                 <Search className="h-4 w-4" />
-                Scan
+                Scan Media Library
               </Button>
-              <Button type="button" variant="secondary" onClick={() => void refreshActiveTab()} disabled={loading} className="h-9 gap-2">
+              <Button type="button" variant="outline" onClick={() => void refreshActiveTab()} disabled={loading} className="h-9 w-full gap-2">
                 <RefreshCw className="h-4 w-4" />
                 {refreshText}
               </Button>
@@ -336,125 +340,186 @@ export function SubtitleManagerApp() {
           </CardContent>
         </Card>
 
-        <TabsContent value="dashboard" className="space-y-3">
-          <DashboardPanel
-            scanStatus={scanStatus}
-            directoryScan={directoryScan}
-            message={message}
-          />
-        </TabsContent>
+        <div className="min-h-0 min-w-0 lg:flex lg:h-full lg:flex-col">
+          <Card className="border bg-card">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                  {activeTab === "dashboard" && "Overview"}
+                  {activeTab === "movie" && "Movie Workspace"}
+                  {activeTab === "tv" && "TV Workspace"}
+                  {activeTab === "logs" && "Logs"}
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {message || "Ready"}
+              </Badge>
+            </CardContent>
+          </Card>
 
-        <TabsContent value="movie" className="space-y-3">
-          <MovieActionsPanel
-            selectedVideo={selectedVideo}
-            onOpenManager={() => {
-              if (!selectedVideoIdByType.movie && movieVideos.length > 0) {
-                selectMovieVideo(movieVideos[0]);
-              }
-              setMovieMobileView("details");
-            }}
-          />
+          <div className="mt-3 min-h-0 lg:flex-1">
+            {activeTab === "dashboard" && (
+              <div className="lg:h-full lg:overflow-auto lg:pr-1">
+                <DashboardPanel
+                  scanStatus={scanStatus}
+                  directoryScan={directoryScan}
+                  message={message}
+                  logs={logs}
+                  formatTime={formatTime}
+                />
+              </div>
+            )}
 
-          <div className="xl:h-[calc(100vh-260px)]">
-            <MovieListPanel
-              query={movieQuery}
-              onQueryChange={setMovieQuery}
-              videos={movieVideos}
-              selectedVideoId={selectedVideoIdByType.movie}
-              pager={moviePager}
-              onSelectVideo={handleMovieSelect}
-              onSetPage={setMoviePage}
-              formatTime={formatTime}
-            />
+            {activeTab === "movie" && (
+              <div className="flex min-h-0 flex-col gap-3 lg:h-full">
+                <Card className="border bg-card">
+                  <CardContent className="flex flex-wrap items-center justify-between gap-2 p-4">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected movie</p>
+                      <p className="truncate text-sm font-semibold">{selectedMovie?.title || "Select a movie from the list"}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {movieSearchLinks && (
+                        <Button type="button" variant="outline" asChild>
+                          <a href={movieSearchLinks.zimuku} target="_blank" rel="noreferrer" className="gap-1">
+                            Zimuku
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </Button>
+                      )}
+                      {movieSearchLinks && (
+                        <Button type="button" variant="outline" asChild>
+                          <a href={movieSearchLinks.subhd} target="_blank" rel="noreferrer" className="gap-1">
+                            SubHD
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </Button>
+                      )}
+                      <Button type="button" onClick={() => setMovieManagerOpen(true)} disabled={!selectedMovie}>
+                        Open Subtitle Manager
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="min-h-[430px] lg:min-h-0 lg:flex-1">
+                  <MovieListPanel
+                    query={movieQuery}
+                    onQueryChange={setMovieQuery}
+                    videos={movieVideos}
+                    selectedVideoId={selectedVideoIdByType.movie}
+                    pager={moviePager}
+                    onSelectVideo={handleMovieSelect}
+                    onSetPage={setMoviePage}
+                    formatTime={formatTime}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === "tv" && (
+              <div className="flex min-h-0 flex-col gap-3 lg:h-full">
+                <Card className="border bg-card">
+                  <CardContent className="flex flex-wrap items-center justify-between gap-2 p-4">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected series</p>
+                      <p className="truncate text-sm font-semibold">{selectedTvSeries?.title || "Select a series from the list"}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {tvSearchLinks && (
+                        <Button type="button" variant="outline" asChild>
+                          <a href={tvSearchLinks.zimuku} target="_blank" rel="noreferrer" className="gap-1">
+                            Zimuku
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </Button>
+                      )}
+                      {tvSearchLinks && (
+                        <Button type="button" variant="outline" asChild>
+                          <a href={tvSearchLinks.subhd} target="_blank" rel="noreferrer" className="gap-1">
+                            SubHD
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </Button>
+                      )}
+                      <Button type="button" variant="outline" onClick={() => setTvBatchOpen(true)} disabled={!selectedTvSeries}>
+                        Season Batch Upload
+                      </Button>
+                      <Button type="button" onClick={openTvManager} disabled={!selectedTvSeries}>
+                        Open TV Subtitle Manager
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="min-h-[520px] lg:min-h-0 lg:flex-1">
+                  <TvSeriesListPanel
+                    query={tvQuery}
+                    onQueryChange={setTvQuery}
+                    rows={tvSeriesRows}
+                    selectedSeriesPath={selectedTvDirPath}
+                    onSelectSeries={selectTvDirectory}
+                    formatTime={formatTime}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === "logs" && (
+              <div className="min-h-[420px] lg:h-full">
+                <LogsPanel logs={logs} formatTime={formatTime} />
+              </div>
+            )}
           </div>
+        </div>
+      </div>
 
-          <Dialog
-            open={movieMobileView === "details"}
-            onOpenChange={(open) => {
-              if (!open) {
-                setMovieMobileView("list");
-                return;
-              }
-              setMovieMobileView("details");
-            }}
-          >
-            <DialogContent className="flex h-[90vh] max-h-[90vh] w-[min(1100px,96vw)] max-w-none overflow-hidden p-0">
-              <SubtitleDetailsPanel
-                panelTitle="Movie Subtitle Management"
-                selectedVideo={selectedVideo}
-                emptyText="Select a movie from the list."
-                showBack={false}
-                onBack={() => setMovieMobileView("list")}
-                infoRows={[]}
-                onUpload={uploadSubtitle}
-                onReplace={replaceSubtitle}
-                onRemove={removeSubtitle}
-                formatTime={formatTime}
-                busy={loading}
-                showSearchLinks={false}
-              />
-            </DialogContent>
-          </Dialog>
-        </TabsContent>
-
-        <TabsContent value="tv" className="space-y-3">
-          <TvActionsPanel
-            selectedSeries={selectedTvSeries}
-            onOpenManager={() => {
-              if (!selectedVideoIdByType.tv && sortedTvVideos.length > 0) {
-                selectTvVideo(sortedTvVideos[0]);
-              }
-              setTvManagerOpen(true);
-            }}
-            onOpenSeasonBatch={() => {
-              setTvBatchOpen(true);
-            }}
-          />
-
-          <div className="xl:h-[calc(100vh-260px)]">
-            <TvSeriesListPanel
-              query={tvQuery}
-              onQueryChange={setTvQuery}
-              rows={tvSeriesRows}
-              selectedSeriesPath={selectedTvDirPath}
-              onSelectSeries={selectTvDirectory}
-              formatTime={formatTime}
-            />
-          </div>
-
-          <Dialog open={tvManagerOpen} onOpenChange={setTvManagerOpen}>
-            <DialogContent className="flex h-[90vh] max-h-[90vh] w-[min(1280px,96vw)] max-w-none overflow-hidden p-0 [&>button]:right-3 [&>button]:top-3 [&>button]:z-50">
-              <TvSubtitleManagementPanel
-                selectedSeries={selectedTvSeries}
-                selectedSeason={selectedTvSeason}
-                seasonOptions={tvSeasonOptions}
-                videos={sortedTvVideos}
-                selectedVideo={selectedVideo}
-                selectedVideoId={selectedVideoIdByType.tv}
-                onSelectVideo={handleTvSelect}
-                onSeasonChange={setSelectedTvSeason}
-                onUpload={uploadSubtitle}
-                onReplace={replaceSubtitle}
-                onRemove={removeSubtitle}
-                formatTime={formatTime}
-                busy={loading}
-              />
-            </DialogContent>
-          </Dialog>
-
-          <TvSeasonBatchUploadDialog
-            open={tvBatchOpen}
-            onOpenChange={setTvBatchOpen}
+      <Dialog open={movieManagerOpen} onOpenChange={setMovieManagerOpen}>
+        <DialogContent className="flex h-[90vh] max-h-[90vh] w-[min(1100px,96vw)] max-w-none overflow-hidden p-0">
+          <SubtitleDetailsPanel
+            panelTitle="Movie Subtitle Management"
+            selectedVideo={selectedMovie}
+            emptyText="Select a movie from the list."
+            showBack={false}
+            onBack={() => {}}
+            infoRows={[]}
+            onUpload={uploadSubtitle}
+            onReplace={replaceSubtitle}
+            onRemove={removeSubtitle}
+            formatTime={formatTime}
             busy={loading}
-            onLoadBatchCandidates={loadTvBatchCandidates}
-            onUploadBatch={uploadBatchSubtitles}
+            showSearchLinks={false}
           />
-        </TabsContent>
+        </DialogContent>
+      </Dialog>
 
-        <TabsContent value="logs">
-          <LogsPanel logs={logs} formatTime={formatTime} />
-        </TabsContent>
-      </Tabs>
+      <Dialog open={tvManagerOpen} onOpenChange={setTvManagerOpen}>
+        <DialogContent className="flex h-[90vh] max-h-[90vh] w-[min(1280px,96vw)] max-w-none overflow-hidden p-0 [&>button]:right-3 [&>button]:top-3 [&>button]:z-50">
+          <TvSubtitleManagementPanel
+            selectedSeries={selectedTvSeries}
+            selectedSeason={selectedTvSeason}
+            seasonOptions={tvSeasonOptions}
+            videos={sortedTvVideos}
+            selectedVideo={selectedTvVideo}
+            selectedVideoId={selectedVideoIdByType.tv}
+            onSelectVideo={handleTvSelect}
+            onSeasonChange={setSelectedTvSeason}
+            onUpload={uploadSubtitle}
+            onReplace={replaceSubtitle}
+            onRemove={removeSubtitle}
+            formatTime={formatTime}
+            busy={loading}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <TvSeasonBatchUploadDialog
+        open={tvBatchOpen}
+        onOpenChange={setTvBatchOpen}
+        busy={loading}
+        onLoadBatchCandidates={loadTvBatchCandidates}
+        onUploadBatch={uploadBatchSubtitles}
+      />
     </div>
   );
 }
@@ -462,14 +527,20 @@ export function SubtitleManagerApp() {
 function DashboardPanel({
   scanStatus,
   directoryScan,
-  message
+  message,
+  logs,
+  formatTime
 }: {
   scanStatus: ScanStatus | null;
   directoryScan: DirectoryScanResult;
   message: string;
+  logs: OperationLog[];
+  formatTime: (value: string | undefined | null) => string;
 }) {
+  const recentLogs = logs.slice(0, 8);
+
   return (
-    <>
+    <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-3">
         <QuickStatCard
           icon={<Activity className="h-4 w-4" />}
@@ -494,18 +565,61 @@ function DashboardPanel({
         />
       </div>
 
-      <Card className="border bg-card dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(7,12,27,0.92),rgba(5,10,22,0.9))]">
-        <CardContent className="flex items-center gap-3 p-4 text-sm">
-          <Badge variant="outline">Status</Badge>
-          <p className="max-w-full break-all font-medium text-foreground" role="status" aria-live="polite">
-            {message || "Ready"}
-          </p>
-        </CardContent>
-      </Card>
-    </>
+      <div className="grid gap-3 xl:grid-cols-[1.2fr_1fr]">
+        <Card className="border bg-card">
+          <CardHeader className="p-4">
+            <CardTitle className="text-lg">Scan Status</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 p-4 pt-0">
+            <div className="rounded-lg border bg-muted/20 p-3 text-sm">
+              <p role="status" aria-live="polite" className="font-medium">
+                {message || "Ready"}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Directory warnings</p>
+              {directoryScan.errors.length > 0 ? (
+                <ul className="space-y-2">
+                  {directoryScan.errors.slice(0, 6).map((error) => (
+                    <li key={error} className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-200">
+                      {error}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-muted-foreground">No directory warnings in the latest scan.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border bg-card">
+          <CardHeader className="flex flex-row items-center justify-between p-4">
+            <CardTitle className="text-lg">Recent Operations</CardTitle>
+            <Badge variant="secondary">{recentLogs.length}</Badge>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <ScrollArea className="h-[300px] rounded-md border bg-background">
+              <ul className="divide-y divide-border">
+                {recentLogs.map((log) => (
+                  <li key={log.id} className="space-y-1 p-3 text-xs">
+                    <p className="font-medium">{log.action}</p>
+                    <p className="text-muted-foreground">{formatTime(log.timestamp)}</p>
+                    <p className="break-all text-muted-foreground">{log.targetPath || "-"}</p>
+                    <p className="text-muted-foreground">status: {log.status}</p>
+                  </li>
+                ))}
+                {recentLogs.length === 0 && (
+                  <li className="p-6 text-center text-sm text-muted-foreground">No operation logs yet.</li>
+                )}
+              </ul>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
-
 function ThemeModeSelect() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -614,173 +728,6 @@ function MovieListPanel({
 
         <PagerView pager={pager} onSetPage={onSetPage} />
       </CardContent>
-    </Card>
-  );
-}
-
-function MovieActionsPanel({
-  selectedVideo,
-  onOpenManager
-}: {
-  selectedVideo: Video | null;
-  onOpenManager: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const searchLinks = useMemo(() => {
-    if (!selectedVideo) {
-      return null;
-    }
-    return buildSubtitleSearchLinks(selectedVideo);
-  }, [selectedVideo]);
-
-  return (
-    <Card className="border bg-card">
-      <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected Movie</p>
-          <p className="truncate text-sm font-semibold">{selectedVideo?.title || "Please select a movie from the list"}</p>
-        </div>
-        <Button type="button" onClick={() => setOpen(true)} disabled={!selectedVideo}>
-          Actions
-        </Button>
-      </CardContent>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Movie Actions</DialogTitle>
-            <DialogDescription>
-              {selectedVideo ? selectedVideo.title : "Select a movie first."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                onOpenManager();
-                setOpen(false);
-              }}
-              disabled={!selectedVideo}
-            >
-              Open Movie Subtitle Management
-            </Button>
-            {searchLinks && (
-              <Button type="button" variant="outline" asChild>
-                <a href={searchLinks.zimuku} target="_blank" rel="noreferrer" className="gap-2">
-                  Search on Zimuku
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </Button>
-            )}
-            {searchLinks && (
-              <Button type="button" variant="outline" asChild>
-                <a href={searchLinks.subhd} target="_blank" rel="noreferrer" className="gap-2">
-                  Search on SubHD
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </Button>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
-  );
-}
-
-function TvActionsPanel({
-  selectedSeries,
-  onOpenManager,
-  onOpenSeasonBatch
-}: {
-  selectedSeries: TvSeriesSummary | null;
-  onOpenManager: () => void;
-  onOpenSeasonBatch: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const searchLinks = useMemo(() => {
-    if (!selectedSeries?.title) {
-      return null;
-    }
-    return buildSubtitleSearchLinksByKeyword(selectedSeries.title);
-  }, [selectedSeries?.title]);
-
-  return (
-    <Card className="border bg-card">
-      <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected TV Series</p>
-          <p className="truncate text-sm font-semibold">{selectedSeries?.title || "Please select a series from the list"}</p>
-        </div>
-        <Button type="button" onClick={() => setOpen(true)} disabled={!selectedSeries}>
-          Actions
-        </Button>
-      </CardContent>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>TV Actions</DialogTitle>
-            <DialogDescription>
-              {selectedSeries ? selectedSeries.title : "Select a TV series first."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                onOpenManager();
-                setOpen(false);
-              }}
-              disabled={!selectedSeries}
-            >
-              Open TV Subtitle Management
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                onOpenSeasonBatch();
-                setOpen(false);
-              }}
-              disabled={!selectedSeries}
-            >
-              TV Season Batch Upload
-            </Button>
-            {searchLinks && (
-              <Button type="button" variant="outline" asChild>
-                <a href={searchLinks.zimuku} target="_blank" rel="noreferrer" className="gap-2">
-                  Search on Zimuku
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </Button>
-            )}
-            {searchLinks && (
-              <Button type="button" variant="outline" asChild>
-                <a href={searchLinks.subhd} target="_blank" rel="noreferrer" className="gap-2">
-                  Search on SubHD
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </Button>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }
@@ -1703,10 +1650,9 @@ function SubtitleDetailsPanel({
 
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="relative overflow-hidden rounded-xl border bg-background p-3 shadow-sm dark:border-slate-800 dark:bg-[linear-gradient(145deg,rgba(8,14,31,0.96),rgba(6,11,24,0.86))]">
-      <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-cyan-400/80 via-blue-500/70 to-indigo-500/70 dark:opacity-100" />
-      <p className="pl-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="break-all pl-2 text-sm font-semibold">{value}</p>
+    <div className="rounded-lg border bg-background p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 break-all text-sm font-semibold">{value}</p>
     </div>
   );
 }
@@ -1746,7 +1692,7 @@ function QuickStatCard({ icon, label, value, hint, tone }: QuickStatCardProps) {
   const style = toneClass[tone];
 
   return (
-    <Card className="border bg-card dark:border-slate-800 dark:bg-[radial-gradient(120%_150%_at_5%_0%,rgba(24,44,86,0.45),rgba(6,11,25,0.94)_68%)]">
+    <Card className="border bg-card">
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center gap-3">
           <span className={cn("inline-flex h-8 w-8 items-center justify-center rounded-lg", style.iconBg, style.iconText)}>
@@ -1787,7 +1733,7 @@ function PagerView({ pager, onSetPage }: { pager: Pager; onSetPage: (page: numbe
 
 function LogsPanel({ logs, formatTime }: { logs: OperationLog[]; formatTime: (value: string | undefined | null) => string }) {
   return (
-    <Card className="flex h-[calc(100vh-220px)] flex-col border bg-card">
+    <Card className="flex h-full min-h-[420px] flex-col border bg-card">
       <CardHeader className="flex flex-row items-center justify-between p-4">
         <CardTitle className="text-lg">Operation Logs</CardTitle>
         <Badge variant="secondary">Recent {logs.length} records</Badge>
@@ -1813,4 +1759,5 @@ function LogsPanel({ logs, formatTime }: { logs: OperationLog[]; formatTime: (va
     </Card>
   );
 }
+
 

@@ -1,50 +1,50 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  --background: 210 32% 97%;
+  --foreground: 215 38% 12%;
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 215 38% 12%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 221.2 83.2% 53.3%;
+  --popover-foreground: 215 38% 12%;
+  --primary: 202 88% 40%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
+  --secondary: 210 36% 93%;
+  --secondary-foreground: 215 30% 20%;
+  --muted: 210 30% 95%;
+  --muted-foreground: 214 13% 40%;
+  --accent: 201 35% 92%;
+  --accent-foreground: 215 34% 16%;
+  --destructive: 0 74% 48%;
   --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 221.2 83.2% 53.3%;
+  --border: 214 22% 86%;
+  --input: 214 22% 86%;
+  --ring: 202 88% 40%;
   --radius: 0.5rem;
 }
 
 [data-theme="dark"] {
-  --background: 228 46% 6%;
-  --foreground: 210 40% 96%;
-  --card: 226 44% 8%;
-  --card-foreground: 210 40% 98%;
-  --popover: 226 44% 8%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 217 92% 64%;
-  --primary-foreground: 222 47% 11%;
-  --secondary: 224 30% 14%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 223 28% 16%;
-  --muted-foreground: 215 22% 68%;
-  --accent: 223 30% 16%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 63% 38%;
+  --background: 222 40% 5%;
+  --foreground: 210 32% 93%;
+  --card: 225 27% 9%;
+  --card-foreground: 210 32% 93%;
+  --popover: 225 27% 9%;
+  --popover-foreground: 210 32% 93%;
+  --primary: 24 96% 52%;
+  --primary-foreground: 24 100% 97%;
+  --secondary: 224 18% 15%;
+  --secondary-foreground: 210 28% 91%;
+  --muted: 223 20% 14%;
+  --muted-foreground: 216 12% 68%;
+  --accent: 224 19% 17%;
+  --accent-foreground: 210 30% 94%;
+  --destructive: 0 73% 46%;
   --destructive-foreground: 210 40% 98%;
-  --border: 223 24% 20%;
-  --input: 223 24% 20%;
-  --ring: 216 95% 66%;
+  --border: 223 18% 22%;
+  --input: 223 18% 22%;
+  --ring: 24 96% 52%;
 }
 
 * {
@@ -58,13 +58,19 @@ body {
 
 body {
   @apply bg-background text-foreground;
+  font-family: "IBM Plex Sans", "Segoe UI", Tahoma, sans-serif;
+  line-height: 1.45;
+  background-image:
+    radial-gradient(900px 420px at 4% -8%, rgba(22, 128, 206, 0.08), transparent 60%),
+    radial-gradient(760px 360px at 96% -12%, rgba(17, 94, 89, 0.07), transparent 64%);
+  background-attachment: fixed;
 }
 
 [data-theme="dark"] body {
   background-image:
-    radial-gradient(1050px 500px at 16% -22%, rgba(49, 80, 180, 0.35), transparent 52%),
-    radial-gradient(980px 540px at 86% -20%, rgba(22, 44, 112, 0.28), transparent 58%),
-    linear-gradient(180deg, #050912 0%, #070d1c 52%, #050a17 100%);
+    radial-gradient(820px 380px at 10% -14%, rgba(33, 60, 122, 0.34), transparent 58%),
+    radial-gradient(620px 300px at 88% 110%, rgba(255, 114, 41, 0.12), transparent 60%),
+    linear-gradient(180deg, #080b14 0%, #0a0f1a 52%, #090d16 100%);
   background-attachment: fixed;
 }
 
