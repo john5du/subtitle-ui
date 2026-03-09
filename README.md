@@ -2,6 +2,8 @@
 
 subtitle-ui project using Go + Next.js web UI for managing subtitle files. Video metadata is loaded from Jellyfin-scraped sidecar files (NFO) in the media library.
 
+Chinese version: [`README.zh-CN.md`](./README.zh-CN.md)
+
 ## Implemented in this iteration
 
 - Go backend skeleton with scan and subtitle file APIs
