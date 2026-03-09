@@ -88,6 +88,40 @@ npm run build
 - Static export output is `./frontend/out`
 - Backend default `UI_DIST` is `./frontend/out`
 
+## Container image
+
+Build image locally:
+
+```bash
+docker build -t subtitle-ui:local .
+```
+
+Run container (example with bind mounts):
+
+```bash
+docker run --rm -p 8080:8080 \
+  -v /path/to/movies:/data/media/movies \
+  -v /path/to/tv:/data/media/tv \
+  -v /path/to/data:/data \
+  subtitle-ui:local
+```
+
+- App entrypoint serves both API and frontend on `:8080`.
+- Default container paths:
+  - `MOVIE_MEDIA_ROOT=/data/media/movies`
+  - `TV_MEDIA_ROOT=/data/media/tv`
+  - `DB_PATH=/data/subtitle_manager.sqlite3`
+  - `UI_DIST=/app/frontend/out`
+
+## GitHub Actions image publish
+
+- Workflow file: `.github/workflows/docker-publish.yml`
+- Trigger: push tag matching `v*` (for example `v0.1.0`)
+- Registry: `ghcr.io/john5du/subtitle-ui`
+- Tags published:
+  - semantic tag (`v0.1.0`)
+  - commit SHA tag (`sha-<short>`)
+
 ## Configuration
 
 - `SERVER_ADDR` default `:8080`
