@@ -113,6 +113,31 @@ docker run --rm -p 8080:8080 \
   - `DB_PATH=/data/subtitle_manager.sqlite3`
   - `UI_DIST=/app/frontend/out`
 
+Run with Docker Compose:
+
+```yaml
+services:
+  subtitle-ui:
+    image: ghcr.io/john5du/subtitle-ui:v0.0.1
+    container_name: subtitle-ui
+    ports:
+      - "8080:8080"
+    environment:
+      MOVIE_MEDIA_ROOT: /data/media/movies
+      TV_MEDIA_ROOT: /data/media/tv
+      DB_PATH: /data/subtitle_manager.sqlite3
+      UI_DIST: /app/frontend/out
+    volumes:
+      - /path/to/movies:/data/media/movies:ro
+      - /path/to/tv:/data/media/tv:ro
+      - /path/to/data:/data
+    restart: unless-stopped
+```
+
+```bash
+docker compose up -d
+```
+
 ## GitHub Actions image publish
 
 - Workflow file: `.github/workflows/docker-publish.yml`
