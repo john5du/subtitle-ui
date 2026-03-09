@@ -1,33 +1,34 @@
-# subtitle-ui（中文说明）
+# subtitle-ui
 
-英文版：[`README.md`](./README.md)
+基于 Go + Next.js 开发的字幕文件管理 Web 应用。视频元数据从 Jellyfin 刮取的 NFO 元数据文件读取。
 
-本项目使用 Go + Next.js 提供字幕管理 Web UI。视频元数据来自媒体库中的 Jellyfin 侧车文件（NFO）。
+English version: [`README.md`](./README.md)
 
-## 本次已实现功能
+## 本版本实现的功能
 
-- Go 后端骨架与扫描/字幕 API
-- 媒体扫描：识别视频、NFO 元数据与字幕文件
+- Go 后端骨架框架，包含扫描和字幕文件 API
+- 媒体扫描器，可查找视频、NFO 元数据文件和字幕文件
 - 字幕操作：上传、替换（先备份）、删除（先备份）
-- Next.js + shadcn/ui 前端：扫描、浏览、上传/替换/删除、操作日志
+- 基于 Next.js + shadcn/ui 的前端，支持扫描、浏览、上传/替换/删除以及操作日志
 
 ## 后端 API
 
 - `GET /api/health`
-- `POST /api/scan`（兼容：直接扫描）
-- `POST /api/scan/directories`（发现包含视频/元数据的目录）
-- `GET /api/scan/directories`（获取最近一次目录扫描结果）
-- `POST /api/scan/files`（按目录扫描，body: `movieDirs[]`, `tvDirs[]`）
+- `POST /api/scan` (兼容：直接文件扫描)
+- `POST /api/scan/directories` (发现包含视频/元数据文件的媒体子目录)
+- `GET /api/scan/directories` (获取最后发现的目录结果)
+- `POST /api/scan/files` (从选定目录扫描文件，body: `movieDirs[]`, `tvDirs[]`)
 - `GET /api/scan/status`
-- `GET /api/videos`（参数：`mediaType=movie|tv`，可选 `q`, `dir`, `page`, `pageSize`）
+- `GET /api/videos` (查询参数: `mediaType=movie|tv`, 可选 `q`, `dir`, `page`, `pageSize`)
+  - 响应: `{ items: Video[], total, page, pageSize, totalPages }`
 - `GET /api/videos/{videoId}`
-- `POST /api/videos/{videoId}/subtitles`（multipart：`file`，可选 `label`, `replaceId`）
+- `POST /api/videos/{videoId}/subtitles` (multipart `file`, 可选 `label`, `replaceId`)
 - `DELETE /api/videos/{videoId}/subtitles/{subtitleId}`
 - `GET /api/logs?limit=30`
 
 ## 本地运行
 
-### Windows 一键启动
+### 一键启动 (Windows PowerShell)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\dev-up.ps1
@@ -43,7 +44,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-up.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\dev-down.ps1
 ```
 
-兜底按端口结束：
+- 当 pid 文件丢失时的备用选项（按端口杀进程）：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\dev-down.ps1 -KillByPort
@@ -59,60 +60,69 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-restart.ps1
 
 ### 手动启动
 
+1. 启动后端：
+
 ```bash
 go run ./backend/cmd/server
+```
+
+2. 启动前端开发服务器：
+
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-可选 API 地址：
+3. 打开浏览器：`http://localhost:3000`
+
+4. 可选（本地开发时指定非默认 API 主机）：
 
 ```bash
 set NEXT_PUBLIC_API_BASE=http://localhost:8080
 ```
 
-## 前端静态构建（供 Go 托管）
+## 前端构建输出（用于 Go 静态托管）
 
 ```bash
 cd frontend
 npm run build
 ```
 
-- 导出目录：`./frontend/out`
-- 后端默认 `UI_DIST`：`./frontend/out`
+- 静态导出输出目录：`./frontend/out`
+- 后端默认 `UI_DIST` 值：`./frontend/out`
 
 ## 容器镜像
 
-本地构建：
+### 本地构建镜像：
 
 ```bash
 docker build -t subtitle-ui:local .
 ```
 
-本地运行（绑定目录示例）：
+### 运行容器（使用 bind mount 示例）：
 
 ```bash
 docker run --rm -p 8080:8080 \
   -v /path/to/movies:/data/media/movies \
   -v /path/to/tv:/data/media/tv \
   -v /path/to/data:/data \
-  subtitle-ui:local
+  ghcr.io/john5du/subtitle-ui:latest
 ```
 
-默认容器路径：
+- 应用程序在 `:8080` 端口同时提供 API 和前端服务。
+- 默认容器路径：
+  - `MOVIE_MEDIA_ROOT=/data/media/movies`
+  - `TV_MEDIA_ROOT=/data/media/tv`
+  - `DB_PATH=/data/subtitle_manager.sqlite3`
+  - `UI_DIST=/app/frontend/out`
 
-- `MOVIE_MEDIA_ROOT=/data/media/movies`
-- `TV_MEDIA_ROOT=/data/media/tv`
-- `DB_PATH=/data/subtitle_manager.sqlite3`
-- `UI_DIST=/app/frontend/out`
-
-### Docker Compose 示例
+### Docker Compose 运行：
 
 ```yaml
 services:
   subtitle-ui:
-    image: ghcr.io/john5du/subtitle-ui:v0.0.1
+    image: ghcr.io/john5du/subtitle-ui:latest
     container_name: subtitle-ui
     ports:
       - "8080:8080"
@@ -132,26 +142,26 @@ services:
 docker compose up -d
 ```
 
-## GitHub Actions 自动发布镜像
+## GitHub Actions 镜像发布
 
-- 流水线文件：`.github/workflows/docker-publish.yml`
-- 触发条件：推送 `v*` 标签（例如 `v0.1.0`）
-- 仓库地址：`ghcr.io/john5du/subtitle-ui`
-- 发布标签：
-  - 语义化标签（如 `v0.1.0`）
-  - 提交哈希标签（`sha-<short>`）
+- 工作流文件：`.github/workflows/docker-publish.yml`
+- 触发条件：推送与 `v*` 匹配的标签（例如 `v0.1.0`）
+- 镜像仓库：`ghcr.io/john5du/subtitle-ui`
+- 发布的标签：
+  - 语义版本标签（`v0.1.0`）
+  - 提交 SHA 标签（`sha-<short>`）
 
 ## 配置项
 
 - `SERVER_ADDR` 默认 `:8080`
 - `MOVIE_MEDIA_ROOT` 默认 `./media/movies`
 - `TV_MEDIA_ROOT` 默认 `./media/tv`
-- `MEDIA_ROOT` 兼容回退（若设置且未设置 movie/tv 根目录，则两者都使用它）
+- `MEDIA_ROOT` 旧版备用（如果设置且 `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` 未设置，两者都会使用它）
 - `DB_PATH` 默认 `./tmp/subtitle_manager.sqlite3`
 - `UI_DIST` 默认 `./frontend/out`
 
-## 说明
+## 注意事项
 
-- 仅支持常见字幕格式：`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`
-- 扫描器当前读取 `videoName.nfo` 与 `movie.nfo`
-- 当前项目尚未做生产级加固
+- 仅接受常见的字幕格式：`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`。
+- 扫描器当前读取 `videoName.nfo` 和 `movie.nfo`。
+- 本项目非生产级别的实现。

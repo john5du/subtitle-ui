@@ -1,8 +1,8 @@
 # subtitle-ui
 
-subtitle-ui project using Go + Next.js web UI for managing subtitle files. Video metadata is loaded from Jellyfin-scraped sidecar files (NFO) in the media library.
+A Go + Next.js web application for managing subtitle files. Video metadata is loaded from Jellyfin-scraped sidecar files (NFO) in the media library.
 
-Chinese version: [`README.zh-CN.md`](./README.zh-CN.md)
+中文文档：[`README.zh_CN.md`](./README.zh-CN.md)
 
 ## Implemented in this iteration
 
@@ -56,7 +56,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-down.ps1 -KillByPort
 powershell -ExecutionPolicy Bypass -File .\scripts\dev-restart.ps1
 ```
 
-- `dev-restart` 会先执行 `dev-down`（含 `-KillByPort` 兜底），再执行 `dev-up`。
+- `dev-restart` will first run `dev-down` (with `-KillByPort` fallback), then run `dev-up`.
+
+### Manual startup
 
 1. Start backend:
 
@@ -105,7 +107,7 @@ docker run --rm -p 8080:8080 \
   -v /path/to/movies:/data/media/movies \
   -v /path/to/tv:/data/media/tv \
   -v /path/to/data:/data \
-  subtitle-ui:local
+  ghcr.io/john5du/subtitle-ui:latest
 ```
 
 - App entrypoint serves both API and frontend on `:8080`.
@@ -120,7 +122,7 @@ Run with Docker Compose:
 ```yaml
 services:
   subtitle-ui:
-    image: ghcr.io/john5du/subtitle-ui:v0.0.1
+    image: ghcr.io/john5du/subtitle-ui:latest
     container_name: subtitle-ui
     ports:
       - "8080:8080"

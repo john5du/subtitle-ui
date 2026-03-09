@@ -13,3 +13,4 @@ plan/
 *.sqlite
 *.sqlite3
 *.exe
+/AGENTS.md
