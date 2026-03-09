@@ -603,7 +603,7 @@ export function SubtitleManagerApp() {
         <Card className="border bg-card lg:h-full">
           <CardContent className="flex h-full flex-col gap-4 p-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Subtitle UI</p>
+              <p className="text-base font-bold uppercase tracking-[0.2em] text-muted-foreground">Subtitle UI</p>
               <p className="mt-1 text-xs text-muted-foreground">Simple, efficient subtitle operations.</p>
             </div>
 
@@ -920,6 +920,7 @@ function DashboardPanel({
                     <p className="text-muted-foreground">{formatTime(log.timestamp)}</p>
                     <p className="break-all text-muted-foreground">{log.targetPath || "-"}</p>
                     <p className="text-muted-foreground">status: {log.status}</p>
+                    {log.message && <p className="break-all text-muted-foreground">details: {log.message}</p>}
                   </li>
                 ))}
                 {recentLogs.length === 0 && (
@@ -2263,6 +2264,7 @@ function LogsPanel({ logs, formatTime }: { logs: OperationLog[]; formatTime: (va
                 <p className="font-semibold">{log.action}</p>
                 <p className="break-all text-xs text-muted-foreground">{log.targetPath || "-"}</p>
                 <p className="text-xs text-muted-foreground">videoId: {log.videoId} | status: {log.status}</p>
+                {log.message && <p className="break-all text-xs text-muted-foreground">details: {log.message}</p>}
               </li>
             ))}
 

@@ -135,8 +135,8 @@ services:
       DB_PATH: /data/subtitle_manager.sqlite3
       UI_DIST: /app/frontend/out
     volumes:
-      - /path/to/movies:/data/media/movies:ro
-      - /path/to/tv:/data/media/tv:ro
+      - /path/to/movies:/data/media/movies
+      - /path/to/tv:/data/media/tv
       - /path/to/data:/data
     restart: unless-stopped
 ```

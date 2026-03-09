@@ -30,6 +30,8 @@ var (
 	ErrInvalidFileType = errors.New("invalid subtitle file extension")
 )
 
+const systemOperationVideoID = "SYSTEM"
+
 type Service struct {
 	cfg     config.Config
 	scanner *scanner.Scanner
@@ -59,11 +61,37 @@ func (s *Service) Close() error {
 	return s.store.Close()
 }
 
+func (s *Service) CheckMediaRootWritePermissions() []string {
+	roots := uniqueCleanPaths(s.cfg.MovieMediaRoot, s.cfg.TVMediaRoot)
+	issues := make([]string, 0, len(roots))
+	for _, root := range roots {
+		if err := ensureDirectoryWritable(root); err != nil {
+			msg := fmt.Sprintf("media root %s is not writable: %v", root, err)
+			issues = append(issues, msg)
+			_ = s.store.AppendLog(domain.OperationLog{
+				ID:         makeID(fmt.Sprintf("permission-check-%s-%d", root, time.Now().UnixNano())),
+				Timestamp:  time.Now().UTC(),
+				Action:     "permission_check",
+				VideoID:    systemOperationVideoID,
+				TargetPath: root,
+				Status:     "error",
+				Message:    msg,
+			})
+		}
+	}
+	return issues
+}
+
 func (s *Service) RunScan(ctx context.Context) domain.ScanStatus {
 	return s.RunFileScan(ctx, nil, nil)
 }
 
 func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []string) domain.ScanStatus {
+	beforeVideos, beforeErr := s.listAllVideos()
+	if beforeErr != nil {
+		beforeVideos = []domain.Video{}
+	}
+
 	started := time.Now().UTC()
 	s.statusMu.Lock()
 	s.scanRunning = true
@@ -117,6 +145,39 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	if saveErr != nil {
 		result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
 	}
+
+	currentVideos, currentErr := s.listAllVideos()
+	if currentErr != nil {
+		result.err = combineErrors(result.err, prefixedError("load current videos", currentErr))
+		currentVideos = result.videos
+	}
+
+	changes := calculateVideoChanges(beforeVideos, currentVideos)
+	scanMessage := fmt.Sprintf(
+		"videos=%d added=%d removed=%d updated=%d",
+		len(currentVideos),
+		changes.Added,
+		changes.Removed,
+		changes.Updated,
+	)
+	if beforeErr != nil {
+		scanMessage += fmt.Sprintf("; baseline unavailable: %v", beforeErr)
+	}
+	if result.err != nil {
+		scanMessage += fmt.Sprintf("; error=%s", result.err.Error())
+	}
+	scanStatus := "ok"
+	if result.err != nil {
+		scanStatus = "error"
+	}
+	_ = s.store.AppendLog(domain.OperationLog{
+		ID:        makeID(fmt.Sprintf("scan-%d", time.Now().UnixNano())),
+		Timestamp: time.Now().UTC(),
+		Action:    "scan",
+		VideoID:   systemOperationVideoID,
+		Status:    scanStatus,
+		Message:   scanMessage,
+	})
 
 	s.statusMu.Lock()
 	s.scanRunning = false
@@ -435,13 +496,21 @@ func (s *Service) ListLogs(limit int) []domain.OperationLog {
 }
 
 func (s *Service) listAllTVVideos() ([]domain.Video, error) {
+	return s.listAllVideosByType(domain.MediaTypeTV)
+}
+
+func (s *Service) listAllVideos() ([]domain.Video, error) {
+	return s.listAllVideosByType("")
+}
+
+func (s *Service) listAllVideosByType(mediaType string) ([]domain.Video, error) {
 	out := make([]domain.Video, 0, 256)
 	page := 1
 	pageSize := 200
 	total := 0
 
 	for {
-		items, itemTotal, err := s.store.ListVideos("", domain.MediaTypeTV, "", page, pageSize, "", "")
+		items, itemTotal, err := s.store.ListVideos("", mediaType, "", page, pageSize, "", "")
 		if err != nil {
 			return nil, err
 		}
@@ -457,6 +526,79 @@ func (s *Service) listAllTVVideos() ([]domain.Video, error) {
 	}
 
 	return out, nil
+}
+
+type videoChanges struct {
+	Added   int
+	Removed int
+	Updated int
+}
+
+func calculateVideoChanges(before []domain.Video, current []domain.Video) videoChanges {
+	beforeSignatures := make(map[string]string, len(before))
+	for _, video := range before {
+		beforeSignatures[video.ID] = videoContentSignature(video)
+	}
+
+	currentSignatures := make(map[string]string, len(current))
+	for _, video := range current {
+		currentSignatures[video.ID] = videoContentSignature(video)
+	}
+
+	changes := videoChanges{}
+	for id, currentSig := range currentSignatures {
+		beforeSig, ok := beforeSignatures[id]
+		if !ok {
+			changes.Added++
+			continue
+		}
+		if beforeSig != currentSig {
+			changes.Updated++
+		}
+	}
+	for id := range beforeSignatures {
+		if _, ok := currentSignatures[id]; !ok {
+			changes.Removed++
+		}
+	}
+	return changes
+}
+
+func videoContentSignature(video domain.Video) string {
+	var b strings.Builder
+	b.Grow(256)
+	b.WriteString(strings.ToLower(strings.TrimSpace(video.Path)))
+	b.WriteString("|")
+	b.WriteString(strings.TrimSpace(video.Title))
+	b.WriteString("|")
+	b.WriteString(strings.TrimSpace(video.Year))
+	b.WriteString("|")
+	b.WriteString(strings.ToLower(strings.TrimSpace(video.MediaType)))
+	b.WriteString("|")
+	b.WriteString(strings.TrimSpace(video.MetadataSource))
+
+	subs := append([]domain.Subtitle(nil), video.Subtitles...)
+	sort.Slice(subs, func(i int, j int) bool {
+		if !strings.EqualFold(subs[i].Path, subs[j].Path) {
+			return strings.ToLower(subs[i].Path) < strings.ToLower(subs[j].Path)
+		}
+		return strings.ToLower(subs[i].FileName) < strings.ToLower(subs[j].FileName)
+	})
+	for _, sub := range subs {
+		b.WriteString("|")
+		b.WriteString(strings.ToLower(strings.TrimSpace(sub.Path)))
+		b.WriteString(":")
+		b.WriteString(strings.TrimSpace(sub.FileName))
+		b.WriteString(":")
+		b.WriteString(strings.TrimSpace(sub.Language))
+		b.WriteString(":")
+		b.WriteString(strings.TrimSpace(sub.Format))
+		b.WriteString(":")
+		b.WriteString(strconv.FormatInt(sub.Size, 10))
+		b.WriteString(":")
+		b.WriteString(sub.ModTime.UTC().Format(time.RFC3339Nano))
+	}
+	return b.String()
 }
 
 func buildTVSeriesSummaries(videos []domain.Video, tvRootPath string) []domain.TVSeriesSummary {
@@ -803,4 +945,34 @@ func sameFilePath(a string, b string) bool {
 	left := filepath.Clean(strings.TrimSpace(a))
 	right := filepath.Clean(strings.TrimSpace(b))
 	return strings.EqualFold(left, right)
+}
+
+func ensureDirectoryWritable(root string) error {
+	file, err := os.CreateTemp(root, ".subtitle-ui-write-check-*")
+	if err != nil {
+		return err
+	}
+
+	name := file.Name()
+	closeErr := file.Close()
+	removeErr := os.Remove(name)
+	return combineErrors(closeErr, removeErr)
+}
+
+func uniqueCleanPaths(paths ...string) []string {
+	seen := make(map[string]struct{}, len(paths))
+	out := make([]string, 0, len(paths))
+	for _, raw := range paths {
+		pathValue := filepath.Clean(strings.TrimSpace(raw))
+		if pathValue == "" {
+			continue
+		}
+		key := strings.ToLower(pathValue)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, pathValue)
+	}
+	return out
 }

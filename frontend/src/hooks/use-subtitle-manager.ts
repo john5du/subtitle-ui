@@ -20,6 +20,7 @@ import type {
   VideoPage,
   VisibleTreeNode
 } from "@/lib/types";
+import { emitToast } from "@/lib/toast";
 
 const DEFAULT_PAGE_SIZE = 30;
 
@@ -577,6 +578,13 @@ export function useSubtitleManager() {
     }
   };
 
+  const reportRequestError = useCallback((prefix: string, error: unknown) => {
+    const errText = error instanceof Error ? error.message : String(error);
+    const messageText = `${prefix}: ${errText}`;
+    setMessage(messageText);
+    emitToast({ level: "error", message: messageText });
+  }, []);
+
   async function request<T>(path: string, options: RequestInit = {}) {
     const res = await fetch(buildApiURL(path), options);
     const contentType = res.headers.get("content-type") ?? "";
@@ -668,8 +676,7 @@ export function useSubtitleManager() {
         }
       }));
     } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setMessage(`Load ${mediaType} videos failed: ${errText}`);
+      reportRequestError(`Load ${mediaType} videos failed`, error);
     } finally {
       endLoading();
     }
@@ -701,8 +708,7 @@ export function useSubtitleManager() {
         totalPages: paged.totalPages
       });
     } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setMessage(`Load TV series failed: ${errText}`);
+      reportRequestError("Load TV series failed", error);
     } finally {
       endLoading();
     }
@@ -757,8 +763,7 @@ export function useSubtitleManager() {
 
       return videos;
     } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setMessage(`Load TV videos failed: ${errText}`);
+      reportRequestError("Load TV videos failed", error);
       return [] as Video[];
     } finally {
       endLoading();
@@ -770,8 +775,7 @@ export function useSubtitleManager() {
       const payload = await request<unknown>("/api/scan/status");
       setScanStatus(normalizeScanStatus(payload));
     } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setMessage(`Load scan status failed: ${errText}`);
+      reportRequestError("Load scan status failed", error);
     }
   }
 
@@ -788,8 +792,7 @@ export function useSubtitleManager() {
       }
       return defaultDir;
     } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setMessage(`Load directory scan result failed: ${errText}`);
+      reportRequestError("Load directory scan result failed", error);
       return "";
     }
   }
@@ -799,8 +802,7 @@ export function useSubtitleManager() {
       const payload = await request<unknown>("/api/logs?limit=50");
       setLogs(normalizeLogs(payload));
     } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setMessage(`Load logs failed: ${errText}`);
+      reportRequestError("Load logs failed", error);
     }
   }
 
@@ -871,8 +873,7 @@ export function useSubtitleManager() {
       const videoCount = normalizeScanStatus(statusPayload)?.videoCount ?? 0;
       setMessage(`Scan completed. Videos: ${videoCount}${warning}`);
     } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setMessage(`Scan failed: ${errText}`);
+      reportRequestError("Scan failed", error);
     } finally {
       endLoading();
     }
@@ -961,8 +962,7 @@ export function useSubtitleManager() {
       }
       setMessage(`Uploaded subtitle for "${video.title}".`);
     } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setMessage(`Upload failed: ${errText}`);
+      reportRequestError("Upload failed", error);
     }
   }
 
@@ -984,8 +984,7 @@ export function useSubtitleManager() {
       }
       setMessage(`Replaced subtitle "${subtitle.fileName}".`);
     } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setMessage(`Replace failed: ${errText}`);
+      reportRequestError("Replace failed", error);
     }
   }
 
@@ -1003,8 +1002,7 @@ export function useSubtitleManager() {
       }
       setMessage(`Deleted subtitle "${subtitle.fileName}".`);
     } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setMessage(`Delete failed: ${errText}`);
+      reportRequestError("Delete failed", error);
     }
   }
 
@@ -1037,8 +1035,7 @@ export function useSubtitleManager() {
       setMessage("No TV videos found in the selected series/directory.");
       return [] as Video[];
     } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setMessage(`Load TV batch candidates failed: ${errText}`);
+      reportRequestError("Load TV batch candidates failed", error);
       return [] as Video[];
     } finally {
       endLoading();

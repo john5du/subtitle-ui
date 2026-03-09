@@ -122,6 +122,7 @@ docker run --rm -p 8080:8080 \
   - `TV_MEDIA_ROOT=/data/media/tv`
   - `DB_PATH=/data/subtitle_manager.sqlite3`
   - `UI_DIST=/app/frontend/out`
+- Media root mounts must be writable because subtitle files are created/replaced in-place.
 
 Run with Docker Compose:
 
@@ -138,8 +139,8 @@ services:
       DB_PATH: /data/subtitle_manager.sqlite3
       UI_DIST: /app/frontend/out
     volumes:
-      - /path/to/movies:/data/media/movies:ro
-      - /path/to/tv:/data/media/tv:ro
+      - /path/to/movies:/data/media/movies
+      - /path/to/tv:/data/media/tv
       - /path/to/data:/data
     restart: unless-stopped
 ```
@@ -158,9 +159,7 @@ docker compose up -d
   - semantic version tag (`0.1.0`)
   - moving tag (`latest`)
   - commit SHA tag (`sha-<short>`)
-- Version sync workflow: `.github/workflows/version-sync.yml`
-  - Trigger: push tag matching `v*`
-  - Behavior: sync project version files to the pushed tag (for example `v0.1.0` -> `0.1.0`) and commit back to default branch
+- The publish workflow syncs version files from the pushed tag before image build, so frontend and backend versions in the container always match.
 
 ## Configuration
 

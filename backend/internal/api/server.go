@@ -1,8 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -47,7 +49,7 @@ func NewServer(service *app.Service, uiDist string) *Server {
 }
 
 func (s *Server) Handler() http.Handler {
-	return withCORS(s.mux)
+	return withCORS(withErrorLogging(s.mux))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -285,6 +287,70 @@ func withCORS(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+type errorCaptureResponseWriter struct {
+	http.ResponseWriter
+	status int
+	body   bytes.Buffer
+}
+
+func (w *errorCaptureResponseWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *errorCaptureResponseWriter) Write(data []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	if len(data) > 0 {
+		_, _ = w.body.Write(data)
+	}
+	return w.ResponseWriter.Write(data)
+}
+
+func withErrorLogging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		captured := &errorCaptureResponseWriter{ResponseWriter: w}
+		next.ServeHTTP(captured, r)
+
+		status := captured.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		if status < http.StatusBadRequest {
+			return
+		}
+
+		errorMessage := parseErrorMessage(captured.body.Bytes())
+		log.Printf(
+			"api request failed: method=%s path=%s status=%d error=%q",
+			r.Method,
+			r.URL.Path,
+			status,
+			errorMessage,
+		)
+	})
+}
+
+func parseErrorMessage(body []byte) string {
+	trimmed := strings.TrimSpace(string(body))
+	if trimmed == "" {
+		return ""
+	}
+
+	payload := map[string]any{}
+	if err := json.Unmarshal([]byte(trimmed), &payload); err == nil {
+		if message, ok := payload["error"].(string); ok && strings.TrimSpace(message) != "" {
+			return strings.TrimSpace(message)
+		}
+	}
+
+	if len(trimmed) > 200 {
+		return trimmed[:200] + "..."
+	}
+	return trimmed
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {

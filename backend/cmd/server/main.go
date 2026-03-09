@@ -32,6 +32,16 @@ func main() {
 			log.Printf("failed to close service: %v", err)
 		}
 	}()
+
+	permissionIssues := service.CheckMediaRootWritePermissions()
+	if len(permissionIssues) == 0 {
+		log.Printf("media root write permission check: ok")
+	} else {
+		for _, issue := range permissionIssues {
+			log.Printf("media root write permission check failed: %s", issue)
+		}
+	}
+
 	initialStatus := service.RunScan(context.Background())
 	log.Printf("initial scan: videos=%d error=%q", initialStatus.VideoCount, initialStatus.Error)
 
