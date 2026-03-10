@@ -2,17 +2,14 @@
 
 A Go + Next.js web application for managing subtitle files. Video metadata is loaded from Jellyfin-scraped sidecar files (NFO) in the media library.
 
-Current Release Version: 0.1.0
-
 中文文档：[`README.zh-CN.md`](./README.zh-CN.md)
 
-## Implemented in this iteration
+## Implemented in this release
 
 - Go backend skeleton with scan and subtitle file APIs
 - Media scanner that finds videos, sidecar NFO metadata, and subtitle files
 - Subtitle operations: upload, replace (backup first), delete (backup first)
 - Next.js + shadcn/ui frontend for scan, browsing, upload/replace/delete, and operation logs
-- UI redesign: left-side workbench navigation, overview-first workflow, movie/TV manager dialogs, global footer (with GitHub external link), and dark theme tuned to deep background + orange accent
 
 ## Backend API
 
