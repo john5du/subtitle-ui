@@ -1,4 +1,4 @@
-# subtitle-ui
+﻿# subtitle-ui
 
 A Go + Next.js web application for managing subtitle files. Video metadata is loaded from Jellyfin-scraped sidecar files (NFO) in the media library.
 

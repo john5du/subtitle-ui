@@ -221,96 +221,6 @@ function parseTvSeasonEpisode(video: Video) {
   };
 }
 
-function pathSegments(pathValue: string | undefined | null) {
-  return String(pathValue ?? "")
-    .replace(/[\\/]+/g, "/")
-    .replace(/^\/+|\/+$/g, "")
-    .split("/")
-    .filter(Boolean);
-}
-
-function resolveTvSeriesFromVideo(video: Video, tvRootPath: string) {
-  const dirSegments = pathSegments(video.directory || video.path || "");
-  const rootSegments = pathSegments(tvRootPath);
-
-  let offset = 0;
-  while (
-    offset < rootSegments.length &&
-    offset < dirSegments.length &&
-    dirSegments[offset].toLowerCase() === rootSegments[offset].toLowerCase()
-  ) {
-    offset += 1;
-  }
-
-  const seriesName =
-    dirSegments[offset] ||
-    dirSegments[dirSegments.length - 1] ||
-    basenamePath(video.directory || video.path || "") ||
-    "Unknown";
-  const seriesPath = tvRootPath ? joinPath(tvRootPath, seriesName) : video.directory || video.path || seriesName;
-
-  return {
-    key: normalizeForCompare(seriesPath) || normalizeForCompare(seriesName),
-    title: seriesName,
-    path: seriesPath
-  };
-}
-
-function parseYear(value: string | undefined) {
-  if (!value) return null;
-  const year = Number.parseInt(value, 10);
-  if (!Number.isFinite(year) || year <= 0) return null;
-  return year;
-}
-
-function buildTvSeriesSummaries(videos: Video[], tvRootPath: string): TvSeriesSummary[] {
-  const map = new Map<string, { row: TvSeriesSummary; year: number | null; updatedTime: number }>();
-
-  for (const video of videos) {
-    const resolved = resolveTvSeriesFromVideo(video, tvRootPath);
-    const existing = map.get(resolved.key);
-    const year = parseYear(video.year);
-    const updatedTime = new Date(video.updatedAt || "").getTime();
-    const validUpdatedTime = Number.isFinite(updatedTime) ? updatedTime : 0;
-
-    if (!existing) {
-      map.set(resolved.key, {
-        row: {
-          key: resolved.key,
-          path: resolved.path,
-          title: resolved.title,
-          latestEpisodeYear: year ? String(year) : undefined,
-          updatedAt: video.updatedAt || "",
-          videoCount: 1,
-          noSubtitleCount: (video.subtitles?.length || 0) === 0 ? 1 : 0
-        },
-        year,
-        updatedTime: validUpdatedTime
-      });
-      continue;
-    }
-
-    existing.row.videoCount += 1;
-    if ((video.subtitles?.length || 0) === 0) {
-      existing.row.noSubtitleCount += 1;
-    }
-
-    if (year !== null && (existing.year === null || year > existing.year)) {
-      existing.year = year;
-      existing.row.latestEpisodeYear = String(year);
-    }
-
-    if (validUpdatedTime > existing.updatedTime) {
-      existing.updatedTime = validUpdatedTime;
-      existing.row.updatedAt = video.updatedAt || "";
-    }
-  }
-
-  return Array.from(map.values())
-    .map((item) => item.row)
-    .sort((a, b) => a.title.localeCompare(b.title));
-}
-
 function normalizePagedVideosResponse(payload: unknown, fallbackPage: number, fallbackPageSize: number): VideoPage {
   if (Array.isArray(payload)) {
     return {
@@ -1159,6 +1069,7 @@ export function useSubtitleManager() {
     setSelectedTvSeason("all");
   }, [selectedTvDirPath]);
 
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     const selectedNorm = normalizeForCompare(selectedTvDirPath);
     const loadedNorm = normalizeForCompare(tvEpisodesPath);
@@ -1167,6 +1078,7 @@ export function useSubtitleManager() {
     }
     void loadTvEpisodesForSeries(selectedTvDirPath);
   }, [activeTab, selectedTvDirPath, tvEpisodesPath]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
     if (selectedTvSeason === "all") return;
