@@ -33,9 +33,9 @@ import type {
 } from "@/lib/types";
 import { buildSubtitleSearchLinks, buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
 import {
-  extractSubtitleEntriesFromZip,
+  extractSubtitleEntriesFromArchiveFile,
+  isArchiveFileName,
   isSubtitleFileName,
-  isZipFileName,
   toSubtitleFile,
   type ZipSubtitleEntry
 } from "@/lib/subtitle-zip";
@@ -406,12 +406,12 @@ function applyBatchEntryPreferences(
 }
 
 function summarizeBatchInputs(files: File[], entryCount: number) {
-  const zipCount = files.filter((file) => isZipFileName(file.name)).length;
+  const archiveCount = files.filter((file) => isArchiveFileName(file.name)).length;
   const subtitleCount = files.filter((file) => isSubtitleFileName(file.name)).length;
-  const unsupportedCount = files.length - zipCount - subtitleCount;
+  const unsupportedCount = files.length - archiveCount - subtitleCount;
   const parts: string[] = [];
-  if (zipCount > 0) {
-    parts.push(`${zipCount} ZIP`);
+  if (archiveCount > 0) {
+    parts.push(`${archiveCount} archive`);
   }
   if (subtitleCount > 0) {
     parts.push(`${subtitleCount} subtitle`);
@@ -435,26 +435,26 @@ function summarizeFileNames(names: string[], maxVisible = 3) {
 async function collectBatchEntriesFromFiles(files: File[]) {
   const entries: ZipSubtitleEntry[] = [];
   const unsupported: string[] = [];
-  const zipErrors: string[] = [];
+  const archiveErrors: string[] = [];
   let index = 0;
 
   for (const file of files) {
-    if (isZipFileName(file.name)) {
-      let zipEntries: ZipSubtitleEntry[] = [];
+    if (isArchiveFileName(file.name)) {
+      let archiveEntries: ZipSubtitleEntry[] = [];
       try {
-        zipEntries = await extractSubtitleEntriesFromZip(file);
+        archiveEntries = await extractSubtitleEntriesFromArchiveFile(file);
       } catch (error) {
         const errText = error instanceof Error ? error.message : String(error);
-        zipErrors.push(`${file.name} (${errText})`);
+        archiveErrors.push(`${file.name} (${errText})`);
         continue;
       }
 
-      if (zipEntries.length === 0) {
-        zipErrors.push(`${file.name} (no subtitle files in ZIP)`);
+      if (archiveEntries.length === 0) {
+        archiveErrors.push(`${file.name} (no subtitle files in archive)`);
         continue;
       }
 
-      for (const entry of zipEntries) {
+      for (const entry of archiveEntries) {
         entries.push({
           id: `batch-${index}-${entry.id}`,
           path: `${file.name}/${entry.path}`,
@@ -484,7 +484,7 @@ async function collectBatchEntriesFromFiles(files: File[]) {
   }
 
   entries.sort((a, b) => a.path.localeCompare(b.path));
-  return { entries, unsupported, zipErrors };
+  return { entries, unsupported, archiveErrors };
 }
 
 export function SubtitleManagerApp() {
@@ -720,7 +720,7 @@ export function SubtitleManagerApp() {
                       </Button>
                     )}
                     <Button type="button" onClick={openMovieUploadPicker} disabled={!selectedMovie}>
-                      Upload Subtitle / ZIP
+                      Upload Subtitle / Archive
                     </Button>
                     <Button type="button" variant="outline" onClick={openMovieManager} disabled={!selectedMovie}>
                       Open Subtitle Manager
@@ -1240,8 +1240,8 @@ function TvSeasonBatchUploadDialog({
   const [batchResult, setBatchResult] = useState<BatchSubtitleUploadResult | null>(null);
 
   const batchPreferenceEntries = useMemo(() => {
-    const zipEntries = batchRawEntries.filter((entry) => entry.path.toLowerCase().includes(".zip/"));
-    return zipEntries.length > 0 ? zipEntries : batchRawEntries;
+    const archiveEntries = batchRawEntries.filter((entry) => /\.(zip|7z|rar)\//i.test(entry.path));
+    return archiveEntries.length > 0 ? archiveEntries : batchRawEntries;
   }, [batchRawEntries]);
 
   const batchLanguageOptions = useMemo(() => getLanguageTypesFromEntries(batchPreferenceEntries), [batchPreferenceEntries]);
@@ -1364,11 +1364,11 @@ function TvSeasonBatchUploadDialog({
         return;
       }
 
-      const { entries, unsupported, zipErrors } = await collectBatchEntriesFromFiles(files);
+      const { entries, unsupported, archiveErrors } = await collectBatchEntriesFromFiles(files);
       if (entries.length === 0) {
         const reasons: string[] = [];
-        if (zipErrors.length > 0) {
-          reasons.push(`ZIP errors: ${summarizeFileNames(zipErrors)}`);
+        if (archiveErrors.length > 0) {
+          reasons.push(`Archive errors: ${summarizeFileNames(archiveErrors)}`);
         }
         if (unsupported.length > 0) {
           reasons.push(`Unsupported files: ${summarizeFileNames(unsupported)}`);
@@ -1385,8 +1385,8 @@ function TvSeasonBatchUploadDialog({
       if (unsupported.length > 0) {
         notices.push(`Ignored unsupported files: ${summarizeFileNames(unsupported)}`);
       }
-      if (zipErrors.length > 0) {
-        notices.push(`Skipped ZIP files: ${summarizeFileNames(zipErrors)}`);
+      if (archiveErrors.length > 0) {
+        notices.push(`Skipped archive files: ${summarizeFileNames(archiveErrors)}`);
       }
       if (notices.length > 0) {
         setBatchError(notices.join(" | "));
@@ -1452,7 +1452,7 @@ function TvSeasonBatchUploadDialog({
         <input
           ref={batchInputRef}
           type="file"
-          accept=".zip,.srt,.ass,.ssa,.vtt,.sub"
+          accept=".zip,.7z,.rar,.srt,.ass,.ssa,.vtt,.sub"
           multiple
           className="hidden"
           onChange={(event) => {
@@ -1468,13 +1468,13 @@ function TvSeasonBatchUploadDialog({
               disabled={busy || batchPreparing}
               onClick={() => batchInputRef.current?.click()}
             >
-              Select Files / ZIP
+              Select Files / Archive
             </Button>
             <span className="text-xs text-muted-foreground">
-              Supports multiple ZIP files or subtitle files (.srt/.ass/.ssa/.vtt/.sub). Match rules use SxxEyy / x / Season Episode patterns.
+              Supports multiple archive files (.zip/.7z/.rar) or subtitle files (.srt/.ass/.ssa/.vtt/.sub). Match rules use SxxEyy / x / Season Episode patterns.
             </span>
             <span className="text-xs text-muted-foreground">
-              For duplicate subtitles in the same episode, language and format preferences pick one entry automatically. Preference options only appear when parsed ZIP entries contain multiple types.
+              For duplicate subtitles in the same episode, language and format preferences pick one entry automatically. Preference options only appear when parsed archive entries contain multiple types.
             </span>
             {batchError && <p className="text-xs text-rose-600">{batchError}</p>}
           </div>
@@ -1596,7 +1596,7 @@ function TvSeasonBatchUploadDialog({
                   {batchRows.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
-                        Select subtitle files or ZIP archives to start mapping.
+                        Select subtitle files or archives to start mapping.
                       </TableCell>
                     </TableRow>
                   )}
@@ -1869,9 +1869,9 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     setZipPickError("");
 
     try {
-      const entries = await extractSubtitleEntriesFromZip(file);
+      const entries = await extractSubtitleEntriesFromArchiveFile(file);
       if (entries.length === 0) {
-        setZipPickError("No subtitle files found in the ZIP archive.");
+        setZipPickError("No subtitle files found in the archive.");
         return;
       }
       setZipPickMode(mode);
@@ -1884,7 +1884,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       setZipPickDialogOpen(true);
     } catch (error) {
       const errText = error instanceof Error ? error.message : String(error);
-      setZipPickError(`Parse ZIP failed: ${errText}`);
+      setZipPickError(`Parse archive failed: ${errText}`);
     } finally {
       setZipLoading(false);
     }
@@ -1894,12 +1894,12 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     const file = event.target.files?.[0] ?? null;
     event.target.value = "";
     if (!file) return;
-    if (isZipFileName(file.name)) {
+    if (isArchiveFileName(file.name)) {
       void openZipPicker(file, "upload", null);
       return;
     }
     if (!isSubtitleFileName(file.name)) {
-      setZipPickError("Unsupported file type. Please select subtitle files or ZIP.");
+      setZipPickError("Unsupported file type. Please select subtitle files or archive files (.zip/.7z/.rar).");
       return;
     }
     setPendingUploadFile(file);
@@ -1916,12 +1916,12 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     const file = event.target.files?.[0] ?? null;
     event.target.value = "";
     if (!file || !selectedVideo) return;
-    if (isZipFileName(file.name)) {
+    if (isArchiveFileName(file.name)) {
       await openZipPicker(file, "replace", subtitle);
       return;
     }
     if (!isSubtitleFileName(file.name)) {
-      setZipPickError("Unsupported file type. Please select subtitle files or ZIP.");
+      setZipPickError("Unsupported file type. Please select subtitle files or archive files (.zip/.7z/.rar).");
       return;
     }
     await onReplace(selectedVideo, subtitle, file);
@@ -1984,7 +1984,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
             <input
               ref={uploadInputRef}
               type="file"
-              accept=".srt,.ass,.ssa,.vtt,.sub,.zip"
+              accept=".srt,.ass,.ssa,.vtt,.sub,.zip,.7z,.rar"
               className="hidden"
               onChange={onUploadFileChange}
             />
@@ -1992,7 +1992,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
               <div className="flex flex-wrap items-center gap-2">
                 {showUploadButton && (
                   <Button type="button" onClick={openUploadPicker} disabled={busy || zipLoading}>
-                    Upload Subtitle / ZIP
+                    Upload Subtitle / Archive
                   </Button>
                 )}
                 {showSearchLinks && searchLinks && (
@@ -2011,7 +2011,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                     </Button>
                   </>
                 )}
-                {zipLoading && <span className="text-xs text-muted-foreground">Parsing ZIP...</span>}
+                {zipLoading && <span className="text-xs text-muted-foreground">Parsing archive...</span>}
                 {zipPickError && <span className="text-xs text-rose-600">{zipPickError}</span>}
               </div>
             )}
@@ -2043,7 +2043,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                                 replaceInputRef.current[subtitle.id] = node;
                               }}
                               type="file"
-                              accept=".srt,.ass,.ssa,.vtt,.sub,.zip"
+                              accept=".srt,.ass,.ssa,.vtt,.sub,.zip,.7z,.rar"
                               className="hidden"
                               onChange={(event) => {
                                 void onReplaceFilePicked(subtitle, event);
@@ -2158,9 +2158,9 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       >
         <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Select Subtitle From ZIP</DialogTitle>
+            <DialogTitle>Select Subtitle From Archive</DialogTitle>
             <DialogDescription>
-              ZIP: {zipPickFileName || "-"} | {zipPickEntries.length} subtitle files found.
+              Archive: {zipPickFileName || "-"} | {zipPickEntries.length} subtitle files found.
             </DialogDescription>
           </DialogHeader>
 
@@ -2177,7 +2177,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
           )}
 
           <div className="space-y-2">
-            <p className="text-sm font-semibold">ZIP Subtitle Files</p>
+            <p className="text-sm font-semibold">Archive Subtitle Files</p>
             <div className="max-h-[55vh] overflow-auto rounded-md border">
                 <Table>
                   <TableHeader>
