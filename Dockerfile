@@ -4,6 +4,7 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /workspace/frontend
 
 COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/scripts/ ./scripts/
 RUN npm ci
 
 COPY frontend/ ./
