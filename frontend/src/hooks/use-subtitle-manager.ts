@@ -425,7 +425,8 @@ export function useSubtitleManager() {
     movie: "",
     tv: ""
   });
-  const [allTvVideos, setAllTvVideos] = useState<Video[]>([]);
+  const [tvEpisodes, setTvEpisodes] = useState<Video[]>([]);
+  const [tvEpisodesPath, setTvEpisodesPath] = useState("");
   const [selectedTvDirPath, setSelectedTvDirPath] = useState("");
   const [selectedTvSeason, setSelectedTvSeason] = useState("all");
   const [tvSeriesRows, setTvSeriesRows] = useState<TvSeriesSummary[]>([]);
@@ -448,6 +449,12 @@ export function useSubtitleManager() {
   const [scanStatus, setScanStatus] = useState<ScanStatus | null>(null);
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [directoryScan, setDirectoryScan] = useState<DirectoryScanResult>(EMPTY_DIRECTORY_SCAN);
+  const [loadedTabs, setLoadedTabs] = useState<Record<ActiveTab, boolean>>({
+    dashboard: false,
+    movie: false,
+    tv: false,
+    logs: false
+  });
 
   const pendingLoadsRef = useRef(0);
   const skipMovieQueryRef = useRef(true);
@@ -484,29 +491,19 @@ export function useSubtitleManager() {
     return out;
   }, [isTvExpanded, tvTreeRoot]);
 
-  const tvSeriesAll = useMemo(() => {
-    return buildTvSeriesSummaries(allTvVideos, tvRootPath || directoryScan.tvRoot);
-  }, [allTvVideos, tvRootPath, directoryScan.tvRoot]);
-
   const selectedTvSeries = useMemo(() => {
     const selectedNorm = normalizeForCompare(selectedTvDirPath);
-    const inPage = tvSeriesRows.find((item) => normalizeForCompare(item.path) === selectedNorm);
-    if (inPage) {
-      return inPage;
-    }
-    return tvSeriesAll.find((item) => normalizeForCompare(item.path) === selectedNorm) ?? null;
-  }, [selectedTvDirPath, tvSeriesRows, tvSeriesAll]);
+    return tvSeriesRows.find((item) => normalizeForCompare(item.path) === selectedNorm) ?? null;
+  }, [selectedTvDirPath, tvSeriesRows]);
 
-  const seriesKey = selectedTvSeries?.key || "";
   const selectedTvSeriesVideos = useMemo(() => {
-    if (!seriesKey) {
+    const selectedNorm = normalizeForCompare(selectedTvSeries?.path || selectedTvDirPath);
+    const loadedNorm = normalizeForCompare(tvEpisodesPath);
+    if (!selectedNorm || selectedNorm !== loadedNorm) {
       return [] as Video[];
     }
 
-    const items = allTvVideos.filter((video) => {
-      return resolveTvSeriesFromVideo(video, tvRootPath || directoryScan.tvRoot).key === seriesKey;
-    });
-
+    const items = [...tvEpisodes];
     items.sort((a, b) => {
       const aa = parseTvSeasonEpisode(a);
       const bb = parseTvSeasonEpisode(b);
@@ -517,7 +514,7 @@ export function useSubtitleManager() {
       return (a.title ?? "").localeCompare(b.title ?? "");
     });
     return items;
-  }, [allTvVideos, directoryScan.tvRoot, seriesKey, tvRootPath]);
+  }, [selectedTvDirPath, selectedTvSeries?.path, tvEpisodes, tvEpisodesPath]);
 
   const tvSeasonOptions = useMemo(() => {
     const seasons = new Set<number>();
@@ -707,8 +704,10 @@ export function useSubtitleManager() {
         total: paged.total,
         totalPages: paged.totalPages
       });
+      return paged.items;
     } catch (error) {
       reportRequestError("Load TV series failed", error);
+      return [];
     } finally {
       endLoading();
     }
@@ -744,12 +743,19 @@ export function useSubtitleManager() {
     return listAllTvVideos(directoryPath);
   }
 
-  async function loadAllTvVideos(rootPathHint = "") {
+  async function loadTvEpisodesForSeries(seriesPath: string) {
+    const dir = seriesPath.trim();
+    if (!dir) {
+      setTvEpisodes([]);
+      setTvEpisodesPath("");
+      return [] as Video[];
+    }
+
     beginLoading();
     try {
-      const rootPath = (rootPathHint || tvRootPath || directoryScan.tvRoot || "").trim();
-      const videos = rootPath ? await listAllTvVideosInDirectory(rootPath) : await listAllTvVideos();
-      setAllTvVideos(videos);
+      const videos = await listAllTvVideosInDirectory(dir);
+      setTvEpisodes(videos);
+      setTvEpisodesPath(dir);
       setVideosByType((prev) => ({ ...prev, tv: videos }));
       setPaginationByType((prev) => ({
         ...prev,
@@ -760,10 +766,13 @@ export function useSubtitleManager() {
           totalPages: videos.length > 0 ? 1 : 0
         }
       }));
-
+      setSelectedVideoIdByType((prev) => ({
+        ...prev,
+        tv: videos.length > 0 ? videos[0].id : ""
+      }));
       return videos;
     } catch (error) {
-      reportRequestError("Load TV videos failed", error);
+      reportRequestError("Load TV episodes failed", error);
       return [] as Video[];
     } finally {
       endLoading();
@@ -811,25 +820,44 @@ export function useSubtitleManager() {
 
     if (tab === "dashboard") {
       await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadLogs()]);
+      setLoadedTabs((prev) => ({ ...prev, dashboard: true }));
       return;
     }
 
     if (tab === "logs") {
       await loadLogs();
+      setLoadedTabs((prev) => ({ ...prev, logs: true }));
       return;
     }
 
     if (tab === "tv") {
-      const defaultDir = await loadDirectoryScanResult();
-      const rootDir = defaultDir || tvRootPath || directoryScan.tvRoot;
-      await Promise.all([
-        loadTvSeriesPage({ page: tvSeriesPager.page || 1 }),
-        loadAllTvVideos(rootDir)
-      ]);
+      if (!loadedTabs.tv) {
+        const defaultDir = directoryScan.generatedAt ? selectedTvDirPath : await loadDirectoryScanResult();
+        const seriesRows = await loadTvSeriesPage({ page: tvSeriesPager.page || 1 });
+        const targetDir =
+          selectedTvDirPath ||
+          defaultDir ||
+          seriesRows.find((item) => item.path)?.path ||
+          directoryScan.tvRoot;
+        if (targetDir) {
+          setSelectedTvDirPath(targetDir);
+          await loadTvEpisodesForSeries(targetDir);
+        } else {
+          setTvEpisodes([]);
+          setTvEpisodesPath("");
+        }
+        setLoadedTabs((prev) => ({ ...prev, tv: true }));
+      } else if (!selectedTvSeriesVideos.length) {
+        const targetDir = selectedTvDirPath || selectedTvSeries?.path || tvEpisodesPath || tvRootPath || directoryScan.tvRoot || "";
+        if (targetDir) {
+          await loadTvEpisodesForSeries(targetDir);
+        }
+      }
       return;
     }
 
     await loadVideosByType("movie", { page: moviePager.page || 1 });
+    setLoadedTabs((prev) => ({ ...prev, movie: true }));
   }
 
   async function triggerScan() {
@@ -862,10 +890,11 @@ export function useSubtitleManager() {
 
       setScanStatus(normalizeScanStatus(statusPayload));
 
+      const targetDir = defaultDir || tvRootPath || discovered.tvRoot || "";
       await Promise.all([
         loadVideosByType("movie", { page: 1 }),
         loadTvSeriesPage({ page: 1 }),
-        loadAllTvVideos(defaultDir || tvRootPath || discovered.tvRoot),
+        targetDir ? loadTvEpisodesForSeries(targetDir) : Promise.resolve([]),
         loadLogs()
       ]);
 
@@ -893,9 +922,10 @@ export function useSubtitleManager() {
     }
 
     if (activeTab === "tv") {
+      const targetDir = selectedTvSeries?.path || selectedTvDirPath || tvRootPath || directoryScan.tvRoot || "";
       await Promise.all([
         loadTvSeriesPage({ page: tvSeriesPager.page || 1 }),
-        loadAllTvVideos(tvRootPath || directoryScan.tvRoot)
+        targetDir ? loadTvEpisodesForSeries(targetDir) : Promise.resolve([])
       ]);
       setMessage("TV data refreshed.");
       return;
@@ -920,7 +950,7 @@ export function useSubtitleManager() {
 
     await Promise.all([
       loadTvSeriesPage({ page: tvSeriesPager.page || 1 }),
-      loadAllTvVideos(selectedPath)
+      selectedPath ? loadTvEpisodesForSeries(selectedPath) : Promise.resolve([])
     ]);
   }
 
@@ -956,6 +986,7 @@ export function useSubtitleManager() {
     setSelectedTvDirPath(path);
     setSelectedTvSeason("all");
     expandPathAncestors(path);
+    void loadTvEpisodesForSeries(path);
   }
 
   function toggleTvNode(node: VisibleTreeNode) {
@@ -971,9 +1002,11 @@ export function useSubtitleManager() {
     try {
       await request(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
       if (video.mediaType === "tv") {
+        const targetDir =
+          selectedTvSeries?.path || selectedTvDirPath || video.directory || tvEpisodesPath || tvRootPath || directoryScan.tvRoot;
         await Promise.all([
           loadTvSeriesPage({ page: tvSeriesPager.page || 1 }),
-          loadAllTvVideos(tvRootPath || directoryScan.tvRoot),
+          targetDir ? loadTvEpisodesForSeries(targetDir) : Promise.resolve([]),
           loadLogs()
         ]);
       } else {
@@ -993,9 +1026,11 @@ export function useSubtitleManager() {
     try {
       await request(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
       if (video.mediaType === "tv") {
+        const targetDir =
+          selectedTvSeries?.path || selectedTvDirPath || video.directory || tvEpisodesPath || tvRootPath || directoryScan.tvRoot;
         await Promise.all([
           loadTvSeriesPage({ page: tvSeriesPager.page || 1 }),
-          loadAllTvVideos(tvRootPath || directoryScan.tvRoot),
+          targetDir ? loadTvEpisodesForSeries(targetDir) : Promise.resolve([]),
           loadLogs()
         ]);
       } else {
@@ -1011,9 +1046,11 @@ export function useSubtitleManager() {
     try {
       await request(`/api/videos/${video.id}/subtitles/${subtitle.id}`, { method: "DELETE" });
       if (video.mediaType === "tv") {
+        const targetDir =
+          selectedTvSeries?.path || selectedTvDirPath || video.directory || tvEpisodesPath || tvRootPath || directoryScan.tvRoot;
         await Promise.all([
           loadTvSeriesPage({ page: tvSeriesPager.page || 1 }),
-          loadAllTvVideos(tvRootPath || directoryScan.tvRoot),
+          targetDir ? loadTvEpisodesForSeries(targetDir) : Promise.resolve([]),
           loadLogs()
         ]);
       } else {
@@ -1026,39 +1063,17 @@ export function useSubtitleManager() {
   }
 
   async function loadTvBatchCandidates() {
-    if (selectedTvSeriesVideos.length > 0) {
-      return selectedTvSeriesVideos;
+    const targetDir = (selectedTvSeries?.path || selectedTvDirPath || tvEpisodesPath || tvRootPath || directoryScan.tvRoot || "").trim();
+    if (!targetDir) {
+      setMessage("TV season batch upload requires a selected directory.");
+      return [] as Video[];
     }
 
-    beginLoading();
-    try {
-      const dirs = [selectedTvSeries?.path, selectedTvDirPath, tvRootPath, directoryScan.tvRoot]
-        .map((item) => String(item || "").trim())
-        .filter((item) => item !== "");
-      const uniqueDirs = Array.from(new Set(dirs.map((item) => normalizeForCompare(item)))).map((norm) =>
-        dirs.find((item) => normalizeForCompare(item) === norm) ?? norm
-      );
-
-      if (uniqueDirs.length === 0) {
-        setMessage("TV season batch upload requires a selected directory.");
-        return [] as Video[];
-      }
-
-      for (const dir of uniqueDirs) {
-        const videos = await listAllTvVideosInDirectory(dir);
-        if (videos.length > 0) {
-          return videos;
-        }
-      }
-
-      setMessage("No TV videos found in the selected series/directory.");
-      return [] as Video[];
-    } catch (error) {
-      reportRequestError("Load TV batch candidates failed", error);
-      return [] as Video[];
-    } finally {
-      endLoading();
+    const loadedNorm = normalizeForCompare(tvEpisodesPath);
+    if (normalizeForCompare(targetDir) !== loadedNorm || tvEpisodes.length === 0) {
+      return loadTvEpisodesForSeries(targetDir);
     }
+    return selectedTvSeriesVideos;
   }
 
   async function uploadBatchSubtitles(items: BatchSubtitleUploadItem[]): Promise<BatchSubtitleUploadResult> {
@@ -1089,7 +1104,11 @@ export function useSubtitleManager() {
       try {
         await Promise.all([
           loadTvSeriesPage({ page: tvSeriesPager.page || 1 }),
-          loadAllTvVideos(tvRootPath || directoryScan.tvRoot),
+          (selectedTvSeries?.path || selectedTvDirPath || tvEpisodesPath || tvRootPath || directoryScan.tvRoot)
+            ? loadTvEpisodesForSeries(
+                (selectedTvSeries?.path || selectedTvDirPath || tvEpisodesPath || tvRootPath || directoryScan.tvRoot) as string
+              )
+            : Promise.resolve([]),
           loadLogs()
         ]);
       } catch (error) {
@@ -1123,8 +1142,7 @@ export function useSubtitleManager() {
   useEffect(() => {
     const selectedNorm = normalizeForCompare(selectedTvDirPath);
     const existsInCurrentPage = tvSeriesRows.some((item) => normalizeForCompare(item.path) === selectedNorm);
-    const existsInAllVideos = tvSeriesAll.some((item) => normalizeForCompare(item.path) === selectedNorm);
-    if (selectedNorm && (existsInCurrentPage || existsInAllVideos)) {
+    if (selectedNorm && existsInCurrentPage) {
       return;
     }
 
@@ -1132,18 +1150,23 @@ export function useSubtitleManager() {
       setSelectedTvDirPath(tvSeriesRows[0].path);
       return;
     }
-    if (tvSeriesAll.length > 0) {
-      setSelectedTvDirPath(tvSeriesAll[0].path);
-      return;
-    }
     if (selectedTvDirPath !== "") {
       setSelectedTvDirPath("");
     }
-  }, [selectedTvDirPath, tvSeriesRows, tvSeriesAll]);
+  }, [selectedTvDirPath, tvSeriesRows]);
 
   useEffect(() => {
     setSelectedTvSeason("all");
   }, [selectedTvDirPath]);
+
+  useEffect(() => {
+    const selectedNorm = normalizeForCompare(selectedTvDirPath);
+    const loadedNorm = normalizeForCompare(tvEpisodesPath);
+    if (!selectedNorm || selectedNorm === loadedNorm || activeTab !== "tv") {
+      return;
+    }
+    void loadTvEpisodesForSeries(selectedTvDirPath);
+  }, [activeTab, selectedTvDirPath, tvEpisodesPath]);
 
   useEffect(() => {
     if (selectedTvSeason === "all") return;
@@ -1224,13 +1247,8 @@ export function useSubtitleManager() {
 
   useEffect(() => {
     void (async () => {
-      await Promise.all([loadScanStatus(), loadLogs()]);
-      const defaultDir = await loadDirectoryScanResult();
-      await Promise.all([
-        loadVideosByType("movie", { page: 1 }),
-        loadTvSeriesPage({ page: 1 }),
-        loadAllTvVideos(defaultDir)
-      ]);
+      await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadLogs()]);
+      setLoadedTabs((prev) => ({ ...prev, dashboard: true }));
     })();
   }, []);
   /* eslint-enable react-hooks/exhaustive-deps */

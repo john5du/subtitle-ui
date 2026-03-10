@@ -565,6 +565,12 @@ export function SubtitleManagerApp() {
     return buildSubtitleSearchLinksByKeyword(selectedTvSeries.title);
   }, [selectedTvSeries?.title]);
 
+  const showTvScanPrompt = useMemo(() => {
+    const noSeries = tvSeriesRows.length === 0;
+    const noScan = !(scanStatus?.lastFinishedAt) && !directoryScan.generatedAt;
+    return noSeries && noScan;
+  }, [directoryScan.generatedAt, scanStatus?.lastFinishedAt, tvSeriesRows.length]);
+
   function handleMovieSelect(video: Video) {
     selectMovieVideo(video);
   }
@@ -786,6 +792,9 @@ export function SubtitleManagerApp() {
                     onSelectSeries={selectTvDirectory}
                     onSetPage={setTvPage}
                     onToggleYearSort={toggleTvSeriesYearSort}
+                    showScanPrompt={showTvScanPrompt}
+                    onTriggerScan={triggerScan}
+                    loading={loading}
                     formatTime={formatTime}
                   />
                 </div>
@@ -1102,6 +1111,9 @@ interface TvSeriesListPanelProps {
   onSelectSeries: (path: string) => void;
   onSetPage: (page: number) => void;
   onToggleYearSort: () => void;
+  showScanPrompt: boolean;
+  onTriggerScan: () => void;
+  loading: boolean;
   formatTime: (value: string | undefined | null) => string;
 }
 
@@ -1115,6 +1127,9 @@ function TvSeriesListPanel({
   onSelectSeries,
   onSetPage,
   onToggleYearSort,
+  showScanPrompt,
+  onTriggerScan,
+  loading,
   formatTime
 }: TvSeriesListPanelProps) {
   return (
@@ -1170,7 +1185,19 @@ function TvSeriesListPanel({
               {rows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                    No TV series found.
+                    {showScanPrompt ? (
+                      <div className="flex flex-col items-center gap-3 text-center">
+                        <p className="max-w-[320px] text-sm text-muted-foreground">
+                          TV library has not been scanned yet. Run a scan to discover series and episodes.
+                        </p>
+                        <Button type="button" variant="outline" className="gap-2" onClick={() => void onTriggerScan()} disabled={loading}>
+                          <Search className="h-4 w-4" />
+                          Scan Media Library
+                        </Button>
+                      </div>
+                    ) : (
+                      "No TV series found."
+                    )}
                   </TableCell>
                 </TableRow>
               )}
