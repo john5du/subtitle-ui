@@ -4,6 +4,31 @@ A Go + Next.js web application for managing subtitle files. Video metadata is lo
 
 中文文档：[`README.zh-CN.md`](./README.zh-CN.md)
 
+## Release process
+
+1. Verify code and build before release:
+
+```bash
+go test ./...
+cd frontend
+npm run build
+```
+
+2. Commit release changes on `main` (Conventional Commit style).
+3. Create and push the release tag:
+
+```bash
+git push origin main
+git tag v0.1.4
+git push origin v0.1.4
+```
+
+4. Tag push (`v*`) triggers `.github/workflows/docker-publish.yml`.
+5. Confirm release artifacts:
+- GitHub Actions workflow succeeded.
+- `ghcr.io/john5du/subtitle-ui` has tags: `v0.1.4`, `0.1.4`, `latest`, `sha-<short>`.
+- Version file sync commit is pushed back to the default branch.
+
 ## Implemented in this release
 
 - Go backend skeleton with scan and subtitle file APIs
@@ -156,7 +181,7 @@ docker compose up -d
   - semantic version tag (`0.1.0`)
   - moving tag (`latest`)
   - commit SHA tag (`sha-<short>`)
-- The publish workflow syncs version files from the pushed tag before image build, so frontend and backend versions in the container always match.
+- The publish workflow syncs version files from the pushed tag before image build, and commits those file changes back to the default branch.
 
 ## Configuration
 
@@ -169,6 +194,6 @@ docker compose up -d
 
 ## Notes
 
-- Only common subtitle formats are accepted: `.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`.
+- Upload entry points accept subtitle files and archives (`.zip`, `.7z`, `.rar`); only subtitle files (`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`) inside archives are processed.
 - Scanner currently reads `videoName.nfo` and `movie.nfo`.
 - This project is not production hardened.

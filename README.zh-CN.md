@@ -4,6 +4,31 @@
 
 English version: [`README.md`](./README.md)
 
+## 发版流程
+
+1. 发版前先验证代码与构建：
+
+```bash
+go test ./...
+cd frontend
+npm run build
+```
+
+2. 在 `main` 提交发版改动（遵循 Conventional Commit）。
+3. 创建并推送版本标签：
+
+```bash
+git push origin main
+git tag v0.1.4
+git push origin v0.1.4
+```
+
+4. 推送 `v*` 标签后，会触发 `.github/workflows/docker-publish.yml`。
+5. 发版结果核对：
+- GitHub Actions 工作流执行成功。
+- `ghcr.io/john5du/subtitle-ui` 生成标签：`v0.1.4`、`0.1.4`、`latest`、`sha-<short>`。
+- 版本文件同步提交已回推到默认分支。
+
 ## 本版本实现的功能
 
 - Go 后端骨架，提供扫描与字幕文件 API
@@ -156,7 +181,7 @@ docker compose up -d
   - 纯语义版本标签（`0.1.0`）
   - 滚动标签（`latest`）
   - 提交 SHA 标签（`sha-<short>`）
-- 发布流程会在镜像构建前同步该标签对应的版本文件，确保容器内前后端版本一致。
+- 发布流程会在镜像构建前同步该标签对应的版本文件，并将版本文件改动提交回默认分支，确保仓库与容器内版本一致。
 
 ## 配置项
 
@@ -169,6 +194,6 @@ docker compose up -d
 
 ## 注意事项
 
-- 仅支持常见字幕格式：`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`。
+- 上传入口支持字幕文件与归档文件（`.zip`、`.7z`、`.rar`）；归档内仅处理字幕格式：`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`。
 - 扫描器当前读取 `videoName.nfo` 和 `movie.nfo`。
 - 本项目尚未达到生产级硬化。
