@@ -905,6 +905,25 @@ export function useSubtitleManager() {
     setMessage("Movie data refreshed.");
   }
 
+  async function loadMovieWorkspaceOnDemand() {
+    await loadVideosByType("movie", { page: moviePager.page || 1 });
+  }
+
+  async function loadTvWorkspaceOnDemand() {
+    const selectedPath = (
+      selectedTvSeries?.path ||
+      selectedTvDirPath ||
+      tvRootPath ||
+      directoryScan.tvRoot ||
+      ""
+    ).trim();
+
+    await Promise.all([
+      loadTvSeriesPage({ page: tvSeriesPager.page || 1 }),
+      loadAllTvVideos(selectedPath)
+    ]);
+  }
+
   function setMoviePage(nextPage: number) {
     const totalPages = Math.max(1, moviePager.totalPages || 1);
     if (nextPage < 1 || nextPage > totalPages) return;
@@ -1242,6 +1261,8 @@ export function useSubtitleManager() {
     switchTab,
     triggerScan,
     refreshActiveTab,
+    loadMovieWorkspaceOnDemand,
+    loadTvWorkspaceOnDemand,
     selectMovieVideo,
     selectTvVideo,
     selectTvDirectory,

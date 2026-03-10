@@ -512,6 +512,8 @@ export function SubtitleManagerApp() {
     switchTab,
     triggerScan,
     refreshActiveTab,
+    loadMovieWorkspaceOnDemand,
+    loadTvWorkspaceOnDemand,
     selectMovieVideo,
     selectTvVideo,
     selectTvDirectory,
@@ -575,6 +577,13 @@ export function SubtitleManagerApp() {
     if (!selectedMovie) return;
     setPendingMovieUploadPick(true);
     setMovieManagerOpen(true);
+    void loadMovieWorkspaceOnDemand();
+  }
+
+  function openMovieManager() {
+    if (!selectedMovie) return;
+    setMovieManagerOpen(true);
+    void loadMovieWorkspaceOnDemand();
   }
 
   function openTvManager() {
@@ -582,6 +591,13 @@ export function SubtitleManagerApp() {
       selectTvVideo(sortedTvVideos[0]);
     }
     setTvManagerOpen(true);
+    void loadTvWorkspaceOnDemand();
+  }
+
+  function openTvBatchDialog() {
+    if (!selectedTvSeries) return;
+    setTvBatchOpen(true);
+    void loadTvWorkspaceOnDemand();
   }
 
   useEffect(() => {
@@ -700,7 +716,7 @@ export function SubtitleManagerApp() {
                     <Button type="button" onClick={openMovieUploadPicker} disabled={!selectedMovie}>
                       Upload Subtitle / ZIP
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => setMovieManagerOpen(true)} disabled={!selectedMovie}>
+                    <Button type="button" variant="outline" onClick={openMovieManager} disabled={!selectedMovie}>
                       Open Subtitle Manager
                     </Button>
                   </div>
@@ -749,7 +765,7 @@ export function SubtitleManagerApp() {
                           </a>
                         </Button>
                       )}
-                      <Button type="button" onClick={() => setTvBatchOpen(true)} disabled={!selectedTvSeries}>
+                      <Button type="button" onClick={openTvBatchDialog} disabled={!selectedTvSeries}>
                         Season Batch Upload
                       </Button>
                       <Button type="button" variant="outline" onClick={openTvManager} disabled={!selectedTvSeries}>
@@ -785,7 +801,15 @@ export function SubtitleManagerApp() {
         </div>
       </div>
 
-      <Dialog open={movieManagerOpen} onOpenChange={setMovieManagerOpen}>
+      <Dialog
+        open={movieManagerOpen}
+        onOpenChange={(open) => {
+          setMovieManagerOpen(open);
+          if (open) {
+            void loadMovieWorkspaceOnDemand();
+          }
+        }}
+      >
         <DialogContent className="flex h-[90vh] max-h-[90vh] w-[min(1100px,96vw)] max-w-none overflow-hidden p-0">
           <SubtitleDetailsPanel
             ref={movieDetailsRef}
@@ -806,7 +830,15 @@ export function SubtitleManagerApp() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={tvManagerOpen} onOpenChange={setTvManagerOpen}>
+      <Dialog
+        open={tvManagerOpen}
+        onOpenChange={(open) => {
+          setTvManagerOpen(open);
+          if (open) {
+            void loadTvWorkspaceOnDemand();
+          }
+        }}
+      >
         <DialogContent className="flex h-[90vh] max-h-[90vh] w-[min(1280px,96vw)] max-w-none overflow-hidden p-0 [&>button]:right-3 [&>button]:top-3 [&>button]:z-50">
           <TvSubtitleManagementPanel
             selectedSeries={selectedTvSeries}
@@ -828,7 +860,12 @@ export function SubtitleManagerApp() {
 
       <TvSeasonBatchUploadDialog
         open={tvBatchOpen}
-        onOpenChange={setTvBatchOpen}
+        onOpenChange={(open) => {
+          setTvBatchOpen(open);
+          if (open) {
+            void loadTvWorkspaceOnDemand();
+          }
+        }}
         busy={loading}
         onLoadBatchCandidates={loadTvBatchCandidates}
         onUploadBatch={uploadBatchSubtitles}
@@ -1396,168 +1433,170 @@ function TvSeasonBatchUploadDialog({
           }}
         />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || batchPreparing}
-            onClick={() => batchInputRef.current?.click()}
-          >
-            Select Files / ZIP
-          </Button>
-          <span className="text-xs text-muted-foreground">
-            Supports multiple ZIP files or subtitle files (.srt/.ass/.ssa/.vtt/.sub). Match rules use SxxEyy / x / Season Episode patterns.
-          </span>
-          <span className="text-xs text-muted-foreground">
-            For duplicate subtitles in the same episode, language and format preferences pick one entry automatically. Preference options only appear when parsed ZIP entries contain multiple types.
-          </span>
-          {batchError && <p className="text-xs text-rose-600">{batchError}</p>}
-        </div>
-
-        {(showBatchLanguageSelector || showBatchFormatSelector || batchPreferenceSummary) && (
+        <div className="min-h-0 flex-1 space-y-4 overflow-auto pr-1">
           <div className="flex flex-wrap items-center gap-2">
-            {showBatchLanguageSelector && (
-              <>
-                <span className="text-xs font-medium text-muted-foreground">Language Type</span>
-                <Select
-                  value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
-                  onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
-                >
-                  <SelectTrigger className="h-9 w-[220px]">
-                    <SelectValue placeholder="Language Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {batchLanguageOptions.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {formatLanguageTypeLabel(item)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </>
-            )}
-
-            {showBatchFormatSelector && (
-              <>
-                <span className="text-xs font-medium text-muted-foreground">Format</span>
-                <Select
-                  value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
-                  onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
-                >
-                  <SelectTrigger className="h-9 w-[150px]">
-                    <SelectValue placeholder="Format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {batchFormatOptions.map((ext) => (
-                      <SelectItem key={ext} value={ext}>
-                        {formatSubtitleExtLabel(ext)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </>
-            )}
-
-            {batchPreferenceSummary && <span className="text-xs text-muted-foreground">{batchPreferenceSummary}</span>}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || batchPreparing}
+              onClick={() => batchInputRef.current?.click()}
+            >
+              Select Files / ZIP
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Supports multiple ZIP files or subtitle files (.srt/.ass/.ssa/.vtt/.sub). Match rules use SxxEyy / x / Season Episode patterns.
+            </span>
+            <span className="text-xs text-muted-foreground">
+              For duplicate subtitles in the same episode, language and format preferences pick one entry automatically. Preference options only appear when parsed ZIP entries contain multiple types.
+            </span>
+            {batchError && <p className="text-xs text-rose-600">{batchError}</p>}
           </div>
-        )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Label</span>
-          <Input
-            className="w-[140px]"
-            value={batchLabel}
-            maxLength={32}
-            placeholder="zh"
-            onChange={(event) => setBatchLabel(event.target.value)}
-          />
-          <span className="text-xs text-muted-foreground">
-            Saved as media-name[.label].ext. Leave empty for default naming.
-          </span>
-        </div>
+          {(showBatchLanguageSelector || showBatchFormatSelector || batchPreferenceSummary) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {showBatchLanguageSelector && (
+                <>
+                  <span className="text-xs font-medium text-muted-foreground">Language Type</span>
+                  <Select
+                    value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
+                    onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
+                  >
+                    <SelectTrigger className="h-9 w-[220px]">
+                      <SelectValue placeholder="Language Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {batchLanguageOptions.map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {formatLanguageTypeLabel(item)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
 
-        <div className="space-y-2">
-          <p className="text-sm font-semibold">Batch Subtitle Mapping</p>
-          <div className="max-h-[52vh] overflow-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Subtitle File</TableHead>
-                  <TableHead className="w-[120px]">Parsed</TableHead>
-                  <TableHead>Target Episode</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {batchRows.map((row) => {
-                  const candidates = candidateVideosForBatchRow(row, batchCandidates);
-                  const selectValue = row.selectedVideoId || "__UNASSIGNED__";
-                  return (
-                    <TableRow key={row.id}>
-                      <TableCell className="break-all text-xs">{row.entry.path}</TableCell>
-                      <TableCell className="text-xs">{formatSeasonEpisodeText(row.season, row.episode)}</TableCell>
-                      <TableCell>
-                        <Select
-                          value={selectValue}
-                          onValueChange={(value) => {
-                            setBatchRows((prev) =>
-                              prev.map((item) =>
-                                item.id === row.id
-                                  ? {
-                                      ...item,
-                                      selectedVideoId: value === "__UNASSIGNED__" ? "" : value
-                                    }
-                                  : item
-                              )
-                            );
-                          }}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Choose episode" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-72">
-                            <SelectItem value="__UNASSIGNED__">Skip</SelectItem>
-                            {candidates.map((video) => (
-                              <SelectItem key={`${row.id}-${video.id}`} value={video.id}>
-                                {video.fileName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+              {showBatchFormatSelector && (
+                <>
+                  <span className="text-xs font-medium text-muted-foreground">Format</span>
+                  <Select
+                    value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
+                    onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
+                  >
+                    <SelectTrigger className="h-9 w-[150px]">
+                      <SelectValue placeholder="Format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {batchFormatOptions.map((ext) => (
+                        <SelectItem key={ext} value={ext}>
+                          {formatSubtitleExtLabel(ext)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
+
+              {batchPreferenceSummary && <span className="text-xs text-muted-foreground">{batchPreferenceSummary}</span>}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Label</span>
+            <Input
+              className="w-[140px]"
+              value={batchLabel}
+              maxLength={32}
+              placeholder="zh"
+              onChange={(event) => setBatchLabel(event.target.value)}
+            />
+            <span className="text-xs text-muted-foreground">
+              Saved as media-name[.label].ext. Leave empty for default naming.
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">Batch Subtitle Mapping</p>
+            <div className="max-h-[52vh] overflow-auto rounded-md border">
+              <Table className="table-fixed">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50%]">Subtitle File</TableHead>
+                    <TableHead className="w-[120px]">Parsed</TableHead>
+                    <TableHead className="w-[360px]">Target Episode</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {batchRows.map((row) => {
+                    const candidates = candidateVideosForBatchRow(row, batchCandidates);
+                    const selectValue = row.selectedVideoId || "__UNASSIGNED__";
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell className="break-all text-xs">{row.entry.path}</TableCell>
+                        <TableCell className="text-xs">{formatSeasonEpisodeText(row.season, row.episode)}</TableCell>
+                        <TableCell className="align-top">
+                          <Select
+                            value={selectValue}
+                            onValueChange={(value) => {
+                              setBatchRows((prev) =>
+                                prev.map((item) =>
+                                  item.id === row.id
+                                    ? {
+                                        ...item,
+                                        selectedVideoId: value === "__UNASSIGNED__" ? "" : value
+                                      }
+                                    : item
+                                )
+                              );
+                            }}
+                          >
+                            <SelectTrigger className="h-9 w-full">
+                              <SelectValue placeholder="Choose episode" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-72">
+                              <SelectItem value="__UNASSIGNED__">Skip</SelectItem>
+                              {candidates.map((video) => (
+                                <SelectItem key={`${row.id}-${video.id}`} value={video.id}>
+                                  {video.fileName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+
+                  {batchRows.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
+                        Select subtitle files or ZIP archives to start mapping.
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-
-                {batchRows.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
-                      Select subtitle files or ZIP archives to start mapping.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
+
+          {batchResult && (
+            <div className="rounded-md border bg-muted/30 p-3 text-xs">
+              <p>
+                Result: {batchResult.success}/{batchResult.total} succeeded, {batchResult.failed} failed.
+              </p>
+              {batchResult.errors.length > 0 && (
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  {batchResult.errors.slice(0, 8).map((item) => (
+                    <li key={item} className="break-all">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
-        {batchResult && (
-          <div className="rounded-md border bg-muted/30 p-3 text-xs">
-            <p>
-              Result: {batchResult.success}/{batchResult.total} succeeded, {batchResult.failed} failed.
-            </p>
-            {batchResult.errors.length > 0 && (
-              <ul className="mt-2 list-disc space-y-1 pl-5">
-                {batchResult.errors.slice(0, 8).map((item) => (
-                  <li key={item} className="break-all">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t pt-3">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
