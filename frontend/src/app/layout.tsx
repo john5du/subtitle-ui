@@ -6,7 +6,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Subtitle Manager",
-  description: "Subtitle manager dashboard built with Next.js and shadcn/ui"
+  description: "Subtitle manager dashboard built with Next.js and shadcn/ui",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg"
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

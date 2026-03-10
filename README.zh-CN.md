@@ -1,4 +1,7 @@
-﻿# subtitle-ui
+﻿<p align="center">
+  <img src="./frontend/public/icon.svg" alt="Subtitle UI icon" width="112" height="112" />
+</p>
+# subtitle-ui
 
 基于 Go + Next.js 开发的字幕文件管理 Web 应用。视频元数据从媒体库中 Jellyfin 刮取的侧车文件（NFO）读取。
 
@@ -197,3 +200,4 @@ docker compose up -d
 - 上传入口支持字幕文件与归档文件（`.zip`、`.7z`、`.rar`）；归档内仅处理字幕格式：`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`。
 - 扫描器当前读取 `videoName.nfo` 和 `movie.nfo`。
 - 本项目尚未达到生产级硬化。
+

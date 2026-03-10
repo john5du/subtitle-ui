@@ -1,4 +1,7 @@
-﻿# subtitle-ui
+﻿<p align="center">
+  <img src="./frontend/public/icon.svg" alt="Subtitle UI icon" width="112" height="112" />
+</p>
+# subtitle-ui
 
 A Go + Next.js web application for managing subtitle files. Video metadata is loaded from Jellyfin-scraped sidecar files (NFO) in the media library.
 
@@ -197,3 +200,4 @@ docker compose up -d
 - Upload entry points accept subtitle files and archives (`.zip`, `.7z`, `.rar`); only subtitle files (`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`) inside archives are processed.
 - Scanner currently reads `videoName.nfo` and `movie.nfo`.
 - This project is not production hardened.
+

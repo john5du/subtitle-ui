@@ -15,6 +15,7 @@ import {
   Trash2,
   Tv
 } from "lucide-react";
+import Image from "next/image";
 import { useTheme } from "next-themes";
 
 import { useSubtitleManager } from "@/hooks/use-subtitle-manager";
@@ -625,6 +626,14 @@ export function SubtitleManagerApp() {
         <Card className="border bg-card lg:h-full">
           <CardContent className="flex h-full flex-col gap-4 p-4">
             <div>
+              <Image
+                src="/icon.svg"
+                alt=""
+                aria-hidden
+                width={44}
+                height={44}
+                className="mb-2 h-11 w-11 rounded-xl border border-border/70 bg-background/40 p-1"
+              />
               <p className="text-base font-bold uppercase tracking-[0.2em] text-muted-foreground">Subtitle UI</p>
               <p className="mt-1 text-xs text-muted-foreground">Simple, efficient subtitle operations.</p>
             </div>
