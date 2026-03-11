@@ -35,6 +35,45 @@ function basenamePath(pathValue: string) {
   return segments.length > 0 ? segments[segments.length - 1] : cleaned;
 }
 
+async function collectSubtitleEntriesFromArchiveTree(
+  node: unknown,
+  currentPath: string,
+  entries: ZipSubtitleEntry[],
+  nextIndex: { value: number }
+): Promise<void> {
+  if (!node || typeof node !== "object") {
+    return;
+  }
+
+  if (node instanceof File) {
+    if (!isSubtitleFileName(currentPath)) {
+      return;
+    }
+
+    const fileName = basenamePath(currentPath);
+    if (!fileName) {
+      return;
+    }
+
+    const data = await node.arrayBuffer();
+    entries.push({
+      id: `${nextIndex.value}-${currentPath.toLowerCase()}`,
+      path: currentPath,
+      fileName,
+      size: data.byteLength,
+      data
+    });
+    nextIndex.value += 1;
+    return;
+  }
+
+  const record = node as Record<string, unknown>;
+  for (const [name, child] of Object.entries(record)) {
+    const childPath = normalizePath(currentPath ? `${currentPath}/${name}` : name);
+    await collectSubtitleEntriesFromArchiveTree(child, childPath, entries, nextIndex);
+  }
+}
+
 export function isSubtitleFileName(fileName: string) {
   const lower = fileName.toLowerCase();
   for (const ext of ALLOWED_SUBTITLE_EXTENSIONS) {
@@ -129,38 +168,9 @@ async function extractSubtitleEntriesFromArchive(file: File): Promise<ZipSubtitl
       throw new Error(ENCRYPTED_ARCHIVE_ERROR);
     }
 
+    const extractedTree = await archive.extractFiles();
     const entries: ZipSubtitleEntry[] = [];
-    const pending: Promise<void>[] = [];
-    let index = 0;
-
-    await archive.extractFiles((entry: { file?: File; path?: string }) => {
-      const rawPath = typeof entry.path === "string" ? entry.path : "";
-      const cleaned = normalizePath(rawPath);
-      if (!cleaned || !isSubtitleFileName(cleaned) || !(entry.file instanceof File)) {
-        return;
-      }
-
-      const fileName = basenamePath(cleaned);
-      if (!fileName) {
-        return;
-      }
-
-      const id = `${index}-${cleaned.toLowerCase()}`;
-      index += 1;
-      pending.push(
-        entry.file.arrayBuffer().then((data) => {
-          entries.push({
-            id,
-            path: cleaned,
-            fileName,
-            size: data.byteLength,
-            data
-          });
-        })
-      );
-    });
-
-    await Promise.all(pending);
+    await collectSubtitleEntriesFromArchiveTree(extractedTree, "", entries, { value: 0 });
     entries.sort((a, b) => a.path.localeCompare(b.path));
     return entries;
   } finally {
