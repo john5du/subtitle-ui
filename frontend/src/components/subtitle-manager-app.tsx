@@ -509,6 +509,8 @@ export function SubtitleManagerApp() {
     scanStatus,
     directoryScan,
     loading,
+    uploading,
+    uploadingMessage,
     message,
     switchTab,
     triggerScan,
@@ -532,6 +534,8 @@ export function SubtitleManagerApp() {
     setSelectedTvSeason,
     formatTime
   } = useSubtitleManager();
+
+  const operationLocked = loading || uploading;
 
   const [movieManagerOpen, setMovieManagerOpen] = useState(false);
   const [tvManagerOpen, setTvManagerOpen] = useState(false);
@@ -644,11 +648,12 @@ export function SubtitleManagerApp() {
                   key={item.key}
                   type="button"
                   className={cn(
-                    "flex items-center rounded-lg border px-3 py-2 text-left",
+                    "flex items-center rounded-lg border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
                     activeTab === item.key
                       ? "border-primary/70 bg-primary/10 text-foreground"
                       : "border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground"
                   )}
+                  disabled={uploading}
                   onClick={() => void switchTab(item.key)}
                 >
                   <span className="flex items-center gap-2 text-sm font-medium">
@@ -661,11 +666,17 @@ export function SubtitleManagerApp() {
 
             <div className="mt-auto space-y-2">
               <ThemeModeSelect />
-              <Button type="button" onClick={() => void triggerScan()} disabled={loading} className="h-9 w-full gap-2">
+              <Button type="button" onClick={() => void triggerScan()} disabled={operationLocked} className="h-9 w-full gap-2">
                 <Search className="h-4 w-4" />
                 Scan Media Library
               </Button>
-              <Button type="button" variant="outline" onClick={() => void refreshActiveTab()} disabled={loading} className="h-9 w-full gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void refreshActiveTab()}
+                disabled={operationLocked}
+                className="h-9 w-full gap-2"
+              >
                 <RefreshCw className="h-4 w-4" />
                 {refreshText}
               </Button>
@@ -728,10 +739,10 @@ export function SubtitleManagerApp() {
                         </a>
                       </Button>
                     )}
-                    <Button type="button" onClick={openMovieUploadPicker} disabled={!selectedMovie}>
+                    <Button type="button" onClick={openMovieUploadPicker} disabled={!selectedMovie || operationLocked}>
                       Upload Subtitle / Archive
                     </Button>
-                    <Button type="button" variant="outline" onClick={openMovieManager} disabled={!selectedMovie}>
+                    <Button type="button" variant="outline" onClick={openMovieManager} disabled={!selectedMovie || operationLocked}>
                       Open Subtitle Manager
                     </Button>
                   </div>
@@ -780,10 +791,10 @@ export function SubtitleManagerApp() {
                           </a>
                         </Button>
                       )}
-                      <Button type="button" onClick={openTvBatchDialog} disabled={!selectedTvSeries}>
+                      <Button type="button" onClick={openTvBatchDialog} disabled={!selectedTvSeries || operationLocked}>
                         Season Batch Upload
                       </Button>
-                      <Button type="button" variant="outline" onClick={openTvManager} disabled={!selectedTvSeries}>
+                      <Button type="button" variant="outline" onClick={openTvManager} disabled={!selectedTvSeries || operationLocked}>
                         Open Subtitle Manager
                       </Button>
                     </div>
@@ -803,7 +814,7 @@ export function SubtitleManagerApp() {
                     onToggleYearSort={toggleTvSeriesYearSort}
                     showScanPrompt={showTvScanPrompt}
                     onTriggerScan={triggerScan}
-                    loading={loading}
+                    loading={operationLocked}
                     formatTime={formatTime}
                   />
                 </div>
@@ -822,6 +833,9 @@ export function SubtitleManagerApp() {
       <Dialog
         open={movieManagerOpen}
         onOpenChange={(open) => {
+          if (!open && uploading) {
+            return;
+          }
           setMovieManagerOpen(open);
           if (open) {
             void loadMovieWorkspaceOnDemand();
@@ -841,7 +855,8 @@ export function SubtitleManagerApp() {
             onReplace={replaceSubtitle}
             onRemove={removeSubtitle}
             formatTime={formatTime}
-            busy={loading}
+            busy={operationLocked}
+            uploading={uploading}
             showSearchLinks={false}
             showUploadButton={false}
           />
@@ -851,6 +866,9 @@ export function SubtitleManagerApp() {
       <Dialog
         open={tvManagerOpen}
         onOpenChange={(open) => {
+          if (!open && uploading) {
+            return;
+          }
           setTvManagerOpen(open);
           if (open) {
             void loadTvWorkspaceOnDemand();
@@ -871,7 +889,8 @@ export function SubtitleManagerApp() {
             onReplace={replaceSubtitle}
             onRemove={removeSubtitle}
             formatTime={formatTime}
-            busy={loading}
+            busy={operationLocked}
+            uploading={uploading}
           />
         </DialogContent>
       </Dialog>
@@ -879,15 +898,20 @@ export function SubtitleManagerApp() {
       <TvSeasonBatchUploadDialog
         open={tvBatchOpen}
         onOpenChange={(open) => {
+          if (!open && uploading) {
+            return;
+          }
           setTvBatchOpen(open);
           if (open) {
             void loadTvWorkspaceOnDemand();
           }
         }}
-        busy={loading}
+        busy={operationLocked}
         onLoadBatchCandidates={loadTvBatchCandidates}
         onUploadBatch={uploadBatchSubtitles}
       />
+
+      {uploading && <UploadBlockingOverlay message={uploadingMessage} />}
     </div>
   );
 }
@@ -1659,6 +1683,7 @@ interface TvSubtitleManagementPanelProps {
   onRemove: (video: Video, subtitle: Subtitle) => Promise<void>;
   formatTime: (value: string | undefined | null) => string;
   busy: boolean;
+  uploading: boolean;
 }
 
 function TvSubtitleManagementPanel({
@@ -1674,7 +1699,8 @@ function TvSubtitleManagementPanel({
   onReplace,
   onRemove,
   formatTime,
-  busy
+  busy,
+  uploading
 }: TvSubtitleManagementPanelProps) {
   const selectedSeasonLabel = seasonOptions.find((option) => option.value === selectedSeason)?.label || "All Seasons";
   const searchKeyword = useMemo(() => {
@@ -1698,7 +1724,7 @@ function TvSubtitleManagementPanel({
           </div>
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Season</p>
-            <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries}>
+            <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy}>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Select season" />
               </SelectTrigger>
@@ -1725,8 +1751,9 @@ function TvSubtitleManagementPanel({
                     <button
                       type="button"
                       onClick={() => onSelectVideo(video)}
+                      disabled={busy}
                       className={cn(
-                        "w-full rounded-md border px-3 py-2 text-left transition-colors",
+                        "w-full rounded-md border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
                         active
                           ? "border-primary/70 bg-primary/10"
                           : "border bg-background hover:bg-accent"
@@ -1766,6 +1793,7 @@ function TvSubtitleManagementPanel({
           onRemove={onRemove}
           formatTime={formatTime}
           busy={busy}
+          uploading={uploading}
           showSearchLinks={true}
           searchKeyword={searchKeyword}
           showMediaType={false}
@@ -1788,6 +1816,7 @@ interface SubtitleDetailsPanelProps {
   onRemove: (video: Video, subtitle: Subtitle) => Promise<void>;
   formatTime: (value: string | undefined | null) => string;
   busy: boolean;
+  uploading: boolean;
   showSearchLinks: boolean;
   searchKeyword?: string;
   showMediaType?: boolean;
@@ -1811,6 +1840,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
   onRemove,
   formatTime,
   busy,
+  uploading,
   showSearchLinks,
   searchKeyword,
   showMediaType = true,
@@ -1866,6 +1896,9 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
   }, [selectedVideo?.id]);
 
   function openUploadPicker() {
+    if (busy || zipLoading) {
+      return;
+    }
     uploadInputRef.current?.click();
   }
 
@@ -1963,7 +1996,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-lg">{panelTitle}</CardTitle>
           {showBack && (
-            <Button type="button" variant="outline" size="sm" className="gap-1" onClick={onBack}>
+            <Button type="button" variant="outline" size="sm" className="gap-1" onClick={onBack} disabled={busy}>
               <ArrowLeft className="h-4 w-4" />
               Back to list
             </Button>
@@ -2118,6 +2151,9 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       <Dialog
         open={uploadDialogOpen}
         onOpenChange={(open) => {
+          if (!open && uploading) {
+            return;
+          }
           if (!open) {
             resetUploadState();
             return;
@@ -2141,7 +2177,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
           />
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={resetUploadState}>
+            <Button type="button" variant="outline" onClick={resetUploadState} disabled={busy}>
               Cancel
             </Button>
             <Button
@@ -2158,6 +2194,9 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       <Dialog
         open={zipPickDialogOpen}
         onOpenChange={(open) => {
+          if (!open && uploading) {
+            return;
+          }
           if (!open) {
             resetZipPickState();
             return;
@@ -2228,7 +2267,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={resetZipPickState}>
+            <Button type="button" variant="outline" onClick={resetZipPickState} disabled={busy}>
               Close
             </Button>
           </DialogFooter>
@@ -2239,6 +2278,24 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
 });
 
 SubtitleDetailsPanel.displayName = "SubtitleDetailsPanel";
+
+function UploadBlockingOverlay({ message }: { message: string }) {
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-background/78 backdrop-blur-sm">
+      <div className="mx-4 flex min-w-[280px] max-w-[420px] flex-col items-center gap-3 rounded-2xl border bg-card px-6 py-7 text-center shadow-2xl">
+        <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary">
+          <RefreshCw className="h-5 w-5 animate-spin" />
+        </span>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold">Uploading subtitles</p>
+          <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
+            {message || "Uploading subtitle files..."}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (

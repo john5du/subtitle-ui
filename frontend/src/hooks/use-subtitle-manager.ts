@@ -355,6 +355,8 @@ export function useSubtitleManager() {
   const [movieYearSortOrder, setMovieYearSortOrder] = useState<"asc" | "desc">("desc");
   const [tvSeriesYearSortOrder, setTvSeriesYearSortOrder] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadingMessage, setUploadingMessage] = useState("");
   const [message, setMessage] = useState("");
   const [scanStatus, setScanStatus] = useState<ScanStatus | null>(null);
   const [logs, setLogs] = useState<OperationLog[]>([]);
@@ -367,6 +369,7 @@ export function useSubtitleManager() {
   });
 
   const pendingLoadsRef = useRef(0);
+  const pendingUploadsRef = useRef(0);
   const skipMovieQueryRef = useRef(true);
   const skipTvQueryRef = useRef(true);
   const skipMovieSortRef = useRef(true);
@@ -483,6 +486,37 @@ export function useSubtitleManager() {
     if (pendingLoadsRef.current === 0) {
       setLoading(false);
     }
+  };
+
+  const beginUpload = (text: string) => {
+    pendingUploadsRef.current += 1;
+    setUploadingMessage(text);
+    setUploading(true);
+  };
+
+  const updateUploadMessage = (text: string) => {
+    setUploadingMessage(text);
+  };
+
+  const endUpload = () => {
+    pendingUploadsRef.current = Math.max(0, pendingUploadsRef.current - 1);
+    if (pendingUploadsRef.current === 0) {
+      setUploading(false);
+      setUploadingMessage("");
+    }
+  };
+
+  const emitUploadSummaryToast = (uploadedCount: number, failedCount = 0) => {
+    if (uploadedCount <= 0) {
+      return;
+    }
+
+    const fileText = uploadedCount === 1 ? "subtitle file" : "subtitle files";
+    const failedText = failedCount > 0 ? ` ${failedCount} failed.` : "";
+    emitToast({
+      level: failedCount > 0 ? "info" : "success",
+      message: `Uploaded ${uploadedCount} ${fileText}.${failedText}`
+    });
   };
 
   const reportRequestError = useCallback((prefix: string, error: unknown) => {
@@ -909,6 +943,7 @@ export function useSubtitleManager() {
     body.append("file", file);
     body.append("label", label || "");
 
+    beginUpload("Uploading subtitle file...");
     try {
       await request(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
       if (video.mediaType === "tv") {
@@ -923,8 +958,11 @@ export function useSubtitleManager() {
         await Promise.all([loadVideosByType("movie", { page: moviePager.page || 1 }), loadLogs()]);
       }
       setMessage(`Uploaded subtitle for "${video.title}".`);
+      emitUploadSummaryToast(1);
     } catch (error) {
       reportRequestError("Upload failed", error);
+    } finally {
+      endUpload();
     }
   }
 
@@ -933,6 +971,7 @@ export function useSubtitleManager() {
     body.append("file", file);
     body.append("replaceId", subtitle.id);
 
+    beginUpload("Uploading subtitle file...");
     try {
       await request(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
       if (video.mediaType === "tv") {
@@ -947,8 +986,11 @@ export function useSubtitleManager() {
         await Promise.all([loadVideosByType("movie", { page: moviePager.page || 1 }), loadLogs()]);
       }
       setMessage(`Replaced subtitle "${subtitle.fileName}".`);
+      emitUploadSummaryToast(1);
     } catch (error) {
       reportRequestError("Replace failed", error);
+    } finally {
+      endUpload();
     }
   }
 
@@ -992,11 +1034,13 @@ export function useSubtitleManager() {
     }
 
     beginLoading();
+    beginUpload(`Uploading subtitle files (0/${items.length})...`);
     const errors: string[] = [];
     let success = 0;
 
     try {
-      for (const item of items) {
+      for (const [index, item] of items.entries()) {
+        updateUploadMessage(`Uploading subtitle files (${index + 1}/${items.length})...`);
         const body = new FormData();
         body.append("file", item.file);
         body.append("label", item.label || "");
@@ -1025,6 +1069,7 @@ export function useSubtitleManager() {
         const errText = error instanceof Error ? error.message : String(error);
         errors.push(`refresh after batch upload failed: ${errText}`);
       }
+      endUpload();
       endLoading();
     }
 
@@ -1035,6 +1080,7 @@ export function useSubtitleManager() {
     } else {
       setMessage(`Batch upload finished: ${success}/${total} succeeded.`);
     }
+    emitUploadSummaryToast(success, failed);
 
     return {
       total,
@@ -1187,6 +1233,8 @@ export function useSubtitleManager() {
     scanStatus,
     directoryScan,
     loading,
+    uploading,
+    uploadingMessage,
     message,
     switchTab,
     triggerScan,
