@@ -124,6 +124,93 @@ func TestCheckMediaRootWritePermissionsWritesErrorLog(t *testing.T) {
 	}
 }
 
+func TestDirectoryScanResultIncludesIndexedMovieAndSeriesCounts(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	movieA := filepath.Join(movieRoot, "Movie A")
+	movieB := filepath.Join(movieRoot, "Movie B")
+	if err := os.MkdirAll(movieA, 0o755); err != nil {
+		t.Fatalf("mkdir movie A: %v", err)
+	}
+	if err := os.MkdirAll(movieB, 0o755); err != nil {
+		t.Fatalf("mkdir movie B: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieA, "movie-a.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write movie A: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieA, "movie-a.nfo"), []byte(sampleNFO("Movie A", "2024")), 0o644); err != nil {
+		t.Fatalf("write movie A nfo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieB, "movie-b.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write movie B: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieB, "movie-b.nfo"), []byte(sampleNFO("Movie B", "2025")), 0o644); err != nil {
+		t.Fatalf("write movie B nfo: %v", err)
+	}
+
+	seriesAEpisode := filepath.Join(tvRoot, "Series A", "Season 1", "series-a-s01e01.mkv")
+	seriesBEpisode := filepath.Join(tvRoot, "Series B", "Season 1", "series-b-s01e01.mkv")
+	if err := os.MkdirAll(filepath.Dir(seriesAEpisode), 0o755); err != nil {
+		t.Fatalf("mkdir series A: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(seriesBEpisode), 0o755); err != nil {
+		t.Fatalf("mkdir series B: %v", err)
+	}
+	if err := os.WriteFile(seriesAEpisode, []byte("video"), 0o644); err != nil {
+		t.Fatalf("write series A episode: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(seriesAEpisode), "series-a-s01e01.nfo"), []byte(sampleNFO("Series A", "2024")), 0o644); err != nil {
+		t.Fatalf("write series A nfo: %v", err)
+	}
+	if err := os.WriteFile(seriesBEpisode, []byte("video"), 0o644); err != nil {
+		t.Fatalf("write series B episode: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(seriesBEpisode), "series-b-s01e01.nfo"), []byte(sampleNFO("Series B", "2025")), 0o644); err != nil {
+		t.Fatalf("write series B nfo: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	status := svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("scan status error: %s", status.Error)
+	}
+
+	last := svc.LastDirectoryScan()
+	if last.MovieCount != 2 {
+		t.Fatalf("expected LastDirectoryScan movieCount=2, got %d", last.MovieCount)
+	}
+	if last.TVSeriesCount != 2 {
+		t.Fatalf("expected LastDirectoryScan tvSeriesCount=2, got %d", last.TVSeriesCount)
+	}
+
+	discovered := svc.DiscoverDirectories(context.Background())
+	if discovered.MovieCount != 2 {
+		t.Fatalf("expected DiscoverDirectories movieCount=2, got %d", discovered.MovieCount)
+	}
+	if discovered.TVSeriesCount != 2 {
+		t.Fatalf("expected DiscoverDirectories tvSeriesCount=2, got %d", discovered.TVSeriesCount)
+	}
+}
+
 func latestLogByAction(logs []domain.OperationLog, action string) (domain.OperationLog, bool) {
 	for _, item := range logs {
 		if item.Action == action {

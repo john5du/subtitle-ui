@@ -66,6 +66,8 @@ export interface DirectoryScanResult {
   generatedAt: string;
   movieRoot: string;
   tvRoot: string;
+  movieCount: number;
+  tvSeriesCount: number;
   movie: ScanDirectory[];
   tv: ScanDirectory[];
   errors: string[];

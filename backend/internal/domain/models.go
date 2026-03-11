@@ -60,12 +60,14 @@ type ScanDirectory struct {
 }
 
 type DirectoryScanResult struct {
-	GeneratedAt time.Time       `json:"generatedAt"`
-	MovieRoot   string          `json:"movieRoot,omitempty"`
-	TVRoot      string          `json:"tvRoot,omitempty"`
-	Movie       []ScanDirectory `json:"movie"`
-	TV          []ScanDirectory `json:"tv"`
-	Errors      []string        `json:"errors,omitempty"`
+	GeneratedAt   time.Time       `json:"generatedAt"`
+	MovieRoot     string          `json:"movieRoot,omitempty"`
+	TVRoot        string          `json:"tvRoot,omitempty"`
+	MovieCount    int             `json:"movieCount"`
+	TVSeriesCount int             `json:"tvSeriesCount"`
+	Movie         []ScanDirectory `json:"movie"`
+	TV            []ScanDirectory `json:"tv"`
+	Errors        []string        `json:"errors,omitempty"`
 }
 
 type VideoPage struct {

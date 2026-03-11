@@ -10,9 +10,12 @@ import {
   FileText,
   FolderTree,
   LayoutDashboard,
+  Monitor,
+  MoreHorizontal,
+  Moon,
   RefreshCw,
   Search,
-  Trash2,
+  Sun,
   Tv
 } from "lucide-react";
 import Image from "next/image";
@@ -52,8 +55,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
+  AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -523,7 +525,6 @@ export function SubtitleManagerApp() {
     movieVideos,
     tvSeriesRows,
     selectedTvSeries,
-    tvVideosRequestedForSelectedSeries,
     sortedTvVideos,
     tvSeasonOptions,
     selectedTvSeason,
@@ -532,7 +533,6 @@ export function SubtitleManagerApp() {
     tvPager,
     movieYearSortOrder,
     tvSeriesYearSortOrder,
-    selectedTvDirPath,
     logs,
     scanStatus,
     directoryScan,
@@ -575,13 +575,11 @@ export function SubtitleManagerApp() {
   const movieDetailsRef = useRef<SubtitleDetailsPanelHandle | null>(null);
 
   const navItems: Array<{ key: ActiveTab; icon: React.ReactNode; label: string }> = [
-    { key: "dashboard", icon: <LayoutDashboard className="h-4 w-4" />, label: "Overview" },
-    { key: "movie", icon: <Film className="h-4 w-4" />, label: "Movie" },
-    { key: "tv", icon: <Tv className="h-4 w-4" />, label: "TV" },
-    { key: "logs", icon: <FileText className="h-4 w-4" />, label: "Logs" }
+    { key: "dashboard", icon: <LayoutDashboard className="h-5 w-5" />, label: "Overview" },
+    { key: "movie", icon: <Film className="h-5 w-5" />, label: "Movie" },
+    { key: "tv", icon: <Tv className="h-5 w-5" />, label: "TV" },
+    { key: "logs", icon: <FileText className="h-5 w-5" />, label: "Logs" }
   ];
-
-  const refreshText = refreshPending ? "Refreshing..." : "Refresh";
 
   const selectedMovie = useMemo(() => {
     return movieVideos.find((video) => video.id === selectedVideoIdByType.movie) ?? null;
@@ -590,16 +588,6 @@ export function SubtitleManagerApp() {
   const selectedTvVideo = useMemo(() => {
     return sortedTvVideos.find((video) => video.id === selectedVideoIdByType.tv) ?? null;
   }, [selectedVideoIdByType.tv, sortedTvVideos]);
-
-  const movieSearchLinks = useMemo(() => {
-    if (!selectedMovie) return null;
-    return buildSubtitleSearchLinks(selectedMovie);
-  }, [selectedMovie]);
-
-  const tvSearchLinks = useMemo(() => {
-    if (!selectedTvSeries?.title) return null;
-    return buildSubtitleSearchLinksByKeyword(selectedTvSeries.title);
-  }, [selectedTvSeries?.title]);
 
   const showTvScanPrompt = useMemo(() => {
     const noSeries = tvSeriesRows.length === 0;
@@ -641,32 +629,37 @@ export function SubtitleManagerApp() {
     selectTvVideo(video);
   }
 
-  function openMovieUploadPicker() {
-    if (!selectedMovie) return;
+  function openMovieUploadPicker(video?: Video) {
+    const targetVideo = video || selectedMovie;
+    if (!targetVideo) return;
+    selectMovieVideo(targetVideo);
     setPendingMovieUploadPick(true);
     setMovieManagerOpen(true);
     void loadMovieWorkspaceOnDemand();
   }
 
-  function openMovieManager() {
-    if (!selectedMovie) return;
+  function openMovieManager(video?: Video) {
+    const targetVideo = video || selectedMovie;
+    if (!targetVideo) return;
+    selectMovieVideo(targetVideo);
     setMovieManagerOpen(true);
     void loadMovieWorkspaceOnDemand();
   }
 
-  function openTvManager() {
-    if (!selectedTvSeries) return;
-    if (!selectedVideoIdByType.tv && sortedTvVideos.length > 0) {
-      selectTvVideo(sortedTvVideos[0]);
-    }
+  function openTvManager(series?: TvSeriesSummary) {
+    const targetSeries = series || selectedTvSeries;
+    if (!targetSeries) return;
+    selectTvDirectory(targetSeries.path);
     setTvManagerOpen(true);
-    void loadTvWorkspaceOnDemand();
+    void loadTvWorkspaceOnDemand(targetSeries.path);
   }
 
-  function openTvBatchDialog() {
-    if (!selectedTvSeries) return;
+  function openTvBatchDialog(series?: TvSeriesSummary) {
+    const targetSeries = series || selectedTvSeries;
+    if (!targetSeries) return;
+    selectTvDirectory(targetSeries.path);
     setTvBatchOpen(true);
-    void loadTvWorkspaceOnDemand();
+    void loadTvWorkspaceOnDemand(targetSeries.path);
   }
 
   useEffect(() => {
@@ -692,9 +685,9 @@ export function SubtitleManagerApp() {
                 src="/icon.svg"
                 alt=""
                 aria-hidden
-                width={44}
-                height={44}
-                className="mb-2 h-11 w-11 rounded-xl border border-border/70 bg-background/40"
+                width={56}
+                height={56}
+                className="mb-2 h-14 w-14 rounded-2xl border border-border/70 bg-background/40"
               />
               <p className="text-base font-bold uppercase tracking-[0.2em] text-muted-foreground">Subtitle UI</p>
               <p className="mt-1 text-xs text-muted-foreground">Simple, efficient subtitle operations.</p>
@@ -714,7 +707,7 @@ export function SubtitleManagerApp() {
                   disabled={uploading || pending.tabSwitch}
                   onClick={() => void switchTab(item.key)}
                 >
-                  <span className="flex items-center gap-2 text-sm font-medium">
+                  <span className="flex items-center gap-3 text-sm font-medium">
                     {item.icon}
                     {item.label}
                   </span>
@@ -722,44 +715,42 @@ export function SubtitleManagerApp() {
               ))}
             </div>
 
-            <div className="mt-auto space-y-2">
-              <ThemeModeSelect />
-              <Button type="button" onClick={() => void triggerScan()} disabled={operationLocked} className="h-9 w-full gap-2">
-                {scanPending ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-                {scanPending ? "Scanning..." : "Scan Media Library"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void refreshActiveTab()}
-                disabled={operationLocked}
-                className="h-9 w-full gap-2"
-              >
-                {refreshPending ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
-                {refreshText}
-              </Button>
+            <div className="mt-auto space-y-3">
+              <Badge variant="outline" className={cn("surface-transition flex w-full items-center justify-center px-3 py-1.5 text-center text-xs", statusBadgeClass)}>
+                {statusBadgeText}
+              </Badge>
+              <div className="flex items-center gap-2">
+                <ThemeModeSelect />
+                <Button
+                  type="button"
+                  size="icon"
+                  onClick={() => void triggerScan()}
+                  disabled={operationLocked}
+                  className="h-10 w-10"
+                  aria-label={scanPending ? "Scanning media library" : "Scan media library"}
+                  title={scanPending ? "Scanning media library" : "Scan media library"}
+                >
+                  {scanPending ? <SpinnerIcon className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => void refreshActiveTab()}
+                  disabled={operationLocked}
+                  className="h-10 w-10"
+                  aria-label={refreshPending ? `Refreshing ${activeTab}` : `Refresh ${activeTab}`}
+                  title={refreshPending ? `Refreshing ${activeTab}` : `Refresh ${activeTab}`}
+                >
+                  {refreshPending ? <SpinnerIcon className="h-5 w-5" /> : <RefreshCw className="h-5 w-5" />}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <div className="min-h-0 min-w-0 lg:flex lg:h-full lg:flex-col">
-          <Card className="animate-fade-in-up border bg-card">
-            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-                  {activeTab === "dashboard" && "Overview"}
-                  {activeTab === "movie" && "Movie Workspace"}
-                  {activeTab === "tv" && "TV Workspace"}
-                  {activeTab === "logs" && "Logs"}
-                </p>
-              </div>
-              <Badge variant="outline" className={cn("surface-transition text-xs", statusBadgeClass)}>
-                {statusBadgeText}
-              </Badge>
-            </CardContent>
-          </Card>
-
-          <div key={activeTab} className="animate-fade-in-up mt-3 min-h-0 lg:flex-1">
+          <div key={activeTab} className="animate-fade-in-up min-h-0 lg:flex-1">
             {activeTab === "dashboard" && (
               <div className="lg:h-full lg:overflow-auto lg:pr-1">
                 <DashboardPanel
@@ -774,120 +765,45 @@ export function SubtitleManagerApp() {
             )}
 
             {activeTab === "movie" && (
-              <div className="flex min-h-0 flex-col gap-3 lg:h-full">
-                <Card className="border bg-card">
-                  <CardContent className="flex flex-wrap items-center justify-between gap-2 p-4">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected movie</p>
-                      <p className="truncate text-sm font-semibold">{selectedMovie?.title || "Select a movie from the list"}</p>
-                      {pending.movieList && <InlinePending label="Updating movie list..." />}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {movieSearchLinks && (
-                        <Button type="button" variant="outline" asChild>
-                          <a href={movieSearchLinks.zimuku} target="_blank" rel="noreferrer" className="gap-1">
-                            Zimuku
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </Button>
-                      )}
-                    {movieSearchLinks && (
-                      <Button type="button" variant="outline" asChild>
-                        <a href={movieSearchLinks.subhd} target="_blank" rel="noreferrer" className="gap-1">
-                          SubHD
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </Button>
-                    )}
-                    <Button type="button" onClick={openMovieUploadPicker} disabled={!selectedMovie || operationLocked}>
-                      Upload Subtitle / Archive
-                    </Button>
-                    <Button type="button" variant="outline" onClick={openMovieManager} disabled={!selectedMovie || operationLocked}>
-                      Open Subtitle Manager
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-                <div className="min-h-[430px] lg:min-h-0 lg:flex-1">
-                  <MovieListPanel
-                    query={movieQuery}
-                    onQueryChange={setMovieQuery}
-                    videos={movieVideos}
-                    selectedVideoId={selectedVideoIdByType.movie}
-                    pager={moviePager}
-                    yearSortOrder={movieYearSortOrder}
-                    onToggleYearSort={toggleMovieYearSort}
-                    onSelectVideo={handleMovieSelect}
-                    onSetPage={setMoviePage}
-                    pending={pending.movieList}
-                    formatTime={formatTime}
-                  />
-                </div>
+              <div className="min-h-[430px] lg:h-full">
+                <MovieListPanel
+                  query={movieQuery}
+                  onQueryChange={setMovieQuery}
+                  videos={movieVideos}
+                  pager={moviePager}
+                  yearSortOrder={movieYearSortOrder}
+                  onToggleYearSort={toggleMovieYearSort}
+                  onSelectVideo={handleMovieSelect}
+                  onSetPage={setMoviePage}
+                  onOpenUploadPicker={openMovieUploadPicker}
+                  onOpenManager={openMovieManager}
+                  operationLocked={operationLocked}
+                  pending={pending.movieList}
+                  formatTime={formatTime}
+                />
               </div>
             )}
 
             {activeTab === "tv" && (
-              <div className="flex min-h-0 flex-col gap-3 lg:h-full">
-                <Card className="border bg-card">
-                  <CardContent className="flex flex-wrap items-center justify-between gap-2 p-4">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected series</p>
-                      <p className="truncate text-sm font-semibold">{selectedTvSeries?.title || "Select a series from the list"}</p>
-                      {(pending.tvSeriesList || pending.tvEpisodes) && (
-                        <InlinePending label={pending.tvEpisodes ? "Loading episodes..." : "Updating series list..."} />
-                      )}
-                      {selectedTvSeries && !pending.tvEpisodes && !tvVideosRequestedForSelectedSeries && (
-                        <p className="text-xs text-muted-foreground">
-                          Episodes load when you open Subtitle Manager or Season Batch Upload.
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {tvSearchLinks && (
-                        <Button type="button" variant="outline" asChild>
-                          <a href={tvSearchLinks.zimuku} target="_blank" rel="noreferrer" className="gap-1">
-                            Zimuku
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </Button>
-                      )}
-                      {tvSearchLinks && (
-                        <Button type="button" variant="outline" asChild>
-                          <a href={tvSearchLinks.subhd} target="_blank" rel="noreferrer" className="gap-1">
-                            SubHD
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </Button>
-                      )}
-                      <Button type="button" onClick={openTvBatchDialog} disabled={!selectedTvSeries || operationLocked}>
-                        Season Batch Upload
-                      </Button>
-                      <Button type="button" variant="outline" onClick={openTvManager} disabled={!selectedTvSeries || operationLocked}>
-                        Open Subtitle Manager
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="min-h-[520px] lg:min-h-0 lg:flex-1">
-                  <TvSeriesListPanel
-                    query={tvQuery}
-                    onQueryChange={setTvQuery}
-                    rows={tvSeriesRows}
-                    pager={tvPager}
-                    yearSortOrder={tvSeriesYearSortOrder}
-                    selectedSeriesPath={selectedTvDirPath}
-                    onSelectSeries={selectTvDirectory}
-                    onSetPage={setTvPage}
-                    onToggleYearSort={toggleTvSeriesYearSort}
-                    showScanPrompt={showTvScanPrompt}
-                    onTriggerScan={triggerScan}
-                    loading={scanPending}
-                    pending={pending.tvSeriesList}
-                    formatTime={formatTime}
-                  />
-                </div>
+              <div className="min-h-[520px] lg:h-full">
+                <TvSeriesListPanel
+                  query={tvQuery}
+                  onQueryChange={setTvQuery}
+                  rows={tvSeriesRows}
+                  pager={tvPager}
+                  yearSortOrder={tvSeriesYearSortOrder}
+                  onSelectSeries={selectTvDirectory}
+                  onSetPage={setTvPage}
+                  onToggleYearSort={toggleTvSeriesYearSort}
+                  onOpenManager={openTvManager}
+                  onOpenBatch={openTvBatchDialog}
+                  operationLocked={operationLocked}
+                  showScanPrompt={showTvScanPrompt}
+                  onTriggerScan={triggerScan}
+                  loading={scanPending}
+                  pending={pending.tvSeriesList}
+                  formatTime={formatTime}
+                />
               </div>
             )}
 
@@ -1009,12 +925,15 @@ function DashboardPanel({
   formatTime: (value: string | undefined | null) => string;
 }) {
   const recentLogs = logs.slice(0, 8);
+  const movieCount = directoryScan.movieCount || 0;
+  const tvSeriesCount = directoryScan.tvSeriesCount || 0;
+  const discoveredDirCount = movieCount + tvSeriesCount;
 
   return (
     <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-3">
         <QuickStatCard
-          icon={<Activity className="h-4 w-4" />}
+          icon={<Activity className="h-5 w-5" />}
           label="Last Scan Videos"
           value={String(scanStatus?.videoCount ?? 0)}
           hint={scanStatus?.running ? "Scan in progress" : "Scanner idle"}
@@ -1023,16 +942,16 @@ function DashboardPanel({
           className="animate-fade-in-up"
         />
         <QuickStatCard
-          icon={<FolderTree className="h-4 w-4" />}
+          icon={<FolderTree className="h-5 w-5" />}
           label="Discovered Dirs"
-          value={String(directoryScan.movie.length + directoryScan.tv.length)}
-          hint={`Movie ${directoryScan.movie.length} / TV ${directoryScan.tv.length}`}
+          value={String(discoveredDirCount)}
+          hint={`Movie ${movieCount} / TV ${tvSeriesCount}`}
           tone="blue"
           pending={pending.scan || pending.bootstrapping}
           className="animate-fade-in-up"
         />
         <QuickStatCard
-          icon={<AlertTriangle className="h-4 w-4" />}
+          icon={<AlertTriangle className="h-5 w-5" />}
           label="Directory Warnings"
           value={String(directoryScan.errors.length)}
           hint={directoryScan.errors.length > 0 ? "Needs review" : "All clear"}
@@ -1100,7 +1019,7 @@ function DashboardPanel({
     </div>
   );
 }
-function ThemeModeSelect() {
+function ThemeModeSelect({ disabled = false }: { disabled?: boolean }) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -1109,20 +1028,154 @@ function ThemeModeSelect() {
   }, []);
 
   const value = mounted ? theme || "system" : "system";
+  const icon =
+    value === "dark" ? <Moon className="h-5 w-5" /> : value === "light" ? <Sun className="h-5 w-5" /> : <Monitor className="h-5 w-5" />;
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border bg-background px-2 py-1 dark:border-slate-700 dark:bg-slate-900/80">
-      <span className="text-xs font-semibold text-muted-foreground">Theme</span>
-      <Select value={value} onValueChange={setTheme}>
-        <SelectTrigger className="h-8 w-[126px] border-none bg-transparent px-2 text-xs shadow-none focus:ring-0">
-          <SelectValue placeholder="Theme" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="system">System</SelectItem>
-          <SelectItem value="light">Light</SelectItem>
-          <SelectItem value="dark">Dark</SelectItem>
-        </SelectContent>
-      </Select>
+    <RowActionsMenu
+      label="Change theme"
+      disabled={disabled}
+      triggerIcon={icon}
+      triggerClassName="h-10 w-10"
+      menuDirection="up"
+      items={[
+        { label: "System", onSelect: () => setTheme("system"), disabled: value === "system" },
+        { label: "Light", onSelect: () => setTheme("light"), disabled: value === "light" },
+        { label: "Dark", onSelect: () => setTheme("dark"), disabled: value === "dark" }
+      ]}
+    />
+  );
+}
+
+interface RowActionItem {
+  label: string;
+  href?: string;
+  onSelect?: () => void;
+  disabled?: boolean;
+  external?: boolean;
+}
+
+function RowActionsMenu({
+  label,
+  items,
+  triggerIcon,
+  triggerClassName,
+  menuDirection = "down",
+  disabled = false
+}: {
+  label: string;
+  items: RowActionItem[];
+  triggerIcon?: React.ReactNode;
+  triggerClassName?: string;
+  menuDirection?: "up" | "down";
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (disabled && open) {
+      setOpen(false);
+    }
+  }, [disabled, open]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative flex justify-end"
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+    >
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className={cn("h-9 w-9", triggerClassName)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        {triggerIcon ?? <MoreHorizontal className="h-4 w-4" />}
+      </Button>
+      {open && (
+        <div
+          className={cn(
+            "animate-fade-in-fast absolute right-0 z-30 min-w-[200px] rounded-md border bg-popover p-1 shadow-lg",
+            menuDirection === "up" ? "bottom-full mb-1" : "top-full mt-1"
+          )}
+        >
+          {items.map((item, index) => {
+            const showDivider = item.external && index > 0 && !items[index - 1]?.external;
+            if (item.href && !item.disabled) {
+              return (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noreferrer" : undefined}
+                  className={cn(
+                    "surface-transition flex w-full items-center justify-between rounded-sm px-3 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground",
+                    showDivider && "mt-1 border-t pt-3"
+                  )}
+                  onClick={() => setOpen(false)}
+                >
+                  <span>{item.label}</span>
+                  {item.external && <ExternalLink className="h-4 w-4 text-muted-foreground" />}
+                </a>
+              );
+            }
+
+            return (
+              <button
+                key={item.label}
+                type="button"
+                disabled={item.disabled}
+                className={cn(
+                  "surface-transition flex w-full items-center justify-between rounded-sm px-3 py-2 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50",
+                  showDivider && "mt-1 border-t pt-3"
+                )}
+                onClick={() => {
+                  if (item.disabled) {
+                    return;
+                  }
+                  setOpen(false);
+                  item.onSelect?.();
+                }}
+              >
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1131,12 +1184,14 @@ interface MovieListPanelProps {
   query: string;
   onQueryChange: (value: string) => void;
   videos: Video[];
-  selectedVideoId: string;
   pager: Pager;
   yearSortOrder: "asc" | "desc";
   onToggleYearSort: () => void;
   onSelectVideo: (video: Video) => void;
   onSetPage: (page: number) => void;
+  onOpenUploadPicker: (video: Video) => void;
+  onOpenManager: (video: Video) => void;
+  operationLocked: boolean;
   pending: boolean;
   formatTime: (value: string | undefined | null) => string;
 }
@@ -1145,31 +1200,36 @@ function MovieListPanel({
   query,
   onQueryChange,
   videos,
-  selectedVideoId,
   pager,
   yearSortOrder,
   onToggleYearSort,
   onSelectVideo,
   onSetPage,
+  onOpenUploadPicker,
+  onOpenManager,
+  operationLocked,
   pending,
   formatTime
 }: MovieListPanelProps) {
   return (
     <Card className="animate-fade-in-up flex h-full flex-col border bg-card">
       <CardHeader className="space-y-3 p-4">
-        <CardTitle className="text-lg">Movie List</CardTitle>
-        <Input
-          value={query}
-          aria-label="Filter movies by title or path"
-          placeholder="Filter by title/path"
-          onChange={(event) => onQueryChange(event.target.value)}
-        />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <CardTitle className="text-lg">Movie List</CardTitle>
+          <Input
+            className="h-9 w-full sm:w-[240px]"
+            value={query}
+            aria-label="Filter movies by title or path"
+            placeholder="Filter by title/path"
+            onChange={(event) => onQueryChange(event.target.value)}
+          />
+        </div>
         {pending && <InlinePending label="Updating movie results..." />}
       </CardHeader>
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
         <ScrollArea className={cn("min-h-0 flex-1 rounded-md border bg-background", pending && "animate-pulse-soft")}>
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead>Title</TableHead>
@@ -1182,20 +1242,17 @@ function MovieListPanel({
                 <TableHead className="w-[170px]">Updated Time</TableHead>
                 <TableHead className="w-[100px] text-right">Subtitles</TableHead>
                 <TableHead className="w-[360px]">File Name</TableHead>
+                <TableHead className="w-[120px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {videos.map((video) => {
-                const active = selectedVideoId === video.id;
+                const links = buildSubtitleSearchLinks(video);
                 return (
                   <TableRow
                     key={video.id}
-                    className={cn(
-                      "surface-transition cursor-pointer",
-                      active ? "bg-primary/10 shadow-[inset_3px_0_0_0_rgba(14,165,233,0.6)]" : "hover:bg-accent"
-                    )}
+                    className="surface-transition cursor-pointer hover:bg-accent"
                     onClick={() => onSelectVideo(video)}
-                    aria-selected={active}
                   >
                     <TableCell className="max-w-[240px] truncate font-medium" title={video.title}>
                       {video.title || "-"}
@@ -1206,13 +1263,32 @@ function MovieListPanel({
                     <TableCell className="max-w-[360px] truncate" title={video.fileName}>
                       {video.fileName || "-"}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <RowActionsMenu
+                        label={`Actions for ${video.title || video.fileName || "movie"}`}
+                        items={[
+                          {
+                            label: "Upload Subtitle / Archive",
+                            onSelect: () => onOpenUploadPicker(video),
+                            disabled: operationLocked
+                          },
+                          {
+                            label: "Open Subtitle Manager",
+                            onSelect: () => onOpenManager(video),
+                            disabled: operationLocked
+                          },
+                          { label: "Zimuku", href: links.zimuku, external: true },
+                          { label: "SubHD", href: links.subhd, external: true }
+                        ]}
+                      />
+                    </TableCell>
                   </TableRow>
                 );
               })}
 
               {videos.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                     No movies found.
                   </TableCell>
                 </TableRow>
@@ -1234,10 +1310,12 @@ interface TvSeriesListPanelProps {
   rows: TvSeriesSummary[];
   pager: Pager;
   yearSortOrder: "asc" | "desc";
-  selectedSeriesPath: string;
   onSelectSeries: (path: string) => void;
   onSetPage: (page: number) => void;
   onToggleYearSort: () => void;
+  onOpenManager: (series: TvSeriesSummary) => void;
+  onOpenBatch: (series: TvSeriesSummary) => void;
+  operationLocked: boolean;
   showScanPrompt: boolean;
   onTriggerScan: () => void;
   loading: boolean;
@@ -1251,10 +1329,12 @@ function TvSeriesListPanel({
   rows,
   pager,
   yearSortOrder,
-  selectedSeriesPath,
   onSelectSeries,
   onSetPage,
   onToggleYearSort,
+  onOpenManager,
+  onOpenBatch,
+  operationLocked,
   showScanPrompt,
   onTriggerScan,
   loading,
@@ -1264,13 +1344,16 @@ function TvSeriesListPanel({
   return (
     <Card className="animate-fade-in-up flex h-full flex-col border bg-card">
       <CardHeader className="space-y-3 p-4">
-        <CardTitle className="text-lg">TV Series List</CardTitle>
-        <Input
-          value={query}
-          aria-label="Filter TV series by name or path"
-          placeholder="Filter by series title/path"
-          onChange={(event) => onQueryChange(event.target.value)}
-        />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <CardTitle className="text-lg">TV Series List</CardTitle>
+          <Input
+            className="h-9 w-full sm:w-[240px]"
+            value={query}
+            aria-label="Filter TV series by name or path"
+            placeholder="Filter by series title/path"
+            onChange={(event) => onQueryChange(event.target.value)}
+          />
+        </div>
         {pending && <InlinePending label="Updating series results..." />}
       </CardHeader>
 
@@ -1289,20 +1372,17 @@ function TvSeriesListPanel({
                 <TableHead className="w-[170px]">Updated Time</TableHead>
                 <TableHead className="w-[100px] text-right">Videos</TableHead>
                 <TableHead className="w-[120px] text-right">No Subtitles</TableHead>
+                <TableHead className="w-[120px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((row) => {
-                const active = row.path === selectedSeriesPath;
+                const links = buildSubtitleSearchLinksByKeyword(row.title);
                 return (
                   <TableRow
                     key={row.key}
-                    className={cn(
-                      "surface-transition cursor-pointer",
-                      active ? "bg-primary/10 shadow-[inset_3px_0_0_0_rgba(14,165,233,0.6)]" : "hover:bg-accent"
-                    )}
+                    className="surface-transition cursor-pointer hover:bg-accent"
                     onClick={() => onSelectSeries(row.path)}
-                    aria-selected={active}
                   >
                     <TableCell className="max-w-[240px] truncate font-medium" title={row.title}>
                       {row.title || "-"}
@@ -1311,13 +1391,32 @@ function TvSeriesListPanel({
                     <TableCell className="truncate" title={formatTime(row.updatedAt)}>{formatTime(row.updatedAt)}</TableCell>
                     <TableCell className="text-right">{row.videoCount}</TableCell>
                     <TableCell className="text-right">{row.noSubtitleCount}</TableCell>
+                    <TableCell className="text-right">
+                      <RowActionsMenu
+                        label={`Actions for ${row.title || "TV series"}`}
+                        items={[
+                          {
+                            label: "Season Batch Upload",
+                            onSelect: () => onOpenBatch(row),
+                            disabled: operationLocked
+                          },
+                          {
+                            label: "Open Subtitle Manager",
+                            onSelect: () => onOpenManager(row),
+                            disabled: operationLocked
+                          },
+                          { label: "Zimuku", href: links.zimuku, external: true },
+                          { label: "SubHD", href: links.subhd, external: true }
+                        ]}
+                      />
+                    </TableCell>
                   </TableRow>
                 );
               })}
 
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                     {showScanPrompt ? (
                       <div className="flex flex-col items-center gap-3 text-center">
                         <p className="max-w-[320px] text-sm text-muted-foreground">
@@ -2009,9 +2108,25 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     }
     return buildSubtitleSearchLinks(selectedVideo);
   }, [searchKeyword, selectedVideo]);
-  const hasActionToolbar = showUploadButton || (showSearchLinks && Boolean(searchLinks)) || zipLoading || Boolean(zipPickError);
   const uploadPending = subtitleAction?.kind === "upload" && subtitleAction.videoId === selectedVideo?.id;
-  const workingLabel = uploadPending ? uploadingMessage || "Uploading subtitle..." : "Upload Subtitle / Archive";
+  const actionMenuItems: RowActionItem[] = [
+    ...(showUploadButton
+      ? [
+          {
+            label: uploadPending ? uploadingMessage || "Uploading subtitle..." : "Upload Subtitle / Archive",
+            onSelect: openUploadPicker,
+            disabled: busy || zipLoading
+          }
+        ]
+      : []),
+    ...(showSearchLinks && searchLinks
+      ? [
+          { label: "Zimuku", href: searchLinks.zimuku, external: true },
+          { label: "SubHD", href: searchLinks.subhd, external: true }
+        ]
+      : [])
+  ];
+  const hasActionToolbar = actionMenuItems.length > 0 || zipLoading || Boolean(zipPickError);
 
   function triggerSubtitleListFlash() {
     setFlashSubtitleList(false);
@@ -2234,27 +2349,12 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
             />
             {hasActionToolbar && (
               <div className="flex flex-wrap items-center gap-2">
-                {showUploadButton && (
-                  <Button type="button" onClick={openUploadPicker} disabled={busy || zipLoading}>
-                    {uploadPending ? <SpinnerIcon className="h-4 w-4" /> : null}
-                    {workingLabel}
-                  </Button>
-                )}
-                {showSearchLinks && searchLinks && (
-                  <>
-                    <Button type="button" variant="outline" asChild>
-                      <a href={searchLinks.zimuku} target="_blank" rel="noreferrer" className="gap-1">
-                        Zimuku
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </Button>
-                    <Button type="button" variant="outline" asChild>
-                      <a href={searchLinks.subhd} target="_blank" rel="noreferrer" className="gap-1">
-                        SubHD
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </Button>
-                  </>
+                {actionMenuItems.length > 0 && (
+                  <RowActionsMenu
+                    label={`Actions for ${selectedVideo.title || selectedVideo.fileName || "video"}`}
+                    items={actionMenuItems}
+                    triggerIcon={uploadPending || zipLoading ? <SpinnerIcon className="h-4 w-4" /> : undefined}
+                  />
                 )}
                 {zipLoading && <InlinePending label="Parsing archive..." />}
                 {zipPickError && <span className="text-xs text-rose-600">{zipPickError}</span>}
@@ -2271,7 +2371,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                       <TableHead>Lang</TableHead>
                       <TableHead>Format</TableHead>
                       <TableHead>Modified</TableHead>
-                      <TableHead className="w-[180px]">Actions</TableHead>
+                      <TableHead className="w-[96px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2286,8 +2386,8 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                         <TableCell>{subtitle.language || "-"}</TableCell>
                         <TableCell>{subtitle.format || "-"}</TableCell>
                         <TableCell>{formatTime(subtitle.modTime)}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-2">
+                        <TableCell className="text-right">
+                          <div className="flex justify-end">
                             <input
                               ref={(node) => {
                                 replaceInputRef.current[subtitle.id] = node;
@@ -2299,16 +2399,23 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                                 void onReplaceFilePicked(subtitle, event);
                               }}
                             />
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => replaceInputRef.current[subtitle.id]?.click()}
+                            <RowActionsMenu
+                              label={`Actions for ${subtitle.fileName}`}
                               disabled={busy || rowBusy}
-                            >
-                              {replacePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : null}
-                              {replacePending ? "Replacing..." : "Replace"}
-                            </Button>
+                              triggerIcon={rowBusy ? <SpinnerIcon className="h-4 w-4" /> : undefined}
+                              items={[
+                                {
+                                  label: replacePending ? "Replacing..." : "Replace Subtitle",
+                                  onSelect: () => replaceInputRef.current[subtitle.id]?.click(),
+                                  disabled: busy || rowBusy
+                                },
+                                {
+                                  label: deletePending ? "Deleting..." : "Delete Subtitle",
+                                  onSelect: () => setDeleteDialogSubtitleId(subtitle.id),
+                                  disabled: busy || rowBusy
+                                }
+                              ]}
+                            />
 
                             <AlertDialog
                               open={deleteDialogSubtitleId === subtitle.id}
@@ -2320,12 +2427,6 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                                 setDeleteDialogSubtitleId(subtitle.id);
                               }}
                             >
-                              <AlertDialogTrigger asChild>
-                                <Button type="button" size="sm" variant="destructive" className="gap-1" disabled={busy || rowBusy}>
-                                  {deletePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Trash2 className="h-4 w-4" />}
-                                  {deletePending ? "Deleting..." : "Delete"}
-                                </Button>
-                              </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Delete subtitle?</AlertDialogTitle>
@@ -2452,7 +2553,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                     <TableRow>
                       <TableHead>File Path</TableHead>
                       <TableHead className="w-[100px] text-right">Size</TableHead>
-                      <TableHead className="w-[120px]">Action</TableHead>
+                      <TableHead className="w-[96px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2460,16 +2561,18 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                       <TableRow key={entry.id}>
                         <TableCell className="break-all text-xs">{entry.path}</TableCell>
                         <TableCell className="text-right text-xs">{Math.max(1, Math.round(entry.size / 1024))} KB</TableCell>
-                        <TableCell>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
+                        <TableCell className="text-right">
+                          <RowActionsMenu
+                            label={`Actions for ${entry.path}`}
                             disabled={busy || uploading}
-                            onClick={() => void onZipEntryPicked(entry)}
-                          >
-                            Use This File
-                          </Button>
+                            items={[
+                              {
+                                label: "Use This File",
+                                onSelect: () => void onZipEntryPicked(entry),
+                                disabled: busy || uploading
+                              }
+                            ]}
+                          />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -2566,7 +2669,7 @@ function QuickStatCard({ icon, label, value, hint, tone, pending = false, classN
     <Card className={cn("border bg-card", className, pending && "animate-pulse-soft")}>
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center gap-3">
-          <span className={cn("inline-flex h-8 w-8 items-center justify-center rounded-lg", style.iconBg, style.iconText)}>
+          <span className={cn("inline-flex h-9 w-9 items-center justify-center rounded-lg", style.iconBg, style.iconText)}>
             {icon}
           </span>
           <p className="text-sm text-muted-foreground">{label}</p>

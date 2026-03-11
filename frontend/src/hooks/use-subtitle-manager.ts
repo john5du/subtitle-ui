@@ -30,6 +30,8 @@ const EMPTY_DIRECTORY_SCAN: DirectoryScanResult = {
   generatedAt: "",
   movieRoot: "",
   tvRoot: "",
+  movieCount: 0,
+  tvSeriesCount: 0,
   movie: [],
   tv: [],
   errors: []
@@ -295,6 +297,8 @@ function normalizeDirectoryScanResult(payload: unknown): DirectoryScanResult {
     generatedAt: typeof body.generatedAt === "string" ? body.generatedAt : "",
     movieRoot: typeof body.movieRoot === "string" ? body.movieRoot : "",
     tvRoot: typeof body.tvRoot === "string" ? body.tvRoot : "",
+    movieCount: typeof body.movieCount === "number" ? body.movieCount : 0,
+    tvSeriesCount: typeof body.tvSeriesCount === "number" ? body.tvSeriesCount : 0,
     movie: Array.isArray(body.movie) ? (body.movie as ScanDirectory[]) : [],
     tv: Array.isArray(body.tv) ? (body.tv as ScanDirectory[]) : [],
     errors: Array.isArray(body.errors) ? (body.errors.filter((item): item is string => typeof item === "string")) : []
@@ -1040,11 +1044,13 @@ export function useSubtitleManager() {
     await loadVideosByType("movie", { page: moviePager.page || 1 });
   }
 
-  async function loadTvWorkspaceOnDemand() {
+  async function loadTvWorkspaceOnDemand(seriesPath = "") {
+    const requestedPath = seriesPath.trim();
     const seriesRows = await loadTvSeriesPage({ page: tvSeriesPager.page || 1 });
-    const selectedNorm = normalizeForCompare(selectedTvSeries?.path || selectedTvDirPath);
+    const selectedNorm = normalizeForCompare(requestedPath || selectedTvSeries?.path || selectedTvDirPath);
     const selectedPath = (
       seriesRows.find((item) => normalizeForCompare(item.path) === selectedNorm)?.path ||
+      requestedPath ||
       seriesRows.find((item) => item.path)?.path ||
       selectedTvSeries?.path ||
       selectedTvDirPath ||

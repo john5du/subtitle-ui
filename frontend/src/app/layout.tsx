@@ -5,7 +5,7 @@ import { APP_VERSION } from "@/lib/app-version";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Subtitle Manager",
+  title: "Subtitle UI",
   description: "Subtitle manager dashboard built with Next.js and shadcn/ui",
   icons: {
     icon: "/favicon.svg",

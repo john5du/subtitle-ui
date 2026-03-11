@@ -194,11 +194,13 @@ func (s *Service) DiscoverDirectories(ctx context.Context) domain.DirectoryScanR
 	movieRoot := filepath.Clean(s.cfg.MovieMediaRoot)
 	tvRoot := filepath.Clean(s.cfg.TVMediaRoot)
 	result := domain.DirectoryScanResult{
-		GeneratedAt: time.Now().UTC(),
-		MovieRoot:   movieRoot,
-		TVRoot:      tvRoot,
-		Movie:       []domain.ScanDirectory{},
-		TV:          []domain.ScanDirectory{},
+		GeneratedAt:   time.Now().UTC(),
+		MovieRoot:     movieRoot,
+		TVRoot:        tvRoot,
+		MovieCount:    0,
+		TVSeriesCount: 0,
+		Movie:         []domain.ScanDirectory{},
+		TV:            []domain.ScanDirectory{},
 	}
 
 	type discoverResult struct {
@@ -248,14 +250,17 @@ func (s *Service) DiscoverDirectories(ctx context.Context) domain.DirectoryScanR
 		result.Errors = append(result.Errors, "tv: "+tvRes.err.Error())
 	}
 
+	s.populateDirectoryScanCounts(&result)
 	s.setLastDirectoryScan(result)
 	return result
 }
 
 func (s *Service) LastDirectoryScan() domain.DirectoryScanResult {
 	s.dirScanMu.RLock()
-	defer s.dirScanMu.RUnlock()
-	return cloneDirectoryScanResult(s.lastDirScan)
+	result := cloneDirectoryScanResult(s.lastDirScan)
+	s.dirScanMu.RUnlock()
+	s.populateDirectoryScanCounts(&result)
+	return result
 }
 
 func (s *Service) ScanStatus() domain.ScanStatus {
@@ -918,6 +923,15 @@ func cloneDirectoryScanResult(result domain.DirectoryScanResult) domain.Director
 	cloned.TV = append([]domain.ScanDirectory(nil), result.TV...)
 	cloned.Errors = append([]string(nil), result.Errors...)
 	return cloned
+}
+
+func (s *Service) populateDirectoryScanCounts(result *domain.DirectoryScanResult) {
+	if result == nil {
+		return
+	}
+
+	result.MovieCount = s.ListVideosPage("", domain.MediaTypeMovie, "", 1, 1, "", "").Total
+	result.TVSeriesCount = s.ListTVSeriesPage("", 1, 1, "", "").Total
 }
 
 func prefixedError(prefix string, err error) error {
