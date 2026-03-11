@@ -1,6 +1,7 @@
 ﻿<p align="center">
-  <img src="./frontend/public/icon.svg" alt="Subtitle UI icon" width="112" height="112" />
+  <img src="./frontend/public/icon.svg" alt="Subtitle UI 222" width="222" height="112" />
 </p>
+
 # subtitle-ui
 
 基于 Go + Next.js 开发的字幕文件管理 Web 应用。视频元数据从媒体库中 Jellyfin 刮取的侧车文件（NFO）读取。

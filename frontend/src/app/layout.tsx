@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   title: "Subtitle Manager",
   description: "Subtitle manager dashboard built with Next.js and shadcn/ui",
   icons: {
-    icon: "/icon.svg",
-    shortcut: "/icon.svg",
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
     apple: "/icon.svg"
   }
 };

@@ -23,6 +23,11 @@
   --input: 214 22% 86%;
   --ring: 202 88% 40%;
   --radius: 0.5rem;
+  --motion-fast: 90ms;
+  --motion-base: 220ms;
+  --motion-slow: 360ms;
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 [data-theme="dark"] {
@@ -72,6 +77,126 @@ body {
     radial-gradient(620px 300px at 88% 110%, rgba(255, 114, 41, 0.12), transparent 60%),
     linear-gradient(180deg, #080b14 0%, #0a0f1a 52%, #090d16 100%);
   background-attachment: fixed;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in-soft {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out-soft {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes scale-in-soft {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.64;
+  }
+}
+
+@keyframes highlight-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.35);
+    background-color: rgba(14, 165, 233, 0.14);
+  }
+
+  100% {
+    box-shadow: 0 0 0 10px rgba(14, 165, 233, 0);
+    background-color: transparent;
+  }
+}
+
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@layer utilities {
+  .animate-fade-in-up {
+    animation: fade-in-up var(--motion-base) var(--motion-ease-out);
+  }
+
+  .animate-fade-in-fast {
+    animation: fade-in-soft var(--motion-fast) var(--motion-ease-out);
+    animation-fill-mode: both;
+  }
+
+  .animate-fade-out-fast {
+    animation: fade-out-soft var(--motion-fast) var(--motion-ease-out);
+    animation-fill-mode: both;
+  }
+
+  .animate-scale-in {
+    animation: scale-in-soft var(--motion-base) var(--motion-ease-out);
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 1.4s var(--motion-ease-soft) infinite;
+  }
+
+  .animate-highlight-flash {
+    animation: highlight-flash 900ms var(--motion-ease-soft);
+  }
+
+  .toast-progress {
+    animation-name: toast-progress;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+
+  .surface-transition {
+    transition:
+      background-color var(--motion-fast) var(--motion-ease-soft),
+      border-color var(--motion-fast) var(--motion-ease-soft),
+      color var(--motion-fast) var(--motion-ease-soft),
+      opacity var(--motion-fast) var(--motion-ease-soft),
+      box-shadow var(--motion-fast) var(--motion-ease-soft);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

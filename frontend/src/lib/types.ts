@@ -1,5 +1,6 @@
 ﻿export type MediaType = "movie" | "tv";
 export type ActiveTab = "dashboard" | "movie" | "tv" | "logs";
+export type SubtitleOperationKind = "upload" | "replace" | "delete" | "batch";
 
 export interface Subtitle {
   id: string;
@@ -135,5 +136,24 @@ export interface TvSeasonOption {
 
 export interface VersionInfo {
   version: string;
+}
+
+export interface PendingSubtitleAction {
+  kind: SubtitleOperationKind;
+  videoId: string;
+  subtitleId?: string;
+  subtitleFileName?: string;
+}
+
+export interface UiPendingState {
+  bootstrapping: boolean;
+  tabSwitch: boolean;
+  scan: boolean;
+  refreshTab: ActiveTab | null;
+  movieList: boolean;
+  tvSeriesList: boolean;
+  tvEpisodes: boolean;
+  logs: boolean;
+  subtitleAction: PendingSubtitleAction | null;
 }
 

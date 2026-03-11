@@ -2,7 +2,9 @@ export type ToastLevel = "error" | "info" | "success";
 
 export interface AppToastPayload {
   level: ToastLevel;
+  title?: string;
   message: string;
+  detail?: string;
   durationMs?: number;
 }
 

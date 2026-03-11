@@ -25,14 +25,17 @@ import type {
   BatchSubtitleUploadResult,
   DirectoryScanResult,
   OperationLog,
+  PendingSubtitleAction,
   Pager,
   ScanStatus,
   Subtitle,
   TvSeasonOption,
   TvSeriesSummary,
+  UiPendingState,
   Video,
 } from "@/lib/types";
 import { buildSubtitleSearchLinks, buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
+import { emitToast } from "@/lib/toast";
 import {
   extractSubtitleEntriesFromArchiveFile,
   isArchiveFileName,
@@ -433,6 +436,30 @@ function summarizeFileNames(names: string[], maxVisible = 3) {
   return `${names.slice(0, maxVisible).join(", ")} +${names.length - maxVisible} more`;
 }
 
+function SpinnerIcon({ className }: { className?: string }) {
+  return <RefreshCw className={cn("animate-spin", className)} />;
+}
+
+function InlinePending({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+      <SpinnerIcon className="h-3.5 w-3.5" />
+      {label}
+    </span>
+  );
+}
+
+function PanelLoadingOverlay({ label }: { label: string }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-end rounded-md bg-background/45 p-3 backdrop-blur-[1px]">
+      <div className="animate-scale-in inline-flex items-center gap-2 rounded-full border bg-card/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
+        <SpinnerIcon className="h-3.5 w-3.5" />
+        {label}
+      </div>
+    </div>
+  );
+}
+
 async function collectBatchEntriesFromFiles(files: File[]) {
   const entries: ZipSubtitleEntry[] = [];
   const unsupported: string[] = [];
@@ -496,6 +523,7 @@ export function SubtitleManagerApp() {
     movieVideos,
     tvSeriesRows,
     selectedTvSeries,
+    tvVideosRequestedForSelectedSeries,
     sortedTvVideos,
     tvSeasonOptions,
     selectedTvSeason,
@@ -509,6 +537,7 @@ export function SubtitleManagerApp() {
     scanStatus,
     directoryScan,
     loading,
+    pending,
     uploading,
     uploadingMessage,
     message,
@@ -535,7 +564,9 @@ export function SubtitleManagerApp() {
     formatTime
   } = useSubtitleManager();
 
-  const operationLocked = loading || uploading;
+  const operationLocked = pending.scan || uploading || Boolean(pending.refreshTab);
+  const scanPending = pending.scan;
+  const refreshPending = pending.refreshTab === activeTab;
 
   const [movieManagerOpen, setMovieManagerOpen] = useState(false);
   const [tvManagerOpen, setTvManagerOpen] = useState(false);
@@ -550,7 +581,7 @@ export function SubtitleManagerApp() {
     { key: "logs", icon: <FileText className="h-4 w-4" />, label: "Logs" }
   ];
 
-  const refreshText = "Refresh";
+  const refreshText = refreshPending ? "Refreshing..." : "Refresh";
 
   const selectedMovie = useMemo(() => {
     return movieVideos.find((video) => video.id === selectedVideoIdByType.movie) ?? null;
@@ -576,6 +607,32 @@ export function SubtitleManagerApp() {
     return noSeries && noScan;
   }, [directoryScan.generatedAt, scanStatus?.lastFinishedAt, tvSeriesRows.length]);
 
+  const statusBadgeClass = useMemo(() => {
+    if (scanPending) {
+      return "border-amber-300/80 bg-amber-50 text-amber-800 dark:border-amber-800/80 dark:bg-amber-950/40 dark:text-amber-200";
+    }
+    if (refreshPending) {
+      return "border-blue-300/80 bg-blue-50 text-blue-800 dark:border-blue-800/80 dark:bg-blue-950/40 dark:text-blue-200";
+    }
+    if (uploading) {
+      return "border-primary/30 bg-primary/10 text-primary";
+    }
+    if (pending.tabSwitch || pending.bootstrapping || loading) {
+      return "border-border bg-muted/60 text-muted-foreground";
+    }
+    return "border-emerald-300/80 bg-emerald-50 text-emerald-800 dark:border-emerald-800/80 dark:bg-emerald-950/40 dark:text-emerald-200";
+  }, [loading, pending.bootstrapping, pending.tabSwitch, refreshPending, scanPending, uploading]);
+
+  const statusBadgeText = scanPending
+    ? "Scanning media library..."
+    : refreshPending
+      ? `Refreshing ${activeTab}...`
+      : uploading
+        ? uploadingMessage || "Uploading subtitles..."
+        : pending.tabSwitch
+          ? "Loading workspace..."
+          : message || "Ready";
+
   function handleMovieSelect(video: Video) {
     selectMovieVideo(video);
   }
@@ -598,6 +655,7 @@ export function SubtitleManagerApp() {
   }
 
   function openTvManager() {
+    if (!selectedTvSeries) return;
     if (!selectedVideoIdByType.tv && sortedTvVideos.length > 0) {
       selectTvVideo(sortedTvVideos[0]);
     }
@@ -627,7 +685,7 @@ export function SubtitleManagerApp() {
   return (
     <div className="h-full w-full px-3 py-3 md:px-6 md:py-5">
       <div className="mx-auto grid h-full w-full max-w-[1560px] gap-3 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <Card className="border bg-card lg:h-full">
+        <Card className="animate-fade-in-up border bg-card lg:h-full">
           <CardContent className="flex h-full flex-col gap-4 p-4">
             <div>
               <Image
@@ -636,7 +694,7 @@ export function SubtitleManagerApp() {
                 aria-hidden
                 width={44}
                 height={44}
-                className="mb-2 h-11 w-11 rounded-xl border border-border/70 bg-background/40 p-1"
+                className="mb-2 h-11 w-11 rounded-xl border border-border/70 bg-background/40"
               />
               <p className="text-base font-bold uppercase tracking-[0.2em] text-muted-foreground">Subtitle UI</p>
               <p className="mt-1 text-xs text-muted-foreground">Simple, efficient subtitle operations.</p>
@@ -648,12 +706,12 @@ export function SubtitleManagerApp() {
                   key={item.key}
                   type="button"
                   className={cn(
-                    "flex items-center rounded-lg border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                    "surface-transition flex items-center rounded-lg border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
                     activeTab === item.key
-                      ? "border-primary/70 bg-primary/10 text-foreground"
+                      ? "border-primary/70 bg-primary/10 text-foreground shadow-sm"
                       : "border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground"
                   )}
-                  disabled={uploading}
+                  disabled={uploading || pending.tabSwitch}
                   onClick={() => void switchTab(item.key)}
                 >
                   <span className="flex items-center gap-2 text-sm font-medium">
@@ -667,8 +725,8 @@ export function SubtitleManagerApp() {
             <div className="mt-auto space-y-2">
               <ThemeModeSelect />
               <Button type="button" onClick={() => void triggerScan()} disabled={operationLocked} className="h-9 w-full gap-2">
-                <Search className="h-4 w-4" />
-                Scan Media Library
+                {scanPending ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                {scanPending ? "Scanning..." : "Scan Media Library"}
               </Button>
               <Button
                 type="button"
@@ -677,7 +735,7 @@ export function SubtitleManagerApp() {
                 disabled={operationLocked}
                 className="h-9 w-full gap-2"
               >
-                <RefreshCw className="h-4 w-4" />
+                {refreshPending ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
                 {refreshText}
               </Button>
             </div>
@@ -685,7 +743,7 @@ export function SubtitleManagerApp() {
         </Card>
 
         <div className="min-h-0 min-w-0 lg:flex lg:h-full lg:flex-col">
-          <Card className="border bg-card">
+          <Card className="animate-fade-in-up border bg-card">
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
@@ -695,13 +753,13 @@ export function SubtitleManagerApp() {
                   {activeTab === "logs" && "Logs"}
                 </p>
               </div>
-              <Badge variant="outline" className="text-xs">
-                {message || "Ready"}
+              <Badge variant="outline" className={cn("surface-transition text-xs", statusBadgeClass)}>
+                {statusBadgeText}
               </Badge>
             </CardContent>
           </Card>
 
-          <div className="mt-3 min-h-0 lg:flex-1">
+          <div key={activeTab} className="animate-fade-in-up mt-3 min-h-0 lg:flex-1">
             {activeTab === "dashboard" && (
               <div className="lg:h-full lg:overflow-auto lg:pr-1">
                 <DashboardPanel
@@ -709,6 +767,7 @@ export function SubtitleManagerApp() {
                   directoryScan={directoryScan}
                   message={message}
                   logs={logs}
+                  pending={pending}
                   formatTime={formatTime}
                 />
               </div>
@@ -721,6 +780,7 @@ export function SubtitleManagerApp() {
                     <div className="min-w-0">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected movie</p>
                       <p className="truncate text-sm font-semibold">{selectedMovie?.title || "Select a movie from the list"}</p>
+                      {pending.movieList && <InlinePending label="Updating movie list..." />}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       {movieSearchLinks && (
@@ -760,6 +820,7 @@ export function SubtitleManagerApp() {
                     onToggleYearSort={toggleMovieYearSort}
                     onSelectVideo={handleMovieSelect}
                     onSetPage={setMoviePage}
+                    pending={pending.movieList}
                     formatTime={formatTime}
                   />
                 </div>
@@ -773,6 +834,14 @@ export function SubtitleManagerApp() {
                     <div className="min-w-0">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selected series</p>
                       <p className="truncate text-sm font-semibold">{selectedTvSeries?.title || "Select a series from the list"}</p>
+                      {(pending.tvSeriesList || pending.tvEpisodes) && (
+                        <InlinePending label={pending.tvEpisodes ? "Loading episodes..." : "Updating series list..."} />
+                      )}
+                      {selectedTvSeries && !pending.tvEpisodes && !tvVideosRequestedForSelectedSeries && (
+                        <p className="text-xs text-muted-foreground">
+                          Episodes load when you open Subtitle Manager or Season Batch Upload.
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       {tvSearchLinks && (
@@ -814,7 +883,8 @@ export function SubtitleManagerApp() {
                     onToggleYearSort={toggleTvSeriesYearSort}
                     showScanPrompt={showTvScanPrompt}
                     onTriggerScan={triggerScan}
-                    loading={operationLocked}
+                    loading={scanPending}
+                    pending={pending.tvSeriesList}
                     formatTime={formatTime}
                   />
                 </div>
@@ -823,7 +893,7 @@ export function SubtitleManagerApp() {
 
             {activeTab === "logs" && (
               <div className="min-h-[420px] lg:h-full">
-                <LogsPanel logs={logs} formatTime={formatTime} />
+                <LogsPanel logs={logs} pending={pending.logs} formatTime={formatTime} />
               </div>
             )}
           </div>
@@ -857,6 +927,8 @@ export function SubtitleManagerApp() {
             formatTime={formatTime}
             busy={operationLocked}
             uploading={uploading}
+            uploadingMessage={uploadingMessage}
+            subtitleAction={pending.subtitleAction}
             showSearchLinks={false}
             showUploadButton={false}
           />
@@ -891,6 +963,9 @@ export function SubtitleManagerApp() {
             formatTime={formatTime}
             busy={operationLocked}
             uploading={uploading}
+            uploadingMessage={uploadingMessage}
+            episodesPending={pending.tvEpisodes}
+            subtitleAction={pending.subtitleAction}
           />
         </DialogContent>
       </Dialog>
@@ -907,6 +982,8 @@ export function SubtitleManagerApp() {
           }
         }}
         busy={operationLocked}
+        uploading={uploading}
+        uploadingMessage={uploadingMessage}
         onLoadBatchCandidates={loadTvBatchCandidates}
         onUploadBatch={uploadBatchSubtitles}
       />
@@ -921,12 +998,14 @@ function DashboardPanel({
   directoryScan,
   message,
   logs,
+  pending,
   formatTime
 }: {
   scanStatus: ScanStatus | null;
   directoryScan: DirectoryScanResult;
   message: string;
   logs: OperationLog[];
+  pending: UiPendingState;
   formatTime: (value: string | undefined | null) => string;
 }) {
   const recentLogs = logs.slice(0, 8);
@@ -940,6 +1019,8 @@ function DashboardPanel({
           value={String(scanStatus?.videoCount ?? 0)}
           hint={scanStatus?.running ? "Scan in progress" : "Scanner idle"}
           tone="emerald"
+          pending={pending.scan || pending.bootstrapping}
+          className="animate-fade-in-up"
         />
         <QuickStatCard
           icon={<FolderTree className="h-4 w-4" />}
@@ -947,6 +1028,8 @@ function DashboardPanel({
           value={String(directoryScan.movie.length + directoryScan.tv.length)}
           hint={`Movie ${directoryScan.movie.length} / TV ${directoryScan.tv.length}`}
           tone="blue"
+          pending={pending.scan || pending.bootstrapping}
+          className="animate-fade-in-up"
         />
         <QuickStatCard
           icon={<AlertTriangle className="h-4 w-4" />}
@@ -954,11 +1037,13 @@ function DashboardPanel({
           value={String(directoryScan.errors.length)}
           hint={directoryScan.errors.length > 0 ? "Needs review" : "All clear"}
           tone={directoryScan.errors.length > 0 ? "rose" : "amber"}
+          pending={pending.scan || pending.bootstrapping}
+          className="animate-fade-in-up"
         />
       </div>
 
       <div className="grid gap-3 xl:grid-cols-[1.2fr_1fr]">
-        <Card className="border bg-card">
+        <Card className="animate-fade-in-up border bg-card">
           <CardHeader className="p-4">
             <CardTitle className="text-lg">Scan Status</CardTitle>
           </CardHeader>
@@ -967,6 +1052,7 @@ function DashboardPanel({
               <p role="status" aria-live="polite" className="font-medium">
                 {message || "Ready"}
               </p>
+              {pending.scan && <p className="mt-2"><InlinePending label="Scanner is working through the media library..." /></p>}
             </div>
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Directory warnings</p>
@@ -985,16 +1071,16 @@ function DashboardPanel({
           </CardContent>
         </Card>
 
-        <Card className="border bg-card">
+        <Card className="animate-fade-in-up border bg-card">
           <CardHeader className="flex flex-row items-center justify-between p-4">
             <CardTitle className="text-lg">Recent Operations</CardTitle>
-            <Badge variant="secondary">{recentLogs.length}</Badge>
+            <Badge variant="secondary">{pending.logs ? "Refreshing..." : `Recent ${recentLogs.length}`}</Badge>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <ScrollArea className="h-[300px] rounded-md border bg-background">
+          <CardContent className="relative p-4 pt-0">
+            <ScrollArea className={cn("h-[300px] rounded-md border bg-background", pending.logs && "animate-pulse-soft")}>
               <ul className="divide-y divide-border">
                 {recentLogs.map((log) => (
-                  <li key={log.id} className="space-y-1 p-3 text-xs">
+                  <li key={log.id} className="animate-fade-in-up space-y-1 p-3 text-xs">
                     <p className="font-medium">{log.action}</p>
                     <p className="text-muted-foreground">{formatTime(log.timestamp)}</p>
                     <p className="break-all text-muted-foreground">{log.targetPath || "-"}</p>
@@ -1007,6 +1093,7 @@ function DashboardPanel({
                 )}
               </ul>
             </ScrollArea>
+            {pending.logs && <PanelLoadingOverlay label="Refreshing logs..." />}
           </CardContent>
         </Card>
       </div>
@@ -1050,6 +1137,7 @@ interface MovieListPanelProps {
   onToggleYearSort: () => void;
   onSelectVideo: (video: Video) => void;
   onSetPage: (page: number) => void;
+  pending: boolean;
   formatTime: (value: string | undefined | null) => string;
 }
 
@@ -1063,10 +1151,11 @@ function MovieListPanel({
   onToggleYearSort,
   onSelectVideo,
   onSetPage,
+  pending,
   formatTime
 }: MovieListPanelProps) {
   return (
-    <Card className="flex h-full flex-col border bg-card">
+    <Card className="animate-fade-in-up flex h-full flex-col border bg-card">
       <CardHeader className="space-y-3 p-4">
         <CardTitle className="text-lg">Movie List</CardTitle>
         <Input
@@ -1075,10 +1164,11 @@ function MovieListPanel({
           placeholder="Filter by title/path"
           onChange={(event) => onQueryChange(event.target.value)}
         />
+        {pending && <InlinePending label="Updating movie results..." />}
       </CardHeader>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
-        <ScrollArea className="min-h-0 flex-1 rounded-md border bg-background">
+      <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
+        <ScrollArea className={cn("min-h-0 flex-1 rounded-md border bg-background", pending && "animate-pulse-soft")}>
           <Table>
             <TableHeader>
               <TableRow>
@@ -1100,7 +1190,10 @@ function MovieListPanel({
                 return (
                   <TableRow
                     key={video.id}
-                    className={cn("cursor-pointer", active ? "bg-primary/10" : "hover:bg-accent")}
+                    className={cn(
+                      "surface-transition cursor-pointer",
+                      active ? "bg-primary/10 shadow-[inset_3px_0_0_0_rgba(14,165,233,0.6)]" : "hover:bg-accent"
+                    )}
                     onClick={() => onSelectVideo(video)}
                     aria-selected={active}
                   >
@@ -1127,8 +1220,9 @@ function MovieListPanel({
             </TableBody>
           </Table>
         </ScrollArea>
+        {pending && <PanelLoadingOverlay label="Refreshing movies..." />}
 
-        <PagerView pager={pager} onSetPage={onSetPage} />
+        <PagerView pager={pager} onSetPage={onSetPage} disabled={pending} />
       </CardContent>
     </Card>
   );
@@ -1147,6 +1241,7 @@ interface TvSeriesListPanelProps {
   showScanPrompt: boolean;
   onTriggerScan: () => void;
   loading: boolean;
+  pending: boolean;
   formatTime: (value: string | undefined | null) => string;
 }
 
@@ -1163,10 +1258,11 @@ function TvSeriesListPanel({
   showScanPrompt,
   onTriggerScan,
   loading,
+  pending,
   formatTime
 }: TvSeriesListPanelProps) {
   return (
-    <Card className="flex h-full flex-col border bg-card">
+    <Card className="animate-fade-in-up flex h-full flex-col border bg-card">
       <CardHeader className="space-y-3 p-4">
         <CardTitle className="text-lg">TV Series List</CardTitle>
         <Input
@@ -1175,10 +1271,11 @@ function TvSeriesListPanel({
           placeholder="Filter by series title/path"
           onChange={(event) => onQueryChange(event.target.value)}
         />
+        {pending && <InlinePending label="Updating series results..." />}
       </CardHeader>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
-        <ScrollArea className="min-h-0 flex-1 rounded-md border bg-background">
+      <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
+        <ScrollArea className={cn("min-h-0 flex-1 rounded-md border bg-background", pending && "animate-pulse-soft")}>
           <Table className="table-fixed">
             <TableHeader>
               <TableRow>
@@ -1200,7 +1297,10 @@ function TvSeriesListPanel({
                 return (
                   <TableRow
                     key={row.key}
-                    className={cn("cursor-pointer", active ? "bg-primary/10" : "hover:bg-accent")}
+                    className={cn(
+                      "surface-transition cursor-pointer",
+                      active ? "bg-primary/10 shadow-[inset_3px_0_0_0_rgba(14,165,233,0.6)]" : "hover:bg-accent"
+                    )}
                     onClick={() => onSelectSeries(row.path)}
                     aria-selected={active}
                   >
@@ -1237,8 +1337,9 @@ function TvSeriesListPanel({
             </TableBody>
           </Table>
         </ScrollArea>
+        {pending && <PanelLoadingOverlay label="Refreshing series..." />}
 
-        <PagerView pager={pager} onSetPage={onSetPage} />
+        <PagerView pager={pager} onSetPage={onSetPage} disabled={pending} />
       </CardContent>
     </Card>
   );
@@ -1248,6 +1349,8 @@ interface TvSeasonBatchUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   busy: boolean;
+  uploading: boolean;
+  uploadingMessage: string;
   onLoadBatchCandidates: () => Promise<Video[]>;
   onUploadBatch: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;
 }
@@ -1256,6 +1359,8 @@ function TvSeasonBatchUploadDialog({
   open,
   onOpenChange,
   busy,
+  uploading,
+  uploadingMessage,
   onLoadBatchCandidates,
   onUploadBatch
 }: TvSeasonBatchUploadDialogProps) {
@@ -1427,9 +1532,20 @@ function TvSeasonBatchUploadDialog({
       setBatchSourceSummary(summarizeBatchInputs(files, entries.length));
       setBatchRawEntries(entries);
       setBatchCandidates(candidates);
+      emitToast({
+        level: "info",
+        title: "Batch inputs prepared",
+        message: `${entries.length} subtitle entries are ready for mapping.`,
+        detail: summarizeBatchInputs(files, entries.length)
+      });
     } catch (error) {
       const errText = error instanceof Error ? error.message : String(error);
       setBatchError(`Prepare batch inputs failed: ${errText}`);
+      emitToast({
+        level: "error",
+        title: "Batch preparation failed",
+        message: errText
+      });
     } finally {
       setBatchPreparing(false);
     }
@@ -1493,7 +1609,7 @@ function TvSeasonBatchUploadDialog({
           }}
         />
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-auto pr-1">
+        <div className="relative min-h-0 flex-1 space-y-4 overflow-auto pr-1">
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
@@ -1510,6 +1626,8 @@ function TvSeasonBatchUploadDialog({
               For duplicate subtitles in the same episode, language and format preferences pick one entry automatically. Preference options only appear when parsed archive entries contain multiple types.
             </span>
             {batchError && <p className="text-xs text-rose-600">{batchError}</p>}
+            {batchPreparing && <InlinePending label="Preparing batch inputs..." />}
+            {uploading && <InlinePending label={uploadingMessage || "Uploading mapped subtitles..."} />}
           </div>
 
           {(showBatchLanguageSelector || showBatchFormatSelector || batchPreferenceSummary) && (
@@ -1576,7 +1694,7 @@ function TvSeasonBatchUploadDialog({
 
           <div className="space-y-2">
             <p className="text-sm font-semibold">Batch Subtitle Mapping</p>
-            <div className="max-h-[52vh] overflow-auto rounded-md border">
+            <div className={cn("max-h-[52vh] overflow-auto rounded-md border", batchPreparing && "animate-pulse-soft")}>
               <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
@@ -1654,6 +1772,7 @@ function TvSeasonBatchUploadDialog({
               )}
             </div>
           )}
+          {batchPreparing && <PanelLoadingOverlay label="Parsing archives and matching episodes..." />}
         </div>
 
         <DialogFooter className="shrink-0 border-t pt-3">
@@ -1678,12 +1797,15 @@ interface TvSubtitleManagementPanelProps {
   selectedVideoId: string;
   onSelectVideo: (video: Video) => void;
   onSeasonChange: (value: string) => void;
-  onUpload: (video: Video, file: File, label: string) => Promise<void>;
-  onReplace: (video: Video, subtitle: Subtitle, file: File) => Promise<void>;
-  onRemove: (video: Video, subtitle: Subtitle) => Promise<void>;
+  onUpload: (video: Video, file: File, label: string) => Promise<boolean>;
+  onReplace: (video: Video, subtitle: Subtitle, file: File) => Promise<boolean>;
+  onRemove: (video: Video, subtitle: Subtitle) => Promise<boolean>;
   formatTime: (value: string | undefined | null) => string;
   busy: boolean;
   uploading: boolean;
+  uploadingMessage: string;
+  episodesPending: boolean;
+  subtitleAction: PendingSubtitleAction | null;
 }
 
 function TvSubtitleManagementPanel({
@@ -1700,7 +1822,10 @@ function TvSubtitleManagementPanel({
   onRemove,
   formatTime,
   busy,
-  uploading
+  uploading,
+  uploadingMessage,
+  episodesPending,
+  subtitleAction
 }: TvSubtitleManagementPanelProps) {
   const selectedSeasonLabel = seasonOptions.find((option) => option.value === selectedSeason)?.label || "All Seasons";
   const searchKeyword = useMemo(() => {
@@ -1715,7 +1840,7 @@ function TvSubtitleManagementPanel({
 
   return (
     <div className="grid h-full w-full min-h-0 gap-3 p-3 md:grid-cols-[340px_minmax(0,1fr)] md:p-4">
-      <Card className="flex min-h-0 flex-col border bg-card">
+      <Card className="animate-fade-in-up flex min-h-0 flex-col border bg-card">
         <CardHeader className="space-y-3 p-4">
           <CardTitle className="text-lg">Episodes</CardTitle>
           <div className="space-y-1">
@@ -1724,7 +1849,7 @@ function TvSubtitleManagementPanel({
           </div>
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Season</p>
-            <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy}>
+            <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Select season" />
               </SelectTrigger>
@@ -1737,13 +1862,15 @@ function TvSubtitleManagementPanel({
               </SelectContent>
             </Select>
           </div>
+          {episodesPending && <InlinePending label="Loading episode list..." />}
         </CardHeader>
 
-        <CardContent className="min-h-0 flex-1 p-4 pt-0">
-          <ScrollArea className="h-full rounded-md border bg-background">
+        <CardContent className="relative min-h-0 flex-1 p-4 pt-0">
+          <ScrollArea className={cn("h-full rounded-md border bg-background", episodesPending && "animate-pulse-soft")}>
             <ul className="space-y-2 p-2">
               {videos.map((video) => {
                 const active = selectedVideoId === video.id;
+                const itemBusy = subtitleAction?.videoId === video.id;
                 const parsed = parseVideoSeasonEpisode(video);
                 const episodeCode = parsed ? formatSeasonEpisodeText(parsed.season, parsed.episode) : "-";
                 return (
@@ -1751,12 +1878,14 @@ function TvSubtitleManagementPanel({
                     <button
                       type="button"
                       onClick={() => onSelectVideo(video)}
-                      disabled={busy}
+                      disabled={busy || episodesPending}
                       className={cn(
-                        "w-full rounded-md border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                        "surface-transition w-full rounded-md border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
                         active
-                          ? "border-primary/70 bg-primary/10"
+                          ? "border-primary/70 bg-primary/10 shadow-[inset_3px_0_0_0_rgba(14,165,233,0.6)]"
                           : "border bg-background hover:bg-accent"
+                        ,
+                        itemBusy && "animate-pulse-soft"
                       )}
                       aria-pressed={active}
                     >
@@ -1775,6 +1904,7 @@ function TvSubtitleManagementPanel({
               )}
             </ul>
           </ScrollArea>
+          {episodesPending && <PanelLoadingOverlay label="Refreshing episodes..." />}
         </CardContent>
       </Card>
 
@@ -1794,6 +1924,8 @@ function TvSubtitleManagementPanel({
           formatTime={formatTime}
           busy={busy}
           uploading={uploading}
+          uploadingMessage={uploadingMessage}
+          subtitleAction={subtitleAction}
           showSearchLinks={true}
           searchKeyword={searchKeyword}
           showMediaType={false}
@@ -1811,12 +1943,14 @@ interface SubtitleDetailsPanelProps {
   showBack: boolean;
   onBack: () => void;
   infoRows: Array<{ label: string; value: string }>;
-  onUpload: (video: Video, file: File, label: string) => Promise<void>;
-  onReplace: (video: Video, subtitle: Subtitle, file: File) => Promise<void>;
-  onRemove: (video: Video, subtitle: Subtitle) => Promise<void>;
+  onUpload: (video: Video, file: File, label: string) => Promise<boolean>;
+  onReplace: (video: Video, subtitle: Subtitle, file: File) => Promise<boolean>;
+  onRemove: (video: Video, subtitle: Subtitle) => Promise<boolean>;
   formatTime: (value: string | undefined | null) => string;
   busy: boolean;
   uploading: boolean;
+  uploadingMessage: string;
+  subtitleAction: PendingSubtitleAction | null;
   showSearchLinks: boolean;
   searchKeyword?: string;
   showMediaType?: boolean;
@@ -1841,6 +1975,8 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
   formatTime,
   busy,
   uploading,
+  uploadingMessage,
+  subtitleAction,
   showSearchLinks,
   searchKeyword,
   showMediaType = true,
@@ -1861,6 +1997,8 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
   const [zipUploadLabel, setZipUploadLabel] = useState("zh");
   const [zipPickError, setZipPickError] = useState("");
   const [zipLoading, setZipLoading] = useState(false);
+  const [deleteDialogSubtitleId, setDeleteDialogSubtitleId] = useState<string | null>(null);
+  const [flashSubtitleList, setFlashSubtitleList] = useState(false);
 
   const searchLinks = useMemo(() => {
     if (searchKeyword && searchKeyword.trim()) {
@@ -1872,6 +2010,16 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     return buildSubtitleSearchLinks(selectedVideo);
   }, [searchKeyword, selectedVideo]);
   const hasActionToolbar = showUploadButton || (showSearchLinks && Boolean(searchLinks)) || zipLoading || Boolean(zipPickError);
+  const uploadPending = subtitleAction?.kind === "upload" && subtitleAction.videoId === selectedVideo?.id;
+  const workingLabel = uploadPending ? uploadingMessage || "Uploading subtitle..." : "Upload Subtitle / Archive";
+
+  function triggerSubtitleListFlash() {
+    setFlashSubtitleList(false);
+    window.requestAnimationFrame(() => {
+      setFlashSubtitleList(true);
+      window.setTimeout(() => setFlashSubtitleList(false), 900);
+    });
+  }
 
   function resetZipPickState() {
     setZipPickDialogOpen(false);
@@ -1893,6 +2041,8 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
   useEffect(() => {
     resetUploadState();
     resetZipPickState();
+    setDeleteDialogSubtitleId(null);
+    setFlashSubtitleList(false);
   }, [selectedVideo?.id]);
 
   function openUploadPicker() {
@@ -1914,6 +2064,11 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       const entries = await extractSubtitleEntriesFromArchiveFile(file);
       if (entries.length === 0) {
         setZipPickError("No subtitle files found in the archive.");
+        emitToast({
+          level: "error",
+          title: "Archive parsing failed",
+          message: "No subtitle files were found in the selected archive."
+        });
         return;
       }
       setZipPickMode(mode);
@@ -1924,9 +2079,21 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       setZipPickFileName(file.name);
       setZipPickEntries(entries);
       setZipPickDialogOpen(true);
+      emitToast({
+        level: "info",
+        title: "Archive parsed",
+        message: `${entries.length} subtitle files found.`,
+        detail: file.name
+      });
     } catch (error) {
       const errText = error instanceof Error ? error.message : String(error);
       setZipPickError(`Parse archive failed: ${errText}`);
+      emitToast({
+        level: "error",
+        title: "Archive parsing failed",
+        message: errText,
+        detail: file.name
+      });
     } finally {
       setZipLoading(false);
     }
@@ -1942,6 +2109,12 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     }
     if (!isSubtitleFileName(file.name)) {
       setZipPickError("Unsupported file type. Please select subtitle files or archive files (.zip/.7z/.rar).");
+      emitToast({
+        level: "error",
+        title: "Unsupported file",
+        message: file.name,
+        detail: "Select subtitle files or supported archive formats."
+      });
       return;
     }
     setPendingUploadFile(file);
@@ -1950,8 +2123,11 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
 
   async function confirmUpload() {
     if (!selectedVideo || !pendingUploadFile) return;
-    await onUpload(selectedVideo, pendingUploadFile, uploadLabel.trim());
-    resetUploadState();
+    const success = await onUpload(selectedVideo, pendingUploadFile, uploadLabel.trim());
+    if (success) {
+      resetUploadState();
+      triggerSubtitleListFlash();
+    }
   }
 
   async function onReplaceFilePicked(subtitle: Subtitle, event: React.ChangeEvent<HTMLInputElement>) {
@@ -1964,9 +2140,18 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     }
     if (!isSubtitleFileName(file.name)) {
       setZipPickError("Unsupported file type. Please select subtitle files or archive files (.zip/.7z/.rar).");
+      emitToast({
+        level: "error",
+        title: "Unsupported file",
+        message: file.name,
+        detail: "Select subtitle files or supported archive formats."
+      });
       return;
     }
-    await onReplace(selectedVideo, subtitle, file);
+    const success = await onReplace(selectedVideo, subtitle, file);
+    if (success) {
+      triggerSubtitleListFlash();
+    }
   }
 
   async function onZipEntryPicked(entry: ZipSubtitleEntry) {
@@ -1976,8 +2161,11 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
 
     const selectedFile = toSubtitleFile(entry);
     if (zipPickMode === "upload") {
-      await onUpload(selectedVideo, selectedFile, zipUploadLabel.trim());
-      resetZipPickState();
+      const success = await onUpload(selectedVideo, selectedFile, zipUploadLabel.trim());
+      if (success) {
+        resetZipPickState();
+        triggerSubtitleListFlash();
+      }
       return;
     }
 
@@ -1986,12 +2174,26 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       return;
     }
 
-    await onReplace(selectedVideo, zipPickTargetSubtitle, selectedFile);
-    resetZipPickState();
+    const success = await onReplace(selectedVideo, zipPickTargetSubtitle, selectedFile);
+    if (success) {
+      resetZipPickState();
+      triggerSubtitleListFlash();
+    }
+  }
+
+  async function confirmDeleteSubtitle(subtitle: Subtitle) {
+    if (!selectedVideo) {
+      return;
+    }
+    const success = await onRemove(selectedVideo, subtitle);
+    if (success) {
+      setDeleteDialogSubtitleId(null);
+      triggerSubtitleListFlash();
+    }
   }
 
   return (
-    <Card className="flex h-full w-full flex-col border bg-card">
+    <Card className="animate-fade-in-up flex h-full w-full flex-col border bg-card">
       <CardHeader className="p-4">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-lg">{panelTitle}</CardTitle>
@@ -2034,7 +2236,8 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
               <div className="flex flex-wrap items-center gap-2">
                 {showUploadButton && (
                   <Button type="button" onClick={openUploadPicker} disabled={busy || zipLoading}>
-                    Upload Subtitle / Archive
+                    {uploadPending ? <SpinnerIcon className="h-4 w-4" /> : null}
+                    {workingLabel}
                   </Button>
                 )}
                 {showSearchLinks && searchLinks && (
@@ -2053,12 +2256,12 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                     </Button>
                   </>
                 )}
-                {zipLoading && <span className="text-xs text-muted-foreground">Parsing archive...</span>}
+                {zipLoading && <InlinePending label="Parsing archive..." />}
                 {zipPickError && <span className="text-xs text-rose-600">{zipPickError}</span>}
               </div>
             )}
 
-            <div className="min-h-0 flex-1 rounded-md border">
+            <div className={cn("min-h-0 flex-1 rounded-md border", flashSubtitleList && "animate-highlight-flash")}>
               <ScrollArea className="h-full max-h-[48vh] xl:max-h-full">
                 <Table>
                   <TableCaption>Subtitle list for selected video.</TableCaption>
@@ -2072,8 +2275,13 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {selectedVideo.subtitles.map((subtitle) => (
-                      <TableRow key={subtitle.id}>
+                    {selectedVideo.subtitles.map((subtitle) => {
+                      const replacePending = subtitleAction?.kind === "replace" && subtitleAction.subtitleId === subtitle.id;
+                      const deletePending = subtitleAction?.kind === "delete" && subtitleAction.subtitleId === subtitle.id;
+                      const rowBusy = replacePending || deletePending;
+
+                      return (
+                      <TableRow key={subtitle.id} className={cn(rowBusy && "animate-pulse-soft bg-muted/40")}>
                         <TableCell className="break-all">{subtitle.fileName}</TableCell>
                         <TableCell>{subtitle.language || "-"}</TableCell>
                         <TableCell>{subtitle.format || "-"}</TableCell>
@@ -2096,16 +2304,26 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                               size="sm"
                               variant="outline"
                               onClick={() => replaceInputRef.current[subtitle.id]?.click()}
-                              disabled={busy}
+                              disabled={busy || rowBusy}
                             >
-                              Replace
+                              {replacePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : null}
+                              {replacePending ? "Replacing..." : "Replace"}
                             </Button>
 
-                            <AlertDialog>
+                            <AlertDialog
+                              open={deleteDialogSubtitleId === subtitle.id}
+                              onOpenChange={(open) => {
+                                if (!open) {
+                                  setDeleteDialogSubtitleId((current) => (current === subtitle.id ? null : current));
+                                  return;
+                                }
+                                setDeleteDialogSubtitleId(subtitle.id);
+                              }}
+                            >
                               <AlertDialogTrigger asChild>
-                                <Button type="button" size="sm" variant="destructive" className="gap-1" disabled={busy}>
-                                  <Trash2 className="h-4 w-4" />
-                                  Delete
+                                <Button type="button" size="sm" variant="destructive" className="gap-1" disabled={busy || rowBusy}>
+                                  {deletePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Trash2 className="h-4 w-4" />}
+                                  {deletePending ? "Deleting..." : "Delete"}
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
@@ -2116,14 +2334,15 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel disabled={deletePending}>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => {
-                                      if (!selectedVideo) return;
-                                      void onRemove(selectedVideo, subtitle);
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      void confirmDeleteSubtitle(subtitle);
                                     }}
+                                    disabled={deletePending}
                                   >
-                                    Delete
+                                    {deletePending ? "Deleting..." : "Delete"}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -2131,7 +2350,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    );})}
 
                     {selectedVideo.subtitles.length === 0 && (
                       <TableRow>
@@ -2185,7 +2404,8 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
               onClick={() => void confirmUpload()}
               disabled={!pendingUploadFile || !selectedVideo || busy}
             >
-              Upload
+              {uploadPending ? <SpinnerIcon className="h-4 w-4" /> : null}
+              {uploadPending ? "Uploading..." : "Upload"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2226,7 +2446,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
 
           <div className="space-y-2">
             <p className="text-sm font-semibold">Archive Subtitle Files</p>
-            <div className="max-h-[55vh] overflow-auto rounded-md border">
+            <div className={cn("max-h-[55vh] overflow-auto rounded-md border", zipLoading && "animate-pulse-soft")}>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -2245,7 +2465,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                             type="button"
                             size="sm"
                             variant="outline"
-                            disabled={busy}
+                            disabled={busy || uploading}
                             onClick={() => void onZipEntryPicked(entry)}
                           >
                             Use This File
@@ -2282,9 +2502,9 @@ SubtitleDetailsPanel.displayName = "SubtitleDetailsPanel";
 function UploadBlockingOverlay({ message }: { message: string }) {
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-background/78 backdrop-blur-sm">
-      <div className="mx-4 flex min-w-[280px] max-w-[420px] flex-col items-center gap-3 rounded-2xl border bg-card px-6 py-7 text-center shadow-2xl">
+      <div className="animate-scale-in mx-4 flex min-w-[280px] max-w-[420px] flex-col items-center gap-3 rounded-2xl border bg-card px-6 py-7 text-center shadow-2xl">
         <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary">
-          <RefreshCw className="h-5 w-5 animate-spin" />
+          <SpinnerIcon className="h-5 w-5" />
         </span>
         <div className="space-y-1">
           <p className="text-sm font-semibold">Uploading subtitles</p>
@@ -2312,9 +2532,11 @@ interface QuickStatCardProps {
   value: string;
   hint: string;
   tone: "emerald" | "blue" | "amber" | "rose";
+  pending?: boolean;
+  className?: string;
 }
 
-function QuickStatCard({ icon, label, value, hint, tone }: QuickStatCardProps) {
+function QuickStatCard({ icon, label, value, hint, tone, pending = false, className }: QuickStatCardProps) {
   const toneClass: Record<QuickStatCardProps["tone"], { iconBg: string; iconText: string; hintText: string }> = {
     emerald: {
       iconBg: "bg-emerald-500/15 dark:bg-emerald-500/20",
@@ -2341,7 +2563,7 @@ function QuickStatCard({ icon, label, value, hint, tone }: QuickStatCardProps) {
   const style = toneClass[tone];
 
   return (
-    <Card className="border bg-card">
+    <Card className={cn("border bg-card", className, pending && "animate-pulse-soft")}>
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center gap-3">
           <span className={cn("inline-flex h-8 w-8 items-center justify-center rounded-lg", style.iconBg, style.iconText)}>
@@ -2356,12 +2578,12 @@ function QuickStatCard({ icon, label, value, hint, tone }: QuickStatCardProps) {
   );
 }
 
-function PagerView({ pager, onSetPage }: { pager: Pager; onSetPage: (page: number) => void }) {
+function PagerView({ pager, onSetPage, disabled = false }: { pager: Pager; onSetPage: (page: number) => void; disabled?: boolean }) {
   const totalPages = Math.max(1, pager.totalPages);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <Button type="button" variant="outline" size="sm" disabled={pager.page <= 1} onClick={() => onSetPage(pager.page - 1)}>
+      <Button type="button" variant="outline" size="sm" disabled={disabled || pager.page <= 1} onClick={() => onSetPage(pager.page - 1)}>
         Prev
       </Button>
       <span className="text-xs text-muted-foreground">
@@ -2371,7 +2593,7 @@ function PagerView({ pager, onSetPage }: { pager: Pager; onSetPage: (page: numbe
         type="button"
         variant="outline"
         size="sm"
-        disabled={pager.page >= totalPages}
+        disabled={disabled || pager.page >= totalPages}
         onClick={() => onSetPage(pager.page + 1)}
       >
         Next
@@ -2380,18 +2602,26 @@ function PagerView({ pager, onSetPage }: { pager: Pager; onSetPage: (page: numbe
   );
 }
 
-function LogsPanel({ logs, formatTime }: { logs: OperationLog[]; formatTime: (value: string | undefined | null) => string }) {
+function LogsPanel({
+  logs,
+  pending,
+  formatTime
+}: {
+  logs: OperationLog[];
+  pending: boolean;
+  formatTime: (value: string | undefined | null) => string;
+}) {
   return (
-    <Card className="flex h-full min-h-[420px] flex-col border bg-card">
+    <Card className="animate-fade-in-up flex h-full min-h-[420px] flex-col border bg-card">
       <CardHeader className="flex flex-row items-center justify-between p-4">
         <CardTitle className="text-lg">Operation Logs</CardTitle>
-        <Badge variant="secondary">Recent {logs.length} records</Badge>
+        <Badge variant="secondary">{pending ? "Refreshing..." : `Recent ${logs.length}`}</Badge>
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 p-4 pt-0">
-        <ScrollArea className="min-h-0 flex-1 rounded-md border bg-background">
+      <CardContent className="relative flex min-h-0 flex-1 p-4 pt-0">
+        <ScrollArea className={cn("min-h-0 flex-1 rounded-md border bg-background", pending && "animate-pulse-soft")}>
           <ul className="divide-y divide-border">
             {logs.map((log) => (
-              <li key={log.id} className="space-y-1 p-3 text-sm">
+              <li key={log.id} className="animate-fade-in-up space-y-1 p-3 text-sm">
                 <p className="text-xs text-muted-foreground">{formatTime(log.timestamp)}</p>
                 <p className="font-semibold">{log.action}</p>
                 <p className="break-all text-xs text-muted-foreground">{log.targetPath || "-"}</p>
@@ -2405,6 +2635,7 @@ function LogsPanel({ logs, formatTime }: { logs: OperationLog[]; formatTime: (va
             )}
           </ul>
         </ScrollArea>
+        {pending && <PanelLoadingOverlay label="Refreshing logs..." />}
       </CardContent>
     </Card>
   );

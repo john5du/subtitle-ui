@@ -1,6 +1,7 @@
 ﻿<p align="center">
-  <img src="./frontend/public/icon.svg" alt="Subtitle UI icon" width="112" height="112" />
+  <img src="./frontend/public/icon.svg" alt="Subtitle UI icon" width="222" height="222" />
 </p>
+
 # subtitle-ui
 
 A Go + Next.js web application for managing subtitle files. Video metadata is loaded from Jellyfin-scraped sidecar files (NFO) in the media library.
