@@ -24,7 +24,7 @@ func Load() Config {
 	}
 
 	cfg := Config{
-		ServerAddr:     getEnv("SERVER_ADDR", ":8080"),
+		ServerAddr:     getEnv("SERVER_ADDR", ":9307"),
 		MovieMediaRoot: getEnv("MOVIE_MEDIA_ROOT", movieDefault),
 		TVMediaRoot:    getEnv("TV_MEDIA_ROOT", tvDefault),
 		UIDist:         getEnv("UI_DIST", "./frontend/out"),

@@ -338,8 +338,8 @@ function resolveApiBase() {
     return configured.replace(/\/+$/, "");
   }
 
-  if (typeof window !== "undefined" && window.location.port === "3000") {
-    return "http://localhost:8080";
+  if (typeof window !== "undefined" && window.location.port === "3300") {
+    return "http://localhost:9307";
   }
 
   return "";

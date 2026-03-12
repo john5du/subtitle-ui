@@ -31,13 +31,13 @@ RUN apk add --no-cache ca-certificates \
 COPY --from=backend-builder /out/server /app/server
 COPY --from=frontend-builder /workspace/frontend/out /app/frontend/out
 
-ENV SERVER_ADDR=:8080 \
+ENV SERVER_ADDR=:9307 \
     MOVIE_MEDIA_ROOT=/data/media/movies \
     TV_MEDIA_ROOT=/data/media/tv \
     DB_PATH=/data/subtitle_manager.sqlite3 \
     UI_DIST=/app/frontend/out
 
-EXPOSE 8080
+EXPOSE 9307
 
 USER app
 ENTRYPOINT ["/app/server"]

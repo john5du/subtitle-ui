@@ -52,6 +52,8 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
 $frontendDir = Join-Path $repoRoot "frontend"
 $tmpDir = Join-Path $repoRoot "tmp"
+$backendPort = 9307
+$frontendPort = 3300
 
 if (!(Test-Path $frontendDir)) {
   throw "frontend directory not found: $frontendDir"
@@ -67,12 +69,12 @@ $frontendErr = Join-Path $tmpDir "frontend.err.log"
 $backendPidFile = Join-Path $tmpDir "backend.pid"
 $frontendPidFile = Join-Path $tmpDir "frontend.pid"
 
-# Start backend (:8080)
-$backendPid = Get-ListenerPid -Port 8080
+# Start backend (:9307)
+$backendPid = Get-ListenerPid -Port $backendPort
 if ($backendPid) {
-  Write-Step "Backend already listening on :8080 (PID=$backendPid)."
+  Write-Step "Backend already listening on :$backendPort (PID=$backendPid)."
 } else {
-  Write-Step "Starting backend on :8080 ..."
+  Write-Step "Starting backend on :$backendPort ..."
   if (Test-Path $backendOut) { Remove-Item $backendOut -Force }
   if (Test-Path $backendErr) { Remove-Item $backendErr -Force }
 
@@ -84,9 +86,9 @@ if ($backendPid) {
     -RedirectStandardError $backendErr `
     -PassThru
 
-  $backendPid = Wait-PortOpen -Port 8080 -TimeoutSec $WaitTimeoutSec
+  $backendPid = Wait-PortOpen -Port $backendPort -TimeoutSec $WaitTimeoutSec
   if (-not $backendPid) {
-    throw "Backend failed to listen on :8080 within $WaitTimeoutSec seconds. See $backendErr"
+    throw "Backend failed to listen on :$backendPort within $WaitTimeoutSec seconds. See $backendErr"
   }
   Write-Step "Backend is up (PID=$backendPid)."
 }
@@ -103,12 +105,12 @@ if (!$SkipInstall -and !(Test-Path $nodeModulesDir)) {
   }
 }
 
-# Start frontend dev (:3000)
-$frontendPid = Get-ListenerPid -Port 3000
+# Start frontend dev (:3300)
+$frontendPid = Get-ListenerPid -Port $frontendPort
 if ($frontendPid) {
-  Write-Step "Frontend already listening on :3000 (PID=$frontendPid)."
+  Write-Step "Frontend already listening on :$frontendPort (PID=$frontendPid)."
 } else {
-  Write-Step "Starting frontend dev server on :3000 ..."
+  Write-Step "Starting frontend dev server on :$frontendPort ..."
   if (Test-Path $frontendOut) { Remove-Item $frontendOut -Force }
   if (Test-Path $frontendErr) { Remove-Item $frontendErr -Force }
 
@@ -120,9 +122,9 @@ if ($frontendPid) {
     -RedirectStandardError $frontendErr `
     -PassThru
 
-  $frontendPid = Wait-PortOpen -Port 3000 -TimeoutSec $WaitTimeoutSec
+  $frontendPid = Wait-PortOpen -Port $frontendPort -TimeoutSec $WaitTimeoutSec
   if (-not $frontendPid) {
-    throw "Frontend failed to listen on :3000 within $WaitTimeoutSec seconds. See $frontendErr"
+    throw "Frontend failed to listen on :$frontendPort within $WaitTimeoutSec seconds. See $frontendErr"
   }
   Write-Step "Frontend is up (PID=$frontendPid)."
 }
@@ -132,8 +134,8 @@ Set-Content -Path $frontendPidFile -Encoding ASCII -Value "$frontendPid"
 
 Write-Host ""
 Write-Host "Ready:"
-Write-Host "  Frontend: http://localhost:3000 (PID=$frontendPid)"
-Write-Host "  Backend : http://localhost:8080 (PID=$backendPid)"
+Write-Host "  Frontend: http://localhost:$frontendPort (PID=$frontendPid)"
+Write-Host "  Backend : http://localhost:$backendPort (PID=$backendPid)"
 Write-Host ""
 Write-Host "Logs:"
 Write-Host "  $frontendOut"

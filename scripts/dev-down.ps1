@@ -96,6 +96,8 @@ function Stop-ByPidFile {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptDir
 $tmpDir = Join-Path $repoRoot "tmp"
+$backendPort = 9307
+$frontendPort = 3300
 
 $backendPidFile = Join-Path $tmpDir "backend.pid"
 $frontendPidFile = Join-Path $tmpDir "frontend.pid"
@@ -107,31 +109,31 @@ Stop-ByPidFile -Label "frontend" -PidFile $frontendPidFile
 if ($KillByPort) {
   Write-Step "Kill-by-port fallback enabled."
 
-  $frontendPid = Get-ListenerPid -Port 3000
+  $frontendPid = Get-ListenerPid -Port $frontendPort
   if ($frontendPid) {
-    [void](Stop-ProcessByPid -ProcessId $frontendPid -Label "frontend(:3000)")
+    [void](Stop-ProcessByPid -ProcessId $frontendPid -Label "frontend(:$frontendPort)")
   } else {
-    Write-Step "No listener on :3000."
+    Write-Step "No listener on :$frontendPort."
   }
 
-  $backendPid = Get-ListenerPid -Port 8080
+  $backendPid = Get-ListenerPid -Port $backendPort
   if ($backendPid) {
-    [void](Stop-ProcessByPid -ProcessId $backendPid -Label "backend(:8080)")
+    [void](Stop-ProcessByPid -ProcessId $backendPid -Label "backend(:$backendPort)")
   } else {
-    Write-Step "No listener on :8080."
+    Write-Step "No listener on :$backendPort."
   }
 }
 
-$frontClosed = Wait-PortClosed -Port 3000 -TimeoutSec $WaitTimeoutSec
-$backClosed = Wait-PortClosed -Port 8080 -TimeoutSec $WaitTimeoutSec
+$frontClosed = Wait-PortClosed -Port $frontendPort -TimeoutSec $WaitTimeoutSec
+$backClosed = Wait-PortClosed -Port $backendPort -TimeoutSec $WaitTimeoutSec
 
 if (!$frontClosed -or !$backClosed) {
-  $leftFront = Get-ListenerPid -Port 3000
-  $leftBack = Get-ListenerPid -Port 8080
-  throw "Ports not fully released in time. :3000=$leftFront :8080=$leftBack"
+  $leftFront = Get-ListenerPid -Port $frontendPort
+  $leftBack = Get-ListenerPid -Port $backendPort
+  throw "Ports not fully released in time. :$frontendPort=$leftFront :$backendPort=$leftBack"
 }
 
 Write-Host ""
 Write-Host "Stopped:"
-Write-Host "  Frontend :3000"
-Write-Host "  Backend  :8080"
+Write-Host "  Frontend :$frontendPort"
+Write-Host "  Backend  :$backendPort"

@@ -5,7 +5,7 @@
   "scripts": {
     "prepare:libarchive": "node ./scripts/prepare-libarchive.mjs",
     "predev": "npm run prepare:libarchive",
-    "dev": "next dev",
+    "dev": "next dev -p 3300",
     "prebuild": "npm run prepare:libarchive",
     "build": "next build",
     "start": "next start",

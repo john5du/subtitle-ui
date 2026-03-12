@@ -66,8 +66,8 @@ git push origin v0.1.4
 powershell -ExecutionPolicy Bypass -File .\scripts\dev-up.ps1
 ```
 
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:8080`
+- Frontend: `http://localhost:3300`
+- Backend: `http://localhost:9307`
 - Logs: `tmp/frontend.out.log`, `tmp/frontend.err.log`, `tmp/backend.out.log`, `tmp/backend.err.log`
 
 ### One-click stop
@@ -106,12 +106,12 @@ npm install
 npm run dev
 ```
 
-3. Open browser: `http://localhost:3000`
+3. Open browser: `http://localhost:3300`
 
 4. Optional (for local dev against non-default API host):
 
 ```bash
-set NEXT_PUBLIC_API_BASE=http://localhost:8080
+set NEXT_PUBLIC_API_BASE=http://localhost:9307
 ```
 
 ## Frontend build output (for Go static hosting)
@@ -135,14 +135,14 @@ docker build -t subtitle-ui:local .
 Run container (example with bind mounts):
 
 ```bash
-docker run --rm -p 8080:8080 \
+docker run --rm -p 9307:9307 \
   -v /path/to/movies:/data/media/movies \
   -v /path/to/tv:/data/media/tv \
   -v /path/to/data:/data \
   ghcr.io/john5du/subtitle-ui:latest
 ```
 
-- App entrypoint serves both API and frontend on `:8080`.
+- App entrypoint serves both API and frontend on `:9307`.
 - Default container paths:
   - `MOVIE_MEDIA_ROOT=/data/media/movies`
   - `TV_MEDIA_ROOT=/data/media/tv`
@@ -158,7 +158,7 @@ services:
     image: ghcr.io/john5du/subtitle-ui:latest
     container_name: subtitle-ui
     ports:
-      - "8080:8080"
+      - "9307:9307"
     environment:
       MOVIE_MEDIA_ROOT: /data/media/movies
       TV_MEDIA_ROOT: /data/media/tv
@@ -189,7 +189,7 @@ docker compose up -d
 
 ## Configuration
 
-- `SERVER_ADDR` default `:8080`
+- `SERVER_ADDR` default `:9307`
 - `MOVIE_MEDIA_ROOT` default `./media/movies`
 - `TV_MEDIA_ROOT` default `./media/tv`
 - `MEDIA_ROOT` legacy fallback (if set and `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` not set, both use it)

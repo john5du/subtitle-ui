@@ -66,8 +66,8 @@ git push origin v0.1.4
 powershell -ExecutionPolicy Bypass -File .\scripts\dev-up.ps1
 ```
 
-- 前端：`http://localhost:3000`
-- 后端：`http://localhost:8080`
+- 前端：`http://localhost:3300`
+- 后端：`http://localhost:9307`
 - 日志：`tmp/frontend.out.log`, `tmp/frontend.err.log`, `tmp/backend.out.log`, `tmp/backend.err.log`
 
 ### 一键停止
@@ -106,12 +106,12 @@ npm install
 npm run dev
 ```
 
-3. 打开浏览器：`http://localhost:3000`
+3. 打开浏览器：`http://localhost:3300`
 
 4. 可选（本地开发时指定非默认 API 主机）：
 
 ```bash
-set NEXT_PUBLIC_API_BASE=http://localhost:8080
+set NEXT_PUBLIC_API_BASE=http://localhost:9307
 ```
 
 ## 前端构建输出（用于 Go 静态托管）
@@ -135,14 +135,14 @@ docker build -t subtitle-ui:local .
 运行容器（bind mount 示例）：
 
 ```bash
-docker run --rm -p 8080:8080 \
+docker run --rm -p 9307:9307 \
   -v /path/to/movies:/data/media/movies \
   -v /path/to/tv:/data/media/tv \
   -v /path/to/data:/data \
   ghcr.io/john5du/subtitle-ui:latest
 ```
 
-- 应用在 `:8080` 同时提供 API 和前端服务。
+- 应用在 `:9307` 同时提供 API 和前端服务。
 - 默认容器路径：
   - `MOVIE_MEDIA_ROOT=/data/media/movies`
   - `TV_MEDIA_ROOT=/data/media/tv`
@@ -158,7 +158,7 @@ services:
     image: ghcr.io/john5du/subtitle-ui:latest
     container_name: subtitle-ui
     ports:
-      - "8080:8080"
+      - "9307:9307"
     environment:
       MOVIE_MEDIA_ROOT: /data/media/movies
       TV_MEDIA_ROOT: /data/media/tv
@@ -189,7 +189,7 @@ docker compose up -d
 
 ## 配置项
 
-- `SERVER_ADDR` 默认 `:8080`
+- `SERVER_ADDR` 默认 `:9307`
 - `MOVIE_MEDIA_ROOT` 默认 `./media/movies`
 - `TV_MEDIA_ROOT` 默认 `./media/tv`
 - `MEDIA_ROOT` 旧版兜底（若设置且 `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` 未设置，则两者都使用它）
