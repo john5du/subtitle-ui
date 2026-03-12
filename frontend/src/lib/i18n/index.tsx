@@ -85,16 +85,6 @@ export function I18nProvider({
   });
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (isLocale(stored) && stored !== locale) {
-      setLocale(stored);
-    }
-  }, [locale]);
-
-  useEffect(() => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(STORAGE_KEY, locale);
       window.__subtitleUiLocale = locale;
