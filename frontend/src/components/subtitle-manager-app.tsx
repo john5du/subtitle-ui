@@ -9,6 +9,7 @@ import {
   Film,
   FileText,
   FolderTree,
+  Languages,
   LayoutDashboard,
   Monitor,
   MoreHorizontal,
@@ -21,6 +22,7 @@ import {
 import Image from "next/image";
 import { useTheme } from "next-themes";
 
+import { useI18n, type TranslateFn } from "@/lib/i18n";
 import { useSubtitleManager } from "@/hooks/use-subtitle-manager";
 import type {
   ActiveTab,
@@ -95,14 +97,14 @@ type DetectedBatchLanguageType =
 
 type BatchLanguagePreference = "any" | DetectedBatchLanguageType;
 
-const BATCH_LANGUAGE_LABELS: Record<DetectedBatchLanguageType, string> = {
-  bilingual: "Bilingual",
-  simplified: "Simplified Chinese",
-  traditional: "Traditional Chinese",
-  english: "English",
-  japanese: "Japanese",
-  korean: "Korean",
-  unknown: "Unknown"
+const BATCH_LANGUAGE_LABEL_KEYS: Record<DetectedBatchLanguageType, Parameters<TranslateFn>[0]> = {
+  bilingual: "batch.language.bilingual",
+  simplified: "batch.language.simplified",
+  traditional: "batch.language.traditional",
+  english: "batch.language.english",
+  japanese: "batch.language.japanese",
+  korean: "batch.language.korean",
+  unknown: "batch.language.unknown"
 };
 
 const BATCH_LANGUAGE_ORDER: DetectedBatchLanguageType[] = [
@@ -139,8 +141,8 @@ function compareLanguageTypes(a: DetectedBatchLanguageType, b: DetectedBatchLang
   return a.localeCompare(b);
 }
 
-function formatLanguageTypeLabel(value: DetectedBatchLanguageType) {
-  return BATCH_LANGUAGE_LABELS[value] || value;
+function formatLanguageTypeLabel(value: DetectedBatchLanguageType, t: TranslateFn) {
+  return t(BATCH_LANGUAGE_LABEL_KEYS[value]);
 }
 
 function formatSubtitleExtLabel(ext: string) {
@@ -411,31 +413,40 @@ function applyBatchEntryPreferences(
   };
 }
 
-function summarizeBatchInputs(files: File[], entryCount: number) {
+function countSummaryLabel(
+  count: number,
+  t: TranslateFn,
+  singularKey: Parameters<TranslateFn>[0],
+  pluralKey: Parameters<TranslateFn>[0]
+) {
+  return t(count === 1 ? singularKey : pluralKey, { count });
+}
+
+function summarizeBatchInputs(files: File[], entryCount: number, t: TranslateFn) {
   const archiveCount = files.filter((file) => isArchiveFileName(file.name)).length;
   const subtitleCount = files.filter((file) => isSubtitleFileName(file.name)).length;
   const unsupportedCount = files.length - archiveCount - subtitleCount;
   const parts: string[] = [];
   if (archiveCount > 0) {
-    parts.push(`${archiveCount} archive`);
+    parts.push(countSummaryLabel(archiveCount, t, "batch.summary.archive.one", "batch.summary.archive.other"));
   }
   if (subtitleCount > 0) {
-    parts.push(`${subtitleCount} subtitle`);
+    parts.push(countSummaryLabel(subtitleCount, t, "batch.summary.subtitle.one", "batch.summary.subtitle.other"));
   }
   if (unsupportedCount > 0) {
-    parts.push(`${unsupportedCount} unsupported`);
+    parts.push(countSummaryLabel(unsupportedCount, t, "batch.summary.unsupported.one", "batch.summary.unsupported.other"));
   }
 
-  const inputWord = files.length === 1 ? "input" : "inputs";
-  const entryWord = entryCount === 1 ? "entry" : "entries";
-  return `${files.length} ${inputWord} (${parts.join(", ")}) -> ${entryCount} ${entryWord}`;
+  const inputs = countSummaryLabel(files.length, t, "batch.summary.input.one", "batch.summary.input.other");
+  const entries = countSummaryLabel(entryCount, t, "batch.summary.entry.one", "batch.summary.entry.other");
+  return t("batch.summary.total", { inputs, parts: parts.join(", "), entries });
 }
 
-function summarizeFileNames(names: string[], maxVisible = 3) {
+function summarizeFileNames(names: string[], t: TranslateFn, maxVisible = 3) {
   if (names.length <= maxVisible) {
     return names.join(", ");
   }
-  return `${names.slice(0, maxVisible).join(", ")} +${names.length - maxVisible} more`;
+  return `${names.slice(0, maxVisible).join(", ")} ${t("batch.summary.more", { count: names.length - maxVisible })}`;
 }
 
 function SpinnerIcon({ className }: { className?: string }) {
@@ -518,6 +529,7 @@ async function collectBatchEntriesFromFiles(files: File[]) {
 }
 
 export function SubtitleManagerApp() {
+  const { t } = useI18n();
   const {
     activeTab,
     movieQuery,
@@ -575,11 +587,12 @@ export function SubtitleManagerApp() {
   const movieDetailsRef = useRef<SubtitleDetailsPanelHandle | null>(null);
 
   const navItems: Array<{ key: ActiveTab; icon: React.ReactNode; label: string }> = [
-    { key: "dashboard", icon: <LayoutDashboard className="h-5 w-5" />, label: "Overview" },
-    { key: "movie", icon: <Film className="h-5 w-5" />, label: "Movie" },
-    { key: "tv", icon: <Tv className="h-5 w-5" />, label: "TV" },
-    { key: "logs", icon: <FileText className="h-5 w-5" />, label: "Logs" }
+    { key: "dashboard", icon: <LayoutDashboard className="h-5 w-5" />, label: t("nav.overview") },
+    { key: "movie", icon: <Film className="h-5 w-5" />, label: t("nav.movie") },
+    { key: "tv", icon: <Tv className="h-5 w-5" />, label: t("nav.tv") },
+    { key: "logs", icon: <FileText className="h-5 w-5" />, label: t("nav.logs") }
   ];
+  const activeTabLabel = navItems.find((item) => item.key === activeTab)?.label || activeTab;
 
   const selectedMovie = useMemo(() => {
     return movieVideos.find((video) => video.id === selectedVideoIdByType.movie) ?? null;
@@ -612,14 +625,14 @@ export function SubtitleManagerApp() {
   }, [loading, pending.bootstrapping, pending.tabSwitch, refreshPending, scanPending, uploading]);
 
   const statusBadgeText = scanPending
-    ? "Scanning media library..."
+    ? t("status.scanningLibrary")
     : refreshPending
-      ? `Refreshing ${activeTab}...`
+      ? t("status.refreshingTab", { tab: activeTabLabel })
       : uploading
-        ? uploadingMessage || "Uploading subtitles..."
+        ? uploadingMessage || t("status.uploadingSubtitles")
         : pending.tabSwitch
-          ? "Loading workspace..."
-          : message || "Ready";
+          ? t("status.loadingWorkspace")
+          : message || t("status.ready");
 
   function handleMovieSelect(video: Video) {
     selectMovieVideo(video);
@@ -690,7 +703,7 @@ export function SubtitleManagerApp() {
                 className="mb-2 h-14 w-14 rounded-2xl border border-border/70 bg-background/40"
               />
               <p className="text-base font-bold uppercase tracking-[0.2em] text-muted-foreground">Subtitle UI</p>
-              <p className="mt-1 text-xs text-muted-foreground">Simple, efficient subtitle operations.</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("sidebar.tagline")}</p>
             </div>
 
             <div className="grid gap-1">
@@ -719,7 +732,8 @@ export function SubtitleManagerApp() {
               <Badge variant="outline" className={cn("surface-transition flex w-full items-center justify-center px-3 py-1.5 text-center text-xs", statusBadgeClass)}>
                 {statusBadgeText}
               </Badge>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2">
+                <LocaleSelect />
                 <ThemeModeSelect />
                 <Button
                   type="button"
@@ -727,8 +741,8 @@ export function SubtitleManagerApp() {
                   onClick={() => void triggerScan()}
                   disabled={operationLocked}
                   className="h-10 w-10"
-                  aria-label={scanPending ? "Scanning media library" : "Scan media library"}
-                  title={scanPending ? "Scanning media library" : "Scan media library"}
+                  aria-label={scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
+                  title={scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
                 >
                   {scanPending ? <SpinnerIcon className="h-5 w-5" /> : <Search className="h-5 w-5" />}
                 </Button>
@@ -739,8 +753,16 @@ export function SubtitleManagerApp() {
                   onClick={() => void refreshActiveTab()}
                   disabled={operationLocked}
                   className="h-10 w-10"
-                  aria-label={refreshPending ? `Refreshing ${activeTab}` : `Refresh ${activeTab}`}
-                  title={refreshPending ? `Refreshing ${activeTab}` : `Refresh ${activeTab}`}
+                  aria-label={
+                    refreshPending
+                      ? t("sidebar.refreshingTab", { tab: activeTabLabel })
+                      : t("sidebar.refreshTab", { tab: activeTabLabel })
+                  }
+                  title={
+                    refreshPending
+                      ? t("sidebar.refreshingTab", { tab: activeTabLabel })
+                      : t("sidebar.refreshTab", { tab: activeTabLabel })
+                  }
                 >
                   {refreshPending ? <SpinnerIcon className="h-5 w-5" /> : <RefreshCw className="h-5 w-5" />}
                 </Button>
@@ -831,9 +853,9 @@ export function SubtitleManagerApp() {
         <DialogContent className="flex h-[90vh] max-h-[90vh] w-[min(1100px,96vw)] max-w-none overflow-hidden p-0">
           <SubtitleDetailsPanel
             ref={movieDetailsRef}
-            panelTitle="Movie Subtitle Management"
+            panelTitle={t("details.movieManagementTitle")}
             selectedVideo={selectedMovie}
-            emptyText="Select a movie from the list."
+            emptyText={t("details.movieEmpty")}
             showBack={false}
             onBack={() => {}}
             infoRows={[]}
@@ -928,33 +950,34 @@ function DashboardPanel({
   const movieCount = directoryScan.movieCount || 0;
   const tvSeriesCount = directoryScan.tvSeriesCount || 0;
   const discoveredDirCount = movieCount + tvSeriesCount;
+  const { t } = useI18n();
 
   return (
     <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-3">
         <QuickStatCard
           icon={<Activity className="h-5 w-5" />}
-          label="Last Scan Videos"
+          label={t("dashboard.lastScanVideos")}
           value={String(scanStatus?.videoCount ?? 0)}
-          hint={scanStatus?.running ? "Scan in progress" : "Scanner idle"}
+          hint={scanStatus?.running ? t("dashboard.scanInProgress") : t("dashboard.scannerIdle")}
           tone="emerald"
           pending={pending.scan || pending.bootstrapping}
           className="animate-fade-in-up"
         />
         <QuickStatCard
           icon={<FolderTree className="h-5 w-5" />}
-          label="Discovered Dirs"
+          label={t("dashboard.discoveredDirs")}
           value={String(discoveredDirCount)}
-          hint={`Movie ${movieCount} / TV ${tvSeriesCount}`}
+          hint={t("dashboard.movieTvCount", { movie: movieCount, tv: tvSeriesCount })}
           tone="blue"
           pending={pending.scan || pending.bootstrapping}
           className="animate-fade-in-up"
         />
         <QuickStatCard
           icon={<AlertTriangle className="h-5 w-5" />}
-          label="Directory Warnings"
+          label={t("dashboard.directoryWarnings")}
           value={String(directoryScan.errors.length)}
-          hint={directoryScan.errors.length > 0 ? "Needs review" : "All clear"}
+          hint={directoryScan.errors.length > 0 ? t("dashboard.needsReview") : t("dashboard.allClear")}
           tone={directoryScan.errors.length > 0 ? "rose" : "amber"}
           pending={pending.scan || pending.bootstrapping}
           className="animate-fade-in-up"
@@ -964,17 +987,17 @@ function DashboardPanel({
       <div className="grid gap-3 xl:grid-cols-[1.2fr_1fr]">
         <Card className="animate-fade-in-up border bg-card">
           <CardHeader className="p-4">
-            <CardTitle className="text-lg">Scan Status</CardTitle>
+            <CardTitle className="text-lg">{t("dashboard.scanStatusTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 p-4 pt-0">
             <div className="rounded-lg border bg-muted/20 p-3 text-sm">
               <p role="status" aria-live="polite" className="font-medium">
-                {message || "Ready"}
+                {message || t("status.ready")}
               </p>
-              {pending.scan && <p className="mt-2"><InlinePending label="Scanner is working through the media library..." /></p>}
+              {pending.scan && <p className="mt-2"><InlinePending label={t("dashboard.scannerWorking")} /></p>}
             </div>
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Directory warnings</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("dashboard.directoryWarningsTitle")}</p>
               {directoryScan.errors.length > 0 ? (
                 <ul className="space-y-2">
                   {directoryScan.errors.slice(0, 6).map((error) => (
@@ -984,7 +1007,7 @@ function DashboardPanel({
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-muted-foreground">No directory warnings in the latest scan.</p>
+                <p className="text-xs text-muted-foreground">{t("dashboard.noDirectoryWarnings")}</p>
               )}
             </div>
           </CardContent>
@@ -992,8 +1015,8 @@ function DashboardPanel({
 
         <Card className="animate-fade-in-up border bg-card">
           <CardHeader className="flex flex-row items-center justify-between p-4">
-            <CardTitle className="text-lg">Recent Operations</CardTitle>
-            <Badge variant="secondary">{pending.logs ? "Refreshing..." : `Recent ${recentLogs.length}`}</Badge>
+            <CardTitle className="text-lg">{t("dashboard.recentOperationsTitle")}</CardTitle>
+            <Badge variant="secondary">{pending.logs ? t("logs.refreshing") : t("dashboard.recentCount", { count: recentLogs.length })}</Badge>
           </CardHeader>
           <CardContent className="relative p-4 pt-0">
             <ScrollArea className={cn("h-[300px] rounded-md border bg-background", pending.logs && "animate-pulse-soft")}>
@@ -1003,16 +1026,16 @@ function DashboardPanel({
                     <p className="font-medium">{log.action}</p>
                     <p className="text-muted-foreground">{formatTime(log.timestamp)}</p>
                     <p className="break-all text-muted-foreground">{log.targetPath || "-"}</p>
-                    <p className="text-muted-foreground">status: {log.status}</p>
-                    {log.message && <p className="break-all text-muted-foreground">details: {log.message}</p>}
+                    <p className="text-muted-foreground">{t("dashboard.logStatus", { status: log.status })}</p>
+                    {log.message && <p className="break-all text-muted-foreground">{t("dashboard.logDetails", { details: log.message })}</p>}
                   </li>
                 ))}
                 {recentLogs.length === 0 && (
-                  <li className="p-6 text-center text-sm text-muted-foreground">No operation logs yet.</li>
+                  <li className="p-6 text-center text-sm text-muted-foreground">{t("dashboard.logsEmpty")}</li>
                 )}
               </ul>
             </ScrollArea>
-            {pending.logs && <PanelLoadingOverlay label="Refreshing logs..." />}
+            {pending.logs && <PanelLoadingOverlay label={t("logs.refreshing")} />}
           </CardContent>
         </Card>
       </div>
@@ -1020,6 +1043,7 @@ function DashboardPanel({
   );
 }
 function ThemeModeSelect({ disabled = false }: { disabled?: boolean }) {
+  const { t } = useI18n();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -1033,15 +1057,32 @@ function ThemeModeSelect({ disabled = false }: { disabled?: boolean }) {
 
   return (
     <RowActionsMenu
-      label="Change theme"
+      label={t("sidebar.changeTheme")}
       disabled={disabled}
       triggerIcon={icon}
       triggerClassName="h-10 w-10"
       menuDirection="up"
       items={[
-        { label: "System", onSelect: () => setTheme("system"), disabled: value === "system" },
-        { label: "Light", onSelect: () => setTheme("light"), disabled: value === "light" },
-        { label: "Dark", onSelect: () => setTheme("dark"), disabled: value === "dark" }
+        { label: t("theme.system"), onSelect: () => setTheme("system"), disabled: value === "system" },
+        { label: t("theme.light"), onSelect: () => setTheme("light"), disabled: value === "light" },
+        { label: t("theme.dark"), onSelect: () => setTheme("dark"), disabled: value === "dark" }
+      ]}
+    />
+  );
+}
+
+function LocaleSelect() {
+  const { locale, setLocale, t } = useI18n();
+
+  return (
+    <RowActionsMenu
+      label={`${t("locale.label")}: ${locale === "en" ? t("locale.english") : t("locale.zh-CN")}`}
+      triggerIcon={<Languages className="h-5 w-5" />}
+      triggerClassName="h-10 w-10"
+      menuDirection="up"
+      items={[
+        { label: t("locale.english"), onSelect: () => setLocale("en"), disabled: locale === "en" },
+        { label: t("locale.zh-CN"), onSelect: () => setLocale("zh-CN"), disabled: locale === "zh-CN" }
       ]}
     />
   );
@@ -1211,20 +1252,21 @@ function MovieListPanel({
   pending,
   formatTime
 }: MovieListPanelProps) {
+  const { t } = useI18n();
   return (
     <Card className="animate-fade-in-up flex h-full flex-col border bg-card">
       <CardHeader className="space-y-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle className="text-lg">Movie List</CardTitle>
+          <CardTitle className="text-lg">{t("movie.listTitle")}</CardTitle>
           <Input
             className="h-9 w-full sm:w-[240px]"
             value={query}
-            aria-label="Filter movies by title or path"
-            placeholder="Filter by title/path"
+            aria-label={t("movie.filterAria")}
+            placeholder={t("movie.filterPlaceholder")}
             onChange={(event) => onQueryChange(event.target.value)}
           />
         </div>
-        {pending && <InlinePending label="Updating movie results..." />}
+        {pending && <InlinePending label={t("movie.updatingResults")} />}
       </CardHeader>
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
@@ -1232,17 +1274,17 @@ function MovieListPanel({
           <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Title</TableHead>
+                <TableHead>{t("info.title")}</TableHead>
                 <TableHead className="w-[90px]">
                   <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={onToggleYearSort}>
-                    Year
+                    {t("info.year")}
                     <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
                   </button>
                 </TableHead>
-                <TableHead className="w-[170px]">Updated Time</TableHead>
-                <TableHead className="w-[100px] text-right">Subtitles</TableHead>
-                <TableHead className="w-[360px]">File Name</TableHead>
-                <TableHead className="w-[120px] text-right">Actions</TableHead>
+                <TableHead className="w-[170px]">{t("movie.updatedTime")}</TableHead>
+                <TableHead className="w-[100px] text-right">{t("movie.subtitles")}</TableHead>
+                <TableHead className="w-[360px]">{t("movie.fileName")}</TableHead>
+                <TableHead className="w-[120px] text-right">{t("common.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1265,15 +1307,15 @@ function MovieListPanel({
                     </TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu
-                        label={`Actions for ${video.title || video.fileName || "movie"}`}
+                        label={t("movie.actionsFor", { name: video.title || video.fileName || t("info.movie") })}
                         items={[
                           {
-                            label: "Upload Subtitle / Archive",
+                            label: t("movie.uploadSubtitleArchive"),
                             onSelect: () => onOpenUploadPicker(video),
                             disabled: operationLocked
                           },
                           {
-                            label: "Open Subtitle Manager",
+                            label: t("movie.openSubtitleManager"),
                             onSelect: () => onOpenManager(video),
                             disabled: operationLocked
                           },
@@ -1289,14 +1331,14 @@ function MovieListPanel({
               {videos.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                    No movies found.
+                    {t("movie.empty")}
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </ScrollArea>
-        {pending && <PanelLoadingOverlay label="Refreshing movies..." />}
+        {pending && <PanelLoadingOverlay label={t("movie.updatingResults")} />}
 
         <PagerView pager={pager} onSetPage={onSetPage} disabled={pending} />
       </CardContent>
@@ -1341,20 +1383,21 @@ function TvSeriesListPanel({
   pending,
   formatTime
 }: TvSeriesListPanelProps) {
+  const { t } = useI18n();
   return (
     <Card className="animate-fade-in-up flex h-full flex-col border bg-card">
       <CardHeader className="space-y-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle className="text-lg">TV Series List</CardTitle>
+          <CardTitle className="text-lg">{t("tv.listTitle")}</CardTitle>
           <Input
             className="h-9 w-full sm:w-[240px]"
             value={query}
-            aria-label="Filter TV series by name or path"
-            placeholder="Filter by series title/path"
+            aria-label={t("tv.filterAria")}
+            placeholder={t("tv.filterPlaceholder")}
             onChange={(event) => onQueryChange(event.target.value)}
           />
         </div>
-        {pending && <InlinePending label="Updating series results..." />}
+        {pending && <InlinePending label={t("tv.updatingResults")} />}
       </CardHeader>
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
@@ -1362,17 +1405,17 @@ function TvSeriesListPanel({
           <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Title</TableHead>
+                <TableHead>{t("info.title")}</TableHead>
                 <TableHead className="w-[110px]">
                   <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={onToggleYearSort}>
-                    Latest Year
+                    {t("tv.latestYear")}
                     <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
                   </button>
                 </TableHead>
-                <TableHead className="w-[170px]">Updated Time</TableHead>
-                <TableHead className="w-[100px] text-right">Videos</TableHead>
-                <TableHead className="w-[120px] text-right">No Subtitles</TableHead>
-                <TableHead className="w-[120px] text-right">Actions</TableHead>
+                <TableHead className="w-[170px]">{t("movie.updatedTime")}</TableHead>
+                <TableHead className="w-[100px] text-right">{t("tv.videos")}</TableHead>
+                <TableHead className="w-[120px] text-right">{t("tv.noSubtitles")}</TableHead>
+                <TableHead className="w-[120px] text-right">{t("common.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1393,15 +1436,15 @@ function TvSeriesListPanel({
                     <TableCell className="text-right">{row.noSubtitleCount}</TableCell>
                     <TableCell className="text-right">
                       <RowActionsMenu
-                        label={`Actions for ${row.title || "TV series"}`}
+                        label={t("tv.actionsFor", { name: row.title || t("nav.tv") })}
                         items={[
                           {
-                            label: "Season Batch Upload",
+                            label: t("tv.seasonBatchUpload"),
                             onSelect: () => onOpenBatch(row),
                             disabled: operationLocked
                           },
                           {
-                            label: "Open Subtitle Manager",
+                            label: t("tv.openSubtitleManager"),
                             onSelect: () => onOpenManager(row),
                             disabled: operationLocked
                           },
@@ -1420,15 +1463,15 @@ function TvSeriesListPanel({
                     {showScanPrompt ? (
                       <div className="flex flex-col items-center gap-3 text-center">
                         <p className="max-w-[320px] text-sm text-muted-foreground">
-                          TV library has not been scanned yet. Run a scan to discover series and episodes.
+                          {t("tv.scanPrompt")}
                         </p>
                         <Button type="button" variant="outline" className="gap-2" onClick={() => void onTriggerScan()} disabled={loading}>
                           <Search className="h-4 w-4" />
-                          Scan Media Library
+                          {t("tv.scanMediaLibrary")}
                         </Button>
                       </div>
                     ) : (
-                      "No TV series found."
+                      t("tv.empty")
                     )}
                   </TableCell>
                 </TableRow>
@@ -1436,7 +1479,7 @@ function TvSeriesListPanel({
             </TableBody>
           </Table>
         </ScrollArea>
-        {pending && <PanelLoadingOverlay label="Refreshing series..." />}
+        {pending && <PanelLoadingOverlay label={t("tv.refreshingSeries")} />}
 
         <PagerView pager={pager} onSetPage={onSetPage} disabled={pending} />
       </CardContent>
@@ -1463,6 +1506,7 @@ function TvSeasonBatchUploadDialog({
   onLoadBatchCandidates,
   onUploadBatch
 }: TvSeasonBatchUploadDialogProps) {
+  const { t } = useI18n();
   const batchInputRef = useRef<HTMLInputElement | null>(null);
   const [batchPreparing, setBatchPreparing] = useState(false);
   const [batchSourceSummary, setBatchSourceSummary] = useState("");
@@ -1556,15 +1600,15 @@ function TvSeasonBatchUploadDialog({
 
     const summaryParts: string[] = [];
     if (showBatchLanguageSelector && effectiveLanguagePreference !== "any") {
-      summaryParts.push(`Language: ${formatLanguageTypeLabel(effectiveLanguagePreference)}`);
+      summaryParts.push(t("batch.preference.language", { value: formatLanguageTypeLabel(effectiveLanguagePreference, t) }));
     }
     if (showBatchFormatSelector && effectiveFormatPreference !== "any") {
-      summaryParts.push(`Format: ${formatSubtitleExtLabel(effectiveFormatPreference)}`);
+      summaryParts.push(t("batch.preference.format", { value: formatSubtitleExtLabel(effectiveFormatPreference) }));
     }
-    summaryParts.push(`Duplicate episode groups: ${preferred.duplicateGroups}`);
+    summaryParts.push(t("batch.preference.duplicateGroups", { count: preferred.duplicateGroups }));
     const reducedHint =
       preferred.reducedCount > 0
-        ? ` | Reduced ${preferred.reducedCount} duplicate subtitle files.`
+        ? ` | ${t("batch.preference.reduced", { count: preferred.reducedCount })}`
         : "";
     setBatchPreferenceSummary(`${summaryParts.join(" | ")}${reducedHint}`);
   }, [
@@ -1573,7 +1617,8 @@ function TvSeasonBatchUploadDialog({
     batchLanguagePreference,
     batchFormatPreference,
     showBatchLanguageSelector,
-    showBatchFormatSelector
+    showBatchFormatSelector,
+    t
   ]);
 
   async function onBatchFilesSelected(event: React.ChangeEvent<HTMLInputElement>) {
@@ -1597,7 +1642,7 @@ function TvSeasonBatchUploadDialog({
     try {
       const candidates = await onLoadBatchCandidates();
       if (candidates.length === 0) {
-        setBatchError("No TV episodes available in selected series.");
+        setBatchError(t("batch.noEpisodesAvailable"));
         return;
       }
 
@@ -1605,12 +1650,12 @@ function TvSeasonBatchUploadDialog({
       if (entries.length === 0) {
         const reasons: string[] = [];
         if (archiveErrors.length > 0) {
-          reasons.push(`Archive errors: ${summarizeFileNames(archiveErrors)}`);
+          reasons.push(t("batch.archiveErrors", { value: summarizeFileNames(archiveErrors, t) }));
         }
         if (unsupported.length > 0) {
-          reasons.push(`Unsupported files: ${summarizeFileNames(unsupported)}`);
+          reasons.push(t("batch.unsupportedFiles", { value: summarizeFileNames(unsupported, t) }));
         }
-        setBatchError(reasons.join(" | ") || "No subtitle files found in selected inputs.");
+        setBatchError(reasons.join(" | ") || t("batch.noSubtitleFiles"));
         setBatchSourceSummary("");
         setBatchRawEntries([]);
         setBatchCandidates(candidates);
@@ -1620,29 +1665,29 @@ function TvSeasonBatchUploadDialog({
 
       const notices: string[] = [];
       if (unsupported.length > 0) {
-        notices.push(`Ignored unsupported files: ${summarizeFileNames(unsupported)}`);
+        notices.push(t("batch.ignoredUnsupported", { value: summarizeFileNames(unsupported, t) }));
       }
       if (archiveErrors.length > 0) {
-        notices.push(`Skipped archive files: ${summarizeFileNames(archiveErrors)}`);
+        notices.push(t("batch.skippedArchives", { value: summarizeFileNames(archiveErrors, t) }));
       }
       if (notices.length > 0) {
         setBatchError(notices.join(" | "));
       }
-      setBatchSourceSummary(summarizeBatchInputs(files, entries.length));
+      setBatchSourceSummary(summarizeBatchInputs(files, entries.length, t));
       setBatchRawEntries(entries);
       setBatchCandidates(candidates);
       emitToast({
         level: "info",
-        title: "Batch inputs prepared",
-        message: `${entries.length} subtitle entries are ready for mapping.`,
-        detail: summarizeBatchInputs(files, entries.length)
+        title: t("toast.batchPreparedTitle"),
+        message: t("toast.batchPreparedMessage", { count: entries.length }),
+        detail: summarizeBatchInputs(files, entries.length, t)
       });
     } catch (error) {
       const errText = error instanceof Error ? error.message : String(error);
-      setBatchError(`Prepare batch inputs failed: ${errText}`);
+      setBatchError(t("batch.prepareFailed", { error: errText }));
       emitToast({
         level: "error",
-        title: "Batch preparation failed",
+        title: t("toast.batchPreparationFailedTitle"),
         message: errText
       });
     } finally {
@@ -1675,7 +1720,7 @@ function TvSeasonBatchUploadDialog({
     }
 
     if (items.length === 0) {
-      setBatchError("Please map at least one subtitle file to an episode.");
+      setBatchError(t("batch.mapAtLeastOne"));
       return;
     }
 
@@ -1691,9 +1736,14 @@ function TvSeasonBatchUploadDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[86vh] flex-col overflow-hidden sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>TV Season Batch Upload</DialogTitle>
+          <DialogTitle>{t("batch.dialogTitle")}</DialogTitle>
           <DialogDescription>
-            Selected inputs: {batchSourceSummary || "-"} | Auto matched: {autoMatchedCount}/{batchRows.length} | Selected: {mappedCount}
+            {t("batch.dialogDescription", {
+              summary: batchSourceSummary || "-",
+              autoMatched: autoMatchedCount,
+              total: batchRows.length,
+              selected: mappedCount
+            })}
           </DialogDescription>
         </DialogHeader>
 
@@ -1716,35 +1766,35 @@ function TvSeasonBatchUploadDialog({
               disabled={busy || batchPreparing}
               onClick={() => batchInputRef.current?.click()}
             >
-              Select Files / Archive
+              {t("batch.selectFiles")}
             </Button>
             <span className="text-xs text-muted-foreground">
-              Supports multiple archive files (.zip/.7z/.rar) or subtitle files (.srt/.ass/.ssa/.vtt/.sub). Match rules use SxxEyy / x / Season Episode patterns.
+              {t("batch.supportHint")}
             </span>
             <span className="text-xs text-muted-foreground">
-              For duplicate subtitles in the same episode, language and format preferences pick one entry automatically. Preference options only appear when parsed archive entries contain multiple types.
+              {t("batch.duplicateHint")}
             </span>
             {batchError && <p className="text-xs text-rose-600">{batchError}</p>}
-            {batchPreparing && <InlinePending label="Preparing batch inputs..." />}
-            {uploading && <InlinePending label={uploadingMessage || "Uploading mapped subtitles..."} />}
+            {batchPreparing && <InlinePending label={t("batch.preparing")} />}
+            {uploading && <InlinePending label={uploadingMessage || t("batch.uploadingMapped")} />}
           </div>
 
           {(showBatchLanguageSelector || showBatchFormatSelector || batchPreferenceSummary) && (
             <div className="flex flex-wrap items-center gap-2">
               {showBatchLanguageSelector && (
                 <>
-                  <span className="text-xs font-medium text-muted-foreground">Language Type</span>
+                  <span className="text-xs font-medium text-muted-foreground">{t("batch.languageType")}</span>
                   <Select
                     value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
                     onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
                   >
                     <SelectTrigger className="h-9 w-[220px]">
-                      <SelectValue placeholder="Language Type" />
+                      <SelectValue placeholder={t("batch.languageTypePlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
                       {batchLanguageOptions.map((item) => (
                         <SelectItem key={item} value={item}>
-                          {formatLanguageTypeLabel(item)}
+                          {formatLanguageTypeLabel(item, t)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1754,13 +1804,13 @@ function TvSeasonBatchUploadDialog({
 
               {showBatchFormatSelector && (
                 <>
-                  <span className="text-xs font-medium text-muted-foreground">Format</span>
+                  <span className="text-xs font-medium text-muted-foreground">{t("batch.format")}</span>
                   <Select
                     value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
                     onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
                   >
                     <SelectTrigger className="h-9 w-[150px]">
-                      <SelectValue placeholder="Format" />
+                      <SelectValue placeholder={t("batch.format")} />
                     </SelectTrigger>
                     <SelectContent>
                       {batchFormatOptions.map((ext) => (
@@ -1778,7 +1828,7 @@ function TvSeasonBatchUploadDialog({
           )}
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">Label</span>
+            <span className="text-xs font-medium text-muted-foreground">{t("batch.label")}</span>
             <Input
               className="w-[140px]"
               value={batchLabel}
@@ -1787,19 +1837,19 @@ function TvSeasonBatchUploadDialog({
               onChange={(event) => setBatchLabel(event.target.value)}
             />
             <span className="text-xs text-muted-foreground">
-              Saved as media-name[.label].ext. Leave empty for default naming.
+              {t("batch.labelHint")}
             </span>
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-semibold">Batch Subtitle Mapping</p>
+            <p className="text-sm font-semibold">{t("batch.mappingTitle")}</p>
             <div className={cn("max-h-[52vh] overflow-auto rounded-md border", batchPreparing && "animate-pulse-soft")}>
               <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[50%]">Subtitle File</TableHead>
-                    <TableHead className="w-[120px]">Parsed</TableHead>
-                    <TableHead className="w-[360px]">Target Episode</TableHead>
+                    <TableHead className="w-[50%]">{t("batch.subtitleFile")}</TableHead>
+                    <TableHead className="w-[120px]">{t("batch.parsed")}</TableHead>
+                    <TableHead className="w-[360px]">{t("batch.targetEpisode")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1827,10 +1877,10 @@ function TvSeasonBatchUploadDialog({
                             }}
                           >
                             <SelectTrigger className="h-9 w-full">
-                              <SelectValue placeholder="Choose episode" />
+                              <SelectValue placeholder={t("batch.chooseEpisode")} />
                             </SelectTrigger>
                             <SelectContent className="max-h-72">
-                              <SelectItem value="__UNASSIGNED__">Skip</SelectItem>
+                              <SelectItem value="__UNASSIGNED__">{t("batch.skip")}</SelectItem>
                               {candidates.map((video) => (
                                 <SelectItem key={`${row.id}-${video.id}`} value={video.id}>
                                   {video.fileName}
@@ -1846,7 +1896,7 @@ function TvSeasonBatchUploadDialog({
                   {batchRows.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
-                        Select subtitle files or archives to start mapping.
+                        {t("batch.empty")}
                       </TableCell>
                     </TableRow>
                   )}
@@ -1858,7 +1908,11 @@ function TvSeasonBatchUploadDialog({
           {batchResult && (
             <div className="rounded-md border bg-muted/30 p-3 text-xs">
               <p>
-                Result: {batchResult.success}/{batchResult.total} succeeded, {batchResult.failed} failed.
+                {t("batch.result", {
+                  success: batchResult.success,
+                  total: batchResult.total,
+                  failed: batchResult.failed
+                })}
               </p>
               {batchResult.errors.length > 0 && (
                 <ul className="mt-2 list-disc space-y-1 pl-5">
@@ -1871,15 +1925,15 @@ function TvSeasonBatchUploadDialog({
               )}
             </div>
           )}
-          {batchPreparing && <PanelLoadingOverlay label="Parsing archives and matching episodes..." />}
+          {batchPreparing && <PanelLoadingOverlay label={t("batch.preparing")} />}
         </div>
 
         <DialogFooter className="shrink-0 border-t pt-3">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+            {t("common.close")}
           </Button>
           <Button type="button" disabled={busy || batchPreparing || batchRows.length === 0} onClick={() => void submitSeasonBatch()}>
-            Upload Mapped Subtitles
+            {t("batch.uploadMapped")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1926,7 +1980,8 @@ function TvSubtitleManagementPanel({
   episodesPending,
   subtitleAction
 }: TvSubtitleManagementPanelProps) {
-  const selectedSeasonLabel = seasonOptions.find((option) => option.value === selectedSeason)?.label || "All Seasons";
+  const { t } = useI18n();
+  const selectedSeasonLabel = seasonOptions.find((option) => option.value === selectedSeason)?.label || t("tv.allSeasons");
   const searchKeyword = useMemo(() => {
     if (!selectedVideo) {
       return "";
@@ -1941,16 +1996,16 @@ function TvSubtitleManagementPanel({
     <div className="grid h-full w-full min-h-0 gap-3 p-3 md:grid-cols-[340px_minmax(0,1fr)] md:p-4">
       <Card className="animate-fade-in-up flex min-h-0 flex-col border bg-card">
         <CardHeader className="space-y-3 p-4">
-          <CardTitle className="text-lg">Episodes</CardTitle>
+          <CardTitle className="text-lg">{t("tv.episodesTitle")}</CardTitle>
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Series</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tv.seriesLabel")}</p>
             <p className="truncate text-sm font-semibold">{selectedSeries?.title || "-"}</p>
           </div>
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Season</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tv.seasonLabel")}</p>
             <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
               <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select season" />
+                <SelectValue placeholder={t("tv.selectSeason")} />
               </SelectTrigger>
               <SelectContent>
                 {seasonOptions.map((option) => (
@@ -1961,7 +2016,7 @@ function TvSubtitleManagementPanel({
               </SelectContent>
             </Select>
           </div>
-          {episodesPending && <InlinePending label="Loading episode list..." />}
+          {episodesPending && <InlinePending label={t("tv.loadingEpisodes")} />}
         </CardHeader>
 
         <CardContent className="relative min-h-0 flex-1 p-4 pt-0">
@@ -1987,10 +2042,10 @@ function TvSubtitleManagementPanel({
                         itemBusy && "animate-pulse-soft"
                       )}
                       aria-pressed={active}
-                    >
+                      >
                       <div className="text-xs font-semibold text-muted-foreground">{episodeCode}</div>
                       <div className="truncate text-sm font-semibold">{video.title || "-"}</div>
-                      <div className="text-xs text-muted-foreground">Subtitles: {video.subtitles.length}</div>
+                      <div className="text-xs text-muted-foreground">{t("tv.subtitleCount", { count: video.subtitles.length })}</div>
                     </button>
                   </li>
                 );
@@ -1998,24 +2053,24 @@ function TvSubtitleManagementPanel({
 
               {videos.length === 0 && (
                 <li className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  No episodes in {selectedSeasonLabel}.
+                  {t("tv.noEpisodesInSeason", { season: selectedSeasonLabel })}
                 </li>
               )}
             </ul>
           </ScrollArea>
-          {episodesPending && <PanelLoadingOverlay label="Refreshing episodes..." />}
+          {episodesPending && <PanelLoadingOverlay label={t("tv.refreshingEpisodes")} />}
         </CardContent>
       </Card>
 
       <div className="min-h-0">
         <SubtitleDetailsPanel
-          panelTitle="TV Subtitle Management"
+          panelTitle={t("tv.managementTitle")}
           selectedVideo={selectedVideo}
-          emptyText="Select an episode from the list."
+          emptyText={t("tv.selectEpisodeEmpty")}
           showBack={false}
           onBack={() => {}}
           infoRows={[
-            { label: "Series", value: selectedSeries?.title || "-" }
+            { label: t("info.series"), value: selectedSeries?.title || "-" }
           ]}
           onUpload={onUpload}
           onReplace={onReplace}
@@ -2082,6 +2137,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
   showMetadata = true,
   showUploadButton = true
 }: SubtitleDetailsPanelProps, ref) {
+  const { t } = useI18n();
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const replaceInputRef = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -2113,7 +2169,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     ...(showUploadButton
       ? [
           {
-            label: uploadPending ? uploadingMessage || "Uploading subtitle..." : "Upload Subtitle / Archive",
+            label: uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive"),
             onSelect: openUploadPicker,
             disabled: busy || zipLoading
           }
@@ -2178,11 +2234,11 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     try {
       const entries = await extractSubtitleEntriesFromArchiveFile(file);
       if (entries.length === 0) {
-        setZipPickError("No subtitle files found in the archive.");
+        setZipPickError(t("details.noSubtitleFilesInArchive"));
         emitToast({
           level: "error",
-          title: "Archive parsing failed",
-          message: "No subtitle files were found in the selected archive."
+          title: t("toast.archiveParsingFailedTitle"),
+          message: t("toast.archiveParsingNoSubtitleMessage")
         });
         return;
       }
@@ -2196,16 +2252,16 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       setZipPickDialogOpen(true);
       emitToast({
         level: "info",
-        title: "Archive parsed",
-        message: `${entries.length} subtitle files found.`,
+        title: t("toast.archiveParsedTitle"),
+        message: t("toast.archiveParsedMessage", { count: entries.length }),
         detail: file.name
       });
     } catch (error) {
       const errText = error instanceof Error ? error.message : String(error);
-      setZipPickError(`Parse archive failed: ${errText}`);
+      setZipPickError(t("details.parseArchiveFailed", { error: errText }));
       emitToast({
         level: "error",
-        title: "Archive parsing failed",
+        title: t("toast.archiveParsingFailedTitle"),
         message: errText,
         detail: file.name
       });
@@ -2223,12 +2279,12 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       return;
     }
     if (!isSubtitleFileName(file.name)) {
-      setZipPickError("Unsupported file type. Please select subtitle files or archive files (.zip/.7z/.rar).");
+      setZipPickError(t("details.unsupportedFileType"));
       emitToast({
         level: "error",
-        title: "Unsupported file",
+        title: t("toast.unsupportedFileTitle"),
         message: file.name,
-        detail: "Select subtitle files or supported archive formats."
+        detail: t("toast.unsupportedFileDetail")
       });
       return;
     }
@@ -2254,12 +2310,12 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       return;
     }
     if (!isSubtitleFileName(file.name)) {
-      setZipPickError("Unsupported file type. Please select subtitle files or archive files (.zip/.7z/.rar).");
+      setZipPickError(t("details.unsupportedFileType"));
       emitToast({
         level: "error",
-        title: "Unsupported file",
+        title: t("toast.unsupportedFileTitle"),
         message: file.name,
-        detail: "Select subtitle files or supported archive formats."
+        detail: t("toast.unsupportedFileDetail")
       });
       return;
     }
@@ -2285,7 +2341,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     }
 
     if (!zipPickTargetSubtitle) {
-      setZipPickError("Missing target subtitle for replace.");
+      setZipPickError(t("details.missingReplaceTarget"));
       return;
     }
 
@@ -2315,7 +2371,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
           {showBack && (
             <Button type="button" variant="outline" size="sm" className="gap-1" onClick={onBack} disabled={busy}>
               <ArrowLeft className="h-4 w-4" />
-              Back to list
+              {t("details.backToList")}
             </Button>
           )}
         </div>
@@ -2329,15 +2385,15 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
         ) : (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
             <div className="grid gap-2 text-sm md:grid-cols-2">
-              <InfoItem label="Title" value={selectedVideo.title || "-"} />
-              <InfoItem label="Year" value={selectedVideo.year || "-"} />
-              {showMediaType && <InfoItem label="Media Type" value={selectedVideo.mediaType || "-"} />}
-              {showMetadata && <InfoItem label="Metadata" value={selectedVideo.metadataSource || "-"} />}
+              <InfoItem label={t("info.title")} value={selectedVideo.title || "-"} />
+              <InfoItem label={t("info.year")} value={selectedVideo.year || "-"} />
+              {showMediaType && <InfoItem label={t("info.mediaType")} value={selectedVideo.mediaType === "movie" ? t("info.movie") : t("info.tv")} />}
+              {showMetadata && <InfoItem label={t("info.metadata")} value={selectedVideo.metadataSource || "-"} />}
               {infoRows.map((item) => (
                 <InfoItem key={item.label} label={item.label} value={item.value || "-"} />
               ))}
-              <InfoItem label="Path" value={selectedVideo.path || "-"} />
-              <InfoItem label="Updated" value={formatTime(selectedVideo.updatedAt)} />
+              <InfoItem label={t("info.path")} value={selectedVideo.path || "-"} />
+              <InfoItem label={t("info.updated")} value={formatTime(selectedVideo.updatedAt)} />
             </div>
 
             <input
@@ -2351,12 +2407,12 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
               <div className="flex flex-wrap items-center gap-2">
                 {actionMenuItems.length > 0 && (
                   <RowActionsMenu
-                    label={`Actions for ${selectedVideo.title || selectedVideo.fileName || "video"}`}
+                    label={t("details.actionsForVideo", { name: selectedVideo.title || selectedVideo.fileName || selectedVideo.path })}
                     items={actionMenuItems}
                     triggerIcon={uploadPending || zipLoading ? <SpinnerIcon className="h-4 w-4" /> : undefined}
                   />
                 )}
-                {zipLoading && <InlinePending label="Parsing archive..." />}
+                {zipLoading && <InlinePending label={t("details.parsingArchive")} />}
                 {zipPickError && <span className="text-xs text-rose-600">{zipPickError}</span>}
               </div>
             )}
@@ -2364,14 +2420,14 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
             <div className={cn("min-h-0 flex-1 rounded-md border", flashSubtitleList && "animate-highlight-flash")}>
               <ScrollArea className="h-full max-h-[48vh] xl:max-h-full">
                 <Table>
-                  <TableCaption>Subtitle list for selected video.</TableCaption>
+                  <TableCaption>{t("details.subtitleListCaption")}</TableCaption>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Lang</TableHead>
-                      <TableHead>Format</TableHead>
-                      <TableHead>Modified</TableHead>
-                      <TableHead className="w-[96px] text-right">Actions</TableHead>
+                      <TableHead>{t("details.name")}</TableHead>
+                      <TableHead>{t("details.lang")}</TableHead>
+                      <TableHead>{t("batch.format")}</TableHead>
+                      <TableHead>{t("details.modified")}</TableHead>
+                      <TableHead className="w-[96px] text-right">{t("common.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2400,17 +2456,17 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                               }}
                             />
                             <RowActionsMenu
-                              label={`Actions for ${subtitle.fileName}`}
+                              label={t("details.actionsForSubtitle", { name: subtitle.fileName })}
                               disabled={busy || rowBusy}
                               triggerIcon={rowBusy ? <SpinnerIcon className="h-4 w-4" /> : undefined}
                               items={[
                                 {
-                                  label: replacePending ? "Replacing..." : "Replace Subtitle",
+                                  label: replacePending ? t("details.replacing") : t("details.replaceSubtitle"),
                                   onSelect: () => replaceInputRef.current[subtitle.id]?.click(),
                                   disabled: busy || rowBusy
                                 },
                                 {
-                                  label: deletePending ? "Deleting..." : "Delete Subtitle",
+                                  label: deletePending ? t("details.deleting") : t("details.deleteSubtitle"),
                                   onSelect: () => setDeleteDialogSubtitleId(subtitle.id),
                                   disabled: busy || rowBusy
                                 }
@@ -2429,13 +2485,13 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                             >
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete subtitle?</AlertDialogTitle>
+                                  <AlertDialogTitle>{t("details.deleteSubtitleTitle")}</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    &quot;{subtitle.fileName}&quot; will be deleted permanently.
+                                    {t("details.deleteSubtitleDescription", { name: subtitle.fileName })}
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel disabled={deletePending}>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel disabled={deletePending}>{t("common.cancel")}</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={(event) => {
                                       event.preventDefault();
@@ -2443,7 +2499,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                                     }}
                                     disabled={deletePending}
                                   >
-                                    {deletePending ? "Deleting..." : "Delete"}
+                                    {deletePending ? t("details.deleting") : t("common.delete")}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -2456,7 +2512,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                     {selectedVideo.subtitles.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
-                          No subtitles found.
+                          {t("details.noSubtitles")}
                         </TableCell>
                       </TableRow>
                     )}
@@ -2483,9 +2539,9 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Upload subtitle label</DialogTitle>
+            <DialogTitle>{t("details.uploadLabelTitle")}</DialogTitle>
             <DialogDescription>
-              {pendingUploadFile ? `File: ${pendingUploadFile.name}` : "Choose subtitle language/label before upload."}
+              {pendingUploadFile ? t("details.fileDescription", { name: pendingUploadFile.name }) : t("details.uploadLabelDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -2498,7 +2554,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={resetUploadState} disabled={busy}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               type="button"
@@ -2506,7 +2562,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
               disabled={!pendingUploadFile || !selectedVideo || busy}
             >
               {uploadPending ? <SpinnerIcon className="h-4 w-4" /> : null}
-              {uploadPending ? "Uploading..." : "Upload"}
+              {uploadPending ? t("details.uploading") : t("details.upload")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2527,15 +2583,15 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       >
         <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Select Subtitle From Archive</DialogTitle>
+            <DialogTitle>{t("details.selectArchiveSubtitle")}</DialogTitle>
             <DialogDescription>
-              Archive: {zipPickFileName || "-"} | {zipPickEntries.length} subtitle files found.
+              {t("details.archiveDescription", { name: zipPickFileName || "-", count: zipPickEntries.length })}
             </DialogDescription>
           </DialogHeader>
 
           {zipPickMode === "upload" && (
             <div className="space-y-2">
-              <p className="text-sm font-semibold">Upload Subtitle Label</p>
+              <p className="text-sm font-semibold">{t("details.uploadSubtitleLabel")}</p>
               <Input
                 value={zipUploadLabel}
                 maxLength={32}
@@ -2546,14 +2602,14 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
           )}
 
           <div className="space-y-2">
-            <p className="text-sm font-semibold">Archive Subtitle Files</p>
+            <p className="text-sm font-semibold">{t("details.archiveSubtitleFiles")}</p>
             <div className={cn("max-h-[55vh] overflow-auto rounded-md border", zipLoading && "animate-pulse-soft")}>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>File Path</TableHead>
-                      <TableHead className="w-[100px] text-right">Size</TableHead>
-                      <TableHead className="w-[96px] text-right">Actions</TableHead>
+                      <TableHead>{t("details.filePath")}</TableHead>
+                      <TableHead className="w-[100px] text-right">{t("details.size")}</TableHead>
+                      <TableHead className="w-[96px] text-right">{t("common.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2563,11 +2619,11 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                         <TableCell className="text-right text-xs">{Math.max(1, Math.round(entry.size / 1024))} KB</TableCell>
                         <TableCell className="text-right">
                           <RowActionsMenu
-                            label={`Actions for ${entry.path}`}
+                            label={t("details.actionsForSubtitle", { name: entry.path })}
                             disabled={busy || uploading}
                             items={[
                               {
-                                label: "Use This File",
+                                label: t("details.useThisFile"),
                                 onSelect: () => void onZipEntryPicked(entry),
                                 disabled: busy || uploading
                               }
@@ -2580,7 +2636,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                     {zipPickEntries.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
-                          No subtitle entries.
+                          {t("details.noArchiveEntries")}
                         </TableCell>
                       </TableRow>
                     )}
@@ -2591,7 +2647,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={resetZipPickState} disabled={busy}>
-              Close
+              {t("common.close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2603,6 +2659,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
 SubtitleDetailsPanel.displayName = "SubtitleDetailsPanel";
 
 function UploadBlockingOverlay({ message }: { message: string }) {
+  const { t } = useI18n();
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-background/78 backdrop-blur-sm">
       <div className="animate-scale-in mx-4 flex min-w-[280px] max-w-[420px] flex-col items-center gap-3 rounded-2xl border bg-card px-6 py-7 text-center shadow-2xl">
@@ -2610,9 +2667,9 @@ function UploadBlockingOverlay({ message }: { message: string }) {
           <SpinnerIcon className="h-5 w-5" />
         </span>
         <div className="space-y-1">
-          <p className="text-sm font-semibold">Uploading subtitles</p>
+          <p className="text-sm font-semibold">{t("details.uploadingSubtitlesTitle")}</p>
           <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
-            {message || "Uploading subtitle files..."}
+            {message || t("details.uploadingSubtitleFiles")}
           </p>
         </div>
       </div>
@@ -2682,15 +2739,16 @@ function QuickStatCard({ icon, label, value, hint, tone, pending = false, classN
 }
 
 function PagerView({ pager, onSetPage, disabled = false }: { pager: Pager; onSetPage: (page: number) => void; disabled?: boolean }) {
+  const { t } = useI18n();
   const totalPages = Math.max(1, pager.totalPages);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <Button type="button" variant="outline" size="sm" disabled={disabled || pager.page <= 1} onClick={() => onSetPage(pager.page - 1)}>
-        Prev
+        {t("pager.prev")}
       </Button>
       <span className="text-xs text-muted-foreground">
-        Page {pager.page} / {totalPages} ({pager.total})
+        {t("pager.summary", { page: pager.page, totalPages, total: pager.total })}
       </span>
       <Button
         type="button"
@@ -2699,7 +2757,7 @@ function PagerView({ pager, onSetPage, disabled = false }: { pager: Pager; onSet
         disabled={disabled || pager.page >= totalPages}
         onClick={() => onSetPage(pager.page + 1)}
       >
-        Next
+        {t("pager.next")}
       </Button>
     </div>
   );
@@ -2714,11 +2772,12 @@ function LogsPanel({
   pending: boolean;
   formatTime: (value: string | undefined | null) => string;
 }) {
+  const { t } = useI18n();
   return (
     <Card className="animate-fade-in-up flex h-full min-h-[420px] flex-col border bg-card">
       <CardHeader className="flex flex-row items-center justify-between p-4">
-        <CardTitle className="text-lg">Operation Logs</CardTitle>
-        <Badge variant="secondary">{pending ? "Refreshing..." : `Recent ${logs.length}`}</Badge>
+        <CardTitle className="text-lg">{t("logs.title")}</CardTitle>
+        <Badge variant="secondary">{pending ? t("logs.refreshing") : t("logs.recentCount", { count: logs.length })}</Badge>
       </CardHeader>
       <CardContent className="relative flex min-h-0 flex-1 p-4 pt-0">
         <ScrollArea className={cn("min-h-0 flex-1 rounded-md border bg-background", pending && "animate-pulse-soft")}>
@@ -2728,17 +2787,17 @@ function LogsPanel({
                 <p className="text-xs text-muted-foreground">{formatTime(log.timestamp)}</p>
                 <p className="font-semibold">{log.action}</p>
                 <p className="break-all text-xs text-muted-foreground">{log.targetPath || "-"}</p>
-                <p className="text-xs text-muted-foreground">videoId: {log.videoId} | status: {log.status}</p>
-                {log.message && <p className="break-all text-xs text-muted-foreground">details: {log.message}</p>}
+                <p className="text-xs text-muted-foreground">{t("logs.videoStatus", { videoId: log.videoId, status: log.status })}</p>
+                {log.message && <p className="break-all text-xs text-muted-foreground">{t("logs.details", { details: log.message })}</p>}
               </li>
             ))}
 
             {logs.length === 0 && (
-              <li className="p-8 text-center text-sm text-muted-foreground">No operation logs yet.</li>
+              <li className="p-8 text-center text-sm text-muted-foreground">{t("logs.empty")}</li>
             )}
           </ul>
         </ScrollArea>
-        {pending && <PanelLoadingOverlay label="Refreshing logs..." />}
+        {pending && <PanelLoadingOverlay label={t("logs.refreshing")} />}
       </CardContent>
     </Card>
   );

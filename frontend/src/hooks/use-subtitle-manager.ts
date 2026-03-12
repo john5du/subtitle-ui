@@ -22,6 +22,7 @@ import type {
   VideoPage,
   VisibleTreeNode
 } from "@/lib/types";
+import { useI18n, type MessageKey, type TranslationValues } from "@/lib/i18n";
 import { emitToast } from "@/lib/toast";
 
 const DEFAULT_PAGE_SIZE = 30;
@@ -50,6 +51,15 @@ const EMPTY_PENDING_STATE: UiPendingState = {
 };
 
 type LoadChannel = "movieList" | "tvSeriesList" | "tvEpisodes" | "logs";
+type LocalizedText =
+  | {
+      key: MessageKey;
+      values?: TranslationValues;
+    }
+  | {
+      raw: string;
+    }
+  | null;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -197,7 +207,7 @@ function flattenTree(
   const expanded = depth === 0 ? true : isExpanded(node.path);
   out.push({
     path: node.path,
-    label: depth === 0 ? node.label || "TV Root" : node.label,
+    label: depth === 0 ? node.label || "" : node.label,
     depth,
     hasChildren: node.children.length > 0,
     videoCount: node.videoCount || 0,
@@ -341,14 +351,25 @@ function buildApiURL(path: string) {
   return `${base}${path}`;
 }
 
-export function formatTime(value: string | undefined | null) {
+function resolveLocalizedText(value: LocalizedText, t: (key: MessageKey, values?: TranslationValues) => string) {
+  if (!value) {
+    return "";
+  }
+  if ("raw" in value) {
+    return value.raw;
+  }
+  return t(value.key, value.values);
+}
+
+function formatTimeWithLocale(locale: string, value: string | undefined | null) {
   if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleString();
+  return parsed.toLocaleString(locale);
 }
 
 export function useSubtitleManager() {
+  const { locale, t } = useI18n();
   const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
   const [videosByType, setVideosByType] = useState<Record<MediaType, Video[]>>({ movie: [], tv: [] });
   const [selectedVideoIdByType, setSelectedVideoIdByType] = useState<Record<MediaType, string>>({
@@ -378,8 +399,8 @@ export function useSubtitleManager() {
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState<UiPendingState>(EMPTY_PENDING_STATE);
   const [uploading, setUploading] = useState(false);
-  const [uploadingMessage, setUploadingMessage] = useState("");
-  const [message, setMessage] = useState("");
+  const [uploadingMessageState, setUploadingMessageState] = useState<LocalizedText>(null);
+  const [messageState, setMessageState] = useState<LocalizedText>(null);
   const [scanStatus, setScanStatus] = useState<ScanStatus | null>(null);
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [directoryScan, setDirectoryScan] = useState<DirectoryScanResult>(EMPTY_DIRECTORY_SCAN);
@@ -406,6 +427,11 @@ export function useSubtitleManager() {
   const skipTvSortRef = useRef(true);
 
   const movieVideos = useMemo(() => videosByType.movie ?? [], [videosByType.movie]);
+  const uploadingMessage = useMemo(() => resolveLocalizedText(uploadingMessageState, t), [t, uploadingMessageState]);
+  const message = useMemo(() => resolveLocalizedText(messageState, t), [messageState, t]);
+  const formatTime = useCallback((value: string | undefined | null) => {
+    return formatTimeWithLocale(locale, value);
+  }, [locale]);
 
   const moviePager = useMemo(() => paginationByType.movie, [paginationByType.movie]);
   const tvPager = useMemo(() => tvSeriesPager, [tvSeriesPager]);
@@ -418,8 +444,8 @@ export function useSubtitleManager() {
     if ((directoryScan.tv ?? []).length === 0 && !tvRootPath) {
       return null;
     }
-    return buildDirectoryTree(directoryScan.tv ?? [], tvRootPath, "TV Root");
-  }, [directoryScan.tv, tvRootPath]);
+    return buildDirectoryTree(directoryScan.tv ?? [], tvRootPath, t("tv.listTitle"));
+  }, [directoryScan.tv, t, tvRootPath]);
 
   const isTvExpanded = useCallback((path: string) => {
     return Boolean(tvExpandedMap[path]);
@@ -484,16 +510,16 @@ export function useSubtitleManager() {
 
     const sortedSeasons = Array.from(seasons).sort((a, b) => a - b);
     const options: TvSeasonOption[] = [
-      { value: "all", label: "All Seasons" },
+      { value: "all", label: t("tv.allSeasons") },
       ...sortedSeasons.map((season) => ({
         value: `s${String(season).padStart(2, "0")}`,
-        label: `Season ${String(season).padStart(2, "0")}`,
+        label: t("tv.seasonOption", { season: String(season).padStart(2, "0") }),
         season
       }))
     ];
 
     return options;
-  }, [selectedTvSeriesVideos]);
+  }, [selectedTvSeriesVideos, t]);
 
   const sortedTvVideos = useMemo(() => {
     if (selectedTvSeason === "all") {
@@ -552,35 +578,39 @@ export function useSubtitleManager() {
     }
   };
 
-  const beginUpload = (text: string) => {
+  const setTranslatedMessage = useCallback((key: MessageKey, values?: TranslationValues) => {
+    setMessageState({ key, values });
+  }, []);
+
+  const beginUpload = (key: MessageKey, values?: TranslationValues) => {
     pendingUploadsRef.current += 1;
-    setUploadingMessage(text);
+    setUploadingMessageState({ key, values });
     setUploading(true);
   };
 
-  const updateUploadMessage = (text: string) => {
-    setUploadingMessage(text);
+  const updateUploadMessage = (key: MessageKey, values?: TranslationValues) => {
+    setUploadingMessageState({ key, values });
   };
 
   const endUpload = () => {
     pendingUploadsRef.current = Math.max(0, pendingUploadsRef.current - 1);
     if (pendingUploadsRef.current === 0) {
       setUploading(false);
-      setUploadingMessage("");
+      setUploadingMessageState(null);
     }
   };
 
-  const reportRequestError = useCallback((prefix: string, error: unknown) => {
+  const reportRequestError = useCallback((prefix: MessageKey, error: unknown) => {
     const errText = error instanceof Error ? error.message : String(error);
-    const messageText = `${prefix}: ${errText}`;
-    setMessage(messageText);
+    const title = t(prefix);
+    setMessageState({ raw: `${title}: ${errText}` });
     emitToast({
       level: "error",
-      title: prefix,
+      title,
       message: errText,
-      detail: "The operation did not complete successfully."
+      detail: t("toast.operationFailedDetail")
     });
-  }, []);
+  }, [t]);
 
   const notifySuccess = useCallback((title: string, messageText: string, detail?: string) => {
     emitToast({
@@ -693,7 +723,7 @@ export function useSubtitleManager() {
         }
       }));
     } catch (error) {
-      reportRequestError(`Load ${mediaType} videos failed`, error);
+      reportRequestError(mediaType === "movie" ? "error.loadMovieVideos" : "error.loadTvEpisodes", error);
     } finally {
       endLoading();
       endLoadChannel(channel);
@@ -728,7 +758,7 @@ export function useSubtitleManager() {
       });
       return paged.items;
     } catch (error) {
-      reportRequestError("Load TV series failed", error);
+      reportRequestError("error.loadTvSeries", error);
       return [];
     } finally {
       endLoading();
@@ -799,7 +829,7 @@ export function useSubtitleManager() {
       }));
       return videos;
     } catch (error) {
-      reportRequestError("Load TV episodes failed", error);
+      reportRequestError("error.loadTvEpisodes", error);
       return [] as Video[];
     } finally {
       if (normalizeForCompare(pendingTvEpisodesPathRef.current) === normalizeForCompare(dir)) {
@@ -865,7 +895,7 @@ export function useSubtitleManager() {
       const payload = await request<unknown>("/api/scan/status");
       setScanStatus(normalizeScanStatus(payload));
     } catch (error) {
-      reportRequestError("Load scan status failed", error);
+      reportRequestError("error.loadScanStatus", error);
     }
   }
 
@@ -882,7 +912,7 @@ export function useSubtitleManager() {
       }
       return defaultDir;
     } catch (error) {
-      reportRequestError("Load directory scan result failed", error);
+      reportRequestError("error.loadDirectoryScan", error);
       return "";
     }
   }
@@ -893,7 +923,7 @@ export function useSubtitleManager() {
       const payload = await request<unknown>("/api/logs?limit=50");
       setLogs(normalizeLogs(payload));
     } catch (error) {
-      reportRequestError("Load logs failed", error);
+      reportRequestError("error.loadLogs", error);
     } finally {
       endLoadChannel("logs");
     }
@@ -949,7 +979,7 @@ export function useSubtitleManager() {
   async function triggerScan() {
     beginLoading();
     setPending((prev) => ({ ...prev, scan: true }));
-    setMessage("Step 1/2: scanning directories...");
+    setTranslatedMessage("status.scanStepDirs");
 
     try {
       const discoveredPayload = await request<unknown>("/api/scan/directories", { method: "POST" });
@@ -962,7 +992,7 @@ export function useSubtitleManager() {
         expandPathAncestors(defaultDir);
       }
 
-      setMessage("Step 2/2: scanning files from discovered directories...");
+      setTranslatedMessage("status.scanStepFiles");
 
       const payload = {
         movieDirs: discovered.movie.map((item) => item.path),
@@ -988,15 +1018,26 @@ export function useSubtitleManager() {
 
       const warningCount = discovered.errors.length;
       const videoCount = normalizedStatus?.videoCount ?? 0;
-      const warningText = warningCount > 0 ? ` Directory warnings: ${warningCount}.` : " No directory warnings.";
-      setMessage(`Scan completed. Videos: ${videoCount}.${warningText}`);
       if (warningCount > 0) {
-        notifyInfo("Media scan completed with warnings", `${videoCount} videos indexed.`, `${warningCount} directory warnings require review.`);
+        setTranslatedMessage("status.scanCompletedWithWarnings", { count: videoCount, warnings: warningCount });
       } else {
-        notifySuccess("Media scan completed", `${videoCount} videos indexed.`, "Movie, TV, and logs data were refreshed.");
+        setTranslatedMessage("status.scanCompletedNoWarnings", { count: videoCount });
+      }
+      if (warningCount > 0) {
+        notifyInfo(
+          t("toast.scanWarningsTitle"),
+          t("toast.scanWarningsMessage", { count: videoCount }),
+          t("toast.scanWarningsDetail", { warnings: warningCount })
+        );
+      } else {
+        notifySuccess(
+          t("toast.scanSuccessTitle"),
+          t("toast.scanSuccessMessage", { count: videoCount }),
+          t("toast.scanSuccessDetail")
+        );
       }
     } catch (error) {
-      reportRequestError("Scan failed", error);
+      reportRequestError("error.scanFailed", error);
     } finally {
       setPending((prev) => ({ ...prev, scan: false }));
       endLoading();
@@ -1008,15 +1049,15 @@ export function useSubtitleManager() {
     try {
       if (activeTab === "dashboard") {
         await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadLogs()]);
-        setMessage("Dashboard refreshed.");
-        notifySuccess("Dashboard refreshed", "Scan status, directory summary, and recent logs are up to date.");
+        setTranslatedMessage("status.dashboardRefreshed");
+        notifySuccess(t("toast.dashboardRefreshedTitle"), t("toast.dashboardRefreshedMessage"));
         return;
       }
 
       if (activeTab === "logs") {
         await loadLogs();
-        setMessage("Operation logs refreshed.");
-        notifySuccess("Logs refreshed", "Recent operation records have been updated.");
+        setTranslatedMessage("status.logsRefreshed");
+        notifySuccess(t("toast.logsRefreshedTitle"), t("toast.logsRefreshedMessage"));
         return;
       }
 
@@ -1024,17 +1065,17 @@ export function useSubtitleManager() {
         const targetDir = selectedTvSeries?.path || selectedTvDirPath || tvRootPath || directoryScan.tvRoot || "";
         const reloadEpisodes = shouldRefreshTvVideosForPath(targetDir);
         await Promise.all([loadTvSeriesPage({ page: tvSeriesPager.page || 1 }), refreshTvVideosForPath(targetDir)]);
-        setMessage("TV data refreshed.");
+        setTranslatedMessage("status.tvRefreshed");
         notifySuccess(
-          "TV workspace refreshed",
-          reloadEpisodes ? "Series list and requested episode details have been updated." : "Series list has been updated."
+          t("toast.tvRefreshedTitle"),
+          reloadEpisodes ? t("toast.tvRefreshedMessageAll") : t("toast.tvRefreshedMessageList")
         );
         return;
       }
 
       await loadVideosByType("movie", { page: moviePager.page || 1 });
-      setMessage("Movie data refreshed.");
-      notifySuccess("Movie workspace refreshed", "Movie list and subtitle details have been updated.");
+      setTranslatedMessage("status.movieRefreshed");
+      notifySuccess(t("toast.movieRefreshedTitle"), t("toast.movieRefreshedMessage"));
     } finally {
       setPending((prev) => ({ ...prev, refreshTab: null }));
     }
@@ -1126,7 +1167,7 @@ export function useSubtitleManager() {
       kind: "upload",
       videoId: video.id
     });
-    beginUpload("Uploading subtitle file...");
+    beginUpload("status.uploadingSubtitleFile");
     try {
       await request(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
       if (video.mediaType === "tv") {
@@ -1136,11 +1177,11 @@ export function useSubtitleManager() {
       } else {
         await Promise.all([loadVideosByType("movie", { page: moviePager.page || 1 }), loadLogs()]);
       }
-      setMessage(`Uploaded subtitle for "${video.title}".`);
-      notifySuccess("Subtitle uploaded", video.title || video.fileName, file.name);
+      setTranslatedMessage("status.uploadedSubtitleFor", { title: video.title || video.fileName });
+      notifySuccess(t("toast.subtitleUploadedTitle"), video.title || video.fileName, file.name);
       return true;
     } catch (error) {
-      reportRequestError("Upload failed", error);
+      reportRequestError("error.uploadFailed", error);
       return false;
     } finally {
       endUpload();
@@ -1159,7 +1200,7 @@ export function useSubtitleManager() {
       subtitleId: subtitle.id,
       subtitleFileName: subtitle.fileName
     });
-    beginUpload("Uploading subtitle file...");
+    beginUpload("status.uploadingSubtitleFile");
     try {
       await request(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
       if (video.mediaType === "tv") {
@@ -1169,11 +1210,11 @@ export function useSubtitleManager() {
       } else {
         await Promise.all([loadVideosByType("movie", { page: moviePager.page || 1 }), loadLogs()]);
       }
-      setMessage(`Replaced subtitle "${subtitle.fileName}".`);
-      notifySuccess("Subtitle replaced", subtitle.fileName, file.name);
+      setTranslatedMessage("status.replacedSubtitle", { name: subtitle.fileName });
+      notifySuccess(t("toast.subtitleReplacedTitle"), subtitle.fileName, file.name);
       return true;
     } catch (error) {
-      reportRequestError("Replace failed", error);
+      reportRequestError("error.replaceFailed", error);
       return false;
     } finally {
       endUpload();
@@ -1197,11 +1238,11 @@ export function useSubtitleManager() {
       } else {
         await Promise.all([loadVideosByType("movie", { page: moviePager.page || 1 }), loadLogs()]);
       }
-      setMessage(`Deleted subtitle "${subtitle.fileName}".`);
-      notifySuccess("Subtitle deleted", subtitle.fileName, video.title || video.fileName);
+      setTranslatedMessage("status.deletedSubtitle", { name: subtitle.fileName });
+      notifySuccess(t("toast.subtitleDeletedTitle"), subtitle.fileName, video.title || video.fileName);
       return true;
     } catch (error) {
-      reportRequestError("Delete failed", error);
+      reportRequestError("error.deleteFailed", error);
       return false;
     } finally {
       setSubtitleActionPending(null);
@@ -1211,8 +1252,8 @@ export function useSubtitleManager() {
   async function loadTvBatchCandidates() {
     const targetDir = (selectedTvSeries?.path || selectedTvDirPath || tvEpisodesPath || tvRootPath || directoryScan.tvRoot || "").trim();
     if (!targetDir) {
-      setMessage("TV season batch upload requires a selected directory.");
-      notifyInfo("Select a TV series first", "Batch upload needs an active series directory before files can be matched.");
+      setTranslatedMessage("status.tvBatchNeedsSeries");
+      notifyInfo(t("toast.selectTvSeriesTitle"), t("toast.selectTvSeriesMessage"));
       return [] as Video[];
     }
 
@@ -1229,13 +1270,13 @@ export function useSubtitleManager() {
       videoId: items[0]?.video.id || ""
     });
     beginLoading();
-    beginUpload(`Uploading subtitle files (0/${items.length})...`);
+    beginUpload("status.uploadingSubtitleFilesProgress", { current: 0, total: items.length });
     const errors: string[] = [];
     let success = 0;
 
     try {
       for (const [index, item] of items.entries()) {
-        updateUploadMessage(`Uploading subtitle files (${index + 1}/${items.length})...`);
+        updateUploadMessage("status.uploadingSubtitleFilesProgress", { current: index + 1, total: items.length });
         const body = new FormData();
         body.append("file", item.file);
         body.append("label", item.label || "");
@@ -1269,11 +1310,15 @@ export function useSubtitleManager() {
     const total = items.length;
     const failed = total - success;
     if (failed > 0) {
-      setMessage(`Batch upload finished: ${success}/${total} succeeded, ${failed} failed.`);
-      notifyInfo("Batch upload completed with warnings", `${success}/${total} subtitle files uploaded.`, `${failed} items need attention.`);
+      setTranslatedMessage("status.batchFinishedWarnings", { success, total, failed });
+      notifyInfo(
+        t("toast.batchWarningsTitle"),
+        t("toast.batchWarningsMessage", { success, total }),
+        t("toast.batchWarningsDetail", { failed })
+      );
     } else {
-      setMessage(`Batch upload finished: ${success}/${total} succeeded.`);
-      notifySuccess("Batch upload completed", `${success}/${total} subtitle files uploaded.`);
+      setTranslatedMessage("status.batchFinishedSuccess", { success, total });
+      notifySuccess(t("toast.batchSuccessTitle"), t("toast.batchSuccessMessage", { success, total }));
     }
     setSubtitleActionPending(null);
 
