@@ -1,6 +1,12 @@
-name: Publish Container Image
+name: Release Container Image
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Optional release version (accepts 0.2.2 or v0.2.2)
+        required: false
+        type: string
   push:
     tags:
       - "v*"
@@ -10,22 +16,160 @@ permissions:
   packages: write
 
 jobs:
-  docker:
+  release:
     runs-on: ubuntu-latest
+    env:
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      REQUESTED_VERSION: ${{ github.event.inputs.version || '' }}
     steps:
-      - name: Checkout
+      - name: Checkout tag ref
+        if: github.event_name == 'push'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Checkout default branch
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Sync latest default branch commit
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin "${DEFAULT_BRANCH}" --tags --force
+          git checkout -B "${DEFAULT_BRANCH}" "origin/${DEFAULT_BRANCH}"
+
+          echo "Default branch: ${DEFAULT_BRANCH}"
+          echo "Target commit: $(git rev-parse HEAD)"
+
+      - name: Resolve release context
+        id: release
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          import sys
+
+          def fail(message):
+              print(message, file=sys.stderr)
+              sys.exit(1)
+
+          def parse_semver(value, label):
+              match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", value.strip())
+              if not match:
+                  fail(f"Invalid {label}: '{value}'. Expected x.y.z or vx.y.z.")
+
+              parts = tuple(int(part) for part in match.groups())
+              normalized = ".".join(str(part) for part in parts)
+              return parts, normalized
+
+          event_name = os.environ["EVENT_NAME"]
+          if event_name == "push":
+              _, version = parse_semver(os.environ.get("REF_NAME", ""), "tag")
+              tag_name = f"v{version}"
+              should_create_tag = "false"
+          elif event_name == "workflow_dispatch":
+              backend_text = open(
+                  "backend/internal/version/version.go",
+                  encoding="utf-8",
+              ).read()
+              backend_match = re.search(r'^const Value = "([^"]+)"$', backend_text, re.MULTILINE)
+              if not backend_match:
+                  fail("Failed to read backend version from backend/internal/version/version.go.")
+
+              backend_parts, backend_version = parse_semver(
+                  backend_match.group(1),
+                  "backend version",
+              )
+
+              with open("frontend/package.json", encoding="utf-8") as package_file:
+                  frontend_value = str(json.load(package_file).get("version", "")).strip()
+
+              frontend_parts, frontend_version = parse_semver(
+                  frontend_value,
+                  "frontend version",
+              )
+
+              if backend_parts != frontend_parts:
+                  fail(
+                      "Version mismatch between backend/internal/version/version.go "
+                      f"({backend_version}) and frontend/package.json ({frontend_version})."
+                  )
+
+              requested_version = os.environ.get("REQUESTED_VERSION", "").strip()
+              if requested_version:
+                  _, version = parse_semver(requested_version, "version input")
+              else:
+                  major, minor, patch = backend_parts
+                  version = f"{major}.{minor}.{patch + 1}"
+
+              tag_name = f"v{version}"
+              should_create_tag = "true"
+          else:
+              fail(f"Unsupported event: {event_name}")
+
+          github_output = os.environ["GITHUB_OUTPUT"]
+          with open(github_output, "a", encoding="utf-8") as output:
+              output.write(f"version={version}\n")
+              output.write(f"tag_name={tag_name}\n")
+              output.write(f"should_create_tag={should_create_tag}\n")
+
+          print(f"Release version: {version}")
+          print(f"Release tag: {tag_name}")
+          PY
+
+      - name: Verify new tag does not already exist
+        if: steps.release.outputs.should_create_tag == 'true'
+        shell: bash
+        env:
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          if git ls-remote --refs --exit-code --tags origin "${TAG_NAME}" >/dev/null 2>&1; then
+            echo "Tag ${TAG_NAME} already exists on origin." >&2
+            exit 1
+          fi
+
+          if git show-ref --tags --verify --quiet "refs/tags/${TAG_NAME}"; then
+            echo "Tag ${TAG_NAME} already exists locally." >&2
+            exit 1
+          fi
+
+      - name: Create and push lightweight tag
+        if: steps.release.outputs.should_create_tag == 'true'
+        shell: bash
+        env:
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          git tag "${TAG_NAME}"
+          git push origin "refs/tags/${TAG_NAME}"
+
+          echo "Pushed ${TAG_NAME}"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Derive version from tag
+      - name: Expose release version
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "Building with version $VERSION"
 
@@ -36,7 +180,7 @@ jobs:
 
       - name: Commit synced version files
         env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag_name }}
         run: |
           if git diff --quiet -- backend/internal/version/version.go frontend/package.json frontend/package-lock.json; then
             echo "Version files already up-to-date."
@@ -45,7 +189,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add backend/internal/version/version.go frontend/package.json frontend/package-lock.json
-          git commit -m "chore: sync version files for ${GITHUB_REF_NAME}"
+          git commit -m "chore: sync version files for ${RELEASE_TAG}"
           git push origin "HEAD:${DEFAULT_BRANCH}"
 
       - name: Set up Docker Buildx
@@ -64,8 +208,8 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=ref,event=tag
-            type=semver,pattern={{version}}
+            type=raw,value=${{ steps.release.outputs.tag_name }}
+            type=raw,value=${{ steps.release.outputs.version }}
             type=raw,value=latest
             type=sha,format=short,prefix=sha-
 
