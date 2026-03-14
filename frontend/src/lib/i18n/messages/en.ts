@@ -147,6 +147,9 @@ export const enMessages = {
   "tv.refreshingEpisodes": "Refreshing episodes...",
   "tv.managementTitle": "TV Subtitle Management",
   "tv.selectEpisodeEmpty": "Select an episode from the list.",
+  "tv.stepEpisodes": "Episodes",
+  "tv.stepSubtitles": "Subtitle Management",
+  "tv.backToEpisodes": "Back to Episodes",
   "tv.allSeasons": "All Seasons",
   "tv.seasonOption": "Season {season}",
 
@@ -232,6 +235,8 @@ export const enMessages = {
   "details.filePath": "File Path",
   "details.size": "Size",
   "details.useThisFile": "Use This File",
+  "details.moreInfo": "More Info",
+  "details.lessInfo": "Less Info",
   "details.noArchiveEntries": "No subtitle entries.",
   "details.uploadingSubtitlesTitle": "Uploading subtitles",
   "details.uploadingSubtitleFiles": "Uploading subtitle files...",

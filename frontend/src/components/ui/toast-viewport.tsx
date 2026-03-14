@@ -51,7 +51,7 @@ export function ToastViewport() {
           role="status"
           aria-live="polite"
           className={cn(
-            "animate-scale-in pointer-events-auto overflow-hidden rounded-xl border px-3 py-2 text-sm shadow-lg backdrop-blur",
+            "animate-scale-in pointer-events-auto overflow-hidden rounded-2xl border px-3 py-2 text-sm shadow-[0_20px_40px_-24px_rgba(15,23,42,0.65)] backdrop-blur-lg",
             toneClass(toast.level)
           )}
         >

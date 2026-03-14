@@ -3,26 +3,26 @@
 @tailwind utilities;
 
 :root {
-  --background: 210 32% 97%;
-  --foreground: 215 38% 12%;
+  --background: 208 50% 97%;
+  --foreground: 217 44% 13%;
   --card: 0 0% 100%;
-  --card-foreground: 215 38% 12%;
+  --card-foreground: 217 44% 13%;
   --popover: 0 0% 100%;
-  --popover-foreground: 215 38% 12%;
-  --primary: 202 88% 40%;
+  --popover-foreground: 217 44% 13%;
+  --primary: 193 95% 40%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 210 36% 93%;
-  --secondary-foreground: 215 30% 20%;
-  --muted: 210 30% 95%;
-  --muted-foreground: 214 13% 40%;
-  --accent: 201 35% 92%;
-  --accent-foreground: 215 34% 16%;
-  --destructive: 0 74% 48%;
+  --secondary: 206 34% 92%;
+  --secondary-foreground: 217 30% 20%;
+  --muted: 210 28% 94%;
+  --muted-foreground: 216 16% 39%;
+  --accent: 197 62% 90%;
+  --accent-foreground: 217 44% 16%;
+  --destructive: 5 78% 50%;
   --destructive-foreground: 210 40% 98%;
-  --border: 214 22% 86%;
-  --input: 214 22% 86%;
-  --ring: 202 88% 40%;
-  --radius: 0.5rem;
+  --border: 210 28% 82%;
+  --input: 210 28% 82%;
+  --ring: 193 95% 40%;
+  --radius: 0.9rem;
   --motion-fast: 90ms;
   --motion-base: 220ms;
   --motion-slow: 360ms;
@@ -31,25 +31,25 @@
 }
 
 [data-theme="dark"] {
-  --background: 222 40% 5%;
-  --foreground: 210 32% 93%;
-  --card: 225 27% 9%;
-  --card-foreground: 210 32% 93%;
-  --popover: 225 27% 9%;
-  --popover-foreground: 210 32% 93%;
-  --primary: 24 96% 52%;
-  --primary-foreground: 24 100% 97%;
-  --secondary: 224 18% 15%;
+  --background: 218 40% 7%;
+  --foreground: 210 30% 92%;
+  --card: 220 33% 10%;
+  --card-foreground: 210 30% 92%;
+  --popover: 220 33% 10%;
+  --popover-foreground: 210 30% 92%;
+  --primary: 193 92% 46%;
+  --primary-foreground: 217 52% 10%;
+  --secondary: 219 19% 18%;
   --secondary-foreground: 210 28% 91%;
-  --muted: 223 20% 14%;
-  --muted-foreground: 216 12% 68%;
-  --accent: 224 19% 17%;
+  --muted: 219 17% 15%;
+  --muted-foreground: 216 12% 71%;
+  --accent: 201 29% 22%;
   --accent-foreground: 210 30% 94%;
-  --destructive: 0 73% 46%;
+  --destructive: 5 74% 52%;
   --destructive-foreground: 210 40% 98%;
-  --border: 223 18% 22%;
-  --input: 223 18% 22%;
-  --ring: 24 96% 52%;
+  --border: 218 18% 27%;
+  --input: 218 18% 27%;
+  --ring: 193 92% 46%;
 }
 
 * {
@@ -63,20 +63,26 @@ body {
 
 body {
   @apply bg-background text-foreground;
-  font-family: "IBM Plex Sans", "Segoe UI", Tahoma, sans-serif;
+  font-family: var(--font-sans), "Segoe UI", "PingFang SC", "Microsoft YaHei", Tahoma, sans-serif;
   line-height: 1.45;
+  position: relative;
   background-image:
-    radial-gradient(900px 420px at 4% -8%, rgba(22, 128, 206, 0.08), transparent 60%),
-    radial-gradient(760px 360px at 96% -12%, rgba(17, 94, 89, 0.07), transparent 64%);
+    radial-gradient(1160px 540px at -8% -12%, rgba(8, 145, 178, 0.2), transparent 64%),
+    radial-gradient(860px 420px at 108% -16%, rgba(249, 115, 22, 0.16), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(241, 248, 255, 0.92) 45%, rgba(236, 246, 255, 1) 100%);
   background-attachment: fixed;
 }
 
 [data-theme="dark"] body {
   background-image:
-    radial-gradient(820px 380px at 10% -14%, rgba(33, 60, 122, 0.34), transparent 58%),
-    radial-gradient(620px 300px at 88% 110%, rgba(255, 114, 41, 0.12), transparent 60%),
-    linear-gradient(180deg, #080b14 0%, #0a0f1a 52%, #090d16 100%);
+    radial-gradient(860px 420px at 8% -12%, rgba(21, 94, 117, 0.42), transparent 56%),
+    radial-gradient(620px 340px at 92% 112%, rgba(194, 65, 12, 0.2), transparent 64%),
+    linear-gradient(180deg, #070b12 0%, #09111d 48%, #0a1221 100%);
   background-attachment: fixed;
+}
+
+*::selection {
+  background: hsl(var(--primary) / 0.2);
 }
 
 @keyframes fade-in-up {
@@ -196,6 +202,11 @@ body {
       color var(--motion-fast) var(--motion-ease-soft),
       opacity var(--motion-fast) var(--motion-ease-soft),
       box-shadow var(--motion-fast) var(--motion-ease-soft);
+  }
+
+  .text-display {
+    font-family: var(--font-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.01em;
   }
 }
 

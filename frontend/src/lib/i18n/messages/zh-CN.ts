@@ -149,6 +149,9 @@ export const zhCNMessages: MessageDictionary = {
   "tv.refreshingEpisodes": "正在刷新分集...",
   "tv.managementTitle": "剧集字幕管理",
   "tv.selectEpisodeEmpty": "请先从列表中选择一集。",
+  "tv.stepEpisodes": "分集",
+  "tv.stepSubtitles": "字幕管理",
+  "tv.backToEpisodes": "返回分集",
   "tv.allSeasons": "全部季",
   "tv.seasonOption": "第 {season} 季",
 
@@ -234,6 +237,8 @@ export const zhCNMessages: MessageDictionary = {
   "details.filePath": "文件路径",
   "details.size": "大小",
   "details.useThisFile": "使用该文件",
+  "details.moreInfo": "更多信息",
+  "details.lessInfo": "收起信息",
   "details.noArchiveEntries": "没有字幕条目。",
   "details.uploadingSubtitlesTitle": "正在上传字幕",
   "details.uploadingSubtitleFiles": "正在上传字幕文件...",

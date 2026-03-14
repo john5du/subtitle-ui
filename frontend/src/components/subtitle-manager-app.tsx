@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useTheme } from "next-themes";
+import { createPortal } from "react-dom";
 
 import { useI18n, type TranslateFn } from "@/lib/i18n";
 import { useSubtitleManager } from "@/hooks/use-subtitle-manager";
@@ -81,6 +82,7 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface SeasonEpisodeInfo {
   season: number;
   episode: number;
@@ -455,7 +457,7 @@ function SpinnerIcon({ className }: { className?: string }) {
 
 function InlinePending({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+    <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
       <SpinnerIcon className="h-3.5 w-3.5" />
       {label}
     </span>
@@ -464,8 +466,8 @@ function InlinePending({ label }: { label: string }) {
 
 function PanelLoadingOverlay({ label }: { label: string }) {
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-end rounded-md bg-background/45 p-3 backdrop-blur-[1px]">
-      <div className="animate-scale-in inline-flex items-center gap-2 rounded-full border bg-card/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-end rounded-xl bg-background/40 p-3 backdrop-blur-[1px]">
+      <div className="animate-scale-in inline-flex items-center gap-2 rounded-full border border-border/75 bg-card/95 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-lg">
         <SpinnerIcon className="h-3.5 w-3.5" />
         {label}
       </div>
@@ -689,10 +691,14 @@ export function SubtitleManagerApp() {
   }, [movieManagerOpen, pendingMovieUploadPick]);
 
   return (
-    <div className="h-full w-full px-3 py-3 md:px-6 md:py-5">
-      <div className="mx-auto grid h-full w-full max-w-[1560px] gap-3 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <Card className="animate-fade-in-up border bg-card lg:h-full">
-          <CardContent className="flex h-full flex-col gap-4 p-4">
+    <div className="relative h-full w-full px-3 py-3 md:px-6 md:py-5">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute -left-20 -top-24 h-72 w-72 rounded-full bg-cyan-500/12 blur-3xl" />
+        <div className="absolute -right-20 bottom-0 h-80 w-80 rounded-full bg-orange-500/12 blur-3xl" />
+      </div>
+      <div className="mx-auto grid h-full w-full max-w-[1620px] gap-4 lg:grid-cols-[268px_minmax(0,1fr)]">
+        <Card className="animate-fade-in-up border border-border/75 bg-card/90 lg:h-full">
+          <CardContent className="flex h-full flex-col gap-5 p-5">
             <div>
               <Image
                 src="/icon.svg"
@@ -700,28 +706,28 @@ export function SubtitleManagerApp() {
                 aria-hidden
                 width={56}
                 height={56}
-                className="mb-2 h-14 w-14 rounded-2xl border border-border/70 bg-background/40"
+                className="mb-2 h-14 w-14 rounded-2xl border border-primary/25 bg-background/80 p-2 shadow-[0_14px_28px_-20px_rgba(8,145,178,0.85)]"
               />
-              <p className="text-base font-bold uppercase tracking-[0.2em] text-muted-foreground">Subtitle UI</p>
-              <p className="mt-1 text-xs text-muted-foreground">{t("sidebar.tagline")}</p>
+              <p className="text-display text-sm font-semibold uppercase tracking-[0.26em] text-primary/80">Subtitle UI</p>
+              <p className="mt-2 max-w-[22ch] text-xs leading-relaxed text-muted-foreground">{t("sidebar.tagline")}</p>
             </div>
 
-            <div className="grid gap-1">
+            <div className="grid gap-1.5">
               {navItems.map((item) => (
                 <button
                   key={item.key}
                   type="button"
                   className={cn(
-                    "surface-transition flex items-center rounded-lg border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                    "group surface-transition flex items-center rounded-xl border px-3.5 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-60",
                     activeTab === item.key
-                      ? "border-primary/70 bg-primary/10 text-foreground shadow-sm"
-                      : "border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-foreground"
+                      ? "border-primary/45 bg-gradient-to-r from-primary/16 to-primary/8 text-foreground shadow-[0_14px_32px_-24px_hsl(var(--primary))]"
+                      : "border-transparent text-muted-foreground hover:border-border/80 hover:bg-accent/70 hover:text-foreground"
                   )}
                   disabled={uploading || pending.tabSwitch}
                   onClick={() => void switchTab(item.key)}
                 >
-                  <span className="flex items-center gap-3 text-sm font-medium">
-                    {item.icon}
+                  <span className="flex items-center gap-3 text-sm font-semibold">
+                    <span className={cn("text-primary/70 group-hover:text-primary", activeTab === item.key && "text-primary")}>{item.icon}</span>
                     {item.label}
                   </span>
                 </button>
@@ -729,10 +735,10 @@ export function SubtitleManagerApp() {
             </div>
 
             <div className="mt-auto space-y-3">
-              <Badge variant="outline" className={cn("surface-transition flex w-full items-center justify-center px-3 py-1.5 text-center text-xs", statusBadgeClass)}>
+              <Badge variant="outline" className={cn("surface-transition flex w-full items-center justify-center rounded-xl px-3 py-1.5 text-center text-xs", statusBadgeClass)}>
                 {statusBadgeText}
               </Badge>
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-border/70 bg-background/65 p-1.5">
                 <LocaleSelect />
                 <ThemeModeSelect />
                 <Button
@@ -740,7 +746,7 @@ export function SubtitleManagerApp() {
                   size="icon"
                   onClick={() => void triggerScan()}
                   disabled={operationLocked}
-                  className="h-10 w-10"
+                  className="h-10 w-10 rounded-xl"
                   aria-label={scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
                   title={scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
                 >
@@ -752,7 +758,7 @@ export function SubtitleManagerApp() {
                   size="icon"
                   onClick={() => void refreshActiveTab()}
                   disabled={operationLocked}
-                  className="h-10 w-10"
+                  className="h-10 w-10 rounded-xl"
                   aria-label={
                     refreshPending
                       ? t("sidebar.refreshingTab", { tab: activeTabLabel })
@@ -772,7 +778,7 @@ export function SubtitleManagerApp() {
         </Card>
 
         <div className="min-h-0 min-w-0 lg:flex lg:h-full lg:flex-col">
-          <div key={activeTab} className="animate-fade-in-up min-h-0 lg:flex-1">
+          <div key={activeTab} className="animate-fade-in-up min-h-0 rounded-2xl border border-border/65 bg-card/55 p-2 shadow-[0_24px_64px_-44px_rgba(15,23,42,0.7)] lg:flex-1">
             {activeTab === "dashboard" && (
               <div className="lg:h-full lg:overflow-auto lg:pr-1">
                 <DashboardPanel
@@ -885,7 +891,7 @@ export function SubtitleManagerApp() {
           }
         }}
       >
-        <DialogContent className="flex h-[90vh] max-h-[90vh] w-[min(1280px,96vw)] max-w-none overflow-hidden p-0 [&>button]:right-3 [&>button]:top-3 [&>button]:z-50">
+        <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none overflow-hidden rounded-none p-0 sm:h-[90vh] sm:max-h-[90vh] sm:w-[min(1280px,96vw)] sm:rounded-lg [&>button]:right-3 [&>button]:top-3 [&>button]:z-50">
           <TvSubtitleManagementPanel
             selectedSeries={selectedTvSeries}
             selectedSeason={selectedTvSeason}
@@ -1112,7 +1118,22 @@ function RowActionsMenu({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [resolvedDirection, setResolvedDirection] = useState<"up" | "down">(menuDirection);
+  const [menuMaxHeight, setMenuMaxHeight] = useState(240);
+  const [menuPosition, setMenuPosition] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+    width: number;
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -1120,7 +1141,8 @@ function RowActionsMenu({
     }
 
     function handlePointerDown(event: MouseEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!containerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
         setOpen(false);
       }
     }
@@ -1146,6 +1168,129 @@ function RowActionsMenu({
     }
   }, [disabled, open]);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function updateMenuPlacement() {
+      const triggerRect = triggerRef.current?.getBoundingClientRect();
+      if (!triggerRect) {
+        return;
+      }
+
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const margin = 12;
+      const gap = 6;
+      const minPreferredHeight = 150;
+      const spaceAbove = Math.max(0, triggerRect.top - margin);
+      const spaceBelow = Math.max(0, viewportHeight - triggerRect.bottom - margin);
+
+      let nextDirection = menuDirection;
+      if (nextDirection === "up" && spaceAbove < minPreferredHeight && spaceBelow > spaceAbove) {
+        nextDirection = "down";
+      }
+      if (nextDirection === "down" && spaceBelow < minPreferredHeight && spaceAbove > spaceBelow) {
+        nextDirection = "up";
+      }
+
+      const targetSpace = nextDirection === "up" ? spaceAbove : spaceBelow;
+      const menuWidth = Math.min(
+        Math.max(210, triggerRect.width, menuRef.current?.offsetWidth ?? 0),
+        Math.max(210, viewportWidth - margin * 2)
+      );
+      const left = Math.min(
+        Math.max(triggerRect.right - menuWidth, margin),
+        viewportWidth - menuWidth - margin
+      );
+      const maxHeight = Math.max(120, Math.floor(targetSpace - gap));
+      const top = nextDirection === "down" ? Math.max(margin, triggerRect.bottom + gap) : undefined;
+      const bottom = nextDirection === "up" ? Math.max(margin, viewportHeight - triggerRect.top + gap) : undefined;
+
+      setResolvedDirection(nextDirection);
+      setMenuMaxHeight(maxHeight);
+      setMenuPosition({
+        left,
+        top,
+        bottom,
+        width: menuWidth
+      });
+    }
+
+    updateMenuPlacement();
+    const raf = window.requestAnimationFrame(updateMenuPlacement);
+    window.addEventListener("resize", updateMenuPlacement);
+    window.addEventListener("scroll", updateMenuPlacement, true);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", updateMenuPlacement);
+      window.removeEventListener("scroll", updateMenuPlacement, true);
+    };
+  }, [open, menuDirection, items.length]);
+
+  const menu = open && menuPosition ? (
+    <div
+      ref={menuRef}
+      role="menu"
+      style={{
+        left: `${menuPosition.left}px`,
+        width: `${menuPosition.width}px`,
+        maxHeight: `${menuMaxHeight}px`,
+        top: menuPosition.top !== undefined ? `${menuPosition.top}px` : undefined,
+        bottom: menuPosition.bottom !== undefined ? `${menuPosition.bottom}px` : undefined
+      }}
+      className={cn(
+        "animate-fade-in-fast fixed z-[130] min-w-[210px] overflow-y-auto overscroll-contain rounded-xl border border-border/80 bg-popover/96 p-1.5 shadow-xl supports-[backdrop-filter]:backdrop-blur-xl",
+        resolvedDirection === "up" ? "origin-bottom-right" : "origin-top-right"
+      )}
+    >
+      {items.map((item, index) => {
+        const showDivider = item.external && index > 0 && !items[index - 1]?.external;
+        if (item.href && !item.disabled) {
+          return (
+            <a
+              key={item.label}
+              href={item.href}
+              target={item.external ? "_blank" : undefined}
+              rel={item.external ? "noreferrer" : undefined}
+              className={cn(
+                "surface-transition flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground",
+                showDivider && "mt-1 border-t pt-3"
+              )}
+              onClick={() => setOpen(false)}
+            >
+              <span>{item.label}</span>
+              {item.external && <ExternalLink className="h-4 w-4 text-muted-foreground" />}
+            </a>
+          );
+        }
+
+        return (
+          <button
+            key={item.label}
+            type="button"
+            role="menuitem"
+            disabled={item.disabled}
+            className={cn(
+              "surface-transition flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50",
+              showDivider && "mt-1 border-t pt-3"
+            )}
+            onClick={() => {
+              if (item.disabled) {
+                return;
+              }
+              setOpen(false);
+              item.onSelect?.();
+            }}
+          >
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  ) : null;
+
   return (
     <div
       ref={containerRef}
@@ -1157,7 +1302,8 @@ function RowActionsMenu({
         type="button"
         variant="outline"
         size="icon"
-        className={cn("h-9 w-9", triggerClassName)}
+        ref={triggerRef}
+        className={cn("h-9 w-9 rounded-xl", triggerClassName)}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}
@@ -1166,57 +1312,7 @@ function RowActionsMenu({
       >
         {triggerIcon ?? <MoreHorizontal className="h-4 w-4" />}
       </Button>
-      {open && (
-        <div
-          className={cn(
-            "animate-fade-in-fast absolute right-0 z-30 min-w-[200px] rounded-md border bg-popover p-1 shadow-lg",
-            menuDirection === "up" ? "bottom-full mb-1" : "top-full mt-1"
-          )}
-        >
-          {items.map((item, index) => {
-            const showDivider = item.external && index > 0 && !items[index - 1]?.external;
-            if (item.href && !item.disabled) {
-              return (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  target={item.external ? "_blank" : undefined}
-                  rel={item.external ? "noreferrer" : undefined}
-                  className={cn(
-                    "surface-transition flex w-full items-center justify-between rounded-sm px-3 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground",
-                    showDivider && "mt-1 border-t pt-3"
-                  )}
-                  onClick={() => setOpen(false)}
-                >
-                  <span>{item.label}</span>
-                  {item.external && <ExternalLink className="h-4 w-4 text-muted-foreground" />}
-                </a>
-              );
-            }
-
-            return (
-              <button
-                key={item.label}
-                type="button"
-                disabled={item.disabled}
-                className={cn(
-                  "surface-transition flex w-full items-center justify-between rounded-sm px-3 py-2 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50",
-                  showDivider && "mt-1 border-t pt-3"
-                )}
-                onClick={() => {
-                  if (item.disabled) {
-                    return;
-                  }
-                  setOpen(false);
-                  item.onSelect?.();
-                }}
-              >
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {mounted && menu ? createPortal(menu, document.body) : null}
     </div>
   );
 }
@@ -1981,6 +2077,7 @@ function TvSubtitleManagementPanel({
   subtitleAction
 }: TvSubtitleManagementPanelProps) {
   const { t } = useI18n();
+  const [activeStep, setActiveStep] = useState<"episodes" | "subtitles">("episodes");
   const selectedSeasonLabel = seasonOptions.find((option) => option.value === selectedSeason)?.label || t("tv.allSeasons");
   const searchKeyword = useMemo(() => {
     if (!selectedVideo) {
@@ -1992,100 +2089,137 @@ function TvSubtitleManagementPanel({
     return `${series} ${episodeCode}`.trim();
   }, [selectedSeries?.title, selectedVideo]);
 
+  useEffect(() => {
+    setActiveStep("episodes");
+  }, [selectedSeries?.path]);
+
+  function handleStepChange(value: string) {
+    setActiveStep(value === "subtitles" ? "subtitles" : "episodes");
+  }
+
+  function handleEpisodeSelect(video: Video) {
+    onSelectVideo(video);
+    setActiveStep("subtitles");
+  }
+
   return (
-    <div className="grid h-full w-full min-h-0 gap-3 p-3 md:grid-cols-[340px_minmax(0,1fr)] md:p-4">
-      <Card className="animate-fade-in-up flex min-h-0 flex-col border bg-card">
-        <CardHeader className="space-y-3 p-4">
-          <CardTitle className="text-lg">{t("tv.episodesTitle")}</CardTitle>
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tv.seriesLabel")}</p>
-            <p className="truncate text-sm font-semibold">{selectedSeries?.title || "-"}</p>
+    <div className="flex h-full w-full min-h-0 flex-col gap-3 p-3 md:p-4">
+      <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col">
+        <TabsList className="grid h-9 w-full grid-cols-2 sm:max-w-[360px]">
+          <TabsTrigger value="episodes" className="h-full">
+            {t("tv.stepEpisodes")}
+          </TabsTrigger>
+          <TabsTrigger value="subtitles" className="h-full">
+            {t("tv.stepSubtitles")}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="episodes" className="mt-3 min-h-0 flex-1">
+          <Card className="animate-fade-in-up flex h-full min-h-0 flex-col border bg-card">
+            <CardHeader className="space-y-3 p-4">
+              <CardTitle className="text-lg">{t("tv.episodesTitle")}</CardTitle>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tv.seriesLabel")}</p>
+                <p className="truncate text-sm font-semibold">{selectedSeries?.title || "-"}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tv.seasonLabel")}</p>
+                <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder={t("tv.selectSeason")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {seasonOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {episodesPending && <InlinePending label={t("tv.loadingEpisodes")} />}
+            </CardHeader>
+
+            <CardContent className="relative min-h-0 flex-1 p-4 pt-0">
+              <ScrollArea className={cn("h-full rounded-md border bg-background", episodesPending && "animate-pulse-soft")}>
+                <ul className="space-y-2 p-2">
+                  {videos.map((video) => {
+                    const active = selectedVideoId === video.id;
+                    const itemBusy = subtitleAction?.videoId === video.id;
+                    const parsed = parseVideoSeasonEpisode(video);
+                    const episodeCode = parsed ? formatSeasonEpisodeText(parsed.season, parsed.episode) : "-";
+                    return (
+                      <li key={video.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleEpisodeSelect(video)}
+                          disabled={busy || episodesPending}
+                          className={cn(
+                            "surface-transition w-full rounded-md border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                            active
+                              ? "border-primary/70 bg-primary/10 shadow-[inset_3px_0_0_0_rgba(14,165,233,0.6)]"
+                              : "border bg-background hover:bg-accent",
+                            itemBusy && "animate-pulse-soft"
+                          )}
+                          aria-pressed={active}
+                        >
+                          <div className="text-xs font-semibold text-muted-foreground">{episodeCode}</div>
+                          <div className="truncate text-sm font-semibold">{video.title || "-"}</div>
+                          <div className="text-xs text-muted-foreground">{t("tv.subtitleCount", { count: video.subtitles.length })}</div>
+                        </button>
+                      </li>
+                    );
+                  })}
+
+                  {videos.length === 0 && (
+                    <li className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                      {t("tv.noEpisodesInSeason", { season: selectedSeasonLabel })}
+                    </li>
+                  )}
+                </ul>
+              </ScrollArea>
+              {episodesPending && <PanelLoadingOverlay label={t("tv.refreshingEpisodes")} />}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="subtitles" className="mt-3 min-h-0 flex-1">
+          <div className="flex h-full min-h-0 flex-col gap-3">
+            <div className="flex justify-end">
+              <Button type="button" variant="outline" className="w-full gap-1 sm:w-auto" onClick={() => setActiveStep("episodes")}>
+                <ArrowLeft className="h-4 w-4" />
+                {t("tv.backToEpisodes")}
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <SubtitleDetailsPanel
+                panelTitle={t("tv.managementTitle")}
+                selectedVideo={selectedVideo}
+                emptyText={t("tv.selectEpisodeEmpty")}
+                showBack={false}
+                onBack={() => {}}
+                infoRows={[
+                  { label: t("info.series"), value: selectedSeries?.title || "-" }
+                ]}
+                onUpload={onUpload}
+                onReplace={onReplace}
+                onRemove={onRemove}
+                formatTime={formatTime}
+                busy={busy}
+                uploading={uploading}
+                uploadingMessage={uploadingMessage}
+                subtitleAction={subtitleAction}
+                showSearchLinks={true}
+                searchKeyword={searchKeyword}
+                showMediaType={false}
+                showMetadata={false}
+                compactMeta={true}
+                metaCollapsedByDefault={true}
+              />
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tv.seasonLabel")}</p>
-            <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder={t("tv.selectSeason")} />
-              </SelectTrigger>
-              <SelectContent>
-                {seasonOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {episodesPending && <InlinePending label={t("tv.loadingEpisodes")} />}
-        </CardHeader>
-
-        <CardContent className="relative min-h-0 flex-1 p-4 pt-0">
-          <ScrollArea className={cn("h-full rounded-md border bg-background", episodesPending && "animate-pulse-soft")}>
-            <ul className="space-y-2 p-2">
-              {videos.map((video) => {
-                const active = selectedVideoId === video.id;
-                const itemBusy = subtitleAction?.videoId === video.id;
-                const parsed = parseVideoSeasonEpisode(video);
-                const episodeCode = parsed ? formatSeasonEpisodeText(parsed.season, parsed.episode) : "-";
-                return (
-                  <li key={video.id}>
-                    <button
-                      type="button"
-                      onClick={() => onSelectVideo(video)}
-                      disabled={busy || episodesPending}
-                      className={cn(
-                        "surface-transition w-full rounded-md border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
-                        active
-                          ? "border-primary/70 bg-primary/10 shadow-[inset_3px_0_0_0_rgba(14,165,233,0.6)]"
-                          : "border bg-background hover:bg-accent"
-                        ,
-                        itemBusy && "animate-pulse-soft"
-                      )}
-                      aria-pressed={active}
-                      >
-                      <div className="text-xs font-semibold text-muted-foreground">{episodeCode}</div>
-                      <div className="truncate text-sm font-semibold">{video.title || "-"}</div>
-                      <div className="text-xs text-muted-foreground">{t("tv.subtitleCount", { count: video.subtitles.length })}</div>
-                    </button>
-                  </li>
-                );
-              })}
-
-              {videos.length === 0 && (
-                <li className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  {t("tv.noEpisodesInSeason", { season: selectedSeasonLabel })}
-                </li>
-              )}
-            </ul>
-          </ScrollArea>
-          {episodesPending && <PanelLoadingOverlay label={t("tv.refreshingEpisodes")} />}
-        </CardContent>
-      </Card>
-
-      <div className="min-h-0">
-        <SubtitleDetailsPanel
-          panelTitle={t("tv.managementTitle")}
-          selectedVideo={selectedVideo}
-          emptyText={t("tv.selectEpisodeEmpty")}
-          showBack={false}
-          onBack={() => {}}
-          infoRows={[
-            { label: t("info.series"), value: selectedSeries?.title || "-" }
-          ]}
-          onUpload={onUpload}
-          onReplace={onReplace}
-          onRemove={onRemove}
-          formatTime={formatTime}
-          busy={busy}
-          uploading={uploading}
-          uploadingMessage={uploadingMessage}
-          subtitleAction={subtitleAction}
-          showSearchLinks={true}
-          searchKeyword={searchKeyword}
-          showMediaType={false}
-          showMetadata={false}
-        />
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -2110,6 +2244,8 @@ interface SubtitleDetailsPanelProps {
   showMediaType?: boolean;
   showMetadata?: boolean;
   showUploadButton?: boolean;
+  compactMeta?: boolean;
+  metaCollapsedByDefault?: boolean;
 }
 
 interface SubtitleDetailsPanelHandle {
@@ -2135,7 +2271,9 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
   searchKeyword,
   showMediaType = true,
   showMetadata = true,
-  showUploadButton = true
+  showUploadButton = true,
+  compactMeta = false,
+  metaCollapsedByDefault = false
 }: SubtitleDetailsPanelProps, ref) {
   const { t } = useI18n();
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -2154,6 +2292,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
   const [zipLoading, setZipLoading] = useState(false);
   const [deleteDialogSubtitleId, setDeleteDialogSubtitleId] = useState<string | null>(null);
   const [flashSubtitleList, setFlashSubtitleList] = useState(false);
+  const [metaExpanded, setMetaExpanded] = useState(!metaCollapsedByDefault);
 
   const searchLinks = useMemo(() => {
     if (searchKeyword && searchKeyword.trim()) {
@@ -2183,6 +2322,19 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       : [])
   ];
   const hasActionToolbar = actionMenuItems.length > 0 || zipLoading || Boolean(zipPickError);
+  const detailsInfoGrid = selectedVideo ? (
+    <div className="grid gap-2 text-sm md:grid-cols-2">
+      <InfoItem label={t("info.title")} value={selectedVideo.title || "-"} />
+      <InfoItem label={t("info.year")} value={selectedVideo.year || "-"} />
+      {showMediaType && <InfoItem label={t("info.mediaType")} value={selectedVideo.mediaType === "movie" ? t("info.movie") : t("info.tv")} />}
+      {showMetadata && <InfoItem label={t("info.metadata")} value={selectedVideo.metadataSource || "-"} />}
+      {infoRows.map((item) => (
+        <InfoItem key={item.label} label={item.label} value={item.value || "-"} />
+      ))}
+      <InfoItem label={t("info.path")} value={selectedVideo.path || "-"} />
+      <InfoItem label={t("info.updated")} value={formatTime(selectedVideo.updatedAt)} />
+    </div>
+  ) : null;
 
   function triggerSubtitleListFlash() {
     setFlashSubtitleList(false);
@@ -2215,6 +2367,10 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     setDeleteDialogSubtitleId(null);
     setFlashSubtitleList(false);
   }, [selectedVideo?.id]);
+
+  useEffect(() => {
+    setMetaExpanded(!metaCollapsedByDefault);
+  }, [metaCollapsedByDefault, selectedVideo?.id]);
 
   function openUploadPicker() {
     if (busy || zipLoading) {
@@ -2384,17 +2540,33 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
-            <div className="grid gap-2 text-sm md:grid-cols-2">
-              <InfoItem label={t("info.title")} value={selectedVideo.title || "-"} />
-              <InfoItem label={t("info.year")} value={selectedVideo.year || "-"} />
-              {showMediaType && <InfoItem label={t("info.mediaType")} value={selectedVideo.mediaType === "movie" ? t("info.movie") : t("info.tv")} />}
-              {showMetadata && <InfoItem label={t("info.metadata")} value={selectedVideo.metadataSource || "-"} />}
-              {infoRows.map((item) => (
-                <InfoItem key={item.label} label={item.label} value={item.value || "-"} />
-              ))}
-              <InfoItem label={t("info.path")} value={selectedVideo.path || "-"} />
-              <InfoItem label={t("info.updated")} value={formatTime(selectedVideo.updatedAt)} />
-            </div>
+            {compactMeta ? (
+              <div className="space-y-3 rounded-md border bg-background/60 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="max-w-full truncate text-sm font-semibold sm:max-w-[60%]">
+                    {selectedVideo.title || selectedVideo.fileName || "-"}
+                  </p>
+                  <Badge variant="secondary" className="text-[11px]">
+                    {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {t("info.updated")}: {formatTime(selectedVideo.updatedAt)}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                  onClick={() => setMetaExpanded((prev) => !prev)}
+                >
+                  {metaExpanded ? t("details.lessInfo") : t("details.moreInfo")}
+                </Button>
+                {metaExpanded && detailsInfoGrid}
+              </div>
+            ) : (
+              detailsInfoGrid
+            )}
 
             <input
               ref={uploadInputRef}
@@ -2679,7 +2851,7 @@ function UploadBlockingOverlay({ message }: { message: string }) {
 
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border bg-background p-3">
+    <div className="rounded-xl border border-border/75 bg-background/75 p-3">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 break-all text-sm font-semibold">{value}</p>
     </div>
@@ -2699,22 +2871,22 @@ interface QuickStatCardProps {
 function QuickStatCard({ icon, label, value, hint, tone, pending = false, className }: QuickStatCardProps) {
   const toneClass: Record<QuickStatCardProps["tone"], { iconBg: string; iconText: string; hintText: string }> = {
     emerald: {
-      iconBg: "bg-emerald-500/15 dark:bg-emerald-500/20",
+      iconBg: "bg-emerald-500/18 dark:bg-emerald-500/24",
       iconText: "text-emerald-500 dark:text-emerald-400",
       hintText: "text-emerald-600 dark:text-emerald-400"
     },
     blue: {
-      iconBg: "bg-blue-500/15 dark:bg-blue-500/20",
+      iconBg: "bg-blue-500/18 dark:bg-blue-500/24",
       iconText: "text-blue-600 dark:text-blue-400",
       hintText: "text-blue-600 dark:text-blue-400"
     },
     amber: {
-      iconBg: "bg-amber-500/15 dark:bg-amber-500/20",
+      iconBg: "bg-amber-500/18 dark:bg-amber-500/24",
       iconText: "text-amber-600 dark:text-amber-400",
       hintText: "text-amber-600 dark:text-amber-400"
     },
     rose: {
-      iconBg: "bg-rose-500/15 dark:bg-rose-500/20",
+      iconBg: "bg-rose-500/18 dark:bg-rose-500/24",
       iconText: "text-rose-600 dark:text-rose-400",
       hintText: "text-rose-600 dark:text-rose-400"
     }
@@ -2723,15 +2895,15 @@ function QuickStatCard({ icon, label, value, hint, tone, pending = false, classN
   const style = toneClass[tone];
 
   return (
-    <Card className={cn("border bg-card", className, pending && "animate-pulse-soft")}>
+    <Card className={cn("border border-border/70 bg-card/92", className, pending && "animate-pulse-soft")}>
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center gap-3">
-          <span className={cn("inline-flex h-9 w-9 items-center justify-center rounded-lg", style.iconBg, style.iconText)}>
+          <span className={cn("inline-flex h-10 w-10 items-center justify-center rounded-xl", style.iconBg, style.iconText)}>
             {icon}
           </span>
           <p className="text-sm text-muted-foreground">{label}</p>
         </div>
-        <p className="text-4xl font-bold tracking-tight">{value}</p>
+        <p className="text-display text-4xl font-bold tracking-tight">{value}</p>
         <p className={cn("text-xs font-medium", style.hintText)}>{hint}</p>
       </CardContent>
     </Card>
