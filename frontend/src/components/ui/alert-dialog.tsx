@@ -33,6 +33,7 @@ const AlertDialogContent = React.forwardRef<
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Content
       ref={ref}
+      data-alert-dialog-content="true"
       className={cn(
         "data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-card p-6 shadow-lg will-change-[opacity] sm:rounded-lg",
         className

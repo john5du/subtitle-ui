@@ -5,6 +5,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowLeft,
+  Eye,
   ExternalLink,
   Film,
   FileText,
@@ -530,6 +531,77 @@ async function collectBatchEntriesFromFiles(files: File[]) {
   return { entries, unsupported, archiveErrors };
 }
 
+const SUBTITLE_PREVIEW_CHAR_LIMIT = 100000;
+const SUBTITLE_PREVIEW_ENCODINGS = ["utf-8", "utf-16le", "utf-16be", "gb18030", "big5"] as const;
+
+function orderedSubtitlePreviewEncodings(bytes: Uint8Array) {
+  const out: string[] = [];
+  if (bytes.length >= 2) {
+    if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+      out.push("utf-16le");
+    } else if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+      out.push("utf-16be");
+    }
+  }
+  for (const encoding of SUBTITLE_PREVIEW_ENCODINGS) {
+    if (!out.includes(encoding)) {
+      out.push(encoding);
+    }
+  }
+  return out;
+}
+
+function decodeSubtitleBytes(bytes: Uint8Array, encoding: string, fatal: boolean) {
+  try {
+    const decoder = new TextDecoder(encoding, { fatal });
+    return decoder.decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+function trimSubtitlePreviewText(text: string) {
+  if (text.length <= SUBTITLE_PREVIEW_CHAR_LIMIT) {
+    return { text, truncated: false };
+  }
+  return {
+    text: text.slice(0, SUBTITLE_PREVIEW_CHAR_LIMIT),
+    truncated: true
+  };
+}
+
+function decodeSubtitlePreviewContent(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length === 0) {
+    return { text: "", encoding: "utf-8", truncated: false };
+  }
+
+  for (const encoding of orderedSubtitlePreviewEncodings(bytes)) {
+    const decoded = decodeSubtitleBytes(bytes, encoding, true);
+    if (decoded === null) {
+      continue;
+    }
+    const normalized = trimSubtitlePreviewText(decoded);
+    return {
+      text: normalized.text,
+      encoding,
+      truncated: normalized.truncated
+    };
+  }
+
+  const fallback = decodeSubtitleBytes(bytes, "utf-8", false);
+  if (fallback !== null) {
+    const normalized = trimSubtitlePreviewText(fallback);
+    return {
+      text: normalized.text,
+      encoding: "utf-8",
+      truncated: normalized.truncated
+    };
+  }
+
+  throw new Error("unable to decode subtitle content");
+}
+
 export function SubtitleManagerApp() {
   const { t } = useI18n();
   const {
@@ -570,6 +642,7 @@ export function SubtitleManagerApp() {
     uploadSubtitle,
     replaceSubtitle,
     removeSubtitle,
+    previewSubtitle,
     loadTvBatchCandidates,
     uploadBatchSubtitles,
     setMovieQuery,
@@ -868,6 +941,7 @@ export function SubtitleManagerApp() {
             onUpload={uploadSubtitle}
             onReplace={replaceSubtitle}
             onRemove={removeSubtitle}
+            onPreviewSubtitle={previewSubtitle}
             formatTime={formatTime}
             busy={operationLocked}
             uploading={uploading}
@@ -904,6 +978,7 @@ export function SubtitleManagerApp() {
             onUpload={uploadSubtitle}
             onReplace={replaceSubtitle}
             onRemove={removeSubtitle}
+            onPreviewSubtitle={previewSubtitle}
             formatTime={formatTime}
             busy={operationLocked}
             uploading={uploading}
@@ -1119,6 +1194,7 @@ function RowActionsMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [withinDialog, setWithinDialog] = useState(false);
   const [resolvedDirection, setResolvedDirection] = useState<"up" | "down">(menuDirection);
   const [menuMaxHeight, setMenuMaxHeight] = useState(240);
   const [menuPosition, setMenuPosition] = useState<{
@@ -1178,6 +1254,10 @@ function RowActionsMenu({
       if (!triggerRect) {
         return;
       }
+      const isWithinDialog = Boolean(
+        containerRef.current?.closest("[data-dialog-content='true'],[data-alert-dialog-content='true']")
+      );
+      setWithinDialog(isWithinDialog);
 
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
@@ -1229,7 +1309,65 @@ function RowActionsMenu({
     };
   }, [open, menuDirection, items.length]);
 
-  const menu = open && menuPosition ? (
+  const menuItems = items.map((item, index) => {
+    const showDivider = item.external && index > 0 && !items[index - 1]?.external;
+    if (item.href && !item.disabled) {
+      return (
+        <a
+          key={item.label}
+          href={item.href}
+          target={item.external ? "_blank" : undefined}
+          rel={item.external ? "noreferrer" : undefined}
+          className={cn(
+            "surface-transition flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground",
+            showDivider && "mt-1 border-t pt-3"
+          )}
+          onClick={() => setOpen(false)}
+        >
+          <span>{item.label}</span>
+          {item.external && <ExternalLink className="h-4 w-4 text-muted-foreground" />}
+        </a>
+      );
+    }
+
+    return (
+      <button
+        key={item.label}
+        type="button"
+        role="menuitem"
+        disabled={item.disabled}
+        className={cn(
+          "surface-transition flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50",
+          showDivider && "mt-1 border-t pt-3"
+        )}
+        onClick={() => {
+          if (item.disabled) {
+            return;
+          }
+          setOpen(false);
+          item.onSelect?.();
+        }}
+      >
+        <span>{item.label}</span>
+      </button>
+    );
+  });
+
+  const inlineMenu = open && withinDialog ? (
+    <div
+      ref={menuRef}
+      role="menu"
+      style={{ maxHeight: `${menuMaxHeight}px` }}
+      className={cn(
+        "animate-fade-in-fast absolute right-0 z-[90] min-w-[210px] overflow-y-auto overscroll-contain rounded-xl border border-border/80 bg-popover/96 p-1.5 shadow-xl supports-[backdrop-filter]:backdrop-blur-xl",
+        resolvedDirection === "up" ? "bottom-full mb-1" : "top-full mt-1"
+      )}
+    >
+      {menuItems}
+    </div>
+  ) : null;
+
+  const portalMenu = open && !withinDialog && menuPosition ? (
     <div
       ref={menuRef}
       role="menu"
@@ -1245,49 +1383,7 @@ function RowActionsMenu({
         resolvedDirection === "up" ? "origin-bottom-right" : "origin-top-right"
       )}
     >
-      {items.map((item, index) => {
-        const showDivider = item.external && index > 0 && !items[index - 1]?.external;
-        if (item.href && !item.disabled) {
-          return (
-            <a
-              key={item.label}
-              href={item.href}
-              target={item.external ? "_blank" : undefined}
-              rel={item.external ? "noreferrer" : undefined}
-              className={cn(
-                "surface-transition flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground",
-                showDivider && "mt-1 border-t pt-3"
-              )}
-              onClick={() => setOpen(false)}
-            >
-              <span>{item.label}</span>
-              {item.external && <ExternalLink className="h-4 w-4 text-muted-foreground" />}
-            </a>
-          );
-        }
-
-        return (
-          <button
-            key={item.label}
-            type="button"
-            role="menuitem"
-            disabled={item.disabled}
-            className={cn(
-              "surface-transition flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50",
-              showDivider && "mt-1 border-t pt-3"
-            )}
-            onClick={() => {
-              if (item.disabled) {
-                return;
-              }
-              setOpen(false);
-              item.onSelect?.();
-            }}
-          >
-            <span>{item.label}</span>
-          </button>
-        );
-      })}
+      {menuItems}
     </div>
   ) : null;
 
@@ -1312,7 +1408,8 @@ function RowActionsMenu({
       >
         {triggerIcon ?? <MoreHorizontal className="h-4 w-4" />}
       </Button>
-      {mounted && menu ? createPortal(menu, document.body) : null}
+      {inlineMenu}
+      {mounted && portalMenu ? createPortal(portalMenu, document.body) : null}
     </div>
   );
 }
@@ -2049,6 +2146,7 @@ interface TvSubtitleManagementPanelProps {
   onUpload: (video: Video, file: File, label: string) => Promise<boolean>;
   onReplace: (video: Video, subtitle: Subtitle, file: File) => Promise<boolean>;
   onRemove: (video: Video, subtitle: Subtitle) => Promise<boolean>;
+  onPreviewSubtitle: (video: Video, subtitle: Subtitle) => Promise<ArrayBuffer>;
   formatTime: (value: string | undefined | null) => string;
   busy: boolean;
   uploading: boolean;
@@ -2069,6 +2167,7 @@ function TvSubtitleManagementPanel({
   onUpload,
   onReplace,
   onRemove,
+  onPreviewSubtitle,
   formatTime,
   busy,
   uploading,
@@ -2204,12 +2303,14 @@ function TvSubtitleManagementPanel({
                 onUpload={onUpload}
                 onReplace={onReplace}
                 onRemove={onRemove}
+                onPreviewSubtitle={onPreviewSubtitle}
                 formatTime={formatTime}
                 busy={busy}
                 uploading={uploading}
                 uploadingMessage={uploadingMessage}
                 subtitleAction={subtitleAction}
                 showSearchLinks={true}
+                inlineSearchLinks={true}
                 searchKeyword={searchKeyword}
                 showMediaType={false}
                 showMetadata={false}
@@ -2234,12 +2335,14 @@ interface SubtitleDetailsPanelProps {
   onUpload: (video: Video, file: File, label: string) => Promise<boolean>;
   onReplace: (video: Video, subtitle: Subtitle, file: File) => Promise<boolean>;
   onRemove: (video: Video, subtitle: Subtitle) => Promise<boolean>;
+  onPreviewSubtitle: (video: Video, subtitle: Subtitle) => Promise<ArrayBuffer>;
   formatTime: (value: string | undefined | null) => string;
   busy: boolean;
   uploading: boolean;
   uploadingMessage: string;
   subtitleAction: PendingSubtitleAction | null;
   showSearchLinks: boolean;
+  inlineSearchLinks?: boolean;
   searchKeyword?: string;
   showMediaType?: boolean;
   showMetadata?: boolean;
@@ -2262,12 +2365,14 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
   onUpload,
   onReplace,
   onRemove,
+  onPreviewSubtitle,
   formatTime,
   busy,
   uploading,
   uploadingMessage,
   subtitleAction,
   showSearchLinks,
+  inlineSearchLinks = false,
   searchKeyword,
   showMediaType = true,
   showMetadata = true,
@@ -2288,11 +2393,19 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
   const [zipPickEntries, setZipPickEntries] = useState<ZipSubtitleEntry[]>([]);
   const [zipPickTargetSubtitle, setZipPickTargetSubtitle] = useState<Subtitle | null>(null);
   const [zipUploadLabel, setZipUploadLabel] = useState("zh");
+  const [selectedZipEntryId, setSelectedZipEntryId] = useState("");
   const [zipPickError, setZipPickError] = useState("");
   const [zipLoading, setZipLoading] = useState(false);
   const [deleteDialogSubtitleId, setDeleteDialogSubtitleId] = useState<string | null>(null);
   const [flashSubtitleList, setFlashSubtitleList] = useState(false);
   const [metaExpanded, setMetaExpanded] = useState(!metaCollapsedByDefault);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewTitle, setPreviewTitle] = useState("");
+  const [previewStatus, setPreviewStatus] = useState<"idle" | "loading" | "success" | "error" | "empty">("idle");
+  const [previewError, setPreviewError] = useState("");
+  const [previewContent, setPreviewContent] = useState("");
+  const [previewEncoding, setPreviewEncoding] = useState("");
+  const [previewTruncated, setPreviewTruncated] = useState(false);
 
   const searchLinks = useMemo(() => {
     if (searchKeyword && searchKeyword.trim()) {
@@ -2304,24 +2417,32 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     return buildSubtitleSearchLinks(selectedVideo);
   }, [searchKeyword, selectedVideo]);
   const uploadPending = subtitleAction?.kind === "upload" && subtitleAction.videoId === selectedVideo?.id;
+  const uploadActionItem: RowActionItem | null = showUploadButton
+    ? {
+        label: uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive"),
+        onSelect: openUploadPicker,
+        disabled: busy || zipLoading
+      }
+    : null;
+  const inlineUploadActionItem = inlineSearchLinks ? uploadActionItem : null;
   const actionMenuItems: RowActionItem[] = [
-    ...(showUploadButton
-      ? [
-          {
-            label: uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive"),
-            onSelect: openUploadPicker,
-            disabled: busy || zipLoading
-          }
-        ]
-      : []),
-    ...(showSearchLinks && searchLinks
+    ...(inlineSearchLinks || !uploadActionItem ? [] : [uploadActionItem]),
+    ...(!inlineSearchLinks && showSearchLinks && searchLinks
       ? [
           { label: "Zimuku", href: searchLinks.zimuku, external: true },
           { label: "SubHD", href: searchLinks.subhd, external: true }
         ]
       : [])
   ];
-  const hasActionToolbar = actionMenuItems.length > 0 || zipLoading || Boolean(zipPickError);
+  const inlineSearchActionItems: RowActionItem[] =
+    inlineSearchLinks && showSearchLinks && searchLinks
+      ? [
+          { label: "Zimuku", href: searchLinks.zimuku, external: true },
+          { label: "SubHD", href: searchLinks.subhd, external: true }
+        ]
+      : [];
+  const hasActionToolbar =
+    actionMenuItems.length > 0 || Boolean(inlineUploadActionItem) || inlineSearchActionItems.length > 0 || zipLoading || Boolean(zipPickError);
   const detailsInfoGrid = selectedVideo ? (
     <div className="grid gap-2 text-sm md:grid-cols-2">
       <InfoItem label={t("info.title")} value={selectedVideo.title || "-"} />
@@ -2351,6 +2472,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     setZipPickEntries([]);
     setZipPickTargetSubtitle(null);
     setZipUploadLabel("zh");
+    setSelectedZipEntryId("");
     setZipPickError("");
     setZipLoading(false);
   }
@@ -2361,9 +2483,76 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     setUploadLabel("zh");
   }
 
+  function resetPreviewState() {
+    setPreviewDialogOpen(false);
+    setPreviewTitle("");
+    setPreviewStatus("idle");
+    setPreviewError("");
+    setPreviewContent("");
+    setPreviewEncoding("");
+    setPreviewTruncated(false);
+  }
+
+  function openPreviewFromBuffer(name: string, buffer: ArrayBuffer) {
+    setPreviewDialogOpen(true);
+    setPreviewTitle(name || "-");
+    try {
+      const decoded = decodeSubtitlePreviewContent(buffer);
+      if (!decoded.text.trim()) {
+        setPreviewStatus("empty");
+        setPreviewError("");
+        setPreviewContent("");
+        setPreviewEncoding(decoded.encoding);
+        setPreviewTruncated(false);
+        return;
+      }
+
+      setPreviewStatus("success");
+      setPreviewError("");
+      setPreviewContent(decoded.text);
+      setPreviewEncoding(decoded.encoding);
+      setPreviewTruncated(decoded.truncated);
+    } catch (error) {
+      const errText = error instanceof Error ? error.message : String(error);
+      setPreviewStatus("error");
+      setPreviewError(errText);
+      setPreviewContent("");
+      setPreviewEncoding("");
+      setPreviewTruncated(false);
+    }
+  }
+
+  async function openStoredSubtitlePreview(subtitle: Subtitle) {
+    if (!selectedVideo) {
+      return;
+    }
+
+    setPreviewDialogOpen(true);
+    setPreviewTitle(subtitle.fileName || "-");
+    setPreviewStatus("loading");
+    setPreviewError("");
+    setPreviewContent("");
+    setPreviewEncoding("");
+    setPreviewTruncated(false);
+
+    try {
+      const data = await onPreviewSubtitle(selectedVideo, subtitle);
+      openPreviewFromBuffer(subtitle.fileName, data);
+    } catch (error) {
+      const errText = error instanceof Error ? error.message : String(error);
+      setPreviewStatus("error");
+      setPreviewError(errText);
+    }
+  }
+
+  function openArchiveSubtitlePreview(entry: ZipSubtitleEntry) {
+    openPreviewFromBuffer(entry.fileName || entry.path || "-", entry.data);
+  }
+
   useEffect(() => {
     resetUploadState();
     resetZipPickState();
+    resetPreviewState();
     setDeleteDialogSubtitleId(null);
     setFlashSubtitleList(false);
   }, [selectedVideo?.id]);
@@ -2405,6 +2594,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
       }
       setZipPickFileName(file.name);
       setZipPickEntries(entries);
+      setSelectedZipEntryId("");
       setZipPickDialogOpen(true);
       emitToast({
         level: "info",
@@ -2508,6 +2698,15 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
     }
   }
 
+  async function confirmZipEntrySelection() {
+    const entry = zipPickEntries.find((item) => item.id === selectedZipEntryId);
+    if (!entry) {
+      setZipPickError(t("details.selectArchiveEntryFirst"));
+      return;
+    }
+    await onZipEntryPicked(entry);
+  }
+
   async function confirmDeleteSubtitle(subtitle: Subtitle) {
     if (!selectedVideo) {
       return;
@@ -2584,6 +2783,27 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                     triggerIcon={uploadPending || zipLoading ? <SpinnerIcon className="h-4 w-4" /> : undefined}
                   />
                 )}
+                {inlineUploadActionItem && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    disabled={inlineUploadActionItem.disabled}
+                    onClick={() => inlineUploadActionItem.onSelect?.()}
+                  >
+                    {uploadPending || zipLoading ? <SpinnerIcon className="h-4 w-4" /> : null}
+                    <span>{inlineUploadActionItem.label}</span>
+                  </Button>
+                )}
+                {inlineSearchActionItems.map((item) => (
+                  <Button key={item.label} type="button" variant="outline" size="sm" className="gap-1" asChild>
+                    <a href={item.href} target={item.external ? "_blank" : undefined} rel={item.external ? "noreferrer" : undefined}>
+                      <span>{item.label}</span>
+                      {item.external && <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />}
+                    </a>
+                  </Button>
+                ))}
                 {zipLoading && <InlinePending label={t("details.parsingArchive")} />}
                 {zipPickError && <span className="text-xs text-rose-600">{zipPickError}</span>}
               </div>
@@ -2599,7 +2819,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                       <TableHead>{t("details.lang")}</TableHead>
                       <TableHead>{t("batch.format")}</TableHead>
                       <TableHead>{t("details.modified")}</TableHead>
-                      <TableHead className="w-[96px] text-right">{t("common.actions")}</TableHead>
+                      <TableHead className="w-[196px] text-right">{t("common.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2615,7 +2835,7 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                         <TableCell>{subtitle.format || "-"}</TableCell>
                         <TableCell>{formatTime(subtitle.modTime)}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end">
+                          <div className="flex items-center justify-end gap-1.5">
                             <input
                               ref={(node) => {
                                 replaceInputRef.current[subtitle.id] = node;
@@ -2627,6 +2847,17 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                                 void onReplaceFilePicked(subtitle, event);
                               }}
                             />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1 px-2"
+                              disabled={busy || rowBusy}
+                              onClick={() => void openStoredSubtitlePreview(subtitle)}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              {t("common.preview")}
+                            </Button>
                             <RowActionsMenu
                               label={t("details.actionsForSubtitle", { name: subtitle.fileName })}
                               disabled={busy || rowBusy}
@@ -2781,33 +3012,63 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
                     <TableRow>
                       <TableHead>{t("details.filePath")}</TableHead>
                       <TableHead className="w-[100px] text-right">{t("details.size")}</TableHead>
-                      <TableHead className="w-[96px] text-right">{t("common.actions")}</TableHead>
+                      <TableHead className="w-[120px] text-center">{t("common.preview")}</TableHead>
+                      <TableHead className="w-[96px] text-center">{t("details.selectFile")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {zipPickEntries.map((entry) => (
-                      <TableRow key={entry.id}>
+                    {zipPickEntries.map((entry) => {
+                      const checked = selectedZipEntryId === entry.id;
+                      return (
+                      <TableRow
+                        key={entry.id}
+                        className={cn(checked && "bg-accent/40")}
+                        onClick={() => {
+                          if (busy || uploading || zipLoading) {
+                            return;
+                          }
+                          setSelectedZipEntryId((current) => (current === entry.id ? "" : entry.id));
+                          setZipPickError("");
+                        }}
+                      >
                         <TableCell className="break-all text-xs">{entry.path}</TableCell>
                         <TableCell className="text-right text-xs">{Math.max(1, Math.round(entry.size / 1024))} KB</TableCell>
-                        <TableCell className="text-right">
-                          <RowActionsMenu
-                            label={t("details.actionsForSubtitle", { name: entry.path })}
-                            disabled={busy || uploading}
-                            items={[
-                              {
-                                label: t("details.useThisFile"),
-                                onSelect: () => void onZipEntryPicked(entry),
-                                disabled: busy || uploading
+                        <TableCell className="text-center">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openArchiveSubtitlePreview(entry);
+                            }}
+                          >
+                            {t("common.preview")}
+                          </Button>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={busy || uploading || zipLoading}
+                            aria-label={t("details.actionsForSubtitle", { name: entry.path })}
+                            onChange={(event) => {
+                              if (event.target.checked) {
+                                setSelectedZipEntryId(entry.id);
+                                setZipPickError("");
+                                return;
                               }
-                            ]}
+                              setSelectedZipEntryId("");
+                            }}
                           />
                         </TableCell>
                       </TableRow>
-                    ))}
+                    );})}
 
                     {zipPickEntries.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
+                        <TableCell colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
                           {t("details.noArchiveEntries")}
                         </TableCell>
                       </TableRow>
@@ -2819,6 +3080,68 @@ const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDeta
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={resetZipPickState} disabled={busy}>
+              {t("common.close")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void confirmZipEntrySelection()}
+              disabled={busy || uploading || zipLoading || !selectedZipEntryId}
+            >
+              {uploading ? <SpinnerIcon className="h-4 w-4" /> : null}
+              {zipPickMode === "upload" ? t("details.confirmUploadFromArchive") : t("details.confirmReplaceFromArchive")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+        <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none sm:h-[88vh] sm:max-h-[88vh] sm:w-[min(1100px,96vw)] sm:rounded-lg">
+          <DialogHeader>
+            <DialogTitle>{t("details.previewTitle", { name: previewTitle || "-" })}</DialogTitle>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-background/70 p-3">
+            {previewStatus === "loading" && (
+              <div className="flex h-full items-center justify-center">
+                <InlinePending label={t("details.previewLoading")} />
+              </div>
+            )}
+
+            {previewStatus === "error" && (
+              <div className="flex h-full items-center justify-center text-sm text-rose-600">
+                {t("details.previewFailed", { error: previewError || "-" })}
+              </div>
+            )}
+
+            {previewStatus === "empty" && (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                {t("details.previewEmpty")}
+              </div>
+            )}
+
+            {previewStatus === "success" && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {previewEncoding && (
+                    <Badge variant="secondary" className="text-[11px] uppercase">
+                      {previewEncoding}
+                    </Badge>
+                  )}
+                  {previewTruncated && (
+                    <span className="text-xs text-muted-foreground">
+                      {t("details.previewTruncated", { count: SUBTITLE_PREVIEW_CHAR_LIMIT })}
+                    </span>
+                  )}
+                </div>
+                <pre className="overflow-auto whitespace-pre-wrap break-words rounded-md border bg-background p-3 font-mono text-xs leading-5">
+                  {previewContent}
+                </pre>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPreviewDialogOpen(false)}>
               {t("common.close")}
             </Button>
           </DialogFooter>

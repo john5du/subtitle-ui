@@ -176,6 +176,10 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleUploadSubtitle(w, r, videoID)
 		return
 
+	case len(segments) == 4 && segments[1] == "subtitles" && segments[3] == "content" && r.Method == http.MethodGet:
+		s.handleSubtitleContent(w, r, videoID, segments[2])
+		return
+
 	case len(segments) == 3 && segments[1] == "subtitles" && r.Method == http.MethodDelete:
 		err := s.service.DeleteSubtitle(videoID, segments[2])
 		if err != nil {
@@ -212,6 +216,18 @@ func (s *Server) handleUploadSubtitle(w http.ResponseWriter, r *http.Request, vi
 		return
 	}
 	writeJSON(w, http.StatusCreated, subtitle)
+}
+
+func (s *Server) handleSubtitleContent(w http.ResponseWriter, _ *http.Request, videoID string, subtitleID string) {
+	content, err := s.service.ReadSubtitleContent(videoID, subtitleID)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(content)
 }
 
 func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {

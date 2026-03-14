@@ -211,6 +211,72 @@ func TestDirectoryScanResultIncludesIndexedMovieAndSeriesCounts(t *testing.T) {
 	}
 }
 
+func TestReadSubtitleContentReturnsStoredFileBytes(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	movieDir := filepath.Join(movieRoot, "Movie A")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatalf("mkdir movie dir: %v", err)
+	}
+
+	videoPath := filepath.Join(movieDir, "movie-a.mkv")
+	if err := os.WriteFile(videoPath, []byte("video"), 0o644); err != nil {
+		t.Fatalf("write video: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.nfo"), []byte(sampleNFO("Movie A", "2025")), 0o644); err != nil {
+		t.Fatalf("write nfo: %v", err)
+	}
+
+	expected := "1\n00:00:01,000 --> 00:00:03,000\nhello preview\n"
+	subPath := filepath.Join(movieDir, "movie-a.zh.srt")
+	if err := os.WriteFile(subPath, []byte(expected), 0o644); err != nil {
+		t.Fatalf("write subtitle: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	status := svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("scan status error: %s", status.Error)
+	}
+
+	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	if len(page.Items) != 1 {
+		t.Fatalf("expected one movie, got %d", len(page.Items))
+	}
+	if len(page.Items[0].Subtitles) != 1 {
+		t.Fatalf("expected one subtitle, got %d", len(page.Items[0].Subtitles))
+	}
+
+	video := page.Items[0]
+	sub := video.Subtitles[0]
+	content, err := svc.ReadSubtitleContent(video.ID, sub.ID)
+	if err != nil {
+		t.Fatalf("read subtitle content: %v", err)
+	}
+	if string(content) != expected {
+		t.Fatalf("unexpected subtitle content: %q", string(content))
+	}
+}
+
 func latestLogByAction(logs []domain.OperationLog, action string) (domain.OperationLog, bool) {
 	for _, item := range logs {
 		if item.Action == action {

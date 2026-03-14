@@ -1249,6 +1249,30 @@ export function useSubtitleManager() {
     }
   }
 
+  async function previewSubtitle(video: Video, subtitle: Subtitle) {
+    try {
+      const res = await fetch(buildApiURL(`/api/videos/${video.id}/subtitles/${subtitle.id}/content`));
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type") ?? "";
+        let errText = "";
+        if (contentType.includes("application/json")) {
+          const payload = await res.json();
+          if (isRecord(payload) && typeof payload.error === "string") {
+            errText = payload.error;
+          }
+        } else {
+          errText = await res.text();
+        }
+        throw new Error(errText || `request failed: ${res.status}`);
+      }
+
+      return await res.arrayBuffer();
+    } catch (error) {
+      reportRequestError("error.previewFailed", error);
+      throw error;
+    }
+  }
+
   async function loadTvBatchCandidates() {
     const targetDir = (selectedTvSeries?.path || selectedTvDirPath || tvEpisodesPath || tvRootPath || directoryScan.tvRoot || "").trim();
     if (!targetDir) {
@@ -1489,6 +1513,7 @@ export function useSubtitleManager() {
     uploadSubtitle,
     replaceSubtitle,
     removeSubtitle,
+    previewSubtitle,
     loadTvBatchCandidates,
     uploadBatchSubtitles,
     setMovieQuery: (value: string) => setQueryByType((prev) => ({ ...prev, movie: value })),

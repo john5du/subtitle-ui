@@ -492,6 +492,29 @@ func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {
 	return nil
 }
 
+func (s *Service) ReadSubtitleContent(videoID string, subtitleID string) ([]byte, error) {
+	video, ok := s.GetVideo(videoID)
+	if !ok {
+		return nil, ErrNotFound
+	}
+	existing, found := findSubtitle(video.Subtitles, subtitleID)
+	if !found {
+		return nil, ErrNotFound
+	}
+	if !s.isWithinMediaRoots(existing.Path) {
+		return nil, ErrUnsafePath
+	}
+
+	data, err := os.ReadFile(existing.Path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return data, nil
+}
+
 func (s *Service) ListLogs(limit int) []domain.OperationLog {
 	logs, err := s.store.ListLogs(limit)
 	if err != nil {
