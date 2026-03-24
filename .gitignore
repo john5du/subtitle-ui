@@ -8,6 +8,8 @@ tmp/
 media/
 plan/
 .idea/
+.claude/
+.codex/
 
 *.log
 *.db
