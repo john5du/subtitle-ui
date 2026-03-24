@@ -69,6 +69,10 @@ ALTER TABLE videos ADD COLUMN media_type TEXT NOT NULL DEFAULT 'movie';
 CREATE INDEX IF NOT EXISTS idx_videos_media_type ON videos(media_type);
 `
 
+const migrationV3 = `
+ALTER TABLE videos ADD COLUMN poster_path TEXT NOT NULL DEFAULT '';
+`
+
 type Store struct {
 	db *sql.DB
 }
@@ -140,8 +144,8 @@ func (s *Store) SaveScanResult(videos []domain.Video, startedAt time.Time, finis
 
 		for _, video := range videos {
 			_, err = tx.Exec(
-				`INSERT OR REPLACE INTO videos(id, path, directory, file_name, title, year, media_type, metadata_source, updated_at)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				`INSERT OR REPLACE INTO videos(id, path, directory, file_name, title, year, media_type, metadata_source, poster_path, updated_at)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				video.ID,
 				video.Path,
 				video.Directory,
@@ -150,6 +154,7 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				video.Year,
 				defaultMediaType(video.MediaType),
 				video.MetadataSource,
+				video.PosterPath,
 				video.UpdatedAt.UTC().Format(time.RFC3339Nano),
 			)
 			if err != nil {
@@ -191,7 +196,7 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 		pageSize = 200
 	}
 
-	baseQuery := `SELECT id, path, directory, file_name, title, year, media_type, metadata_source, updated_at FROM videos`
+	baseQuery := `SELECT id, path, directory, file_name, title, year, media_type, metadata_source, poster_path, updated_at FROM videos`
 	args := []any{}
 	conditions := make([]string, 0, 2)
 
@@ -262,12 +267,13 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 
 func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 	row := s.db.QueryRow(
-		`SELECT id, path, directory, file_name, title, year, media_type, metadata_source, updated_at FROM videos WHERE id = ?`,
+		`SELECT id, path, directory, file_name, title, year, media_type, metadata_source, poster_path, updated_at FROM videos WHERE id = ?`,
 		videoID,
 	)
 
 	var (
 		video      domain.Video
+		posterPath string
 		updatedRaw string
 	)
 	err := row.Scan(
@@ -279,6 +285,7 @@ func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 		&video.Year,
 		&video.MediaType,
 		&video.MetadataSource,
+		&posterPath,
 		&updatedRaw,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -287,6 +294,7 @@ func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 	if err != nil {
 		return domain.Video{}, false, err
 	}
+	video.PosterPath = posterPath
 	video.UpdatedAt = parseTimeOrNow(updatedRaw)
 
 	subs, err := s.listSubtitlesByVideoID(video.ID)
@@ -531,20 +539,39 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 	if err != nil {
 		return err
 	}
+	if !applied {
+		hasMediaType, err := s.hasColumn("videos", "media_type")
+		if err != nil {
+			return err
+		}
+		if !hasMediaType {
+			if _, err := s.db.Exec(migrationV2); err != nil {
+				return fmt.Errorf("apply migration v2: %w", err)
+			}
+		}
+		if _, err = s.db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 2, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
+	applied, err = s.isMigrationApplied(3)
+	if err != nil {
+		return err
+	}
 	if applied {
 		return nil
 	}
 
-	hasMediaType, err := s.hasColumn("videos", "media_type")
+	hasPosterPath, err := s.hasColumn("videos", "poster_path")
 	if err != nil {
 		return err
 	}
-	if !hasMediaType {
-		if _, err := s.db.Exec(migrationV2); err != nil {
-			return fmt.Errorf("apply migration v2: %w", err)
+	if !hasPosterPath {
+		if _, err := s.db.Exec(migrationV3); err != nil {
+			return fmt.Errorf("apply migration v3: %w", err)
 		}
 	}
-	_, err = s.db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 2, time.Now().UTC().Format(time.RFC3339Nano))
+	_, err = s.db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 3, time.Now().UTC().Format(time.RFC3339Nano))
 	return err
 }
 
@@ -633,6 +660,7 @@ func defaultMediaType(mediaType string) string {
 func scanVideoRow(rows *sql.Rows) (domain.Video, error) {
 	var (
 		video      domain.Video
+		posterPath string
 		updatedRaw string
 	)
 	if err := rows.Scan(
@@ -644,10 +672,12 @@ func scanVideoRow(rows *sql.Rows) (domain.Video, error) {
 		&video.Year,
 		&video.MediaType,
 		&video.MetadataSource,
+		&posterPath,
 		&updatedRaw,
 	); err != nil {
 		return domain.Video{}, err
 	}
+	video.PosterPath = posterPath
 	video.UpdatedAt = parseTimeOrNow(updatedRaw)
 	return video, nil
 }

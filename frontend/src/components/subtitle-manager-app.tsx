@@ -216,6 +216,39 @@ function formatSeasonEpisodeText(season: number | null, episode: number | null) 
   return `S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}`;
 }
 
+function PosterPlaceholder() {
+  return <div className="h-[72px] w-[48px] rounded-md border border-border/60 bg-muted/45 shadow-inner" aria-hidden />;
+}
+
+interface PosterThumbnailProps {
+  src?: string;
+}
+
+function PosterThumbnail({ src = "" }: PosterThumbnailProps) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!src || failed) {
+    return <PosterPlaceholder />;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-md border border-border/60 bg-muted/30 shadow-sm">
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className="h-[72px] w-[48px] object-cover align-middle"
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
 function compareTvVideosByEpisode(a: Video, b: Video) {
   const aa = parseVideoSeasonEpisode(a);
   const bb = parseVideoSeasonEpisode(b);
@@ -1467,6 +1500,7 @@ function MovieListPanel({
           <Table className="table-fixed">
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
                 <TableHead>{t("info.title")}</TableHead>
                 <TableHead className="w-[90px]">
                   <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={onToggleYearSort}>
@@ -1489,6 +1523,9 @@ function MovieListPanel({
                     className="surface-transition cursor-pointer hover:bg-accent"
                     onClick={() => onSelectVideo(video)}
                   >
+                    <TableCell className="w-[76px] py-2">
+                      <PosterThumbnail src={video.posterUrl} />
+                    </TableCell>
                     <TableCell className="max-w-[240px] truncate font-medium" title={video.title}>
                       {video.title || "-"}
                     </TableCell>
@@ -1523,7 +1560,7 @@ function MovieListPanel({
 
               {videos.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                     {t("movie.empty")}
                   </TableCell>
                 </TableRow>
@@ -1598,6 +1635,7 @@ function TvSeriesListPanel({
           <Table className="table-fixed">
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
                 <TableHead>{t("info.title")}</TableHead>
                 <TableHead className="w-[110px]">
                   <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={onToggleYearSort}>
@@ -1620,6 +1658,9 @@ function TvSeriesListPanel({
                     className="surface-transition cursor-pointer hover:bg-accent"
                     onClick={() => onSelectSeries(row.path)}
                   >
+                    <TableCell className="w-[76px] py-2">
+                      <PosterThumbnail src={row.posterUrl} />
+                    </TableCell>
                     <TableCell className="max-w-[240px] truncate font-medium" title={row.title}>
                       {row.title || "-"}
                     </TableCell>
@@ -1652,7 +1693,7 @@ function TvSeriesListPanel({
 
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                     {showScanPrompt ? (
                       <div className="flex flex-col items-center gap-3 text-center">
                         <p className="max-w-[320px] text-sm text-muted-foreground">

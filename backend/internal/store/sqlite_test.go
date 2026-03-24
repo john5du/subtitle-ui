@@ -28,6 +28,7 @@ func TestStoreScanAndLogs(t *testing.T) {
 		Year:           "2025",
 		MediaType:      domain.MediaTypeMovie,
 		MetadataSource: "nfo",
+		PosterPath:     filepath.Join(t.TempDir(), "dir", "poster.jpg"),
 		UpdatedAt:      now,
 		Subtitles: []domain.Subtitle{
 			{
@@ -58,6 +59,20 @@ func TestStoreScanAndLogs(t *testing.T) {
 	}
 	if len(videos[0].Subtitles) != 1 {
 		t.Fatalf("expected 1 subtitle, got %d", len(videos[0].Subtitles))
+	}
+	if videos[0].PosterPath != video.PosterPath {
+		t.Fatalf("expected poster path %q, got %q", video.PosterPath, videos[0].PosterPath)
+	}
+
+	storedVideo, found, err := st.GetVideo("V1")
+	if err != nil {
+		t.Fatalf("get video: %v", err)
+	}
+	if !found {
+		t.Fatalf("expected stored video to exist")
+	}
+	if storedVideo.PosterPath != video.PosterPath {
+		t.Fatalf("expected stored poster path %q, got %q", video.PosterPath, storedVideo.PosterPath)
 	}
 
 	status, err := st.GetLatestScanStatus()

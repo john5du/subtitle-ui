@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"subtitle-ui/backend/internal/app"
+	appdomain "subtitle-ui/backend/internal/domain"
 )
 
 type Server struct {
@@ -134,7 +136,9 @@ func (s *Server) handleVideos(w http.ResponseWriter, r *http.Request) {
 	pageSize := parsePositiveIntOrDefault(r.URL.Query().Get("pageSize"), 30)
 	sortBy := r.URL.Query().Get("sortBy")
 	sortOrder := r.URL.Query().Get("sortOrder")
-	writeJSON(w, http.StatusOK, s.service.ListVideosPage(query, mediaType, directory, page, pageSize, sortBy, sortOrder))
+	pageData := s.service.ListVideosPage(query, mediaType, directory, page, pageSize, sortBy, sortOrder)
+	s.attachVideoPosterURLs(r, pageData.Items)
+	writeJSON(w, http.StatusOK, pageData)
 }
 
 func (s *Server) handleTVSeries(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +152,9 @@ func (s *Server) handleTVSeries(w http.ResponseWriter, r *http.Request) {
 	pageSize := parsePositiveIntOrDefault(r.URL.Query().Get("pageSize"), 30)
 	sortYear := r.URL.Query().Get("sortYear")
 	sortOrder := r.URL.Query().Get("sortOrder")
-	writeJSON(w, http.StatusOK, s.service.ListTVSeriesPage(query, page, pageSize, sortYear, sortOrder))
+	pageData := s.service.ListTVSeriesPage(query, page, pageSize, sortYear, sortOrder)
+	s.attachTVSeriesPosterURLs(r, pageData.Items)
+	writeJSON(w, http.StatusOK, pageData)
 }
 
 func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
@@ -169,7 +175,12 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "video not found")
 			return
 		}
+		s.attachVideoPosterURL(r, &video)
 		writeJSON(w, http.StatusOK, video)
+		return
+
+	case len(segments) == 2 && segments[1] == "poster" && r.Method == http.MethodGet:
+		s.handleVideoPoster(w, r, videoID)
 		return
 
 	case len(segments) == 2 && segments[1] == "subtitles" && r.Method == http.MethodPost:
@@ -192,6 +203,16 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "route not found")
 		return
 	}
+}
+
+func (s *Server) handleVideoPoster(w http.ResponseWriter, r *http.Request, videoID string) {
+	posterPath, err := s.service.ResolveVideoPosterPath(videoID)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+
+	http.ServeFile(w, r, posterPath)
 }
 
 func (s *Server) handleUploadSubtitle(w http.ResponseWriter, r *http.Request, videoID string) {
@@ -379,6 +400,61 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
+}
+
+func (s *Server) attachVideoPosterURLs(r *http.Request, videos []appdomain.Video) {
+	for i := range videos {
+		s.attachVideoPosterURL(r, &videos[i])
+	}
+}
+
+func (s *Server) attachVideoPosterURL(r *http.Request, video *appdomain.Video) {
+	if video == nil || strings.TrimSpace(video.PosterPath) == "" {
+		return
+	}
+	video.PosterURL = s.buildVideoPosterURL(r, video.ID)
+}
+
+func (s *Server) attachTVSeriesPosterURLs(r *http.Request, rows []appdomain.TVSeriesSummary) {
+	for i := range rows {
+		if strings.TrimSpace(rows[i].PosterVideoID) == "" {
+			continue
+		}
+		rows[i].PosterURL = s.buildVideoPosterURL(r, rows[i].PosterVideoID)
+	}
+}
+
+func (s *Server) buildVideoPosterURL(r *http.Request, videoID string) string {
+	pathValue := "/api/videos/" + url.PathEscape(videoID) + "/poster"
+	base := requestBaseURL(r)
+	if base == "" {
+		return pathValue
+	}
+	return base + pathValue
+}
+
+func requestBaseURL(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwarded != "" {
+		scheme = strings.TrimSpace(strings.Split(forwarded, ",")[0])
+	}
+
+	host := strings.TrimSpace(r.Host)
+	if forwardedHost := strings.TrimSpace(r.Header.Get("X-Forwarded-Host")); forwardedHost != "" {
+		host = strings.TrimSpace(strings.Split(forwardedHost, ",")[0])
+	}
+	if host == "" {
+		return ""
+	}
+
+	return scheme + "://" + host
 }
 
 func existsFile(path string) bool {

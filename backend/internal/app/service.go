@@ -122,6 +122,8 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 			result = append(result, tvVideos...)
 		}
 
+		result = s.assignPosterPaths(result)
+
 		done <- scanResult{
 			videos: result,
 			err: combineErrors(
@@ -604,6 +606,8 @@ func videoContentSignature(video domain.Video) string {
 	b.WriteString(strings.ToLower(strings.TrimSpace(video.MediaType)))
 	b.WriteString("|")
 	b.WriteString(strings.TrimSpace(video.MetadataSource))
+	b.WriteString("|")
+	b.WriteString(strings.ToLower(strings.TrimSpace(video.PosterPath)))
 
 	subs := append([]domain.Subtitle(nil), video.Subtitles...)
 	sort.Slice(subs, func(i int, j int) bool {
@@ -659,6 +663,9 @@ func buildTVSeriesSummaries(videos []domain.Video, tvRootPath string) []domain.T
 		item.item.VideoCount += 1
 		if len(video.Subtitles) == 0 {
 			item.item.NoSubtitleCount += 1
+		}
+		if item.item.PosterVideoID == "" && strings.TrimSpace(video.PosterPath) != "" {
+			item.item.PosterVideoID = video.ID
 		}
 
 		if year := parseYearNumber(video.Year); year > item.latestYear {

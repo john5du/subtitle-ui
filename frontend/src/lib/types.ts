@@ -21,6 +21,7 @@ export interface Video {
   year?: string;
   mediaType: MediaType;
   metadataSource: string;
+  posterUrl?: string;
   subtitles: Subtitle[];
   updatedAt: string;
 }
@@ -120,6 +121,7 @@ export interface TvSeriesSummary {
   updatedAt: string;
   videoCount: number;
   noSubtitleCount: number;
+  posterUrl?: string;
 }
 
 export interface TvSeriesPage {

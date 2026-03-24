@@ -259,6 +259,7 @@ export const zhCNMessages: MessageDictionary = {
   "details.missingReplaceTarget": "替换操作缺少目标字幕。",
 
   "info.title": "标题",
+  "info.poster": "海报",
   "info.year": "年份",
   "info.mediaType": "媒体类型",
   "info.metadata": "元数据",

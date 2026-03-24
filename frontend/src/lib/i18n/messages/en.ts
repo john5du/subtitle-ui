@@ -257,6 +257,7 @@ export const enMessages = {
   "details.missingReplaceTarget": "Missing target subtitle for replace.",
 
   "info.title": "Title",
+  "info.poster": "Poster",
   "info.year": "Year",
   "info.mediaType": "Media Type",
   "info.metadata": "Metadata",

@@ -16,6 +16,8 @@ type Video struct {
 	Year           string     `json:"year,omitempty"`
 	MediaType      string     `json:"mediaType"`
 	MetadataSource string     `json:"metadataSource"`
+	PosterPath     string     `json:"-"`
+	PosterURL      string     `json:"posterUrl,omitempty"`
 	Subtitles      []Subtitle `json:"subtitles"`
 	UpdatedAt      time.Time  `json:"updatedAt"`
 }
@@ -86,6 +88,8 @@ type TVSeriesSummary struct {
 	UpdatedAt         string `json:"updatedAt"`
 	VideoCount        int    `json:"videoCount"`
 	NoSubtitleCount   int    `json:"noSubtitleCount"`
+	PosterVideoID     string `json:"-"`
+	PosterURL         string `json:"posterUrl,omitempty"`
 }
 
 type TVSeriesPage struct {

@@ -22,6 +22,7 @@ import type {
   VideoPage,
   VisibleTreeNode
 } from "@/lib/types";
+import { buildApiURL } from "@/lib/api";
 import { useI18n, type MessageKey, type TranslationValues } from "@/lib/i18n";
 import { emitToast } from "@/lib/toast";
 
@@ -330,25 +331,6 @@ function normalizeScanStatus(payload: unknown): ScanStatus | null {
 function normalizeLogs(payload: unknown): OperationLog[] {
   if (!Array.isArray(payload)) return [];
   return payload as OperationLog[];
-}
-
-function resolveApiBase() {
-  const configured = (process.env.NEXT_PUBLIC_API_BASE ?? "").trim();
-  if (configured) {
-    return configured.replace(/\/+$/, "");
-  }
-
-  if (typeof window !== "undefined" && window.location.port === "3300") {
-    return "http://localhost:9307";
-  }
-
-  return "";
-}
-
-function buildApiURL(path: string) {
-  const base = resolveApiBase();
-  if (!base) return path;
-  return `${base}${path}`;
 }
 
 function resolveLocalizedText(value: LocalizedText, t: (key: MessageKey, values?: TranslationValues) => string) {
