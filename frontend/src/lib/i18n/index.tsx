@@ -28,6 +28,7 @@ const dictionaries: Record<Locale, MessageDictionary> = {
 declare global {
   interface Window {
     __subtitleUiLocale?: string;
+    __subtitleUiLibraryView?: string;
   }
 }
 

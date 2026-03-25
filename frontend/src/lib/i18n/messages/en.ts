@@ -8,6 +8,10 @@ export const enMessages = {
   "common.close": "Close",
   "common.cancel": "Cancel",
   "common.delete": "Delete",
+  "common.listView": "List View",
+  "common.cardView": "Card View",
+  "common.switchToListView": "Switch to list view",
+  "common.switchToCardView": "Switch to card view",
 
   "nav.overview": "Overview",
   "nav.movie": "Movie",

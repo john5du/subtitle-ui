@@ -32,13 +32,18 @@ export const metadata: Metadata = {
 const localeBootstrapScript = `
 (() => {
   try {
-    const key = "subtitle-ui:locale";
-    const stored = window.localStorage.getItem(key);
-    const locale = stored === "zh-CN" ? "zh-CN" : "en";
+    const localeKey = "subtitle-ui:locale";
+    const storedLocale = window.localStorage.getItem(localeKey);
+    const locale = storedLocale === "zh-CN" ? "zh-CN" : "en";
+    const viewKey = "subtitle-ui:library-view";
+    const storedView = window.localStorage.getItem(viewKey);
+    const libraryView = storedView === "list" ? "list" : "card";
     window.__subtitleUiLocale = locale;
+    window.__subtitleUiLibraryView = libraryView;
     document.documentElement.lang = locale;
   } catch {
     window.__subtitleUiLocale = "en";
+    window.__subtitleUiLibraryView = "card";
     document.documentElement.lang = "en";
   }
 })();

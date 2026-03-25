@@ -10,6 +10,10 @@ export const zhCNMessages: MessageDictionary = {
   "common.close": "关闭",
   "common.cancel": "取消",
   "common.delete": "删除",
+  "common.listView": "列表视图",
+  "common.cardView": "卡片视图",
+  "common.switchToListView": "切换到列表视图",
+  "common.switchToCardView": "切换到卡片视图",
 
   "nav.overview": "总览",
   "nav.movie": "电影",

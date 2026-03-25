@@ -12,6 +12,8 @@ import {
   FolderTree,
   Languages,
   LayoutDashboard,
+  LayoutGrid,
+  List,
   Monitor,
   MoreHorizontal,
   Moon,
@@ -99,6 +101,9 @@ type DetectedBatchLanguageType =
   | "unknown";
 
 type BatchLanguagePreference = "any" | DetectedBatchLanguageType;
+type LibraryViewMode = "list" | "card";
+
+const LIBRARY_VIEW_STORAGE_KEY = "subtitle-ui:library-view";
 
 const BATCH_LANGUAGE_LABEL_KEYS: Record<DetectedBatchLanguageType, Parameters<TranslateFn>[0]> = {
   bilingual: "batch.language.bilingual",
@@ -150,6 +155,10 @@ function formatLanguageTypeLabel(value: DetectedBatchLanguageType, t: TranslateF
 
 function formatSubtitleExtLabel(ext: string) {
   return ext.replace(".", "").toUpperCase();
+}
+
+function isLibraryViewMode(value: string | null | undefined): value is LibraryViewMode {
+  return value === "list" || value === "card";
 }
 
 function normalizeSubtitleFormat(value: string) {
@@ -216,33 +225,45 @@ function formatSeasonEpisodeText(season: number | null, episode: number | null) 
   return `S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}`;
 }
 
-function PosterPlaceholder() {
-  return <div className="h-[72px] w-[48px] rounded-md border border-border/60 bg-muted/45 shadow-inner" aria-hidden />;
+function PosterPlaceholder({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn("rounded-md border border-border/60 bg-muted/45 shadow-inner", className ?? "h-[72px] w-[48px]")}
+      aria-hidden
+    />
+  );
 }
 
 interface PosterThumbnailProps {
   src?: string;
+  className?: string;
+  imageClassName?: string;
+  sizes?: string;
 }
 
-function PosterThumbnail({ src = "" }: PosterThumbnailProps) {
+function PosterThumbnail({ src = "", className, imageClassName, sizes = "48px" }: PosterThumbnailProps) {
   const [failed, setFailed] = useState(false);
+  const frameClassName = className ?? "h-[72px] w-[48px]";
+  const resolvedImageClassName = imageClassName ?? "h-full w-full";
 
   useEffect(() => {
     setFailed(false);
   }, [src]);
 
   if (!src || failed) {
-    return <PosterPlaceholder />;
+    return <PosterPlaceholder className={frameClassName} />;
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-border/60 bg-muted/30 shadow-sm">
-      <img
+    <div className={cn("overflow-hidden rounded-md border border-border/60 bg-muted/30 shadow-sm", frameClassName)}>
+      <Image
         src={src}
         alt=""
-        loading="lazy"
-        decoding="async"
-        className="h-[72px] w-[48px] object-cover align-middle"
+        width={480}
+        height={720}
+        unoptimized
+        sizes={sizes}
+        className={cn("object-cover align-middle", resolvedImageClassName)}
         onError={() => setFailed(true)}
       />
     </div>
@@ -509,6 +530,64 @@ function PanelLoadingOverlay({ label }: { label: string }) {
   );
 }
 
+function LibraryViewToggle({
+  value,
+  onChange
+}: {
+  value: LibraryViewMode;
+  onChange: (value: LibraryViewMode) => void;
+}) {
+  const { t } = useI18n();
+  const items: Array<{
+    value: LibraryViewMode;
+    icon: React.ReactNode;
+    label: string;
+    ariaLabel: string;
+  }> = [
+    {
+      value: "list",
+      icon: <List className="h-4 w-4" />,
+      label: t("common.listView"),
+      ariaLabel: t("common.switchToListView")
+    },
+    {
+      value: "card",
+      icon: <LayoutGrid className="h-4 w-4" />,
+      label: t("common.cardView"),
+      ariaLabel: t("common.switchToCardView")
+    }
+  ];
+
+  return (
+    <div className="inline-flex items-center rounded-xl border border-border/70 bg-background/80 p-1 shadow-sm">
+      {items.map((item) => {
+        const active = item.value === value;
+        return (
+          <Button
+            key={item.value}
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "h-8 gap-2 rounded-lg px-3 text-xs font-medium",
+              active
+                ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            aria-pressed={active}
+            aria-label={item.ariaLabel}
+            title={item.ariaLabel}
+            onClick={() => onChange(item.value)}
+          >
+            {item.icon}
+            <span className="hidden sm:inline">{item.label}</span>
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
 async function collectBatchEntriesFromFiles(files: File[]) {
   const entries: ZipSubtitleEntry[] = [];
   const unsupported: string[] = [];
@@ -692,6 +771,21 @@ export function SubtitleManagerApp() {
   const [tvManagerOpen, setTvManagerOpen] = useState(false);
   const [tvBatchOpen, setTvBatchOpen] = useState(false);
   const [pendingMovieUploadPick, setPendingMovieUploadPick] = useState(false);
+  const [libraryViewMode, setLibraryViewMode] = useState<LibraryViewMode>(() => {
+    if (typeof window === "undefined") {
+      return "card";
+    }
+    try {
+      const bootstrapView = window.__subtitleUiLibraryView;
+      if (isLibraryViewMode(bootstrapView)) {
+        return bootstrapView;
+      }
+      const storedView = window.localStorage.getItem(LIBRARY_VIEW_STORAGE_KEY);
+      return isLibraryViewMode(storedView) ? storedView : "card";
+    } catch {
+      return "card";
+    }
+  });
   const movieDetailsRef = useRef<SubtitleDetailsPanelHandle | null>(null);
 
   const navItems: Array<{ key: ActiveTab; icon: React.ReactNode; label: string }> = [
@@ -795,6 +889,18 @@ export function SubtitleManagerApp() {
 
     return () => window.clearTimeout(timer);
   }, [movieManagerOpen, pendingMovieUploadPick]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem(LIBRARY_VIEW_STORAGE_KEY, libraryViewMode);
+      window.__subtitleUiLibraryView = libraryViewMode;
+    } catch {
+      window.__subtitleUiLibraryView = libraryViewMode;
+    }
+  }, [libraryViewMode]);
 
   return (
     <div className="relative h-full w-full px-3 py-3 md:px-6 md:py-5">
@@ -905,8 +1011,10 @@ export function SubtitleManagerApp() {
                   onQueryChange={setMovieQuery}
                   videos={movieVideos}
                   pager={moviePager}
+                  viewMode={libraryViewMode}
                   yearSortOrder={movieYearSortOrder}
                   onToggleYearSort={toggleMovieYearSort}
+                  onViewModeChange={setLibraryViewMode}
                   onSelectVideo={handleMovieSelect}
                   onSetPage={setMoviePage}
                   onOpenUploadPicker={openMovieUploadPicker}
@@ -925,10 +1033,12 @@ export function SubtitleManagerApp() {
                   onQueryChange={setTvQuery}
                   rows={tvSeriesRows}
                   pager={tvPager}
+                  viewMode={libraryViewMode}
                   yearSortOrder={tvSeriesYearSortOrder}
                   onSelectSeries={selectTvDirectory}
                   onSetPage={setTvPage}
                   onToggleYearSort={toggleTvSeriesYearSort}
+                  onViewModeChange={setLibraryViewMode}
                   onOpenManager={openTvManager}
                   onOpenBatch={openTvBatchDialog}
                   operationLocked={operationLocked}
@@ -1352,13 +1462,13 @@ function RowActionsMenu({
           target={item.external ? "_blank" : undefined}
           rel={item.external ? "noreferrer" : undefined}
           className={cn(
-            "surface-transition flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground",
-            showDivider && "mt-1 border-t pt-3"
+            "surface-transition flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-[13px] font-medium text-popover-foreground hover:bg-accent/90 hover:text-accent-foreground",
+            showDivider && "mt-1 border-t border-border/80 pt-3"
           )}
           onClick={() => setOpen(false)}
         >
           <span>{item.label}</span>
-          {item.external && <ExternalLink className="h-4 w-4 text-muted-foreground" />}
+          {item.external && <ExternalLink className="h-4 w-4 text-popover-foreground/70" />}
         </a>
       );
     }
@@ -1370,8 +1480,8 @@ function RowActionsMenu({
         role="menuitem"
         disabled={item.disabled}
         className={cn(
-          "surface-transition flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50",
-          showDivider && "mt-1 border-t pt-3"
+          "surface-transition flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[13px] font-medium text-popover-foreground hover:bg-accent/90 hover:text-accent-foreground disabled:cursor-not-allowed disabled:text-muted-foreground disabled:opacity-60",
+          showDivider && "mt-1 border-t border-border/80 pt-3"
         )}
         onClick={() => {
           if (item.disabled) {
@@ -1392,7 +1502,7 @@ function RowActionsMenu({
       role="menu"
       style={{ maxHeight: `${menuMaxHeight}px` }}
       className={cn(
-        "animate-fade-in-fast absolute right-0 z-[90] min-w-[210px] overflow-y-auto overscroll-contain rounded-xl border border-border/80 bg-popover/96 p-1.5 shadow-xl supports-[backdrop-filter]:backdrop-blur-xl",
+        "animate-fade-in-fast absolute right-0 z-[90] min-w-[210px] overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-[0_24px_48px_-24px_rgba(15,23,42,0.45)]",
         resolvedDirection === "up" ? "bottom-full mb-1" : "top-full mt-1"
       )}
     >
@@ -1412,7 +1522,7 @@ function RowActionsMenu({
         bottom: menuPosition.bottom !== undefined ? `${menuPosition.bottom}px` : undefined
       }}
       className={cn(
-        "animate-fade-in-fast fixed z-[130] min-w-[210px] overflow-y-auto overscroll-contain rounded-xl border border-border/80 bg-popover/96 p-1.5 shadow-xl supports-[backdrop-filter]:backdrop-blur-xl",
+        "animate-fade-in-fast fixed z-[130] min-w-[210px] overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-[0_24px_48px_-24px_rgba(15,23,42,0.45)]",
         resolvedDirection === "up" ? "origin-bottom-right" : "origin-top-right"
       )}
     >
@@ -1452,8 +1562,10 @@ interface MovieListPanelProps {
   onQueryChange: (value: string) => void;
   videos: Video[];
   pager: Pager;
+  viewMode: LibraryViewMode;
   yearSortOrder: "asc" | "desc";
   onToggleYearSort: () => void;
+  onViewModeChange: (value: LibraryViewMode) => void;
   onSelectVideo: (video: Video) => void;
   onSetPage: (page: number) => void;
   onOpenUploadPicker: (video: Video) => void;
@@ -1463,13 +1575,81 @@ interface MovieListPanelProps {
   formatTime: (value: string | undefined | null) => string;
 }
 
+function MoviePosterCard({
+  video,
+  onSelectVideo,
+  onOpenUploadPicker,
+  onOpenManager,
+  operationLocked
+}: {
+  video: Video;
+  onSelectVideo: (video: Video) => void;
+  onOpenUploadPicker: (video: Video) => void;
+  onOpenManager: (video: Video) => void;
+  operationLocked: boolean;
+}) {
+  const { t } = useI18n();
+  const links = buildSubtitleSearchLinks(video);
+
+  return (
+    <div
+      className="relative flex w-full self-start flex-col rounded-[1.35rem] border border-border/70 bg-card shadow-sm"
+    >
+      <div className="absolute right-3 top-3 z-10">
+        <RowActionsMenu
+          label={t("movie.actionsFor", { name: video.title || video.fileName || t("info.movie") })}
+          triggerClassName="h-8 w-8 rounded-lg border-border bg-popover text-popover-foreground shadow-md hover:bg-popover hover:text-popover-foreground"
+          items={[
+            {
+              label: t("movie.uploadSubtitleArchive"),
+              onSelect: () => onOpenUploadPicker(video),
+              disabled: operationLocked
+            },
+            {
+              label: t("movie.openSubtitleManager"),
+              onSelect: () => onOpenManager(video),
+              disabled: operationLocked
+            },
+            { label: "Zimuku", href: links.zimuku, external: true },
+            { label: "SubHD", href: links.subhd, external: true }
+          ]}
+        />
+      </div>
+
+      <button
+        type="button"
+        className="flex flex-col text-left"
+        aria-label={video.title || video.fileName || t("info.movie")}
+        onClick={() => onSelectVideo(video)}
+      >
+        <div className="p-3 pb-0">
+          <PosterThumbnail
+            src={video.posterUrl}
+            className="aspect-[2/3] w-full rounded-[1.1rem]"
+            imageClassName="h-full w-full"
+            sizes="(min-width: 1024px) 18vw, (min-width: 640px) 44vw, 92vw"
+          />
+        </div>
+        <div className="flex items-start gap-3 p-3">
+          <p className="line-clamp-2 min-w-0 flex-1 text-base font-semibold leading-6 text-foreground">
+            {video.title || video.fileName || "-"}
+          </p>
+          <span className="shrink-0 pt-0.5 text-xs font-medium text-muted-foreground">{video.year || "-"}</span>
+        </div>
+      </button>
+    </div>
+  );
+}
+
 function MovieListPanel({
   query,
   onQueryChange,
   videos,
   pager,
+  viewMode,
   yearSortOrder,
   onToggleYearSort,
+  onViewModeChange,
   onSelectVideo,
   onSetPage,
   onOpenUploadPicker,
@@ -1484,89 +1664,119 @@ function MovieListPanel({
       <CardHeader className="space-y-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle className="text-lg">{t("movie.listTitle")}</CardTitle>
-          <Input
-            className="h-9 w-full sm:w-[240px]"
-            value={query}
-            aria-label={t("movie.filterAria")}
-            placeholder={t("movie.filterPlaceholder")}
-            onChange={(event) => onQueryChange(event.target.value)}
-          />
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
+            <Input
+              className="h-9 w-full min-w-0 sm:w-[240px]"
+              value={query}
+              aria-label={t("movie.filterAria")}
+              placeholder={t("movie.filterPlaceholder")}
+              onChange={(event) => onQueryChange(event.target.value)}
+            />
+            {viewMode === "card" && (
+              <Button type="button" variant="outline" size="sm" className="h-9 gap-2 px-3" onClick={onToggleYearSort}>
+                {t("info.year")}
+                <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+              </Button>
+            )}
+            <LibraryViewToggle value={viewMode} onChange={onViewModeChange} />
+          </div>
         </div>
         {pending && <InlinePending label={t("movie.updatingResults")} />}
       </CardHeader>
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
         <ScrollArea className={cn("min-h-0 flex-1 rounded-md border bg-background", pending && "animate-pulse-soft")}>
-          <Table className="table-fixed">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
-                <TableHead>{t("info.title")}</TableHead>
-                <TableHead className="w-[90px]">
-                  <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={onToggleYearSort}>
-                    {t("info.year")}
-                    <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
-                  </button>
-                </TableHead>
-                <TableHead className="w-[170px]">{t("movie.updatedTime")}</TableHead>
-                <TableHead className="w-[100px] text-right">{t("movie.subtitles")}</TableHead>
-                <TableHead className="w-[360px]">{t("movie.fileName")}</TableHead>
-                <TableHead className="w-[120px] text-right">{t("common.actions")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {videos.map((video) => {
-                const links = buildSubtitleSearchLinks(video);
-                return (
-                  <TableRow
-                    key={video.id}
-                    className="surface-transition cursor-pointer hover:bg-accent"
-                    onClick={() => onSelectVideo(video)}
-                  >
-                    <TableCell className="w-[76px] py-2">
-                      <PosterThumbnail src={video.posterUrl} />
-                    </TableCell>
-                    <TableCell className="max-w-[240px] truncate font-medium" title={video.title}>
-                      {video.title || "-"}
-                    </TableCell>
-                    <TableCell>{video.year || "-"}</TableCell>
-                    <TableCell>{formatTime(video.updatedAt)}</TableCell>
-                    <TableCell className="text-right">{video.subtitles.length}</TableCell>
-                    <TableCell className="max-w-[360px] truncate" title={video.fileName}>
-                      {video.fileName || "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <RowActionsMenu
-                        label={t("movie.actionsFor", { name: video.title || video.fileName || t("info.movie") })}
-                        items={[
-                          {
-                            label: t("movie.uploadSubtitleArchive"),
-                            onSelect: () => onOpenUploadPicker(video),
-                            disabled: operationLocked
-                          },
-                          {
-                            label: t("movie.openSubtitleManager"),
-                            onSelect: () => onOpenManager(video),
-                            disabled: operationLocked
-                          },
-                          { label: "Zimuku", href: links.zimuku, external: true },
-                          { label: "SubHD", href: links.subhd, external: true }
-                        ]}
-                      />
+          {viewMode === "list" ? (
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
+                  <TableHead>{t("info.title")}</TableHead>
+                  <TableHead className="w-[90px]">
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={onToggleYearSort}>
+                      {t("info.year")}
+                      <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[170px]">{t("movie.updatedTime")}</TableHead>
+                  <TableHead className="w-[100px] text-right">{t("movie.subtitles")}</TableHead>
+                  <TableHead className="w-[360px]">{t("movie.fileName")}</TableHead>
+                  <TableHead className="w-[120px] text-right">{t("common.actions")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {videos.map((video) => {
+                  const links = buildSubtitleSearchLinks(video);
+                  return (
+                    <TableRow
+                      key={video.id}
+                      className="surface-transition cursor-pointer hover:bg-accent"
+                      onClick={() => onSelectVideo(video)}
+                    >
+                      <TableCell className="w-[76px] py-2">
+                        <PosterThumbnail src={video.posterUrl} />
+                      </TableCell>
+                      <TableCell className="max-w-[240px] truncate font-medium" title={video.title}>
+                        {video.title || "-"}
+                      </TableCell>
+                      <TableCell>{video.year || "-"}</TableCell>
+                      <TableCell>{formatTime(video.updatedAt)}</TableCell>
+                      <TableCell className="text-right">{video.subtitles.length}</TableCell>
+                      <TableCell className="max-w-[360px] truncate" title={video.fileName}>
+                        {video.fileName || "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <RowActionsMenu
+                          label={t("movie.actionsFor", { name: video.title || video.fileName || t("info.movie") })}
+                          items={[
+                            {
+                              label: t("movie.uploadSubtitleArchive"),
+                              onSelect: () => onOpenUploadPicker(video),
+                              disabled: operationLocked
+                            },
+                            {
+                              label: t("movie.openSubtitleManager"),
+                              onSelect: () => onOpenManager(video),
+                              disabled: operationLocked
+                            },
+                            { label: "Zimuku", href: links.zimuku, external: true },
+                            { label: "SubHD", href: links.subhd, external: true }
+                          ]}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+
+                {videos.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                      {t("movie.empty")}
                     </TableCell>
                   </TableRow>
-                );
-              })}
-
-              {videos.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    {t("movie.empty")}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                )}
+              </TableBody>
+            </Table>
+          ) : videos.length === 0 ? (
+            <div className="flex min-h-[320px] items-center justify-center p-6 text-center text-sm text-muted-foreground">
+              {t("movie.empty")}
+            </div>
+          ) : (
+            <div className="p-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                {videos.map((video) => (
+                  <MoviePosterCard
+                    key={video.id}
+                    video={video}
+                    onSelectVideo={onSelectVideo}
+                    onOpenUploadPicker={onOpenUploadPicker}
+                    onOpenManager={onOpenManager}
+                    operationLocked={operationLocked}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </ScrollArea>
         {pending && <PanelLoadingOverlay label={t("movie.updatingResults")} />}
 
@@ -1581,10 +1791,12 @@ interface TvSeriesListPanelProps {
   onQueryChange: (value: string) => void;
   rows: TvSeriesSummary[];
   pager: Pager;
+  viewMode: LibraryViewMode;
   yearSortOrder: "asc" | "desc";
   onSelectSeries: (path: string) => void;
   onSetPage: (page: number) => void;
   onToggleYearSort: () => void;
+  onViewModeChange: (value: LibraryViewMode) => void;
   onOpenManager: (series: TvSeriesSummary) => void;
   onOpenBatch: (series: TvSeriesSummary) => void;
   operationLocked: boolean;
@@ -1595,15 +1807,83 @@ interface TvSeriesListPanelProps {
   formatTime: (value: string | undefined | null) => string;
 }
 
+function TvSeriesPosterCard({
+  row,
+  onSelectSeries,
+  onOpenManager,
+  onOpenBatch,
+  operationLocked
+}: {
+  row: TvSeriesSummary;
+  onSelectSeries: (path: string) => void;
+  onOpenManager: (series: TvSeriesSummary) => void;
+  onOpenBatch: (series: TvSeriesSummary) => void;
+  operationLocked: boolean;
+}) {
+  const { t } = useI18n();
+  const links = buildSubtitleSearchLinksByKeyword(row.title);
+
+  return (
+    <div
+      className="relative flex w-full self-start flex-col rounded-[1.35rem] border border-border/70 bg-card shadow-sm"
+    >
+      <div className="absolute right-3 top-3 z-10">
+        <RowActionsMenu
+          label={t("tv.actionsFor", { name: row.title || t("nav.tv") })}
+          triggerClassName="h-8 w-8 rounded-lg border-border bg-popover text-popover-foreground shadow-md hover:bg-popover hover:text-popover-foreground"
+          items={[
+            {
+              label: t("tv.seasonBatchUpload"),
+              onSelect: () => onOpenBatch(row),
+              disabled: operationLocked
+            },
+            {
+              label: t("tv.openSubtitleManager"),
+              onSelect: () => onOpenManager(row),
+              disabled: operationLocked
+            },
+            { label: "Zimuku", href: links.zimuku, external: true },
+            { label: "SubHD", href: links.subhd, external: true }
+          ]}
+        />
+      </div>
+
+      <button
+        type="button"
+        className="flex flex-col text-left"
+        aria-label={row.title || t("nav.tv")}
+        onClick={() => onSelectSeries(row.path)}
+      >
+        <div className="p-3 pb-0">
+          <PosterThumbnail
+            src={row.posterUrl}
+            className="aspect-[2/3] w-full rounded-[1.1rem]"
+            imageClassName="h-full w-full"
+            sizes="(min-width: 1024px) 18vw, (min-width: 640px) 44vw, 92vw"
+          />
+        </div>
+        <div className="flex items-start gap-3 p-3">
+          <p className="line-clamp-2 min-w-0 flex-1 text-base font-semibold leading-6 text-foreground">
+            {row.title || "-"}
+          </p>
+          <span className="shrink-0 pt-0.5 text-xs font-medium text-muted-foreground">{row.latestEpisodeYear || "-"}</span>
+        </div>
+      </button>
+    </div>
+  );
+}
+
 function TvSeriesListPanel({
   query,
   onQueryChange,
   rows,
   pager,
+  viewMode,
   yearSortOrder,
   onSelectSeries,
   onSetPage,
   onToggleYearSort,
+  onViewModeChange,
   onOpenManager,
   onOpenBatch,
   operationLocked,
@@ -1619,99 +1899,141 @@ function TvSeriesListPanel({
       <CardHeader className="space-y-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle className="text-lg">{t("tv.listTitle")}</CardTitle>
-          <Input
-            className="h-9 w-full sm:w-[240px]"
-            value={query}
-            aria-label={t("tv.filterAria")}
-            placeholder={t("tv.filterPlaceholder")}
-            onChange={(event) => onQueryChange(event.target.value)}
-          />
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
+            <Input
+              className="h-9 w-full min-w-0 sm:w-[240px]"
+              value={query}
+              aria-label={t("tv.filterAria")}
+              placeholder={t("tv.filterPlaceholder")}
+              onChange={(event) => onQueryChange(event.target.value)}
+            />
+            {viewMode === "card" && (
+              <Button type="button" variant="outline" size="sm" className="h-9 gap-2 px-3" onClick={onToggleYearSort}>
+                {t("tv.latestYear")}
+                <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+              </Button>
+            )}
+            <LibraryViewToggle value={viewMode} onChange={onViewModeChange} />
+          </div>
         </div>
         {pending && <InlinePending label={t("tv.updatingResults")} />}
       </CardHeader>
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
         <ScrollArea className={cn("min-h-0 flex-1 rounded-md border bg-background", pending && "animate-pulse-soft")}>
-          <Table className="table-fixed">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
-                <TableHead>{t("info.title")}</TableHead>
-                <TableHead className="w-[110px]">
-                  <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={onToggleYearSort}>
-                    {t("tv.latestYear")}
-                    <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
-                  </button>
-                </TableHead>
-                <TableHead className="w-[170px]">{t("movie.updatedTime")}</TableHead>
-                <TableHead className="w-[100px] text-right">{t("tv.videos")}</TableHead>
-                <TableHead className="w-[120px] text-right">{t("tv.noSubtitles")}</TableHead>
-                <TableHead className="w-[120px] text-right">{t("common.actions")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => {
-                const links = buildSubtitleSearchLinksByKeyword(row.title);
-                return (
-                  <TableRow
-                    key={row.key}
-                    className="surface-transition cursor-pointer hover:bg-accent"
-                    onClick={() => onSelectSeries(row.path)}
-                  >
-                    <TableCell className="w-[76px] py-2">
-                      <PosterThumbnail src={row.posterUrl} />
-                    </TableCell>
-                    <TableCell className="max-w-[240px] truncate font-medium" title={row.title}>
-                      {row.title || "-"}
-                    </TableCell>
-                    <TableCell>{row.latestEpisodeYear || "-"}</TableCell>
-                    <TableCell className="truncate" title={formatTime(row.updatedAt)}>{formatTime(row.updatedAt)}</TableCell>
-                    <TableCell className="text-right">{row.videoCount}</TableCell>
-                    <TableCell className="text-right">{row.noSubtitleCount}</TableCell>
-                    <TableCell className="text-right">
-                      <RowActionsMenu
-                        label={t("tv.actionsFor", { name: row.title || t("nav.tv") })}
-                        items={[
-                          {
-                            label: t("tv.seasonBatchUpload"),
-                            onSelect: () => onOpenBatch(row),
-                            disabled: operationLocked
-                          },
-                          {
-                            label: t("tv.openSubtitleManager"),
-                            onSelect: () => onOpenManager(row),
-                            disabled: operationLocked
-                          },
-                          { label: "Zimuku", href: links.zimuku, external: true },
-                          { label: "SubHD", href: links.subhd, external: true }
-                        ]}
-                      />
+          {viewMode === "list" ? (
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
+                  <TableHead>{t("info.title")}</TableHead>
+                  <TableHead className="w-[110px]">
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={onToggleYearSort}>
+                      {t("tv.latestYear")}
+                      <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[170px]">{t("movie.updatedTime")}</TableHead>
+                  <TableHead className="w-[100px] text-right">{t("tv.videos")}</TableHead>
+                  <TableHead className="w-[120px] text-right">{t("tv.noSubtitles")}</TableHead>
+                  <TableHead className="w-[120px] text-right">{t("common.actions")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => {
+                  const links = buildSubtitleSearchLinksByKeyword(row.title);
+                  return (
+                    <TableRow
+                      key={row.key}
+                      className="surface-transition cursor-pointer hover:bg-accent"
+                      onClick={() => onSelectSeries(row.path)}
+                    >
+                      <TableCell className="w-[76px] py-2">
+                        <PosterThumbnail src={row.posterUrl} />
+                      </TableCell>
+                      <TableCell className="max-w-[240px] truncate font-medium" title={row.title}>
+                        {row.title || "-"}
+                      </TableCell>
+                      <TableCell>{row.latestEpisodeYear || "-"}</TableCell>
+                      <TableCell className="truncate" title={formatTime(row.updatedAt)}>{formatTime(row.updatedAt)}</TableCell>
+                      <TableCell className="text-right">{row.videoCount}</TableCell>
+                      <TableCell className="text-right">{row.noSubtitleCount}</TableCell>
+                      <TableCell className="text-right">
+                        <RowActionsMenu
+                          label={t("tv.actionsFor", { name: row.title || t("nav.tv") })}
+                          items={[
+                            {
+                              label: t("tv.seasonBatchUpload"),
+                              onSelect: () => onOpenBatch(row),
+                              disabled: operationLocked
+                            },
+                            {
+                              label: t("tv.openSubtitleManager"),
+                              onSelect: () => onOpenManager(row),
+                              disabled: operationLocked
+                            },
+                            { label: "Zimuku", href: links.zimuku, external: true },
+                            { label: "SubHD", href: links.subhd, external: true }
+                          ]}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+
+                {rows.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                      {showScanPrompt ? (
+                        <div className="flex flex-col items-center gap-3 text-center">
+                          <p className="max-w-[320px] text-sm text-muted-foreground">
+                            {t("tv.scanPrompt")}
+                          </p>
+                          <Button type="button" variant="outline" className="gap-2" onClick={() => void onTriggerScan()} disabled={loading}>
+                            <Search className="h-4 w-4" />
+                            {t("tv.scanMediaLibrary")}
+                          </Button>
+                        </div>
+                      ) : (
+                        t("tv.empty")
+                      )}
                     </TableCell>
                   </TableRow>
-                );
-              })}
-
-              {rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                    {showScanPrompt ? (
-                      <div className="flex flex-col items-center gap-3 text-center">
-                        <p className="max-w-[320px] text-sm text-muted-foreground">
-                          {t("tv.scanPrompt")}
-                        </p>
-                        <Button type="button" variant="outline" className="gap-2" onClick={() => void onTriggerScan()} disabled={loading}>
-                          <Search className="h-4 w-4" />
-                          {t("tv.scanMediaLibrary")}
-                        </Button>
-                      </div>
-                    ) : (
-                      t("tv.empty")
-                    )}
-                  </TableCell>
-                </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          ) : rows.length === 0 ? (
+            <div className="flex min-h-[320px] items-center justify-center p-6 text-center text-sm text-muted-foreground">
+              {showScanPrompt ? (
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <p className="max-w-[320px] text-sm text-muted-foreground">
+                    {t("tv.scanPrompt")}
+                  </p>
+                  <Button type="button" variant="outline" className="gap-2" onClick={() => void onTriggerScan()} disabled={loading}>
+                    <Search className="h-4 w-4" />
+                    {t("tv.scanMediaLibrary")}
+                  </Button>
+                </div>
+              ) : (
+                t("tv.empty")
               )}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            <div className="p-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                {rows.map((row) => (
+                  <TvSeriesPosterCard
+                    key={row.key}
+                    row={row}
+                    onSelectSeries={onSelectSeries}
+                    onOpenManager={onOpenManager}
+                    onOpenBatch={onOpenBatch}
+                    operationLocked={operationLocked}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </ScrollArea>
         {pending && <PanelLoadingOverlay label={t("tv.refreshingSeries")} />}
 
