@@ -505,19 +505,18 @@ export function createSubtitleManagerController({
   }
 
   async function loadMovieWorkspace() {
-    await loadMovieVideos({ page: selectors.moviePager.page || 1 });
+    return;
   }
 
   async function loadTvWorkspace(seriesPath = "") {
     const requestedPath = seriesPath.trim();
-    const seriesRows = await loadTvSeriesPage({ page: state.tvSeriesPager.page || 1 });
     const selectedNorm = normalizeForCompare(requestedPath || selectors.selectedTvSeries?.path || state.selectedTvDirPath);
     const selectedPath = (
-      seriesRows.find((item) => normalizeForCompare(item.path) === selectedNorm)?.path ||
+      state.tvSeriesRows.find((item) => normalizeForCompare(item.path) === selectedNorm)?.path ||
       requestedPath ||
-      seriesRows.find((item) => item.path)?.path ||
       selectors.selectedTvSeries?.path ||
       state.selectedTvDirPath ||
+      state.tvSeriesRows.find((item) => item.path)?.path ||
       selectors.tvRootPath ||
       state.directoryScan.tvRoot ||
       ""
@@ -568,12 +567,12 @@ export function createSubtitleManagerController({
     const currentNorm = normalizeForCompare(state.selectedTvDirPath);
 
     if (nextNorm === currentNorm) {
-      setters.setSelectedTvSeason("all");
+      setters.setSelectedTvSeason("");
       return;
     }
 
     setters.setSelectedTvDirPath(path);
-    setters.setSelectedTvSeason("all");
+    setters.setSelectedTvSeason("");
     setters.setSelectedVideoIdByType((prev) => (prev.tv ? { ...prev, tv: "" } : prev));
   }
 

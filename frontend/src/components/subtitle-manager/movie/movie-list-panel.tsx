@@ -1,6 +1,5 @@
 import { useI18n } from "@/lib/i18n";
 import type { Pager, Video } from "@/lib/types";
-import { buildSubtitleSearchLinks } from "@/lib/subtitle-search";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +12,6 @@ import { LibraryViewToggle } from "../shared/library-view-toggle";
 import { InlinePending, PanelLoadingOverlay } from "../shared/pending-state";
 import { PagerView } from "../shared/pager-view";
 import { PosterThumbnail } from "../shared/poster-thumbnail";
-import { RowActionsMenu } from "../shared/row-actions-menu";
 
 interface MovieListPanelProps {
   query: string;
@@ -24,9 +22,7 @@ interface MovieListPanelProps {
   yearSortOrder: "asc" | "desc";
   onToggleYearSort: () => void;
   onViewModeChange: (value: LibraryViewMode) => void;
-  onSelectVideo: (video: Video) => void;
   onSetPage: (page: number) => void;
-  onOpenUploadPicker: (video: Video) => void;
   onOpenManager: (video: Video) => void;
   operationLocked: boolean;
   pending: boolean;
@@ -35,48 +31,23 @@ interface MovieListPanelProps {
 
 function MoviePosterCard({
   video,
-  onSelectVideo,
-  onOpenUploadPicker,
   onOpenManager,
   operationLocked
 }: {
   video: Video;
-  onSelectVideo: (video: Video) => void;
-  onOpenUploadPicker: (video: Video) => void;
   onOpenManager: (video: Video) => void;
   operationLocked: boolean;
 }) {
   const { t } = useI18n();
-  const links = buildSubtitleSearchLinks(video);
 
   return (
-    <div className="relative flex w-full self-start flex-col rounded-[1.35rem] border border-border/70 bg-card shadow-sm">
-      <div className="absolute right-3 top-3 z-10">
-        <RowActionsMenu
-          label={t("movie.actionsFor", { name: video.title || video.fileName || t("info.movie") })}
-          triggerClassName="h-8 w-8 rounded-lg border-border bg-popover text-popover-foreground shadow-md hover:bg-popover hover:text-popover-foreground"
-          items={[
-            {
-              label: t("movie.uploadSubtitleArchive"),
-              onSelect: () => onOpenUploadPicker(video),
-              disabled: operationLocked
-            },
-            {
-              label: t("movie.openSubtitleManager"),
-              onSelect: () => onOpenManager(video),
-              disabled: operationLocked
-            },
-            { label: "Zimuku", href: links.zimuku, external: true },
-            { label: "SubHD", href: links.subhd, external: true }
-          ]}
-        />
-      </div>
-
+    <div className="flex w-full self-start flex-col rounded-[1.35rem] border border-border/70 bg-card shadow-sm">
       <button
         type="button"
-        className="flex flex-col text-left"
+        className="surface-transition flex flex-col text-left disabled:cursor-not-allowed disabled:opacity-65"
         aria-label={video.title || video.fileName || t("info.movie")}
-        onClick={() => onSelectVideo(video)}
+        disabled={operationLocked}
+        onClick={() => onOpenManager(video)}
       >
         <div className="p-3 pb-0">
           <PosterThumbnail
@@ -106,9 +77,7 @@ export function MovieListPanel({
   yearSortOrder,
   onToggleYearSort,
   onViewModeChange,
-  onSelectVideo,
   onSetPage,
-  onOpenUploadPicker,
   onOpenManager,
   operationLocked,
   pending,
@@ -157,56 +126,40 @@ export function MovieListPanel({
                   <TableHead className="w-[170px]">{t("movie.updatedTime")}</TableHead>
                   <TableHead className="w-[100px] text-right">{t("movie.subtitles")}</TableHead>
                   <TableHead className="w-[360px]">{t("movie.fileName")}</TableHead>
-                  <TableHead className="w-[120px] text-right">{t("common.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {videos.map((video) => {
-                  const links = buildSubtitleSearchLinks(video);
-                  return (
-                    <TableRow
-                      key={video.id}
-                      className="surface-transition cursor-pointer hover:bg-accent"
-                      onClick={() => onSelectVideo(video)}
-                    >
-                      <TableCell className="w-[76px] py-2">
-                        <PosterThumbnail src={video.posterUrl} />
-                      </TableCell>
-                      <TableCell className="max-w-[240px] truncate font-medium" title={video.title}>
-                        {video.title || "-"}
-                      </TableCell>
-                      <TableCell>{video.year || "-"}</TableCell>
-                      <TableCell>{formatTime(video.updatedAt)}</TableCell>
-                      <TableCell className="text-right">{video.subtitles.length}</TableCell>
-                      <TableCell className="max-w-[360px] truncate" title={video.fileName}>
-                        {video.fileName || "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <RowActionsMenu
-                          label={t("movie.actionsFor", { name: video.title || video.fileName || t("info.movie") })}
-                          items={[
-                            {
-                              label: t("movie.uploadSubtitleArchive"),
-                              onSelect: () => onOpenUploadPicker(video),
-                              disabled: operationLocked
-                            },
-                            {
-                              label: t("movie.openSubtitleManager"),
-                              onSelect: () => onOpenManager(video),
-                              disabled: operationLocked
-                            },
-                            { label: "Zimuku", href: links.zimuku, external: true },
-                            { label: "SubHD", href: links.subhd, external: true }
-                          ]}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {videos.map((video) => (
+                  <TableRow
+                    key={video.id}
+                    className={cn(
+                      "surface-transition cursor-pointer hover:bg-accent",
+                      operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
+                    )}
+                    onClick={() => {
+                      if (!operationLocked) {
+                        onOpenManager(video);
+                      }
+                    }}
+                  >
+                    <TableCell className="w-[76px] py-2">
+                      <PosterThumbnail src={video.posterUrl} />
+                    </TableCell>
+                    <TableCell className="max-w-[240px] truncate font-medium" title={video.title}>
+                      {video.title || "-"}
+                    </TableCell>
+                    <TableCell>{video.year || "-"}</TableCell>
+                    <TableCell>{formatTime(video.updatedAt)}</TableCell>
+                    <TableCell className="text-right">{video.subtitles.length}</TableCell>
+                    <TableCell className="max-w-[360px] truncate" title={video.fileName}>
+                      {video.fileName || "-"}
+                    </TableCell>
+                  </TableRow>
+                ))}
 
                 {videos.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                       {t("movie.empty")}
                     </TableCell>
                   </TableRow>
@@ -224,8 +177,6 @@ export function MovieListPanel({
                   <MoviePosterCard
                     key={video.id}
                     video={video}
-                    onSelectVideo={onSelectVideo}
-                    onOpenUploadPicker={onOpenUploadPicker}
                     onOpenManager={onOpenManager}
                     operationLocked={operationLocked}
                   />

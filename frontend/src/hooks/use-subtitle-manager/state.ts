@@ -96,7 +96,7 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
   const [tvEpisodesPath, setTvEpisodesPath] = useState("");
   const [tvVideosRequestedPath, setTvVideosRequestedPath] = useState("");
   const [selectedTvDirPath, setSelectedTvDirPath] = useState("");
-  const [selectedTvSeason, setSelectedTvSeason] = useState("all");
+  const [selectedTvSeason, setSelectedTvSeason] = useState("");
   const [tvSeriesRows, setTvSeriesRows] = useState<TvSeriesSummary[]>([]);
   const [tvSeriesPager, setTvSeriesPager] = useState<Pager>(createDefaultPager);
   const [queryByType, setQueryByType] = useState<Record<MediaType, string>>(createDefaultQueryByType);

@@ -52,22 +52,19 @@ export function useSubtitleManagerSelectors({
 
   const tvSeasonOptions = useMemo<TvSeasonOption[]>(() => {
     const detectedSeasons = collectDetectedSeasons(selectedTvSeriesVideos);
-    return [
-      { value: "all", label: t("tv.allSeasons") },
-      ...detectedSeasons.map((season) => ({
-        value: `s${String(season).padStart(2, "0")}`,
-        label: t("tv.seasonOption", { season: String(season).padStart(2, "0") }),
-        season
-      }))
-    ];
+    return detectedSeasons.map((season) => ({
+      value: `s${String(season).padStart(2, "0")}`,
+      label: t("tv.seasonOption", { season: String(season).padStart(2, "0") }),
+      season
+    }));
   }, [selectedTvSeriesVideos, t]);
 
   const sortedTvVideos = useMemo(() => {
-    if (state.selectedTvSeason === "all") {
+    if (tvSeasonOptions.length === 0) {
       return selectedTvSeriesVideos;
     }
 
-    const selectedOption = tvSeasonOptions.find((item) => item.value === state.selectedTvSeason);
+    const selectedOption = tvSeasonOptions.find((item) => item.value === state.selectedTvSeason) ?? tvSeasonOptions[0];
     if (!selectedOption?.season) {
       return selectedTvSeriesVideos;
     }

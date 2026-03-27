@@ -17,6 +17,7 @@ export type DetectedBatchLanguageType =
 
 export type BatchLanguagePreference = "any" | DetectedBatchLanguageType;
 export type LibraryViewMode = "list" | "card";
+export type TvDrawerMode = "manage" | "batch";
 
 export interface SeasonBatchMappingRow {
   id: string;
@@ -64,6 +65,8 @@ export interface SubtitleDetailsPanelProps {
   showUploadButton?: boolean;
   compactMeta?: boolean;
   metaCollapsedByDefault?: boolean;
+  showMetaSection?: boolean;
+  showSubtitleListCaption?: boolean;
 }
 
 export interface SubtitleDetailsPanelHandle {

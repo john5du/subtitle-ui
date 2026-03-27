@@ -7,7 +7,7 @@ import { useSubtitleManager } from "@/hooks/use-subtitle-manager";
 import { useI18n } from "@/lib/i18n";
 import type { ActiveTab, Video } from "@/lib/types";
 
-import type { LibraryViewMode, SubtitleDetailsPanelHandle } from "../types";
+import type { LibraryViewMode, SubtitleDetailsPanelHandle, TvDrawerMode } from "../types";
 
 const LIBRARY_VIEW_STORAGE_KEY = "subtitle-ui:library-view";
 
@@ -35,8 +35,8 @@ export function useSubtitleManagerScreenModel() {
   const refreshPending = pending.refreshTab === activeTab;
 
   const [movieManagerOpen, setMovieManagerOpen] = useState(false);
-  const [tvManagerOpen, setTvManagerOpen] = useState(false);
-  const [tvBatchOpen, setTvBatchOpen] = useState(false);
+  const [tvDrawerOpen, setTvDrawerOpen] = useState(false);
+  const [tvDrawerMode, setTvDrawerMode] = useState<TvDrawerMode>("manage");
   const [pendingMovieUploadPick, setPendingMovieUploadPick] = useState(false);
   const [libraryViewMode, setLibraryViewMode] = useState<LibraryViewMode>(() => {
     if (typeof window === "undefined") {
@@ -121,13 +121,15 @@ export function useSubtitleManagerScreenModel() {
     const targetSeries = tv.selectedSeries;
     if (!targetSeries) return;
     tv.selectSeries(targetSeries.path);
-    setTvManagerOpen(true);
+    setTvDrawerMode("manage");
+    setTvDrawerOpen(true);
     void tv.loadWorkspace(targetSeries.path);
   }
 
   function openTvManagerForSeries(path: string) {
     tv.selectSeries(path);
-    setTvManagerOpen(true);
+    setTvDrawerMode("manage");
+    setTvDrawerOpen(true);
     void tv.loadWorkspace(path);
   }
 
@@ -135,13 +137,15 @@ export function useSubtitleManagerScreenModel() {
     const targetSeries = tv.selectedSeries;
     if (!targetSeries) return;
     tv.selectSeries(targetSeries.path);
-    setTvBatchOpen(true);
+    setTvDrawerMode("batch");
+    setTvDrawerOpen(true);
     void tv.loadWorkspace(targetSeries.path);
   }
 
   function openTvBatchDialogForSeries(path: string) {
     tv.selectSeries(path);
-    setTvBatchOpen(true);
+    setTvDrawerMode("batch");
+    setTvDrawerOpen(true);
     void tv.loadWorkspace(path);
   }
 
@@ -255,10 +259,10 @@ export function useSubtitleManagerScreenModel() {
       movieManagerOpen,
       setMovieManagerOpen,
       movieDetailsRef,
-      tvManagerOpen,
-      setTvManagerOpen,
-      tvBatchOpen,
-      setTvBatchOpen,
+      tvDrawerOpen,
+      setTvDrawerOpen,
+      tvDrawerMode,
+      setTvDrawerMode,
       loadMovieWorkspaceOnDemand: movie.loadWorkspace,
       loadTvWorkspaceOnDemand: tv.loadWorkspace,
       loadTvBatchCandidates: tv.loadBatchCandidates,

@@ -6,7 +6,7 @@ import { emitToast } from "@/lib/toast";
 import { toSubtitleFile, type ZipSubtitleEntry } from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -38,15 +38,25 @@ interface TvSeasonBatchUploadDialogProps {
   onUploadBatch: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;
 }
 
-export function TvSeasonBatchUploadDialog({
-  open,
-  onOpenChange,
+interface TvSeasonBatchUploadWorkspaceProps
+  extends Omit<TvSeasonBatchUploadDialogProps, "open" | "onOpenChange"> {
+  className?: string;
+  onRequestClose?: () => void;
+  showCloseButton?: boolean;
+  showSummary?: boolean;
+}
+
+export function TvSeasonBatchUploadWorkspace({
   busy,
   uploading,
   uploadingMessage,
   onLoadBatchCandidates,
-  onUploadBatch
-}: TvSeasonBatchUploadDialogProps) {
+  onUploadBatch,
+  className,
+  onRequestClose,
+  showCloseButton = false,
+  showSummary = true
+}: TvSeasonBatchUploadWorkspaceProps) {
   const { t } = useI18n();
   const batchInputRef = useRef<HTMLInputElement | null>(null);
   const [batchPreparing, setBatchPreparing] = useState(false);
@@ -67,31 +77,9 @@ export function TvSeasonBatchUploadDialog({
   }, [batchRawEntries]);
 
   const batchLanguageOptions = useMemo(() => getLanguageTypesFromEntries(batchPreferenceEntries), [batchPreferenceEntries]);
-  const batchFormatOptions = useMemo(() => {
-    return getSubtitleFormatsFromEntries(batchPreferenceEntries);
-  }, [batchPreferenceEntries]);
+  const batchFormatOptions = useMemo(() => getSubtitleFormatsFromEntries(batchPreferenceEntries), [batchPreferenceEntries]);
   const showBatchLanguageSelector = batchLanguageOptions.length > 1;
   const showBatchFormatSelector = batchFormatOptions.length > 1;
-
-  function resetBatchState() {
-    setBatchPreparing(false);
-    setBatchSourceSummary("");
-    setBatchRawEntries([]);
-    setBatchRows([]);
-    setBatchCandidates([]);
-    setBatchLanguagePreference("any");
-    setBatchFormatPreference("any");
-    setBatchPreferenceSummary("");
-    setBatchLabel("zh");
-    setBatchError("");
-    setBatchResult(null);
-  }
-
-  useEffect(() => {
-    if (!open) {
-      resetBatchState();
-    }
-  }, [open]);
 
   useEffect(() => {
     if (batchLanguageOptions.length <= 1) {
@@ -274,209 +262,245 @@ export function TvSeasonBatchUploadDialog({
   const mappedCount = batchRows.filter((row) => row.selectedVideoId !== "").length;
 
   return (
+    <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
+      <input
+        ref={batchInputRef}
+        type="file"
+        accept=".zip,.7z,.rar,.srt,.ass,.ssa,.vtt,.sub"
+        multiple
+        className="hidden"
+        onChange={(event) => {
+          void onBatchFilesSelected(event);
+        }}
+      />
+
+      {showSummary && (
+        <div className="mb-4 rounded-xl border border-border/70 bg-background/60 px-4 py-3 text-sm text-muted-foreground">
+          {t("batch.dialogDescription", {
+            summary: batchSourceSummary || "-",
+            autoMatched: autoMatchedCount,
+            total: batchRows.length,
+            selected: mappedCount
+          })}
+        </div>
+      )}
+
+      <div className="relative min-h-0 flex-1 space-y-4 overflow-auto pr-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy || batchPreparing}
+            onClick={() => batchInputRef.current?.click()}
+          >
+            {t("batch.selectFiles")}
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {t("batch.supportHint")}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {t("batch.duplicateHint")}
+          </span>
+          {batchError && <p className="text-xs text-rose-600">{batchError}</p>}
+          {batchPreparing && <InlinePending label={t("batch.preparing")} />}
+          {uploading && <InlinePending label={uploadingMessage || t("batch.uploadingMapped")} />}
+        </div>
+
+        {(showBatchLanguageSelector || showBatchFormatSelector || batchPreferenceSummary) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {showBatchLanguageSelector && (
+              <>
+                <span className="text-xs font-medium text-muted-foreground">{t("batch.languageType")}</span>
+                <Select
+                  value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
+                  onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
+                >
+                  <SelectTrigger className="h-9 w-[220px]">
+                    <SelectValue placeholder={t("batch.languageTypePlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {batchLanguageOptions.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {formatLanguageTypeLabel(item, t)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+
+            {showBatchFormatSelector && (
+              <>
+                <span className="text-xs font-medium text-muted-foreground">{t("batch.format")}</span>
+                <Select
+                  value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
+                  onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
+                >
+                  <SelectTrigger className="h-9 w-[150px]">
+                    <SelectValue placeholder={t("batch.format")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {batchFormatOptions.map((ext) => (
+                      <SelectItem key={ext} value={ext}>
+                        {formatSubtitleExtLabel(ext)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+
+            {batchPreferenceSummary && <span className="text-xs text-muted-foreground">{batchPreferenceSummary}</span>}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">{t("batch.label")}</span>
+          <Input
+            className="w-[140px]"
+            value={batchLabel}
+            maxLength={32}
+            placeholder="zh"
+            onChange={(event) => setBatchLabel(event.target.value)}
+          />
+          <span className="text-xs text-muted-foreground">
+            {t("batch.labelHint")}
+          </span>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-semibold">{t("batch.mappingTitle")}</p>
+          <div className={cn("max-h-[52vh] overflow-auto rounded-md border", batchPreparing && "animate-pulse-soft")}>
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50%]">{t("batch.subtitleFile")}</TableHead>
+                  <TableHead className="w-[120px]">{t("batch.parsed")}</TableHead>
+                  <TableHead className="w-[360px]">{t("batch.targetEpisode")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {batchRows.map((row) => {
+                  const candidates = candidateVideosForBatchRow(row, batchCandidates);
+                  const selectValue = row.selectedVideoId || "__UNASSIGNED__";
+                  return (
+                    <TableRow key={row.id}>
+                      <TableCell className="break-all text-xs">{row.entry.path}</TableCell>
+                      <TableCell className="text-xs">{formatSeasonEpisodeText(row.season, row.episode)}</TableCell>
+                      <TableCell className="align-top">
+                        <Select
+                          value={selectValue}
+                          onValueChange={(value) => {
+                            setBatchRows((prev) =>
+                              prev.map((item) =>
+                                item.id === row.id
+                                  ? {
+                                      ...item,
+                                      selectedVideoId: value === "__UNASSIGNED__" ? "" : value
+                                    }
+                                  : item
+                              )
+                            );
+                          }}
+                        >
+                          <SelectTrigger className="h-9 w-full">
+                            <SelectValue placeholder={t("batch.chooseEpisode")} />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            <SelectItem value="__UNASSIGNED__">{t("batch.skip")}</SelectItem>
+                            {candidates.map((video) => (
+                              <SelectItem key={`${row.id}-${video.id}`} value={video.id}>
+                                {video.fileName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+
+                {batchRows.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
+                      {t("batch.empty")}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        {batchResult && (
+          <div className="rounded-md border bg-muted/30 p-3 text-xs">
+            <p>
+              {t("batch.result", {
+                success: batchResult.success,
+                total: batchResult.total,
+                failed: batchResult.failed
+              })}
+            </p>
+            {batchResult.errors.length > 0 && (
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {batchResult.errors.slice(0, 8).map((item) => (
+                  <li key={item} className="break-all">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        {batchPreparing && <PanelLoadingOverlay label={t("batch.preparing")} />}
+      </div>
+
+      <div className="mt-4 shrink-0 border-t border-border/70 pt-3">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          {showCloseButton && onRequestClose ? (
+            <Button type="button" variant="outline" onClick={onRequestClose}>
+              {t("common.close")}
+            </Button>
+          ) : null}
+          <Button type="button" disabled={busy || batchPreparing || batchRows.length === 0} onClick={() => void submitSeasonBatch()}>
+            {t("batch.uploadMapped")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TvSeasonBatchUploadDialog({
+  open,
+  onOpenChange,
+  busy,
+  uploading,
+  uploadingMessage,
+  onLoadBatchCandidates,
+  onUploadBatch
+}: TvSeasonBatchUploadDialogProps) {
+  const { t } = useI18n();
+
+  return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[86vh] flex-col overflow-hidden sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>{t("batch.dialogTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("batch.dialogDescription", {
-              summary: batchSourceSummary || "-",
-              autoMatched: autoMatchedCount,
-              total: batchRows.length,
-              selected: mappedCount
-            })}
-          </DialogDescription>
+          <DialogDescription>{t("batch.duplicateHint")}</DialogDescription>
         </DialogHeader>
 
-        <input
-          ref={batchInputRef}
-          type="file"
-          accept=".zip,.7z,.rar,.srt,.ass,.ssa,.vtt,.sub"
-          multiple
-          className="hidden"
-          onChange={(event) => {
-            void onBatchFilesSelected(event);
-          }}
+        <TvSeasonBatchUploadWorkspace
+          className="min-h-0 flex-1"
+          busy={busy}
+          uploading={uploading}
+          uploadingMessage={uploadingMessage}
+          onLoadBatchCandidates={onLoadBatchCandidates}
+          onUploadBatch={onUploadBatch}
+          onRequestClose={() => onOpenChange(false)}
+          showCloseButton={true}
+          showSummary={true}
         />
-
-        <div className="relative min-h-0 flex-1 space-y-4 overflow-auto pr-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy || batchPreparing}
-              onClick={() => batchInputRef.current?.click()}
-            >
-              {t("batch.selectFiles")}
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              {t("batch.supportHint")}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {t("batch.duplicateHint")}
-            </span>
-            {batchError && <p className="text-xs text-rose-600">{batchError}</p>}
-            {batchPreparing && <InlinePending label={t("batch.preparing")} />}
-            {uploading && <InlinePending label={uploadingMessage || t("batch.uploadingMapped")} />}
-          </div>
-
-          {(showBatchLanguageSelector || showBatchFormatSelector || batchPreferenceSummary) && (
-            <div className="flex flex-wrap items-center gap-2">
-              {showBatchLanguageSelector && (
-                <>
-                  <span className="text-xs font-medium text-muted-foreground">{t("batch.languageType")}</span>
-                  <Select
-                    value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
-                    onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
-                  >
-                    <SelectTrigger className="h-9 w-[220px]">
-                      <SelectValue placeholder={t("batch.languageTypePlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {batchLanguageOptions.map((item) => (
-                        <SelectItem key={item} value={item}>
-                          {formatLanguageTypeLabel(item, t)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </>
-              )}
-
-              {showBatchFormatSelector && (
-                <>
-                  <span className="text-xs font-medium text-muted-foreground">{t("batch.format")}</span>
-                  <Select
-                    value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
-                    onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
-                  >
-                    <SelectTrigger className="h-9 w-[150px]">
-                      <SelectValue placeholder={t("batch.format")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {batchFormatOptions.map((ext) => (
-                        <SelectItem key={ext} value={ext}>
-                          {formatSubtitleExtLabel(ext)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </>
-              )}
-
-              {batchPreferenceSummary && <span className="text-xs text-muted-foreground">{batchPreferenceSummary}</span>}
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground">{t("batch.label")}</span>
-            <Input
-              className="w-[140px]"
-              value={batchLabel}
-              maxLength={32}
-              placeholder="zh"
-              onChange={(event) => setBatchLabel(event.target.value)}
-            />
-            <span className="text-xs text-muted-foreground">
-              {t("batch.labelHint")}
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">{t("batch.mappingTitle")}</p>
-            <div className={cn("max-h-[52vh] overflow-auto rounded-md border", batchPreparing && "animate-pulse-soft")}>
-              <Table className="table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50%]">{t("batch.subtitleFile")}</TableHead>
-                    <TableHead className="w-[120px]">{t("batch.parsed")}</TableHead>
-                    <TableHead className="w-[360px]">{t("batch.targetEpisode")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {batchRows.map((row) => {
-                    const candidates = candidateVideosForBatchRow(row, batchCandidates);
-                    const selectValue = row.selectedVideoId || "__UNASSIGNED__";
-                    return (
-                      <TableRow key={row.id}>
-                        <TableCell className="break-all text-xs">{row.entry.path}</TableCell>
-                        <TableCell className="text-xs">{formatSeasonEpisodeText(row.season, row.episode)}</TableCell>
-                        <TableCell className="align-top">
-                          <Select
-                            value={selectValue}
-                            onValueChange={(value) => {
-                              setBatchRows((prev) =>
-                                prev.map((item) =>
-                                  item.id === row.id
-                                    ? {
-                                        ...item,
-                                        selectedVideoId: value === "__UNASSIGNED__" ? "" : value
-                                      }
-                                    : item
-                                )
-                              );
-                            }}
-                          >
-                            <SelectTrigger className="h-9 w-full">
-                              <SelectValue placeholder={t("batch.chooseEpisode")} />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-72">
-                              <SelectItem value="__UNASSIGNED__">{t("batch.skip")}</SelectItem>
-                              {candidates.map((video) => (
-                                <SelectItem key={`${row.id}-${video.id}`} value={video.id}>
-                                  {video.fileName}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-
-                  {batchRows.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">
-                        {t("batch.empty")}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-
-          {batchResult && (
-            <div className="rounded-md border bg-muted/30 p-3 text-xs">
-              <p>
-                {t("batch.result", {
-                  success: batchResult.success,
-                  total: batchResult.total,
-                  failed: batchResult.failed
-                })}
-              </p>
-              {batchResult.errors.length > 0 && (
-                <ul className="mt-2 list-disc space-y-1 pl-5">
-                  {batchResult.errors.slice(0, 8).map((item) => (
-                    <li key={item} className="break-all">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-          {batchPreparing && <PanelLoadingOverlay label={t("batch.preparing")} />}
-        </div>
-
-        <DialogFooter className="shrink-0 border-t pt-3">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {t("common.close")}
-          </Button>
-          <Button type="button" disabled={busy || batchPreparing || batchRows.length === 0} onClick={() => void submitSeasonBatch()}>
-            {t("batch.uploadMapped")}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

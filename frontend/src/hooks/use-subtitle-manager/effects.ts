@@ -43,17 +43,20 @@ export function useSubtitleManagerEffects({
   }, [setSelectedTvDirPath, state.selectedTvDirPath, state.tvSeriesRows]);
 
   useEffect(() => {
-    setSelectedTvSeason("all");
+    setSelectedTvSeason("");
   }, [setSelectedTvSeason, state.selectedTvDirPath]);
 
   useEffect(() => {
-    if (state.selectedTvSeason === "all") {
+    if (selectors.tvSeasonOptions.length === 0) {
+      if (state.selectedTvSeason !== "") {
+        setSelectedTvSeason("");
+      }
       return;
     }
 
     const exists = selectors.tvSeasonOptions.some((item) => item.value === state.selectedTvSeason);
     if (!exists) {
-      setSelectedTvSeason("all");
+      setSelectedTvSeason(selectors.tvSeasonOptions[0]?.value || "");
     }
   }, [selectors.tvSeasonOptions, setSelectedTvSeason, state.selectedTvSeason]);
 

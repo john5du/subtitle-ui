@@ -2,7 +2,6 @@ import { Search } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import type { Pager, TvSeriesSummary } from "@/lib/types";
-import { buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +14,6 @@ import { LibraryViewToggle } from "../shared/library-view-toggle";
 import { InlinePending, PanelLoadingOverlay } from "../shared/pending-state";
 import { PagerView } from "../shared/pager-view";
 import { PosterThumbnail } from "../shared/poster-thumbnail";
-import { RowActionsMenu } from "../shared/row-actions-menu";
 
 interface TvSeriesListPanelProps {
   query: string;
@@ -24,12 +22,10 @@ interface TvSeriesListPanelProps {
   pager: Pager;
   viewMode: LibraryViewMode;
   yearSortOrder: "asc" | "desc";
-  onSelectSeries: (path: string) => void;
   onSetPage: (page: number) => void;
   onToggleYearSort: () => void;
   onViewModeChange: (value: LibraryViewMode) => void;
   onOpenManager: (series: TvSeriesSummary) => void;
-  onOpenBatch: (series: TvSeriesSummary) => void;
   operationLocked: boolean;
   showScanPrompt: boolean;
   onTriggerScan: () => void;
@@ -40,48 +36,23 @@ interface TvSeriesListPanelProps {
 
 function TvSeriesPosterCard({
   row,
-  onSelectSeries,
   onOpenManager,
-  onOpenBatch,
   operationLocked
 }: {
   row: TvSeriesSummary;
-  onSelectSeries: (path: string) => void;
   onOpenManager: (series: TvSeriesSummary) => void;
-  onOpenBatch: (series: TvSeriesSummary) => void;
   operationLocked: boolean;
 }) {
   const { t } = useI18n();
-  const links = buildSubtitleSearchLinksByKeyword(row.title);
 
   return (
-    <div className="relative flex w-full self-start flex-col rounded-[1.35rem] border border-border/70 bg-card shadow-sm">
-      <div className="absolute right-3 top-3 z-10">
-        <RowActionsMenu
-          label={t("tv.actionsFor", { name: row.title || t("nav.tv") })}
-          triggerClassName="h-8 w-8 rounded-lg border-border bg-popover text-popover-foreground shadow-md hover:bg-popover hover:text-popover-foreground"
-          items={[
-            {
-              label: t("tv.seasonBatchUpload"),
-              onSelect: () => onOpenBatch(row),
-              disabled: operationLocked
-            },
-            {
-              label: t("tv.openSubtitleManager"),
-              onSelect: () => onOpenManager(row),
-              disabled: operationLocked
-            },
-            { label: "Zimuku", href: links.zimuku, external: true },
-            { label: "SubHD", href: links.subhd, external: true }
-          ]}
-        />
-      </div>
-
+    <div className="flex w-full self-start flex-col rounded-[1.35rem] border border-border/70 bg-card shadow-sm">
       <button
         type="button"
-        className="flex flex-col text-left"
+        className="surface-transition flex flex-col text-left disabled:cursor-not-allowed disabled:opacity-65"
         aria-label={row.title || t("nav.tv")}
-        onClick={() => onSelectSeries(row.path)}
+        disabled={operationLocked}
+        onClick={() => onOpenManager(row)}
       >
         <div className="p-3 pb-0">
           <PosterThumbnail
@@ -109,12 +80,10 @@ export function TvSeriesListPanel({
   pager,
   viewMode,
   yearSortOrder,
-  onSelectSeries,
   onSetPage,
   onToggleYearSort,
   onViewModeChange,
   onOpenManager,
-  onOpenBatch,
   operationLocked,
   showScanPrompt,
   onTriggerScan,
@@ -165,54 +134,38 @@ export function TvSeriesListPanel({
                   <TableHead className="w-[170px]">{t("movie.updatedTime")}</TableHead>
                   <TableHead className="w-[100px] text-right">{t("tv.videos")}</TableHead>
                   <TableHead className="w-[120px] text-right">{t("tv.noSubtitles")}</TableHead>
-                  <TableHead className="w-[120px] text-right">{t("common.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row) => {
-                  const links = buildSubtitleSearchLinksByKeyword(row.title);
-                  return (
-                    <TableRow
-                      key={row.key}
-                      className="surface-transition cursor-pointer hover:bg-accent"
-                      onClick={() => onSelectSeries(row.path)}
-                    >
-                      <TableCell className="w-[76px] py-2">
-                        <PosterThumbnail src={row.posterUrl} />
-                      </TableCell>
-                      <TableCell className="max-w-[240px] truncate font-medium" title={row.title}>
-                        {row.title || "-"}
-                      </TableCell>
-                      <TableCell>{row.latestEpisodeYear || "-"}</TableCell>
-                      <TableCell className="truncate" title={formatTime(row.updatedAt)}>{formatTime(row.updatedAt)}</TableCell>
-                      <TableCell className="text-right">{row.videoCount}</TableCell>
-                      <TableCell className="text-right">{row.noSubtitleCount}</TableCell>
-                      <TableCell className="text-right">
-                        <RowActionsMenu
-                          label={t("tv.actionsFor", { name: row.title || t("nav.tv") })}
-                          items={[
-                            {
-                              label: t("tv.seasonBatchUpload"),
-                              onSelect: () => onOpenBatch(row),
-                              disabled: operationLocked
-                            },
-                            {
-                              label: t("tv.openSubtitleManager"),
-                              onSelect: () => onOpenManager(row),
-                              disabled: operationLocked
-                            },
-                            { label: "Zimuku", href: links.zimuku, external: true },
-                            { label: "SubHD", href: links.subhd, external: true }
-                          ]}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {rows.map((row) => (
+                  <TableRow
+                    key={row.key}
+                    className={cn(
+                      "surface-transition cursor-pointer hover:bg-accent",
+                      operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
+                    )}
+                    onClick={() => {
+                      if (!operationLocked) {
+                        onOpenManager(row);
+                      }
+                    }}
+                  >
+                    <TableCell className="w-[76px] py-2">
+                      <PosterThumbnail src={row.posterUrl} />
+                    </TableCell>
+                    <TableCell className="max-w-[240px] truncate font-medium" title={row.title}>
+                      {row.title || "-"}
+                    </TableCell>
+                    <TableCell>{row.latestEpisodeYear || "-"}</TableCell>
+                    <TableCell className="truncate" title={formatTime(row.updatedAt)}>{formatTime(row.updatedAt)}</TableCell>
+                    <TableCell className="text-right">{row.videoCount}</TableCell>
+                    <TableCell className="text-right">{row.noSubtitleCount}</TableCell>
+                  </TableRow>
+                ))}
 
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                       {showScanPrompt ? (
                         <div className="flex flex-col items-center gap-3 text-center">
                           <p className="max-w-[320px] text-sm text-muted-foreground">
@@ -254,9 +207,7 @@ export function TvSeriesListPanel({
                   <TvSeriesPosterCard
                     key={row.key}
                     row={row}
-                    onSelectSeries={onSelectSeries}
                     onOpenManager={onOpenManager}
-                    onOpenBatch={onOpenBatch}
                     operationLocked={operationLocked}
                   />
                 ))}

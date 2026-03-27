@@ -6,23 +6,54 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogDrawerContent } from "@/components/ui/dialog";
 
 import type { SubtitleManagerScreenModel } from "../hooks/use-subtitle-manager-screen-model";
 import { DashboardPanel } from "../dashboard/dashboard-panel";
 import { LogsPanel } from "../logs/logs-panel";
 import { MovieListPanel } from "../movie/movie-list-panel";
-import { SubtitleDetailsPanel } from "../subtitle/subtitle-details-panel";
+import { MovieSubtitleDrawer } from "../movie/movie-subtitle-drawer";
 import { LocaleSelect, ThemeModeSelect } from "../shared/settings-controls";
 import { SpinnerIcon } from "../shared/pending-state";
 import { UploadBlockingOverlay } from "../shared/upload-blocking-overlay";
-import { TvSeasonBatchUploadDialog } from "../tv/tv-season-batch-upload-dialog";
+import { TvSubtitleDrawer } from "../tv/tv-subtitle-drawer";
 import { TvSeriesListPanel } from "../tv/tv-series-list-panel";
-import { TvSubtitleManagementPanel } from "../tv/tv-subtitle-management-panel";
 
 export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenModel }) {
   const { t } = useI18n();
   const { shell, dashboard, movie, tv, logs, subtitleActions, dialogs } = model;
+
+  function handleMovieManagerOpenChange(open: boolean) {
+    if (!open && subtitleActions.uploading) {
+      return;
+    }
+    dialogs.setMovieManagerOpen(open);
+    if (open) {
+      void dialogs.loadMovieWorkspaceOnDemand();
+    }
+  }
+
+  function handleTvDrawerOpenChange(open: boolean) {
+    if (!open && subtitleActions.uploading) {
+      return;
+    }
+    dialogs.setTvDrawerOpen(open);
+    if (open) {
+      void dialogs.loadTvWorkspaceOnDemand();
+      if (dialogs.tvDrawerMode === "batch") {
+        void dialogs.loadTvBatchCandidates();
+      }
+    }
+  }
+
+  function handleTvDrawerModeChange(mode: typeof dialogs.tvDrawerMode) {
+    dialogs.setTvDrawerMode(mode);
+    if (mode === "batch") {
+      void dialogs.loadTvBatchCandidates();
+      return;
+    }
+    void dialogs.loadTvWorkspaceOnDemand();
+  }
 
   return (
     <div className="relative h-full w-full px-3 py-3 md:px-6 md:py-5">
@@ -125,9 +156,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   yearSortOrder={movie.yearSortOrder}
                   onToggleYearSort={movie.toggleYearSort}
                   onViewModeChange={movie.setViewMode}
-                  onSelectVideo={movie.selectVideo}
                   onSetPage={movie.setPage}
-                  onOpenUploadPicker={movie.openUploadPicker}
                   onOpenManager={movie.openManager}
                   operationLocked={shell.operationLocked}
                   pending={movie.pending}
@@ -145,12 +174,10 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   pager={tv.pager}
                   viewMode={tv.viewMode}
                   yearSortOrder={tv.yearSortOrder}
-                  onSelectSeries={tv.selectSeries}
                   onSetPage={tv.setPage}
                   onToggleYearSort={tv.toggleYearSort}
                   onViewModeChange={tv.setViewMode}
                   onOpenManager={(series) => tv.openManagerForSeries(series.path)}
-                  onOpenBatch={(series) => tv.openBatchForSeries(series.path)}
                   operationLocked={shell.operationLocked}
                   showScanPrompt={tv.showScanPrompt}
                   onTriggerScan={shell.triggerScan}
@@ -172,25 +199,13 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
 
       <Dialog
         open={dialogs.movieManagerOpen}
-        onOpenChange={(open) => {
-          if (!open && subtitleActions.uploading) {
-            return;
-          }
-          dialogs.setMovieManagerOpen(open);
-          if (open) {
-            void dialogs.loadMovieWorkspaceOnDemand();
-          }
-        }}
+        onOpenChange={handleMovieManagerOpenChange}
       >
-        <DialogContent className="flex h-[90vh] max-h-[90vh] w-[min(1100px,96vw)] max-w-none overflow-hidden p-0">
-          <SubtitleDetailsPanel
+        <DialogDrawerContent className="p-0 [&>button]:right-5 [&>button]:top-5 [&>button]:z-50">
+          <MovieSubtitleDrawer
             ref={dialogs.movieDetailsRef}
-            panelTitle={t("details.movieManagementTitle")}
             selectedVideo={movie.selectedVideo}
             emptyText={t("details.movieEmpty")}
-            showBack={false}
-            onBack={() => {}}
-            infoRows={[]}
             onUpload={subtitleActions.uploadSubtitle}
             onReplace={subtitleActions.replaceSubtitle}
             onRemove={subtitleActions.removeSubtitle}
@@ -200,26 +215,16 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             uploading={subtitleActions.uploading}
             uploadingMessage={subtitleActions.uploadingMessage}
             subtitleAction={subtitleActions.subtitleAction}
-            showSearchLinks={false}
-            showUploadButton={false}
           />
-        </DialogContent>
+        </DialogDrawerContent>
       </Dialog>
 
       <Dialog
-        open={dialogs.tvManagerOpen}
-        onOpenChange={(open) => {
-          if (!open && subtitleActions.uploading) {
-            return;
-          }
-          dialogs.setTvManagerOpen(open);
-          if (open) {
-            void dialogs.loadTvWorkspaceOnDemand();
-          }
-        }}
+        open={dialogs.tvDrawerOpen}
+        onOpenChange={handleTvDrawerOpenChange}
       >
-        <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none overflow-hidden rounded-none p-0 sm:h-[90vh] sm:max-h-[90vh] sm:w-[min(1280px,96vw)] sm:rounded-lg [&>button]:right-3 [&>button]:top-3 [&>button]:z-50">
-          <TvSubtitleManagementPanel
+        <DialogDrawerContent className="p-0 sm:w-[min(1280px,96vw)] [&>button]:right-5 [&>button]:top-5 [&>button]:z-50">
+          <TvSubtitleDrawer
             selectedSeries={tv.selectedSeries}
             selectedSeason={tv.selectedSeason}
             seasonOptions={tv.seasonOptions}
@@ -238,27 +243,13 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             uploadingMessage={subtitleActions.uploadingMessage}
             episodesPending={tv.episodesPending}
             subtitleAction={subtitleActions.subtitleAction}
+            drawerMode={dialogs.tvDrawerMode}
+            onModeChange={handleTvDrawerModeChange}
+            onLoadBatchCandidates={dialogs.loadTvBatchCandidates}
+            onUploadBatch={dialogs.uploadBatchSubtitles}
           />
-        </DialogContent>
+        </DialogDrawerContent>
       </Dialog>
-
-      <TvSeasonBatchUploadDialog
-        open={dialogs.tvBatchOpen}
-        onOpenChange={(open) => {
-          if (!open && subtitleActions.uploading) {
-            return;
-          }
-          dialogs.setTvBatchOpen(open);
-          if (open) {
-            void dialogs.loadTvWorkspaceOnDemand();
-          }
-        }}
-        busy={subtitleActions.operationLocked}
-        uploading={subtitleActions.uploading}
-        uploadingMessage={subtitleActions.uploadingMessage}
-        onLoadBatchCandidates={dialogs.loadTvBatchCandidates}
-        onUploadBatch={dialogs.uploadBatchSubtitles}
-      />
 
       {subtitleActions.uploading && <UploadBlockingOverlay message={subtitleActions.uploadingMessage} />}
     </div>

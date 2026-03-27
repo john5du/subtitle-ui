@@ -52,7 +52,9 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   showMetadata = true,
   showUploadButton = true,
   compactMeta = false,
-  metaCollapsedByDefault = false
+  metaCollapsedByDefault = false,
+  showMetaSection = true,
+  showSubtitleListCaption = true
 }: SubtitleDetailsPanelProps, ref) {
   const { t } = useI18n();
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -413,33 +415,35 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
-            {compactMeta ? (
-              <div className="space-y-3 rounded-md border bg-background/60 p-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="max-w-full truncate text-sm font-semibold sm:max-w-[60%]">
-                    {selectedVideo.title || selectedVideo.fileName || "-"}
-                  </p>
-                  <Badge variant="secondary" className="text-[11px]">
-                    {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {t("info.updated")}: {formatTime(selectedVideo.updatedAt)}
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2 text-xs"
-                  onClick={() => setMetaExpanded((prev) => !prev)}
-                >
-                  {metaExpanded ? t("details.lessInfo") : t("details.moreInfo")}
-                </Button>
-                {metaExpanded && detailsInfoGrid}
-              </div>
-            ) : (
-              detailsInfoGrid
-            )}
+            {showMetaSection
+              ? compactMeta
+                ? (
+                    <div className="space-y-3 rounded-md border bg-background/60 p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="max-w-full truncate text-sm font-semibold sm:max-w-[60%]">
+                          {selectedVideo.title || selectedVideo.fileName || "-"}
+                        </p>
+                        <Badge variant="secondary" className="text-[11px]">
+                          {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {t("info.updated")}: {formatTime(selectedVideo.updatedAt)}
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-xs"
+                        onClick={() => setMetaExpanded((prev) => !prev)}
+                      >
+                        {metaExpanded ? t("details.lessInfo") : t("details.moreInfo")}
+                      </Button>
+                      {metaExpanded && detailsInfoGrid}
+                    </div>
+                  )
+                : detailsInfoGrid
+              : null}
 
             <input
               ref={uploadInputRef}
@@ -486,7 +490,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
             <div className={cn("min-h-0 flex-1 rounded-md border", flashSubtitleList && "animate-highlight-flash")}>
               <ScrollArea className="h-full max-h-[48vh] xl:max-h-full">
                 <Table>
-                  <TableCaption>{t("details.subtitleListCaption")}</TableCaption>
+                  {showSubtitleListCaption ? <TableCaption>{t("details.subtitleListCaption")}</TableCaption> : null}
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t("details.name")}</TableHead>

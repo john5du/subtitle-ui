@@ -1,6 +1,6 @@
 param(
   [switch]$SkipInstall,
-  [int]$WaitTimeoutSec = 30
+  [int]$WaitTimeoutSec = 120
 )
 
 $ErrorActionPreference = "Stop"
