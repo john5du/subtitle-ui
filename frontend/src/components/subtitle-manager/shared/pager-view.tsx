@@ -15,17 +15,18 @@ export function PagerView({
   const totalPages = Math.max(1, pager.totalPages);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <Button type="button" variant="outline" size="sm" disabled={disabled || pager.page <= 1} onClick={() => onSetPage(pager.page - 1)}>
+    <div className="surface-subtle flex flex-col gap-3 rounded-xl px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <Button type="button" variant="outline" size="sm" className="sm:min-w-[92px]" disabled={disabled || pager.page <= 1} onClick={() => onSetPage(pager.page - 1)}>
         {t("pager.prev")}
       </Button>
-      <span className="text-xs text-muted-foreground">
+      <span className="text-center text-xs text-muted-foreground">
         {t("pager.summary", { page: pager.page, totalPages, total: pager.total })}
       </span>
       <Button
         type="button"
         variant="outline"
         size="sm"
+        className="sm:min-w-[92px]"
         disabled={disabled || pager.page >= totalPages}
         onClick={() => onSetPage(pager.page + 1)}
       >

@@ -58,7 +58,6 @@ export interface SubtitleDetailsPanelProps {
   uploadingMessage: string;
   subtitleAction: PendingSubtitleAction | null;
   showSearchLinks: boolean;
-  inlineSearchLinks?: boolean;
   searchKeyword?: string;
   showMediaType?: boolean;
   showMetadata?: boolean;

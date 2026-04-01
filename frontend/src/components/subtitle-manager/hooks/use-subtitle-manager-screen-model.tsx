@@ -68,10 +68,10 @@ export function useSubtitleManagerScreenModel() {
 
   const statusBadgeClass = useMemo(() => {
     if (scanPending) {
-      return "border-amber-300/80 bg-amber-50 text-amber-800 dark:border-amber-800/80 dark:bg-amber-950/40 dark:text-amber-200";
+      return "border-warning/30 bg-warning/12 text-warning";
     }
     if (refreshPending) {
-      return "border-blue-300/80 bg-blue-50 text-blue-800 dark:border-blue-800/80 dark:bg-blue-950/40 dark:text-blue-200";
+      return "border-info/30 bg-info/12 text-info";
     }
     if (uploading) {
       return "border-primary/30 bg-primary/10 text-primary";
@@ -79,7 +79,7 @@ export function useSubtitleManagerScreenModel() {
     if (pending.tabSwitch || pending.bootstrapping || loading) {
       return "border-border bg-muted/60 text-muted-foreground";
     }
-    return "border-emerald-300/80 bg-emerald-50 text-emerald-800 dark:border-emerald-800/80 dark:bg-emerald-950/40 dark:text-emerald-200";
+    return "border-success/30 bg-success/12 text-success";
   }, [loading, pending.bootstrapping, pending.tabSwitch, refreshPending, scanPending, uploading]);
 
   const statusBadgeText = scanPending

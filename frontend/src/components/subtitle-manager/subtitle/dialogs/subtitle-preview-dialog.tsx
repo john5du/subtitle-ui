@@ -44,7 +44,7 @@ export function SubtitlePreviewDialog({
           )}
 
           {previewStatus === "error" && (
-            <div className="flex h-full items-center justify-center text-sm text-rose-600">
+            <div className="flex h-full items-center justify-center text-sm text-destructive">
               {t("details.previewFailed", { error: previewError || "-" })}
             </div>
           )}

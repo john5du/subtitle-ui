@@ -61,7 +61,7 @@ const DialogDrawerContent = React.forwardRef<
       ref={ref}
       data-dialog-content="true"
       className={cn(
-        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden border-l border-border/80 bg-card/95 shadow-2xl supports-[backdrop-filter]:backdrop-blur-xl data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right sm:w-[min(760px,92vw)] sm:rounded-l-[2rem]",
+        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden border-l border-border/80 bg-card/95 shadow-2xl supports-[backdrop-filter]:backdrop-blur-xl data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right sm:w-[min(840px,94vw)] xl:w-[min(1040px,88vw)] sm:rounded-l-[2rem]",
         className
       )}
       {...props}

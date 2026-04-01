@@ -65,7 +65,7 @@ export function TvSubtitleDrawer({
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-card">
       <div className="border-b border-border/70 bg-card/96 px-5 pb-4 pt-5 sm:px-6">
-        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-amber-700/80 dark:text-amber-300/80">
+        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-warning/80">
           {t("tv.drawerEyebrow")}
         </p>
         <div className="mt-3 flex flex-wrap items-start gap-3 pr-10">

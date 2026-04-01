@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { ArrowLeft, ExternalLink, Eye } from "lucide-react";
+import { ArrowLeft, ExternalLink, Eye, Pencil, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import type { Subtitle } from "@/lib/types";
@@ -19,10 +19,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-import type { RowActionItem, SubtitleDetailsPanelHandle, SubtitleDetailsPanelProps } from "../types";
+import type { SubtitleDetailsPanelHandle, SubtitleDetailsPanelProps } from "../types";
 import { InfoItem } from "../shared/info-item";
 import { InlinePending, SpinnerIcon } from "../shared/pending-state";
-import { RowActionsMenu } from "../shared/row-actions-menu";
 import { decodeSubtitlePreviewContent } from "./preview-utils";
 import { ArchiveEntryPickerDialog } from "./dialogs/archive-entry-picker-dialog";
 import { DeleteSubtitleDialog } from "./dialogs/delete-subtitle-dialog";
@@ -46,7 +45,6 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   uploadingMessage,
   subtitleAction,
   showSearchLinks,
-  inlineSearchLinks = false,
   searchKeyword,
   showMediaType = true,
   showMetadata = true,
@@ -93,32 +91,15 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
     return buildSubtitleSearchLinks(selectedVideo);
   }, [searchKeyword, selectedVideo]);
   const uploadPending = subtitleAction?.kind === "upload" && subtitleAction.videoId === selectedVideo?.id;
-  const uploadActionItem: RowActionItem | null = showUploadButton
-    ? {
-        label: uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive"),
-        onSelect: openUploadPicker,
-        disabled: busy || zipLoading
-      }
-    : null;
-  const inlineUploadActionItem = inlineSearchLinks ? uploadActionItem : null;
-  const actionMenuItems: RowActionItem[] = [
-    ...(inlineSearchLinks || !uploadActionItem ? [] : [uploadActionItem]),
-    ...(!inlineSearchLinks && showSearchLinks && searchLinks
-      ? [
-          { label: "Zimuku", href: searchLinks.zimuku, external: true },
-          { label: "SubHD", href: searchLinks.subhd, external: true }
-        ]
-      : [])
-  ];
-  const inlineSearchActionItems: RowActionItem[] =
-    inlineSearchLinks && showSearchLinks && searchLinks
-      ? [
-          { label: "Zimuku", href: searchLinks.zimuku, external: true },
-          { label: "SubHD", href: searchLinks.subhd, external: true }
-        ]
-      : [];
-  const hasActionToolbar =
-    actionMenuItems.length > 0 || Boolean(inlineUploadActionItem) || inlineSearchActionItems.length > 0 || zipLoading || Boolean(zipPickError);
+  const searchActionItems = showSearchLinks && searchLinks
+    ? [
+        { label: "Zimuku", href: searchLinks.zimuku },
+        { label: "SubHD", href: searchLinks.subhd }
+      ]
+    : [];
+  const subtitleActionWidthClass = "w-full sm:w-auto";
+  const showPrimaryUploadButton = showUploadButton;
+  const hasActionToolbar = showPrimaryUploadButton || searchActionItems.length > 0 || zipLoading || Boolean(zipPickError);
   const detailsInfoGrid = selectedVideo ? (
     <div className="grid gap-2 text-sm md:grid-cols-2">
       <InfoItem label={t("info.title")} value={selectedVideo.title || "-"} />
@@ -397,8 +378,20 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   return (
     <Card className="animate-fade-in-up flex h-full w-full flex-col border bg-card">
       <CardHeader className="p-4">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-lg">{panelTitle}</CardTitle>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-2">
+            <CardTitle className="text-lg">{panelTitle}</CardTitle>
+            {selectedVideo ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="text-[11px]">
+                  {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {t("info.updated")}: {formatTime(selectedVideo.updatedAt)}
+                </span>
+              </div>
+            ) : null}
+          </div>
           {showBack && (
             <Button type="button" variant="outline" size="sm" className="gap-1" onClick={onBack} disabled={busy}>
               <ArrowLeft className="h-4 w-4" />
@@ -418,7 +411,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
             {showMetaSection
               ? compactMeta
                 ? (
-                    <div className="space-y-3 rounded-md border bg-background/60 p-3">
+                    <div className="surface-subtle space-y-3 rounded-xl p-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="max-w-full truncate text-sm font-semibold sm:max-w-[60%]">
                           {selectedVideo.title || selectedVideo.fileName || "-"}
@@ -426,9 +419,6 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                         <Badge variant="secondary" className="text-[11px]">
                           {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
                         </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {t("info.updated")}: {formatTime(selectedVideo.updatedAt)}
-                        </span>
                       </div>
                       <Button
                         type="button"
@@ -453,42 +443,40 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
               onChange={onUploadFileChange}
             />
             {hasActionToolbar && (
-              <div className="flex flex-wrap items-center gap-2">
-                {actionMenuItems.length > 0 && (
-                  <RowActionsMenu
-                    label={t("details.actionsForVideo", { name: selectedVideo.title || selectedVideo.fileName || selectedVideo.path })}
-                    items={actionMenuItems}
-                    triggerIcon={uploadPending || zipLoading ? <SpinnerIcon className="h-4 w-4" /> : undefined}
-                  />
+              <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-background/60 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {showPrimaryUploadButton && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className={cn("gap-1.5", subtitleActionWidthClass)}
+                      disabled={busy || zipLoading}
+                      onClick={openUploadPicker}
+                    >
+                      {uploadPending || zipLoading ? <SpinnerIcon className="h-4 w-4" /> : <UploadCloud className="h-4 w-4" />}
+                      <span>{uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}</span>
+                    </Button>
+                  )}
+                  {zipLoading && <InlinePending label={t("details.parsingArchive")} />}
+                </div>
+                {searchActionItems.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {searchActionItems.map((item) => (
+                      <Button key={item.label} type="button" variant="outline" size="sm" className={subtitleActionWidthClass} asChild>
+                        <a href={item.href} target="_blank" rel="noreferrer">
+                          <span>{item.label}</span>
+                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                        </a>
+                      </Button>
+                    ))}
+                  </div>
                 )}
-                {inlineUploadActionItem && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    disabled={inlineUploadActionItem.disabled}
-                    onClick={() => inlineUploadActionItem.onSelect?.()}
-                  >
-                    {uploadPending || zipLoading ? <SpinnerIcon className="h-4 w-4" /> : null}
-                    <span>{inlineUploadActionItem.label}</span>
-                  </Button>
-                )}
-                {inlineSearchActionItems.map((item) => (
-                  <Button key={item.label} type="button" variant="outline" size="sm" className="gap-1" asChild>
-                    <a href={item.href} target={item.external ? "_blank" : undefined} rel={item.external ? "noreferrer" : undefined}>
-                      <span>{item.label}</span>
-                      {item.external && <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />}
-                    </a>
-                  </Button>
-                ))}
-                {zipLoading && <InlinePending label={t("details.parsingArchive")} />}
-                {zipPickError && <span className="text-xs text-rose-600">{zipPickError}</span>}
+                {zipPickError && <span className="text-xs text-destructive">{zipPickError}</span>}
               </div>
             )}
 
-            <div className={cn("min-h-0 flex-1 rounded-md border", flashSubtitleList && "animate-highlight-flash")}>
-              <ScrollArea className="h-full max-h-[48vh] xl:max-h-full">
+            <div className={cn("surface-subtle min-h-0 flex-1 rounded-xl", flashSubtitleList && "animate-highlight-flash")}>
+              <ScrollArea className="h-full min-h-0">
                 <Table>
                   {showSubtitleListCaption ? <TableCaption>{t("details.subtitleListCaption")}</TableCaption> : null}
                   <TableHeader>
@@ -536,23 +524,28 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                                 <Eye className="h-3.5 w-3.5" />
                                 {t("common.preview")}
                               </Button>
-                              <RowActionsMenu
-                                label={t("details.actionsForSubtitle", { name: subtitle.fileName })}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1 px-2"
                                 disabled={busy || rowBusy}
-                                triggerIcon={rowBusy ? <SpinnerIcon className="h-4 w-4" /> : undefined}
-                                items={[
-                                  {
-                                    label: replacePending ? t("details.replacing") : t("details.replaceSubtitle"),
-                                    onSelect: () => replaceInputRef.current[subtitle.id]?.click(),
-                                    disabled: busy || rowBusy
-                                  },
-                                  {
-                                    label: deletePending ? t("details.deleting") : t("details.deleteSubtitle"),
-                                    onSelect: () => setDeleteDialogSubtitleId(subtitle.id),
-                                    disabled: busy || rowBusy
-                                  }
-                                ]}
-                              />
+                                onClick={() => replaceInputRef.current[subtitle.id]?.click()}
+                              >
+                                {replacePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+                                {replacePending ? t("details.replacing") : t("details.replaceSubtitle")}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1 border-destructive/25 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                disabled={busy || rowBusy}
+                                onClick={() => setDeleteDialogSubtitleId(subtitle.id)}
+                              >
+                                {deletePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                {deletePending ? t("details.deleting") : t("details.deleteSubtitle")}
+                              </Button>
 
                               <DeleteSubtitleDialog
                                 open={deleteDialogSubtitleId === subtitle.id}

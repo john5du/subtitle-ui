@@ -301,7 +301,7 @@ export function TvSeasonBatchUploadWorkspace({
           <span className="text-xs text-muted-foreground">
             {t("batch.duplicateHint")}
           </span>
-          {batchError && <p className="text-xs text-rose-600">{batchError}</p>}
+          {batchError && <p className="text-xs text-destructive">{batchError}</p>}
           {batchPreparing && <InlinePending label={t("batch.preparing")} />}
           {uploading && <InlinePending label={uploadingMessage || t("batch.uploadingMapped")} />}
         </div>

@@ -87,45 +87,47 @@ export function MovieListPanel({
   return (
     <Card className="animate-fade-in-up flex h-full flex-col border bg-card">
       <CardHeader className="space-y-3 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle className="text-lg">{t("movie.listTitle")}</CardTitle>
-          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-1">
+            <CardTitle className="text-lg">{t("movie.listTitle")}</CardTitle>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:w-auto xl:justify-end">
             <Input
-              className="h-9 w-full min-w-0 sm:w-[240px]"
+              className="h-9 w-full min-w-0 sm:flex-1 xl:w-[260px] xl:flex-none"
               value={query}
               aria-label={t("movie.filterAria")}
               placeholder={t("movie.filterPlaceholder")}
               onChange={(event) => onQueryChange(event.target.value)}
             />
-            {viewMode === "card" && (
-              <Button type="button" variant="outline" size="sm" className="h-9 gap-2 px-3" onClick={onToggleYearSort}>
+            <div className="flex items-center gap-2 sm:ml-auto xl:ml-0">
+              <Button type="button" variant="outline" size="sm" className="h-9 min-w-[88px] gap-2 px-3" onClick={onToggleYearSort}>
                 {t("info.year")}
                 <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
               </Button>
-            )}
-            <LibraryViewToggle value={viewMode} onChange={onViewModeChange} />
+              <LibraryViewToggle value={viewMode} onChange={onViewModeChange} />
+            </div>
           </div>
         </div>
         {pending && <InlinePending label={t("movie.updatingResults")} />}
       </CardHeader>
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
-        <ScrollArea className={cn("min-h-0 flex-1 rounded-md border bg-background", pending && "animate-pulse-soft")}>
+        <ScrollArea className={cn("surface-subtle min-h-0 flex-1 rounded-xl", pending && "animate-pulse-soft")}>
           {viewMode === "list" ? (
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
                   <TableHead>{t("info.title")}</TableHead>
-                  <TableHead className="w-[90px]">
+                  <TableHead className="w-[96px]">
                     <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={onToggleYearSort}>
                       {t("info.year")}
                       <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
                     </button>
                   </TableHead>
-                  <TableHead className="w-[170px]">{t("movie.updatedTime")}</TableHead>
-                  <TableHead className="w-[100px] text-right">{t("movie.subtitles")}</TableHead>
-                  <TableHead className="w-[360px]">{t("movie.fileName")}</TableHead>
+                  <TableHead className="w-[156px]">{t("movie.updatedTime")}</TableHead>
+                  <TableHead className="w-[92px] text-right">{t("movie.subtitles")}</TableHead>
+                  <TableHead className="w-[320px]">{t("movie.fileName")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -145,13 +147,13 @@ export function MovieListPanel({
                     <TableCell className="w-[76px] py-2">
                       <PosterThumbnail src={video.posterUrl} />
                     </TableCell>
-                    <TableCell className="max-w-[240px] truncate font-medium" title={video.title}>
+                    <TableCell className="max-w-[260px] truncate font-medium" title={video.title}>
                       {video.title || "-"}
                     </TableCell>
                     <TableCell>{video.year || "-"}</TableCell>
                     <TableCell>{formatTime(video.updatedAt)}</TableCell>
                     <TableCell className="text-right">{video.subtitles.length}</TableCell>
-                    <TableCell className="max-w-[360px] truncate" title={video.fileName}>
+                    <TableCell className="max-w-[320px] truncate" title={video.fileName}>
                       {video.fileName || "-"}
                     </TableCell>
                   </TableRow>
@@ -172,7 +174,7 @@ export function MovieListPanel({
             </div>
           ) : (
             <div className="p-4">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {videos.map((video) => (
                   <MoviePosterCard
                     key={video.id}

@@ -416,7 +416,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-card">
       <div className="border-b border-border/70 bg-card/96 px-5 pb-4 pt-5 sm:px-6">
-        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-amber-700/80 dark:text-amber-300/80">
+        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-warning/80">
           {t("movie.drawerEyebrow")}
         </p>
         <div className="mt-3 flex flex-wrap items-start gap-3 pr-10">
@@ -499,7 +499,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                     </div>
                   </button>
 
-                  {zipPickError ? <p className="text-sm text-rose-600">{zipPickError}</p> : null}
+                  {zipPickError ? <p className="text-sm text-destructive">{zipPickError}</p> : null}
                 </section>
 
                 <section className="space-y-3">
@@ -585,7 +585,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="gap-1.5 border-rose-200/80 text-rose-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                                className="gap-1.5 border-destructive/25 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 disabled={busy || rowBusy}
                                 onClick={() => setDeleteDialogSubtitleId(subtitle.id)}
                               >

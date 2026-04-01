@@ -39,7 +39,7 @@ export function DashboardPanel({
           label={t("dashboard.lastScanVideos")}
           value={String(scanStatus?.videoCount ?? 0)}
           hint={scanStatus?.running ? t("dashboard.scanInProgress") : t("dashboard.scannerIdle")}
-          tone="emerald"
+          tone="success"
           pending={pending.scan || pending.bootstrapping}
           className="animate-fade-in-up"
         />
@@ -48,7 +48,7 @@ export function DashboardPanel({
           label={t("dashboard.discoveredDirs")}
           value={String(discoveredDirCount)}
           hint={t("dashboard.movieTvCount", { movie: movieCount, tv: tvSeriesCount })}
-          tone="blue"
+          tone="info"
           pending={pending.scan || pending.bootstrapping}
           className="animate-fade-in-up"
         />
@@ -57,19 +57,19 @@ export function DashboardPanel({
           label={t("dashboard.directoryWarnings")}
           value={String(directoryScan.errors.length)}
           hint={directoryScan.errors.length > 0 ? t("dashboard.needsReview") : t("dashboard.allClear")}
-          tone={directoryScan.errors.length > 0 ? "rose" : "amber"}
+          tone={directoryScan.errors.length > 0 ? "destructive" : "warning"}
           pending={pending.scan || pending.bootstrapping}
           className="animate-fade-in-up"
         />
       </div>
 
       <div className="grid gap-3 xl:grid-cols-[1.2fr_1fr]">
-        <Card className="animate-fade-in-up border bg-card">
+        <Card className="surface-panel animate-fade-in-up">
           <CardHeader className="p-4">
             <CardTitle className="text-lg">{t("dashboard.scanStatusTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 p-4 pt-0">
-            <div className="rounded-lg border bg-muted/20 p-3 text-sm">
+            <div className="surface-subtle rounded-xl p-3 text-sm">
               <p role="status" aria-live="polite" className="font-medium">
                 {message || t("status.ready")}
               </p>
@@ -80,7 +80,7 @@ export function DashboardPanel({
               {directoryScan.errors.length > 0 ? (
                 <ul className="space-y-2">
                   {directoryScan.errors.slice(0, 6).map((error) => (
-                    <li key={error} className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-200">
+                    <li key={error} className="rounded-md border border-warning/25 bg-warning/10 p-2 text-xs text-warning">
                       {error}
                     </li>
                   ))}
@@ -92,13 +92,13 @@ export function DashboardPanel({
           </CardContent>
         </Card>
 
-        <Card className="animate-fade-in-up border bg-card">
+        <Card className="surface-panel animate-fade-in-up">
           <CardHeader className="flex flex-row items-center justify-between p-4">
             <CardTitle className="text-lg">{t("dashboard.recentOperationsTitle")}</CardTitle>
             <Badge variant="secondary">{pending.logs ? t("logs.refreshing") : t("dashboard.recentCount", { count: recentLogs.length })}</Badge>
           </CardHeader>
           <CardContent className="relative p-4 pt-0">
-            <ScrollArea className={cn("h-[300px] rounded-md border bg-background", pending.logs && "animate-pulse-soft")}>
+            <ScrollArea className={cn("surface-subtle h-[300px] rounded-xl", pending.logs && "animate-pulse-soft")}>
               <ul className="divide-y divide-border">
                 {recentLogs.map((log) => (
                   <li key={log.id} className="animate-fade-in-up space-y-1 p-3 text-xs">

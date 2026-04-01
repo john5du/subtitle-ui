@@ -19,6 +19,12 @@
   --accent-foreground: 217 44% 16%;
   --destructive: 5 78% 50%;
   --destructive-foreground: 210 40% 98%;
+  --success: 160 84% 34%;
+  --success-foreground: 156 73% 96%;
+  --warning: 35 92% 46%;
+  --warning-foreground: 32 88% 14%;
+  --info: 204 94% 44%;
+  --info-foreground: 210 40% 98%;
   --border: 210 28% 82%;
   --input: 210 28% 82%;
   --ring: 193 95% 40%;
@@ -47,6 +53,12 @@
   --accent-foreground: 210 30% 94%;
   --destructive: 5 74% 52%;
   --destructive-foreground: 210 40% 98%;
+  --success: 162 72% 46%;
+  --success-foreground: 160 100% 8%;
+  --warning: 38 92% 58%;
+  --warning-foreground: 30 94% 11%;
+  --info: 202 98% 62%;
+  --info-foreground: 211 100% 9%;
   --border: 218 18% 27%;
   --input: 218 18% 27%;
   --ring: 193 92% 46%;
@@ -236,6 +248,53 @@ body {
       color var(--motion-fast) var(--motion-ease-soft),
       opacity var(--motion-fast) var(--motion-ease-soft),
       box-shadow var(--motion-fast) var(--motion-ease-soft);
+  }
+
+  .surface-panel {
+    border-width: 1px;
+    border-color: hsl(var(--border) / 0.75);
+    background-color: hsl(var(--card) / 0.92);
+    box-shadow: 0 18px 42px -30px rgba(15, 23, 42, 0.42);
+  }
+
+  .surface-subtle {
+    border-width: 1px;
+    border-color: hsl(var(--border) / 0.7);
+    background-color: hsl(var(--background) / 0.72);
+    box-shadow: 0 14px 32px -26px rgba(15, 23, 42, 0.24);
+  }
+
+  .surface-hero {
+    border-width: 1px;
+    border-color: hsl(var(--primary) / 0.2);
+    background-color: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+    box-shadow: 0 18px 38px -24px hsl(var(--primary) / 0.42);
+  }
+
+  .surface-status-success {
+    border-color: hsl(var(--success) / 0.2);
+    background-color: hsl(var(--success) / 0.12);
+    color: hsl(var(--success));
+  }
+
+  .surface-status-warning {
+    border-color: hsl(var(--warning) / 0.25);
+    background-color: hsl(var(--warning) / 0.12);
+    color: hsl(var(--warning));
+  }
+
+  .surface-status-info {
+    border-color: hsl(var(--info) / 0.2);
+    background-color: hsl(var(--info) / 0.12);
+    color: hsl(var(--info));
+  }
+
+  @supports (backdrop-filter: blur(24px)) {
+    .surface-panel {
+      background-color: hsl(var(--card) / 0.82);
+      backdrop-filter: blur(24px);
+    }
   }
 
   .text-display {

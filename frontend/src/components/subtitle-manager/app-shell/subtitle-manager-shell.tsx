@@ -56,13 +56,13 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
   }
 
   return (
-    <div className="relative h-full w-full px-3 py-3 md:px-6 md:py-5">
+    <div className="relative h-full w-full px-3 py-3 sm:px-4 md:px-6 md:py-5">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-20 -top-24 h-72 w-72 rounded-full bg-cyan-500/12 blur-3xl" />
-        <div className="absolute -right-20 bottom-0 h-80 w-80 rounded-full bg-orange-500/12 blur-3xl" />
+        <div className="absolute -left-20 -top-24 h-72 w-72 rounded-full bg-primary/12 blur-3xl" />
+        <div className="absolute -right-20 bottom-0 h-80 w-80 rounded-full bg-warning/10 blur-3xl" />
       </div>
-      <div className="mx-auto grid h-full w-full max-w-[1620px] gap-4 lg:grid-cols-[268px_minmax(0,1fr)]">
-        <Card className="animate-fade-in-up border border-border/75 bg-card/90 lg:h-full">
+      <div className="mx-auto grid h-full w-full max-w-[1620px] gap-4 xl:gap-5 lg:grid-cols-[minmax(224px,252px)_minmax(0,1fr)] xl:grid-cols-[minmax(236px,272px)_minmax(0,1fr)]">
+        <Card className="surface-panel animate-fade-in-up lg:h-full">
           <CardContent className="flex h-full flex-col gap-5 p-5">
             <div>
               <Image
@@ -103,7 +103,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
               <Badge variant="outline" className={cn("surface-transition flex w-full items-center justify-center rounded-xl px-3 py-1.5 text-center text-xs", shell.statusBadgeClass)}>
                 {shell.statusBadgeText}
               </Badge>
-              <div className="flex items-center justify-center gap-2 rounded-xl border border-border/70 bg-background/65 p-1.5">
+              <div className="surface-subtle flex flex-wrap items-center justify-center gap-2 rounded-xl p-1.5 sm:flex-nowrap">
                 <LocaleSelect />
                 <ThemeModeSelect />
                 <Button
@@ -131,7 +131,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
         </Card>
 
         <div className="min-h-0 min-w-0 lg:flex lg:h-full lg:flex-col">
-          <div key={shell.activeTab} className="animate-fade-in-up min-h-0 rounded-2xl border border-border/65 bg-card/55 p-2 shadow-[0_24px_64px_-44px_rgba(15,23,42,0.7)] lg:flex-1">
+          <div key={shell.activeTab} className="surface-panel animate-fade-in-up min-h-0 rounded-2xl p-2 sm:p-3 lg:flex-1">
             {shell.activeTab === "dashboard" && (
               <div className="lg:h-full lg:overflow-auto lg:pr-1">
                 <DashboardPanel
@@ -146,7 +146,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             )}
 
             {shell.activeTab === "movie" && (
-              <div className="min-h-[430px] lg:h-full">
+              <div className="min-h-[360px] lg:h-full">
                 <MovieListPanel
                   query={movie.query}
                   onQueryChange={movie.setQuery}
@@ -166,7 +166,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             )}
 
             {shell.activeTab === "tv" && (
-              <div className="min-h-[520px] lg:h-full">
+              <div className="min-h-[400px] lg:h-full">
                 <TvSeriesListPanel
                   query={tv.query}
                   onQueryChange={tv.setQuery}
@@ -189,7 +189,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             )}
 
             {shell.activeTab === "logs" && (
-              <div className="min-h-[420px] lg:h-full">
+              <div className="min-h-[340px] lg:h-full">
                 <LogsPanel logs={logs.items} pending={logs.pending} formatTime={logs.formatTime} />
               </div>
             )}
@@ -223,7 +223,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
         open={dialogs.tvDrawerOpen}
         onOpenChange={handleTvDrawerOpenChange}
       >
-        <DialogDrawerContent className="p-0 sm:w-[min(1280px,96vw)] [&>button]:right-5 [&>button]:top-5 [&>button]:z-50">
+        <DialogDrawerContent className="p-0 xl:w-[min(1240px,92vw)] [&>button]:right-5 [&>button]:top-5 [&>button]:z-50">
           <TvSubtitleDrawer
             selectedSeries={tv.selectedSeries}
             selectedSeason={tv.selectedSeason}

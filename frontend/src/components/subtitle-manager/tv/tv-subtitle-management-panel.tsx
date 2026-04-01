@@ -174,7 +174,6 @@ export function TvSubtitleManagementPanel({
         uploadingMessage={uploadingMessage}
         subtitleAction={subtitleAction}
         showSearchLinks={true}
-        inlineSearchLinks={true}
         searchKeyword={searchKeyword}
         showMediaType={false}
         showMetadata={false}
