@@ -58,12 +58,16 @@ git push origin v0.1.4
 - `DELETE /api/videos/{videoId}/subtitles/{subtitleId}`
 - `GET /api/logs?limit=30`
 
-## 本地运行
+## 本地运行（macOS）
 
-### 一键启动（Windows PowerShell）
+依赖要求：
+- macOS 自带 `bash` 与 `lsof`
+- 本地已安装 `go`、`node`、`npm`
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev-up.ps1
+### 一键启动
+
+```bash
+./scripts/dev-up.sh
 ```
 
 - 前端：`http://localhost:3300`
@@ -72,23 +76,23 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-up.ps1
 
 ### 一键停止
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev-down.ps1
+```bash
+./scripts/dev-down.sh
 ```
 
 - `pid` 文件丢失时可按端口兜底停止：
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev-down.ps1 -KillByPort
+```bash
+./scripts/dev-down.sh --kill-by-port
 ```
 
 ### 一键重启
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev-restart.ps1
+```bash
+./scripts/dev-restart.sh
 ```
 
-- `dev-restart` 会先执行 `dev-down`（含 `-KillByPort` 兜底），再执行 `dev-up`。
+- `dev-restart` 会先执行 `dev-down --kill-by-port`，再执行 `dev-up`。
 
 ### 手动启动
 
@@ -111,7 +115,16 @@ npm run dev
 4. 可选（本地开发时指定非默认 API 主机）：
 
 ```bash
-set NEXT_PUBLIC_API_BASE=http://localhost:9307
+export NEXT_PUBLIC_API_BASE=http://localhost:9307
+cd frontend
+npm run dev
+```
+
+或者：
+
+```bash
+cd frontend
+NEXT_PUBLIC_API_BASE=http://localhost:9307 npm run dev
 ```
 
 ## 前端构建输出（用于 Go 静态托管）
@@ -201,4 +214,3 @@ docker compose up -d
 - 上传入口支持字幕文件与归档文件（`.zip`、`.7z`、`.rar`）；归档内仅处理字幕格式：`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`。
 - 扫描器当前读取 `videoName.nfo` 和 `movie.nfo`。
 - 本项目尚未达到生产级硬化。
-

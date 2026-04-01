@@ -58,12 +58,16 @@ git push origin v0.1.4
 - `DELETE /api/videos/{videoId}/subtitles/{subtitleId}`
 - `GET /api/logs?limit=30`
 
-## Local run
+## Local run (macOS)
 
-### One-click startup (Windows PowerShell)
+Requirements:
+- macOS with `bash` and `lsof`
+- Local `go`, `node`, and `npm`
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev-up.ps1
+### One-click startup
+
+```bash
+./scripts/dev-up.sh
 ```
 
 - Frontend: `http://localhost:3300`
@@ -72,23 +76,23 @@ powershell -ExecutionPolicy Bypass -File .\scripts\dev-up.ps1
 
 ### One-click stop
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev-down.ps1
+```bash
+./scripts/dev-down.sh
 ```
 
 - Optional fallback by port (when pid files are missing):
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev-down.ps1 -KillByPort
+```bash
+./scripts/dev-down.sh --kill-by-port
 ```
 
 ### One-click restart
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev-restart.ps1
+```bash
+./scripts/dev-restart.sh
 ```
 
-- `dev-restart` will first run `dev-down` (with `-KillByPort` fallback), then run `dev-up`.
+- `dev-restart` first runs `dev-down --kill-by-port`, then runs `dev-up`.
 
 ### Manual startup
 
@@ -111,7 +115,16 @@ npm run dev
 4. Optional (for local dev against non-default API host):
 
 ```bash
-set NEXT_PUBLIC_API_BASE=http://localhost:9307
+export NEXT_PUBLIC_API_BASE=http://localhost:9307
+cd frontend
+npm run dev
+```
+
+Or:
+
+```bash
+cd frontend
+NEXT_PUBLIC_API_BASE=http://localhost:9307 npm run dev
 ```
 
 ## Frontend build output (for Go static hosting)
@@ -201,4 +214,3 @@ docker compose up -d
 - Upload entry points accept subtitle files and archives (`.zip`, `.7z`, `.rar`); only subtitle files (`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`) inside archives are processed.
 - Scanner currently reads `videoName.nfo` and `movie.nfo`.
 - This project is not production hardened.
-
