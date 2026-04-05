@@ -1,9 +1,4 @@
-import dynamic from "next/dynamic";
-
-const SubtitleManagerApp = dynamic(
-  () => import("@/components/subtitle-manager-app").then((module) => module.SubtitleManagerApp),
-  { ssr: false }
-);
+import { SubtitleManagerApp } from "@/components/subtitle-manager-app";
 
 export default function Page() {
   return <SubtitleManagerApp />;
