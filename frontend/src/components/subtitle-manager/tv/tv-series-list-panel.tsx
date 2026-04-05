@@ -46,10 +46,10 @@ function TvSeriesPosterCard({
   const { t } = useI18n();
 
   return (
-    <div className="flex w-full self-start flex-col rounded-[1.35rem] border border-border/70 bg-card shadow-sm">
+    <div className="flex w-full min-w-0 self-start flex-col rounded-[1.35rem] border border-border/70 bg-card shadow-sm">
       <button
         type="button"
-        className="surface-transition flex flex-col text-left disabled:cursor-not-allowed disabled:opacity-65"
+        className="surface-transition flex w-full min-w-0 flex-col text-left disabled:cursor-not-allowed disabled:opacity-65"
         aria-label={row.title || t("nav.tv")}
         disabled={operationLocked}
         onClick={() => onOpenManager(row)}
