@@ -403,7 +403,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-0">
         {!selectedVideo ? (
-          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center border-dashed border-[rgba(255,255,255,0.1)] p-10 text-center text-sm text-muted-foreground">
             {emptyText}
           </div>
         ) : (
@@ -411,7 +411,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
             {showMetaSection
               ? compactMeta
                 ? (
-                    <div className="surface-subtle space-y-3 rounded-xl p-3">
+                    <div className="surface-subtle space-y-3 p-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="max-w-full truncate text-sm font-semibold sm:max-w-[60%]">
                           {selectedVideo.title || selectedVideo.fileName || "-"}
@@ -443,7 +443,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
               onChange={onUploadFileChange}
             />
             {hasActionToolbar && (
-              <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-background/60 p-3">
+              <div className="flex flex-col gap-3 border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {showPrimaryUploadButton && (
                     <Button
@@ -475,7 +475,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
               </div>
             )}
 
-            <div className={cn("surface-subtle min-h-0 flex-1 rounded-xl", flashSubtitleList && "animate-highlight-flash")}>
+            <div className={cn("surface-subtle min-h-0 flex-1", flashSubtitleList && "animate-highlight-flash")}>
               <ScrollArea className="h-full min-h-0">
                 <Table>
                   {showSubtitleListCaption ? <TableCaption>{t("details.subtitleListCaption")}</TableCaption> : null}
@@ -539,7 +539,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-8 gap-1 border-destructive/25 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                className="h-8 gap-1 border-red-500/25 px-2 text-red-400 hover:bg-red-500/10 hover:text-red-400"
                                 disabled={busy || rowBusy}
                                 onClick={() => setDeleteDialogSubtitleId(subtitle.id)}
                               >

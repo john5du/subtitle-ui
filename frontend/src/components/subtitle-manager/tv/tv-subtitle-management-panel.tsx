@@ -113,7 +113,7 @@ export function TvSubtitleManagementPanel({
       </CardHeader>
 
       <CardContent className="relative min-h-0 flex-1 p-4 pt-0">
-        <ScrollArea className={cn("h-full rounded-md border bg-background", episodesPending && "animate-pulse-soft")}>
+        <ScrollArea className={cn("h-full border bg-background", episodesPending && "animate-pulse-soft")}>
           <ul className="space-y-2 p-2">
             {videos.map((video) => {
               const active = selectedVideoId === video.id;
@@ -127,10 +127,10 @@ export function TvSubtitleManagementPanel({
                     onClick={() => handleEpisodeSelect(video)}
                     disabled={busy || episodesPending}
                     className={cn(
-                      "surface-transition w-full rounded-md border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                      "surface-transition w-full border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
                       active
-                        ? "border-primary/70 bg-primary/10 shadow-[inset_3px_0_0_0_rgba(14,165,233,0.6)]"
-                        : "border bg-background hover:bg-accent",
+                        ? "border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] shadow-[inset_3px_0_0_0_rgba(255,255,255,0.3)]"
+                        : "border-[rgba(255,255,255,0.1)] bg-transparent hover:bg-[rgba(255,255,255,0.05)]",
                       itemBusy && "animate-pulse-soft"
                     )}
                     aria-pressed={active}
@@ -144,7 +144,7 @@ export function TvSubtitleManagementPanel({
             })}
 
             {videos.length === 0 && (
-              <li className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+              <li className="border-dashed border border-[rgba(255,255,255,0.1)] p-6 text-center text-sm text-muted-foreground">
                 {t("tv.noEpisodesInSeason", { season: selectedSeasonLabel })}
               </li>
             )}

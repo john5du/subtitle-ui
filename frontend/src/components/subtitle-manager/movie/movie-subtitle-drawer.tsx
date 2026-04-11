@@ -416,7 +416,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-card">
       <div className="border-b border-border/70 bg-card/96 px-5 pb-4 pt-5 sm:px-6">
-        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-warning/80">
+        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-[rgba(255,255,255,0.5)]">
           {t("movie.drawerEyebrow")}
         </p>
         <div className="mt-3 flex flex-wrap items-start gap-3 pr-10">
@@ -440,7 +440,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
             ) : null}
           </div>
           {selectedVideo ? (
-            <Badge variant="outline" className="border-primary/20 bg-primary/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-primary">
+            <Badge variant="outline" className="border-[rgba(255,255,255,0.2)] bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
               {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
             </Badge>
           ) : null}
@@ -449,7 +449,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
       {!selectedVideo ? (
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-8">
-          <div className="w-full rounded-[1.5rem] border border-dashed border-border/80 bg-background/70 px-6 py-12 text-center text-sm text-muted-foreground">
+          <div className="w-full border border-dashed border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center text-sm text-muted-foreground">
             {emptyText}
           </div>
         </div>
@@ -477,10 +477,10 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                     type="button"
                     aria-label={t("movie.drawerDropAria")}
                     className={cn(
-                      "surface-transition flex w-full flex-col items-center justify-center gap-4 rounded-[1.5rem] border border-dashed px-6 py-8 text-center",
+                      "surface-transition flex w-full flex-col items-center justify-center gap-4 border border-dashed px-6 py-8 text-center",
                       dragActive
-                        ? "border-primary bg-primary/10 shadow-[0_16px_40px_-24px_hsl(var(--primary))]"
-                        : "border-border/80 bg-background/72 hover:border-primary/45 hover:bg-accent/35",
+                        ? "border-[rgba(255,255,255,0.3)] bg-[rgba(255,255,255,0.05)]"
+                        : "border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.05)]",
                       (busy || zipLoading) && "cursor-not-allowed opacity-65"
                     )}
                     disabled={busy || zipLoading}
@@ -490,7 +490,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                     onDragLeave={handleDropzoneDragLeave}
                     onDrop={handleDropzoneDrop}
                   >
-                    <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-[0_20px_40px_-26px_hsl(var(--primary))]">
+                    <span className="flex h-16 w-16 items-center justify-center border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] text-white">
                       {uploadPending || zipLoading ? <SpinnerIcon className="h-7 w-7" /> : <UploadCloud className="h-7 w-7" />}
                     </span>
                     <div className="space-y-1">
@@ -510,7 +510,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
                   <div className="space-y-3">
                     {selectedVideo.subtitles.length === 0 ? (
-                      <div className="rounded-[1.35rem] border border-dashed border-border/80 bg-background/65 px-5 py-8 text-center text-sm text-muted-foreground">
+                      <div className="border-dashed border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] px-5 py-8 text-center text-sm text-muted-foreground">
                         {t("movie.drawerEmptyRepository")}
                       </div>
                     ) : (
@@ -523,12 +523,12 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                           <article
                             key={subtitle.id}
                             className={cn(
-                              "rounded-[1.35rem] border border-border/75 bg-background/75 p-4 shadow-[0_18px_36px_-30px_rgba(15,23,42,0.45)]",
+                              "border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] p-4",
                               rowBusy && "animate-pulse-soft"
                             )}
                           >
                             <div className="flex flex-wrap items-start gap-3">
-                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-card text-muted-foreground">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.5)]">
                                 <FileArchive className="h-5 w-5" />
                               </div>
 
@@ -585,7 +585,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="gap-1.5 border-destructive/25 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                className="gap-1.5 border-red-500/25 text-red-400 hover:bg-red-500/10 hover:text-red-400"
                                 disabled={busy || rowBusy}
                                 onClick={() => setDeleteDialogSubtitleId(subtitle.id)}
                               >

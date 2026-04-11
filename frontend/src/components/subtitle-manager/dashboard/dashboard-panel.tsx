@@ -69,7 +69,7 @@ export function DashboardPanel({
             <CardTitle className="text-lg">{t("dashboard.scanStatusTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 p-4 pt-0">
-            <div className="surface-subtle rounded-xl p-3 text-sm">
+            <div className="surface-subtle p-3 text-sm">
               <p role="status" aria-live="polite" className="font-medium">
                 {message || t("status.ready")}
               </p>
@@ -80,7 +80,7 @@ export function DashboardPanel({
               {directoryScan.errors.length > 0 ? (
                 <ul className="space-y-2">
                   {directoryScan.errors.slice(0, 6).map((error) => (
-                    <li key={error} className="rounded-md border border-warning/25 bg-warning/10 p-2 text-xs text-warning">
+                    <li key={error} className="border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] p-2 text-xs text-[rgba(255,255,255,0.7)]">
                       {error}
                     </li>
                   ))}
@@ -98,7 +98,7 @@ export function DashboardPanel({
             <Badge variant="secondary">{pending.logs ? t("logs.refreshing") : t("dashboard.recentCount", { count: recentLogs.length })}</Badge>
           </CardHeader>
           <CardContent className="relative p-4 pt-0">
-            <ScrollArea className={cn("surface-subtle h-[300px] rounded-xl", pending.logs && "animate-pulse-soft")}>
+            <ScrollArea className={cn("surface-subtle h-[300px]", pending.logs && "animate-pulse-soft")}>
               <ul className="divide-y divide-border">
                 {recentLogs.map((log) => (
                   <li key={log.id} className="animate-fade-in-up space-y-1 p-3 text-xs">

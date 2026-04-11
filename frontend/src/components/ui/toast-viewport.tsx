@@ -10,11 +10,11 @@ type ToastItem = AppToastEventDetail;
 function toneClass(level: ToastItem["level"]) {
   switch (level) {
     case "success":
-      return "border-emerald-300/80 bg-emerald-50 text-emerald-800 dark:border-emerald-800/80 dark:bg-emerald-950/50 dark:text-emerald-200";
+      return "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.8)]";
     case "info":
-      return "border-blue-300/80 bg-blue-50 text-blue-800 dark:border-blue-800/80 dark:bg-blue-950/50 dark:text-blue-200";
+      return "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.8)]";
     default:
-      return "border-rose-300/80 bg-rose-50 text-rose-800 dark:border-rose-800/80 dark:bg-rose-950/50 dark:text-rose-200";
+      return "border-red-500/30 bg-red-500/10 text-red-300";
   }
 }
 
@@ -51,20 +51,20 @@ export function ToastViewport() {
           role="status"
           aria-live="polite"
           className={cn(
-            "animate-scale-in pointer-events-auto overflow-hidden rounded-2xl border px-3 py-2 text-sm shadow-[0_20px_40px_-24px_rgba(15,23,42,0.65)] backdrop-blur-lg",
+            "animate-scale-in pointer-events-auto overflow-hidden border px-3 py-2 text-sm",
             toneClass(toast.level)
           )}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
-              {toast.title && <p className="font-semibold">{toast.title}</p>}
+              {toast.title && <p className="font-mono text-xs uppercase tracking-[0.0625em]">{toast.title}</p>}
               <p className={cn("break-words", toast.title ? "text-sm" : "font-medium")}>{toast.message}</p>
-              {toast.detail && <p className="break-words text-xs opacity-80">{toast.detail}</p>}
+              {toast.detail && <p className="break-words text-xs opacity-60">{toast.detail}</p>}
             </div>
           </div>
-          <div className="mt-2 h-1 overflow-hidden rounded-full bg-black/8 dark:bg-white/10">
+          <div className="mt-2 h-1 overflow-hidden bg-[rgba(255,255,255,0.1)]">
             <div
-              className="toast-progress h-full origin-left rounded-full bg-current/70"
+              className="toast-progress h-full origin-left bg-current/70"
               style={{ animationDuration: `${Math.max(1500, toast.durationMs ?? 4200)}ms` }}
             />
           </div>

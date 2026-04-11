@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -6,7 +6,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   <div
     ref={ref}
     className={cn(
-      "relative rounded-2xl border border-border/80 bg-card/92 text-card-foreground shadow-[0_14px_44px_-28px_rgba(15,23,42,0.48)] supports-[backdrop-filter]:bg-card/82 supports-[backdrop-filter]:backdrop-blur-xl",
+      "border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] text-card-foreground",
       className
     )}
     {...props}
@@ -23,7 +23,7 @@ const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HT
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn("text-xl font-semibold leading-none tracking-tight md:text-2xl", className)}
+      className={cn("text-xl font-normal leading-none tracking-tight md:text-2xl", className)}
       {...props}
     />
   )

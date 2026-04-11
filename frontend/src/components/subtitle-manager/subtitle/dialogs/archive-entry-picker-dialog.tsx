@@ -67,7 +67,7 @@ export function ArchiveEntryPickerDialog({
 
         <div className="space-y-2">
           <p className="text-sm font-semibold">{t("details.archiveSubtitleFiles")}</p>
-          <div className={cn("max-h-[55vh] overflow-auto rounded-md border", zipLoading && "animate-pulse-soft")}>
+          <div className={cn("max-h-[55vh] overflow-auto border border-[rgba(255,255,255,0.1)]", zipLoading && "animate-pulse-soft")}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -83,7 +83,7 @@ export function ArchiveEntryPickerDialog({
                   return (
                     <TableRow
                       key={entry.id}
-                      className={cn(checked && "bg-accent/40")}
+                      className={cn(checked && "bg-[rgba(255,255,255,0.08)]")}
                       onClick={() => {
                         if (busy || uploading || zipLoading) {
                           return;

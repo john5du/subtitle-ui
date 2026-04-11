@@ -13,7 +13,7 @@ import { DashboardPanel } from "../dashboard/dashboard-panel";
 import { LogsPanel } from "../logs/logs-panel";
 import { MovieListPanel } from "../movie/movie-list-panel";
 import { MovieSubtitleDrawer } from "../movie/movie-subtitle-drawer";
-import { LocaleSelect, ThemeModeSelect } from "../shared/settings-controls";
+import { LocaleSelect } from "../shared/settings-controls";
 import { SpinnerIcon } from "../shared/pending-state";
 import { UploadBlockingOverlay } from "../shared/upload-blocking-overlay";
 import { TvSubtitleDrawer } from "../tv/tv-subtitle-drawer";
@@ -57,10 +57,6 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
 
   return (
     <div className="relative h-full w-full px-3 py-3 sm:px-4 md:px-6 md:py-5">
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-20 -top-24 h-72 w-72 rounded-full bg-primary/12 blur-3xl" />
-        <div className="absolute -right-20 bottom-0 h-80 w-80 rounded-full bg-warning/10 blur-3xl" />
-      </div>
       <div className="mx-auto grid h-full w-full max-w-[1620px] gap-4 xl:gap-5 lg:grid-cols-[minmax(224px,252px)_minmax(0,1fr)] xl:grid-cols-[minmax(236px,272px)_minmax(0,1fr)]">
         <Card className="surface-panel animate-fade-in-up lg:h-full">
           <CardContent className="flex h-full flex-col gap-5 p-5">
@@ -71,9 +67,9 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                 aria-hidden
                 width={56}
                 height={56}
-                className="mb-2 h-14 w-14 rounded-2xl border border-primary/25 bg-background/80 p-2 shadow-[0_14px_28px_-20px_rgba(8,145,178,0.85)]"
+                className="mb-2 h-14 w-14 border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] p-2"
               />
-              <p className="text-display text-sm font-semibold uppercase tracking-[0.26em] text-primary/80">Subtitle UI</p>
+              <p className="text-display text-sm font-semibold uppercase tracking-[0.26em] text-[rgba(255,255,255,0.5)]">Subtitle UI</p>
               <p className="mt-2 max-w-[22ch] text-xs leading-relaxed text-muted-foreground">{t("sidebar.tagline")}</p>
             </div>
 
@@ -83,16 +79,16 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   key={item.key}
                   type="button"
                   className={cn(
-                    "group surface-transition flex items-center rounded-xl border px-3.5 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                    "group surface-transition flex items-center border px-3.5 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-60",
                     shell.activeTab === item.key
-                      ? "border-primary/45 bg-gradient-to-r from-primary/16 to-primary/8 text-foreground shadow-[0_14px_32px_-24px_hsl(var(--primary))]"
-                      : "border-transparent text-muted-foreground hover:border-border/80 hover:bg-accent/70 hover:text-foreground"
+                      ? "border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] text-foreground"
+                      : "border-transparent text-[rgba(255,255,255,0.5)] hover:border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.03)] hover:text-foreground"
                   )}
                   disabled={subtitleActions.uploading || model.dashboard.pending.tabSwitch}
                   onClick={() => void shell.switchTab(item.key)}
                 >
                   <span className="flex items-center gap-3 text-sm font-semibold">
-                    <span className={cn("text-primary/70 group-hover:text-primary", shell.activeTab === item.key && "text-primary")}>{item.icon}</span>
+                    <span className={cn("text-[rgba(255,255,255,0.3)] group-hover:text-white", shell.activeTab === item.key && "text-white")}>{item.icon}</span>
                     {item.label}
                   </span>
                 </button>
@@ -100,18 +96,17 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             </div>
 
             <div className="mt-auto space-y-3">
-              <Badge variant="outline" className={cn("surface-transition flex w-full items-center justify-center rounded-xl px-3 py-1.5 text-center text-xs", shell.statusBadgeClass)}>
+              <Badge variant="outline" className={cn("surface-transition flex w-full items-center justify-center px-3 py-1.5 text-center text-xs", shell.statusBadgeClass)}>
                 {shell.statusBadgeText}
               </Badge>
-              <div className="surface-subtle flex flex-wrap items-center justify-center gap-2 rounded-xl p-1.5 sm:flex-nowrap">
+              <div className="surface-subtle flex flex-wrap items-center justify-center gap-2 p-1.5 sm:flex-nowrap">
                 <LocaleSelect />
-                <ThemeModeSelect />
                 <Button
                   type="button"
                   size="icon"
                   onClick={() => void shell.triggerScan()}
                   disabled={shell.operationLocked}
-                  className="h-10 w-10 rounded-xl"
+                  className="h-10 w-10"
                 >
                   {shell.scanPending ? <SpinnerIcon className="h-5 w-5" /> : <Search className="h-5 w-5" />}
                 </Button>
@@ -121,7 +116,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   size="icon"
                   onClick={() => void shell.refreshActiveTab()}
                   disabled={shell.operationLocked}
-                  className="h-10 w-10 rounded-xl"
+                  className="h-10 w-10"
                 >
                   {shell.refreshPending ? <SpinnerIcon className="h-5 w-5" /> : <RefreshCw className="h-5 w-5" />}
                 </Button>
@@ -131,7 +126,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
         </Card>
 
         <div className="min-h-0 min-w-0 lg:flex lg:h-full lg:flex-col">
-          <div key={shell.activeTab} className="surface-panel animate-fade-in-up min-h-0 rounded-2xl p-2 sm:p-3 lg:flex-1">
+          <div key={shell.activeTab} className="surface-panel animate-fade-in-up min-h-0 p-2 sm:p-3 lg:flex-1">
             {shell.activeTab === "dashboard" && (
               <div className="lg:h-full lg:overflow-auto lg:pr-1">
                 <DashboardPanel

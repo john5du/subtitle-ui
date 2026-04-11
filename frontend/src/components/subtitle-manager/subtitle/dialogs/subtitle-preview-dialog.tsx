@@ -31,12 +31,12 @@ export function SubtitlePreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none sm:h-[88vh] sm:max-h-[88vh] sm:w-[min(1100px,96vw)] sm:rounded-lg">
+      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none sm:h-[88vh] sm:max-h-[88vh] sm:w-[min(1100px,96vw)]">
         <DialogHeader>
           <DialogTitle>{t("details.previewTitle", { name: previewTitle || "-" })}</DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-background/70 p-3">
+        <div className="min-h-0 flex-1 overflow-auto border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] p-3">
           {previewStatus === "loading" && (
             <div className="flex h-full items-center justify-center">
               <InlinePending label={t("details.previewLoading")} />
@@ -69,7 +69,7 @@ export function SubtitlePreviewDialog({
                   </span>
                 )}
               </div>
-              <pre className="overflow-auto whitespace-pre-wrap break-words rounded-md border bg-background p-3 font-mono text-xs leading-5">
+              <pre className="overflow-auto whitespace-pre-wrap break-words border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] p-3 font-mono text-xs leading-5">
                 {previewContent}
               </pre>
             </div>

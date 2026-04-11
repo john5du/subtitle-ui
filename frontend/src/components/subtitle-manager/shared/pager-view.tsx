@@ -15,7 +15,7 @@ export function PagerView({
   const totalPages = Math.max(1, pager.totalPages);
 
   return (
-    <div className="surface-subtle flex flex-col gap-3 rounded-xl px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="surface-subtle flex flex-col gap-3 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
       <Button type="button" variant="outline" size="sm" className="sm:min-w-[92px]" disabled={disabled || pager.page <= 1} onClick={() => onSetPage(pager.page - 1)}>
         {t("pager.prev")}
       </Button>

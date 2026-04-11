@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
@@ -18,7 +18,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-slate-950/54 backdrop-blur-[2px] data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast",
+      "fixed inset-0 z-50 bg-[rgba(0,0,0,0.7)] data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast",
       className
     )}
     {...props}
@@ -36,13 +36,13 @@ const DialogContent = React.forwardRef<
       ref={ref}
       data-dialog-content="true"
       className={cn(
-        "data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/80 bg-card/95 p-6 shadow-2xl supports-[backdrop-filter]:backdrop-blur-xl will-change-[opacity] sm:rounded-2xl",
+        "data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-[rgba(255,255,255,0.1)] bg-[#1f2228] p-6 will-change-[opacity]",
         className
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg border border-border/70 bg-background/70 p-1.5 opacity-90 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
+      <DialogPrimitive.Close className="absolute right-4 top-4 border border-[rgba(255,255,255,0.1)] bg-transparent p-1.5 text-[rgba(255,255,255,0.5)] transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -61,13 +61,13 @@ const DialogDrawerContent = React.forwardRef<
       ref={ref}
       data-dialog-content="true"
       className={cn(
-        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden border-l border-border/80 bg-card/95 shadow-2xl supports-[backdrop-filter]:backdrop-blur-xl data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right sm:w-[min(840px,94vw)] xl:w-[min(1040px,88vw)] sm:rounded-l-[2rem]",
+        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden border-l border-[rgba(255,255,255,0.1)] bg-[#1f2228] data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right sm:w-[min(840px,94vw)] xl:w-[min(1040px,88vw)]",
         className
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg border border-border/70 bg-background/72 p-1.5 opacity-90 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
+      <DialogPrimitive.Close className="absolute right-4 top-4 border border-[rgba(255,255,255,0.1)] bg-transparent p-1.5 text-[rgba(255,255,255,0.5)] transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -90,7 +90,7 @@ const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title ref={ref} className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props} />
+  <DialogPrimitive.Title ref={ref} className={cn("text-lg font-normal leading-none tracking-tight", className)} {...props} />
 ));
 DialogTitle.displayName = DialogPrimitive.Title.displayName;
 

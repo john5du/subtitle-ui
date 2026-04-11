@@ -5,9 +5,9 @@ import { SpinnerIcon } from "./pending-state";
 export function UploadBlockingOverlay({ message }: { message: string }) {
   const { t } = useI18n();
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-background/78 backdrop-blur-sm">
-      <div className="animate-scale-in mx-4 flex min-w-[280px] max-w-[420px] flex-col items-center gap-3 rounded-2xl border bg-card px-6 py-7 text-center shadow-2xl">
-        <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(31,34,40,0.85)]">
+      <div className="animate-scale-in mx-4 flex min-w-[280px] max-w-[420px] flex-col items-center gap-3 border bg-card px-6 py-7 text-center">
+        <span className="inline-flex h-12 w-12 items-center justify-center border border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] text-white">
           <SpinnerIcon className="h-5 w-5" />
         </span>
         <div className="space-y-1">

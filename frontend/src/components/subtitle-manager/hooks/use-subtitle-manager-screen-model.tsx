@@ -68,18 +68,18 @@ export function useSubtitleManagerScreenModel() {
 
   const statusBadgeClass = useMemo(() => {
     if (scanPending) {
-      return "border-warning/30 bg-warning/12 text-warning";
+      return "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.5)]";
     }
     if (refreshPending) {
-      return "border-info/30 bg-info/12 text-info";
+      return "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.5)]";
     }
     if (uploading) {
-      return "border-primary/30 bg-primary/10 text-primary";
+      return "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.5)]";
     }
     if (pending.tabSwitch || pending.bootstrapping || loading) {
-      return "border-border bg-muted/60 text-muted-foreground";
+      return "border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.5)]";
     }
-    return "border-success/30 bg-success/12 text-success";
+    return "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.7)]";
   }, [loading, pending.bootstrapping, pending.tabSwitch, refreshPending, scanPending, uploading]);
 
   const statusBadgeText = scanPending

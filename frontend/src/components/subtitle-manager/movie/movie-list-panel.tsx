@@ -41,7 +41,7 @@ function MoviePosterCard({
   const { t } = useI18n();
 
   return (
-    <div className="flex w-full min-w-0 self-start flex-col rounded-[1.35rem] border border-border/70 bg-card shadow-sm">
+    <div className="flex w-full min-w-0 self-start flex-col border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)]">
       <button
         type="button"
         className="surface-transition flex w-full min-w-0 flex-col text-left disabled:cursor-not-allowed disabled:opacity-65"
@@ -52,7 +52,7 @@ function MoviePosterCard({
         <div className="p-3 pb-0">
           <PosterThumbnail
             src={video.posterUrl}
-            className="aspect-[2/3] w-full rounded-[1.1rem]"
+            className="aspect-[2/3] w-full"
             imageClassName="h-full w-full"
             sizes="(min-width: 1024px) 18vw, (min-width: 640px) 44vw, 92vw"
           />
@@ -112,7 +112,7 @@ export function MovieListPanel({
       </CardHeader>
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
-        <ScrollArea className={cn("surface-subtle min-h-0 flex-1 rounded-xl", pending && "animate-pulse-soft")}>
+        <ScrollArea className={cn("surface-subtle min-h-0 flex-1", pending && "animate-pulse-soft")}>
           {viewMode === "list" ? (
             <Table className="table-fixed">
               <TableHeader>

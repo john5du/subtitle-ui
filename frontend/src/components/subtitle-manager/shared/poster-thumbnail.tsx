@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 function PosterPlaceholder({ className }: { className?: string }) {
   return (
     <div
-      className={cn("rounded-md border border-border/60 bg-muted/45 shadow-inner", className ?? "h-[72px] w-[48px]")}
+      className={cn("border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)]", className ?? "h-[72px] w-[48px]")}
       aria-hidden
     />
   );
@@ -35,7 +35,7 @@ export function PosterThumbnail({ src = "", className, imageClassName, sizes = "
   }
 
   return (
-    <div className={cn("overflow-hidden rounded-md border border-border/60 bg-muted/30 shadow-sm", frameClassName)}>
+    <div className={cn("overflow-hidden border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)]", frameClassName)}>
       <Image
         src={src}
         alt=""
