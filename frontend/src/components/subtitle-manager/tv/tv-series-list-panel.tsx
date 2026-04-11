@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 import { Search } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
@@ -34,7 +36,7 @@ interface TvSeriesListPanelProps {
   formatTime: (value: string | undefined | null) => string;
 }
 
-function TvSeriesPosterCard({
+const TvSeriesPosterCard = memo(function TvSeriesPosterCard({
   row,
   onOpenManager,
   operationLocked
@@ -71,9 +73,11 @@ function TvSeriesPosterCard({
       </button>
     </div>
   );
-}
+});
 
-export function TvSeriesListPanel({
+TvSeriesPosterCard.displayName = "TvSeriesPosterCard";
+
+export const TvSeriesListPanel = memo(function TvSeriesListPanel({
   query,
   onQueryChange,
   rows,
@@ -223,4 +227,6 @@ export function TvSeriesListPanel({
       </CardContent>
     </Card>
   );
-}
+});
+
+TvSeriesListPanel.displayName = "TvSeriesListPanel";

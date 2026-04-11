@@ -32,6 +32,10 @@ interface CreateSubtitleManagerControllerParams {
   t: TranslateFn;
 }
 
+function buildRequestSignature(parts: Array<string | number>) {
+  return parts.join("\u0001");
+}
+
 export function createSubtitleManagerController({
   stateApi,
   selectors,
@@ -123,78 +127,132 @@ export function createSubtitleManagerController({
     });
   }
 
-  async function loadMovieVideos(options: { page?: number } = {}) {
-    beginLoadChannel("movieList");
-    beginLoading();
-    try {
-      const page = options.page || state.paginationByType.movie.page || 1;
-      const pageSize = state.paginationByType.movie.pageSize || DEFAULT_PAGE_SIZE;
-      const query = state.queryByType.movie || "";
+  async function loadMovieVideos(options: { page?: number; force?: boolean } = {}) {
+    const page = options.page || state.paginationByType.movie.page || 1;
+    const pageSize = state.paginationByType.movie.pageSize || DEFAULT_PAGE_SIZE;
+    const query = state.queryByType.movie || "";
+    const signature = buildRequestSignature(["movie", page, pageSize, state.movieYearSortOrder, query.trim()]);
 
-      const params = new URLSearchParams();
-      params.set("mediaType", "movie");
-      params.set("page", String(page));
-      params.set("pageSize", String(pageSize));
-      params.set("sortBy", "year");
-      params.set("sortOrder", state.movieYearSortOrder);
-      if (query.trim()) {
-        params.set("q", query.trim());
+    if (!options.force && refs.loadedMovieListSignatureRef.current === signature) {
+      return;
+    }
+
+    const pendingRequest = refs.pendingMovieListRequestRef.current;
+    if (pendingRequest && pendingRequest.signature === signature) {
+      return pendingRequest.promise;
+    }
+
+    refs.requestedMovieListSignatureRef.current = signature;
+
+    const promise = (async () => {
+      beginLoadChannel("movieList");
+      beginLoading();
+      try {
+        const params = new URLSearchParams();
+        params.set("mediaType", "movie");
+        params.set("page", String(page));
+        params.set("pageSize", String(pageSize));
+        params.set("sortBy", "year");
+        params.set("sortOrder", state.movieYearSortOrder);
+        if (query.trim()) {
+          params.set("q", query.trim());
+        }
+
+        const payload = await requestPayload<unknown>(`/api/videos?${params.toString()}`);
+        if (refs.requestedMovieListSignatureRef.current !== signature) {
+          return;
+        }
+
+        const pageData = normalizePagedVideosResponse(payload, page, pageSize);
+        setters.setVideosByType((prev) => ({ ...prev, movie: pageData.items }));
+        setters.setPaginationByType((prev) => ({
+          ...prev,
+          movie: {
+            page: pageData.page,
+            pageSize: pageData.pageSize,
+            total: pageData.total,
+            totalPages: pageData.totalPages
+          }
+        }));
+        refs.loadedMovieListSignatureRef.current = signature;
+      } catch (error) {
+        if (refs.requestedMovieListSignatureRef.current === signature) {
+          reportRequestError("error.loadMovieVideos", error);
+        }
+      } finally {
+        if (refs.pendingMovieListRequestRef.current?.signature === signature) {
+          refs.pendingMovieListRequestRef.current = null;
+        }
+        endLoading();
+        endLoadChannel("movieList");
       }
+    })();
 
-      const payload = await requestPayload<unknown>(`/api/videos?${params.toString()}`);
-      const pageData = normalizePagedVideosResponse(payload, page, pageSize);
-      setters.setVideosByType((prev) => ({ ...prev, movie: pageData.items }));
-      setters.setPaginationByType((prev) => ({
-        ...prev,
-        movie: {
+    refs.pendingMovieListRequestRef.current = { signature, promise };
+    return promise;
+  }
+
+  async function loadTvSeriesPage(options: { page?: number; force?: boolean } = {}) {
+    const page = options.page || state.tvSeriesPager.page || 1;
+    const pageSize = state.tvSeriesPager.pageSize || DEFAULT_PAGE_SIZE;
+    const query = state.queryByType.tv || "";
+    const signature = buildRequestSignature(["tv-series", page, pageSize, state.tvSeriesYearSortOrder, query.trim()]);
+
+    if (!options.force && refs.loadedTvSeriesSignatureRef.current === signature) {
+      return state.tvSeriesRows;
+    }
+
+    const pendingRequest = refs.pendingTvSeriesRequestRef.current;
+    if (pendingRequest && pendingRequest.signature === signature) {
+      return pendingRequest.promise;
+    }
+
+    refs.requestedTvSeriesSignatureRef.current = signature;
+
+    const promise = (async () => {
+      beginLoadChannel("tvSeriesList");
+      beginLoading();
+      try {
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("pageSize", String(pageSize));
+        params.set("sortYear", "year");
+        params.set("sortOrder", state.tvSeriesYearSortOrder);
+        if (query.trim()) {
+          params.set("q", query.trim());
+        }
+
+        const payload = await requestPayload<unknown>(`/api/tv/series?${params.toString()}`);
+        if (refs.requestedTvSeriesSignatureRef.current !== signature) {
+          return [];
+        }
+
+        const pageData = normalizeTvSeriesPage(payload, page, pageSize);
+        setters.setTvSeriesRows(pageData.items);
+        setters.setTvSeriesPager({
           page: pageData.page,
           pageSize: pageData.pageSize,
           total: pageData.total,
           totalPages: pageData.totalPages
+        });
+        refs.loadedTvSeriesSignatureRef.current = signature;
+        return pageData.items;
+      } catch (error) {
+        if (refs.requestedTvSeriesSignatureRef.current === signature) {
+          reportRequestError("error.loadTvSeries", error);
         }
-      }));
-    } catch (error) {
-      reportRequestError("error.loadMovieVideos", error);
-    } finally {
-      endLoading();
-      endLoadChannel("movieList");
-    }
-  }
-
-  async function loadTvSeriesPage(options: { page?: number } = {}) {
-    beginLoadChannel("tvSeriesList");
-    beginLoading();
-    try {
-      const page = options.page || state.tvSeriesPager.page || 1;
-      const pageSize = state.tvSeriesPager.pageSize || DEFAULT_PAGE_SIZE;
-      const query = state.queryByType.tv || "";
-
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("pageSize", String(pageSize));
-      params.set("sortYear", "year");
-      params.set("sortOrder", state.tvSeriesYearSortOrder);
-      if (query.trim()) {
-        params.set("q", query.trim());
+        return [];
+      } finally {
+        if (refs.pendingTvSeriesRequestRef.current?.signature === signature) {
+          refs.pendingTvSeriesRequestRef.current = null;
+        }
+        endLoading();
+        endLoadChannel("tvSeriesList");
       }
+    })();
 
-      const payload = await requestPayload<unknown>(`/api/tv/series?${params.toString()}`);
-      const pageData = normalizeTvSeriesPage(payload, page, pageSize);
-      setters.setTvSeriesRows(pageData.items);
-      setters.setTvSeriesPager({
-        page: pageData.page,
-        pageSize: pageData.pageSize,
-        total: pageData.total,
-        totalPages: pageData.totalPages
-      });
-      return pageData.items;
-    } catch (error) {
-      reportRequestError("error.loadTvSeries", error);
-      return [];
-    } finally {
-      endLoading();
-      endLoadChannel("tvSeriesList");
-    }
+    refs.pendingTvSeriesRequestRef.current = { signature, promise };
+    return promise;
   }
 
   async function listAllTvVideos(directoryPath = "") {
@@ -436,8 +494,8 @@ export function createSubtitleManagerController({
 
       const targetDir = defaultDir || selectors.tvRootPath || discovered.tvRoot || "";
       await Promise.all([
-        loadMovieVideos({ page: 1 }),
-        loadTvSeriesPage({ page: 1 }),
+        loadMovieVideos({ page: 1, force: true }),
+        loadTvSeriesPage({ page: 1, force: true }),
         refreshTvVideosForPath(selectors.selectedTvSeries?.path || state.selectedTvDirPath || state.tvEpisodesPath || targetDir),
         loadLogs()
       ]);
@@ -487,7 +545,7 @@ export function createSubtitleManagerController({
       if (state.activeTab === "tv") {
         const targetDir = selectors.selectedTvSeries?.path || state.selectedTvDirPath || selectors.tvRootPath || state.directoryScan.tvRoot || "";
         const reloadEpisodes = shouldRefreshTvVideosForPath(targetDir);
-        await Promise.all([loadTvSeriesPage({ page: state.tvSeriesPager.page || 1 }), refreshTvVideosForPath(targetDir)]);
+        await Promise.all([loadTvSeriesPage({ page: state.tvSeriesPager.page || 1, force: true }), refreshTvVideosForPath(targetDir)]);
         setTranslatedMessage("status.tvRefreshed");
         notifySuccess(
           t("toast.tvRefreshedTitle"),
@@ -496,7 +554,7 @@ export function createSubtitleManagerController({
         return;
       }
 
-      await loadMovieVideos({ page: selectors.moviePager.page || 1 });
+      await loadMovieVideos({ page: selectors.moviePager.page || 1, force: true });
       setTranslatedMessage("status.movieRefreshed");
       notifySuccess(t("toast.movieRefreshedTitle"), t("toast.movieRefreshedMessage"));
     } finally {
@@ -532,7 +590,7 @@ export function createSubtitleManagerController({
 
   function setMoviePage(nextPage: number) {
     const totalPages = Math.max(1, selectors.moviePager.totalPages || 1);
-    if (nextPage < 1 || nextPage > totalPages) {
+    if (nextPage < 1 || nextPage > totalPages || nextPage === selectors.moviePager.page) {
       return;
     }
     void loadMovieVideos({ page: nextPage });
@@ -540,7 +598,7 @@ export function createSubtitleManagerController({
 
   function setTvPage(nextPage: number) {
     const totalPages = Math.max(1, selectors.tvPager.totalPages || 1);
-    if (nextPage < 1 || nextPage > totalPages) {
+    if (nextPage < 1 || nextPage > totalPages || nextPage === selectors.tvPager.page) {
       return;
     }
     void loadTvSeriesPage({ page: nextPage });
@@ -555,11 +613,11 @@ export function createSubtitleManagerController({
   }
 
   function selectMovieVideo(video: Video) {
-    setters.setSelectedVideoIdByType((prev) => ({ ...prev, movie: video.id }));
+    setters.setSelectedVideoIdByType((prev) => (prev.movie === video.id ? prev : { ...prev, movie: video.id }));
   }
 
   function selectTvVideo(video: Video) {
-    setters.setSelectedVideoIdByType((prev) => ({ ...prev, tv: video.id }));
+    setters.setSelectedVideoIdByType((prev) => (prev.tv === video.id ? prev : { ...prev, tv: video.id }));
   }
 
   function selectTvDirectory(path: string) {
@@ -567,7 +625,6 @@ export function createSubtitleManagerController({
     const currentNorm = normalizeForCompare(state.selectedTvDirPath);
 
     if (nextNorm === currentNorm) {
-      setters.setSelectedTvSeason("");
       return;
     }
 
@@ -585,11 +642,15 @@ export function createSubtitleManagerController({
         state.tvEpisodesPath ||
         selectors.tvRootPath ||
         state.directoryScan.tvRoot;
-      await Promise.all([loadTvSeriesPage({ page: state.tvSeriesPager.page || 1 }), refreshTvVideosForPath(targetDir || ""), loadLogs()]);
+      await Promise.all([
+        loadTvSeriesPage({ page: state.tvSeriesPager.page || 1, force: true }),
+        refreshTvVideosForPath(targetDir || ""),
+        loadLogs()
+      ]);
       return;
     }
 
-    await Promise.all([loadMovieVideos({ page: selectors.moviePager.page || 1 }), loadLogs()]);
+    await Promise.all([loadMovieVideos({ page: selectors.moviePager.page || 1, force: true }), loadLogs()]);
   }
 
   async function uploadSubtitle(video: Video, file: File, label: string) {
@@ -726,7 +787,7 @@ export function createSubtitleManagerController({
     } finally {
       try {
         await Promise.all([
-          loadTvSeriesPage({ page: state.tvSeriesPager.page || 1 }),
+          loadTvSeriesPage({ page: state.tvSeriesPager.page || 1, force: true }),
           refreshTvVideosForPath(
             selectors.selectedTvSeries?.path ||
               state.selectedTvDirPath ||
@@ -769,15 +830,15 @@ export function createSubtitleManagerController({
   }
 
   function setMovieQuery(value: string) {
-    setters.setQueryByType((prev) => ({ ...prev, movie: value }));
+    setters.setQueryByType((prev) => (prev.movie === value ? prev : { ...prev, movie: value }));
   }
 
   function setTvQuery(value: string) {
-    setters.setQueryByType((prev) => ({ ...prev, tv: value }));
+    setters.setQueryByType((prev) => (prev.tv === value ? prev : { ...prev, tv: value }));
   }
 
   function setSelectedTvSeason(value: string) {
-    setters.setSelectedTvSeason(value);
+    setters.setSelectedTvSeason((prev) => (prev === value ? prev : value));
   }
 
   return {

@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 import { useI18n } from "@/lib/i18n";
 import type { Pager, Video } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -29,7 +31,7 @@ interface MovieListPanelProps {
   formatTime: (value: string | undefined | null) => string;
 }
 
-function MoviePosterCard({
+const MoviePosterCard = memo(function MoviePosterCard({
   video,
   onOpenManager,
   operationLocked
@@ -66,9 +68,11 @@ function MoviePosterCard({
       </button>
     </div>
   );
-}
+});
 
-export function MovieListPanel({
+MoviePosterCard.displayName = "MoviePosterCard";
+
+export const MovieListPanel = memo(function MovieListPanel({
   query,
   onQueryChange,
   videos,
@@ -193,4 +197,6 @@ export function MovieListPanel({
       </CardContent>
     </Card>
   );
-}
+});
+
+MovieListPanel.displayName = "MovieListPanel";
