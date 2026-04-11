@@ -197,8 +197,47 @@ func TestHandleVideoPoster(t *testing.T) {
 				if contentType := recorder.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "image/") {
 					t.Fatalf("expected image content type, got %q", contentType)
 				}
+				if cacheControl := recorder.Header().Get("Cache-Control"); cacheControl != "public, max-age=0, must-revalidate" {
+					t.Fatalf("expected cache-control header, got %q", cacheControl)
+				}
+				if etag := recorder.Header().Get("ETag"); etag == "" {
+					t.Fatalf("expected etag header")
+				}
+				if lastModified := recorder.Header().Get("Last-Modified"); lastModified == "" {
+					t.Fatalf("expected last-modified header")
+				}
 			}
 		})
+	}
+}
+
+func TestHandleVideoPosterHonorsIfNoneMatch(t *testing.T) {
+	fixture := newPosterTestFixture(t)
+	defer fixture.cleanup()
+
+	firstReq := httptest.NewRequest(http.MethodGet, "/api/videos/"+fixture.movieID+"/poster", nil)
+	firstRecorder := httptest.NewRecorder()
+	fixture.server.Handler().ServeHTTP(firstRecorder, firstReq)
+
+	if firstRecorder.Code != http.StatusOK {
+		t.Fatalf("expected initial status 200, got %d", firstRecorder.Code)
+	}
+
+	etag := firstRecorder.Header().Get("ETag")
+	if etag == "" {
+		t.Fatalf("expected etag header on initial response")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/videos/"+fixture.movieID+"/poster", nil)
+	req.Header.Set("If-None-Match", etag)
+	recorder := httptest.NewRecorder()
+	fixture.server.Handler().ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusNotModified {
+		t.Fatalf("expected status 304, got %d", recorder.Code)
+	}
+	if recorder.Body.Len() != 0 {
+		t.Fatalf("expected empty 304 body, got %q", recorder.Body.String())
 	}
 }
 

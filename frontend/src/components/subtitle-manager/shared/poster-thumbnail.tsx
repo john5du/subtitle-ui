@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import Image from "next/image";
 
 import { cn } from "@/lib/utils";
@@ -21,7 +21,12 @@ export interface PosterThumbnailProps {
   sizes?: string;
 }
 
-export function PosterThumbnail({ src = "", className, imageClassName, sizes = "48px" }: PosterThumbnailProps) {
+export const PosterThumbnail = memo(function PosterThumbnail({
+  src = "",
+  className,
+  imageClassName,
+  sizes = "48px"
+}: PosterThumbnailProps) {
   const [failed, setFailed] = useState(false);
   const frameClassName = className ?? "h-[72px] w-[48px]";
   const resolvedImageClassName = imageClassName ?? "h-full w-full";
@@ -48,4 +53,6 @@ export function PosterThumbnail({ src = "", className, imageClassName, sizes = "
       />
     </div>
   );
-}
+});
+
+PosterThumbnail.displayName = "PosterThumbnail";

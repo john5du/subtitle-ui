@@ -1,7 +1,10 @@
+import { memo, useCallback } from "react";
+
 import Image from "next/image";
 import { RefreshCw, Search } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
+import type { TvSeriesSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,41 +22,277 @@ import { UploadBlockingOverlay } from "../shared/upload-blocking-overlay";
 import { TvSubtitleDrawer } from "../tv/tv-subtitle-drawer";
 import { TvSeriesListPanel } from "../tv/tv-series-list-panel";
 
+const ActiveWorkspace = memo(function ActiveWorkspace({
+  activeTab,
+  operationLocked,
+  triggerScan,
+  formatTime,
+  dashboardScanStatus,
+  dashboardDirectoryScan,
+  dashboardMessage,
+  dashboardLogs,
+  dashboardPending,
+  dashboardFormatTime,
+  movieQuery,
+  movieSetQuery,
+  movieVideos,
+  moviePager,
+  movieViewMode,
+  movieYearSortOrder,
+  movieToggleYearSort,
+  movieSetViewMode,
+  movieSetPage,
+  movieOpenManager,
+  moviePending,
+  tvQuery,
+  tvSetQuery,
+  tvRows,
+  tvPager,
+  tvViewMode,
+  tvYearSortOrder,
+  tvSetPage,
+  tvToggleYearSort,
+  tvSetViewMode,
+  tvOpenManagerForSeries,
+  tvShowScanPrompt,
+  tvScanLoading,
+  tvPendingList,
+  logsItems,
+  logsPending,
+  logsFormatTime
+}: {
+  activeTab: SubtitleManagerScreenModel["shell"]["activeTab"];
+  operationLocked: boolean;
+  triggerScan: SubtitleManagerScreenModel["shell"]["triggerScan"];
+  formatTime: SubtitleManagerScreenModel["subtitleActions"]["formatTime"];
+  dashboardScanStatus: SubtitleManagerScreenModel["dashboard"]["scanStatus"];
+  dashboardDirectoryScan: SubtitleManagerScreenModel["dashboard"]["directoryScan"];
+  dashboardMessage: SubtitleManagerScreenModel["dashboard"]["message"];
+  dashboardLogs: SubtitleManagerScreenModel["dashboard"]["logs"];
+  dashboardPending: SubtitleManagerScreenModel["dashboard"]["pending"];
+  dashboardFormatTime: SubtitleManagerScreenModel["dashboard"]["formatTime"];
+  movieQuery: SubtitleManagerScreenModel["movie"]["query"];
+  movieSetQuery: SubtitleManagerScreenModel["movie"]["setQuery"];
+  movieVideos: SubtitleManagerScreenModel["movie"]["videos"];
+  moviePager: SubtitleManagerScreenModel["movie"]["pager"];
+  movieViewMode: SubtitleManagerScreenModel["movie"]["viewMode"];
+  movieYearSortOrder: SubtitleManagerScreenModel["movie"]["yearSortOrder"];
+  movieToggleYearSort: SubtitleManagerScreenModel["movie"]["toggleYearSort"];
+  movieSetViewMode: SubtitleManagerScreenModel["movie"]["setViewMode"];
+  movieSetPage: SubtitleManagerScreenModel["movie"]["setPage"];
+  movieOpenManager: SubtitleManagerScreenModel["movie"]["openManager"];
+  moviePending: SubtitleManagerScreenModel["movie"]["pending"];
+  tvQuery: SubtitleManagerScreenModel["tv"]["query"];
+  tvSetQuery: SubtitleManagerScreenModel["tv"]["setQuery"];
+  tvRows: SubtitleManagerScreenModel["tv"]["rows"];
+  tvPager: SubtitleManagerScreenModel["tv"]["pager"];
+  tvViewMode: SubtitleManagerScreenModel["tv"]["viewMode"];
+  tvYearSortOrder: SubtitleManagerScreenModel["tv"]["yearSortOrder"];
+  tvSetPage: SubtitleManagerScreenModel["tv"]["setPage"];
+  tvToggleYearSort: SubtitleManagerScreenModel["tv"]["toggleYearSort"];
+  tvSetViewMode: SubtitleManagerScreenModel["tv"]["setViewMode"];
+  tvOpenManagerForSeries: SubtitleManagerScreenModel["tv"]["openManagerForSeries"];
+  tvShowScanPrompt: SubtitleManagerScreenModel["tv"]["showScanPrompt"];
+  tvScanLoading: SubtitleManagerScreenModel["tv"]["scanLoading"];
+  tvPendingList: SubtitleManagerScreenModel["tv"]["pendingList"];
+  logsItems: SubtitleManagerScreenModel["logs"]["items"];
+  logsPending: SubtitleManagerScreenModel["logs"]["pending"];
+  logsFormatTime: SubtitleManagerScreenModel["logs"]["formatTime"];
+}) {
+  const openTvManagerForRow = useCallback(
+    (series: TvSeriesSummary) => {
+      tvOpenManagerForSeries(series.path);
+    },
+    [tvOpenManagerForSeries]
+  );
+
+  return (
+    <div key={activeTab} className="surface-panel animate-fade-in-up min-h-0 p-2 sm:p-3 lg:flex-1">
+      {activeTab === "dashboard" && (
+        <div className="lg:h-full lg:overflow-auto lg:pr-1">
+          <DashboardPanel
+            scanStatus={dashboardScanStatus}
+            directoryScan={dashboardDirectoryScan}
+            message={dashboardMessage}
+            logs={dashboardLogs}
+            pending={dashboardPending}
+            formatTime={dashboardFormatTime}
+          />
+        </div>
+      )}
+
+      {activeTab === "movie" && (
+        <div className="min-h-[360px] lg:h-full">
+          <MovieListPanel
+            query={movieQuery}
+            onQueryChange={movieSetQuery}
+            videos={movieVideos}
+            pager={moviePager}
+            viewMode={movieViewMode}
+            yearSortOrder={movieYearSortOrder}
+            onToggleYearSort={movieToggleYearSort}
+            onViewModeChange={movieSetViewMode}
+            onSetPage={movieSetPage}
+            onOpenManager={movieOpenManager}
+            operationLocked={operationLocked}
+            pending={moviePending}
+            formatTime={formatTime}
+          />
+        </div>
+      )}
+
+      {activeTab === "tv" && (
+        <div className="min-h-[400px] lg:h-full">
+          <TvSeriesListPanel
+            query={tvQuery}
+            onQueryChange={tvSetQuery}
+            rows={tvRows}
+            pager={tvPager}
+            viewMode={tvViewMode}
+            yearSortOrder={tvYearSortOrder}
+            onSetPage={tvSetPage}
+            onToggleYearSort={tvToggleYearSort}
+            onViewModeChange={tvSetViewMode}
+            onOpenManager={openTvManagerForRow}
+            operationLocked={operationLocked}
+            showScanPrompt={tvShowScanPrompt}
+            onTriggerScan={triggerScan}
+            loading={tvScanLoading}
+            pending={tvPendingList}
+            formatTime={formatTime}
+          />
+        </div>
+      )}
+
+      {activeTab === "logs" && (
+        <div className="min-h-[340px] lg:h-full">
+          <LogsPanel logs={logsItems} pending={logsPending} formatTime={logsFormatTime} />
+        </div>
+      )}
+    </div>
+  );
+});
+
+ActiveWorkspace.displayName = "ActiveWorkspace";
+
+const ManagementDialogs = memo(function ManagementDialogs({
+  dialogs,
+  movie,
+  tv,
+  subtitleActions,
+  movieEmptyText
+}: {
+  dialogs: SubtitleManagerScreenModel["dialogs"];
+  movie: SubtitleManagerScreenModel["movie"];
+  tv: SubtitleManagerScreenModel["tv"];
+  subtitleActions: SubtitleManagerScreenModel["subtitleActions"];
+  movieEmptyText: string;
+}) {
+  const handleMovieManagerOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open && subtitleActions.uploading) {
+        return;
+      }
+      dialogs.setMovieManagerOpen(open);
+      if (open) {
+        void dialogs.loadMovieWorkspaceOnDemand();
+      }
+    },
+    [dialogs, subtitleActions.uploading]
+  );
+
+  const handleTvDrawerOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open && subtitleActions.uploading) {
+        return;
+      }
+      dialogs.setTvDrawerOpen(open);
+      if (open) {
+        void dialogs.loadTvWorkspaceOnDemand();
+        if (dialogs.tvDrawerMode === "batch") {
+          void dialogs.loadTvBatchCandidates();
+        }
+      }
+    },
+    [dialogs, subtitleActions.uploading]
+  );
+
+  const handleTvDrawerModeChange = useCallback(
+    (mode: typeof dialogs.tvDrawerMode) => {
+      dialogs.setTvDrawerMode(mode);
+      if (mode === "batch") {
+        void dialogs.loadTvBatchCandidates();
+        return;
+      }
+      void dialogs.loadTvWorkspaceOnDemand();
+    },
+    [dialogs]
+  );
+
+  return (
+    <>
+      <Dialog
+        open={dialogs.movieManagerOpen}
+        onOpenChange={handleMovieManagerOpenChange}
+      >
+        <DialogDrawerContent className="p-0 [&>button]:right-5 [&>button]:top-5 [&>button]:z-50">
+          <MovieSubtitleDrawer
+            ref={dialogs.movieDetailsRef}
+            selectedVideo={movie.selectedVideo}
+            emptyText={movieEmptyText}
+            onUpload={subtitleActions.uploadSubtitle}
+            onReplace={subtitleActions.replaceSubtitle}
+            onRemove={subtitleActions.removeSubtitle}
+            onPreviewSubtitle={subtitleActions.previewSubtitle}
+            formatTime={subtitleActions.formatTime}
+            busy={subtitleActions.operationLocked}
+            uploading={subtitleActions.uploading}
+            uploadingMessage={subtitleActions.uploadingMessage}
+            subtitleAction={subtitleActions.subtitleAction}
+          />
+        </DialogDrawerContent>
+      </Dialog>
+
+      <Dialog
+        open={dialogs.tvDrawerOpen}
+        onOpenChange={handleTvDrawerOpenChange}
+      >
+        <DialogDrawerContent className="p-0 xl:w-[min(1240px,92vw)] [&>button]:right-5 [&>button]:top-5 [&>button]:z-50">
+          <TvSubtitleDrawer
+            selectedSeries={tv.selectedSeries}
+            selectedSeason={tv.selectedSeason}
+            seasonOptions={tv.seasonOptions}
+            videos={tv.videos}
+            selectedVideo={tv.selectedVideo}
+            selectedVideoId={tv.selectedVideoId}
+            onSelectVideo={tv.selectVideo}
+            onSeasonChange={tv.setSelectedSeason}
+            onUpload={subtitleActions.uploadSubtitle}
+            onReplace={subtitleActions.replaceSubtitle}
+            onRemove={subtitleActions.removeSubtitle}
+            onPreviewSubtitle={subtitleActions.previewSubtitle}
+            formatTime={subtitleActions.formatTime}
+            busy={subtitleActions.operationLocked}
+            uploading={subtitleActions.uploading}
+            uploadingMessage={subtitleActions.uploadingMessage}
+            episodesPending={tv.episodesPending}
+            subtitleAction={subtitleActions.subtitleAction}
+            drawerMode={dialogs.tvDrawerMode}
+            onModeChange={handleTvDrawerModeChange}
+            onLoadBatchCandidates={dialogs.loadTvBatchCandidates}
+            onUploadBatch={dialogs.uploadBatchSubtitles}
+          />
+        </DialogDrawerContent>
+      </Dialog>
+    </>
+  );
+});
+
+ManagementDialogs.displayName = "ManagementDialogs";
+
 export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenModel }) {
   const { t } = useI18n();
   const { shell, dashboard, movie, tv, logs, subtitleActions, dialogs } = model;
-
-  function handleMovieManagerOpenChange(open: boolean) {
-    if (!open && subtitleActions.uploading) {
-      return;
-    }
-    dialogs.setMovieManagerOpen(open);
-    if (open) {
-      void dialogs.loadMovieWorkspaceOnDemand();
-    }
-  }
-
-  function handleTvDrawerOpenChange(open: boolean) {
-    if (!open && subtitleActions.uploading) {
-      return;
-    }
-    dialogs.setTvDrawerOpen(open);
-    if (open) {
-      void dialogs.loadTvWorkspaceOnDemand();
-      if (dialogs.tvDrawerMode === "batch") {
-        void dialogs.loadTvBatchCandidates();
-      }
-    }
-  }
-
-  function handleTvDrawerModeChange(mode: typeof dialogs.tvDrawerMode) {
-    dialogs.setTvDrawerMode(mode);
-    if (mode === "batch") {
-      void dialogs.loadTvBatchCandidates();
-      return;
-    }
-    void dialogs.loadTvWorkspaceOnDemand();
-  }
 
   return (
     <div className="relative h-full w-full px-3 py-3 sm:px-4 md:px-6 md:py-5">
@@ -126,125 +365,55 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
         </Card>
 
         <div className="min-h-0 min-w-0 lg:flex lg:h-full lg:flex-col">
-          <div key={shell.activeTab} className="surface-panel animate-fade-in-up min-h-0 p-2 sm:p-3 lg:flex-1">
-            {shell.activeTab === "dashboard" && (
-              <div className="lg:h-full lg:overflow-auto lg:pr-1">
-                <DashboardPanel
-                  scanStatus={dashboard.scanStatus}
-                  directoryScan={dashboard.directoryScan}
-                  message={dashboard.message}
-                  logs={dashboard.logs}
-                  pending={dashboard.pending}
-                  formatTime={dashboard.formatTime}
-                />
-              </div>
-            )}
-
-            {shell.activeTab === "movie" && (
-              <div className="min-h-[360px] lg:h-full">
-                <MovieListPanel
-                  query={movie.query}
-                  onQueryChange={movie.setQuery}
-                  videos={movie.videos}
-                  pager={movie.pager}
-                  viewMode={movie.viewMode}
-                  yearSortOrder={movie.yearSortOrder}
-                  onToggleYearSort={movie.toggleYearSort}
-                  onViewModeChange={movie.setViewMode}
-                  onSetPage={movie.setPage}
-                  onOpenManager={movie.openManager}
-                  operationLocked={shell.operationLocked}
-                  pending={movie.pending}
-                  formatTime={subtitleActions.formatTime}
-                />
-              </div>
-            )}
-
-            {shell.activeTab === "tv" && (
-              <div className="min-h-[400px] lg:h-full">
-                <TvSeriesListPanel
-                  query={tv.query}
-                  onQueryChange={tv.setQuery}
-                  rows={tv.rows}
-                  pager={tv.pager}
-                  viewMode={tv.viewMode}
-                  yearSortOrder={tv.yearSortOrder}
-                  onSetPage={tv.setPage}
-                  onToggleYearSort={tv.toggleYearSort}
-                  onViewModeChange={tv.setViewMode}
-                  onOpenManager={(series) => tv.openManagerForSeries(series.path)}
-                  operationLocked={shell.operationLocked}
-                  showScanPrompt={tv.showScanPrompt}
-                  onTriggerScan={shell.triggerScan}
-                  loading={tv.scanLoading}
-                  pending={tv.pendingList}
-                  formatTime={subtitleActions.formatTime}
-                />
-              </div>
-            )}
-
-            {shell.activeTab === "logs" && (
-              <div className="min-h-[340px] lg:h-full">
-                <LogsPanel logs={logs.items} pending={logs.pending} formatTime={logs.formatTime} />
-              </div>
-            )}
-          </div>
+          <ActiveWorkspace
+            activeTab={shell.activeTab}
+            operationLocked={shell.operationLocked}
+            triggerScan={shell.triggerScan}
+            formatTime={subtitleActions.formatTime}
+            dashboardScanStatus={dashboard.scanStatus}
+            dashboardDirectoryScan={dashboard.directoryScan}
+            dashboardMessage={dashboard.message}
+            dashboardLogs={dashboard.logs}
+            dashboardPending={dashboard.pending}
+            dashboardFormatTime={dashboard.formatTime}
+            movieQuery={movie.query}
+            movieSetQuery={movie.setQuery}
+            movieVideos={movie.videos}
+            moviePager={movie.pager}
+            movieViewMode={movie.viewMode}
+            movieYearSortOrder={movie.yearSortOrder}
+            movieToggleYearSort={movie.toggleYearSort}
+            movieSetViewMode={movie.setViewMode}
+            movieSetPage={movie.setPage}
+            movieOpenManager={movie.openManager}
+            moviePending={movie.pending}
+            tvQuery={tv.query}
+            tvSetQuery={tv.setQuery}
+            tvRows={tv.rows}
+            tvPager={tv.pager}
+            tvViewMode={tv.viewMode}
+            tvYearSortOrder={tv.yearSortOrder}
+            tvSetPage={tv.setPage}
+            tvToggleYearSort={tv.toggleYearSort}
+            tvSetViewMode={tv.setViewMode}
+            tvOpenManagerForSeries={tv.openManagerForSeries}
+            tvShowScanPrompt={tv.showScanPrompt}
+            tvScanLoading={tv.scanLoading}
+            tvPendingList={tv.pendingList}
+            logsItems={logs.items}
+            logsPending={logs.pending}
+            logsFormatTime={logs.formatTime}
+          />
         </div>
       </div>
 
-      <Dialog
-        open={dialogs.movieManagerOpen}
-        onOpenChange={handleMovieManagerOpenChange}
-      >
-        <DialogDrawerContent className="p-0 [&>button]:right-5 [&>button]:top-5 [&>button]:z-50">
-          <MovieSubtitleDrawer
-            ref={dialogs.movieDetailsRef}
-            selectedVideo={movie.selectedVideo}
-            emptyText={t("details.movieEmpty")}
-            onUpload={subtitleActions.uploadSubtitle}
-            onReplace={subtitleActions.replaceSubtitle}
-            onRemove={subtitleActions.removeSubtitle}
-            onPreviewSubtitle={subtitleActions.previewSubtitle}
-            formatTime={subtitleActions.formatTime}
-            busy={subtitleActions.operationLocked}
-            uploading={subtitleActions.uploading}
-            uploadingMessage={subtitleActions.uploadingMessage}
-            subtitleAction={subtitleActions.subtitleAction}
-          />
-        </DialogDrawerContent>
-      </Dialog>
-
-      <Dialog
-        open={dialogs.tvDrawerOpen}
-        onOpenChange={handleTvDrawerOpenChange}
-      >
-        <DialogDrawerContent className="p-0 xl:w-[min(1240px,92vw)] [&>button]:right-5 [&>button]:top-5 [&>button]:z-50">
-          <TvSubtitleDrawer
-            selectedSeries={tv.selectedSeries}
-            selectedSeason={tv.selectedSeason}
-            seasonOptions={tv.seasonOptions}
-            videos={tv.videos}
-            selectedVideo={tv.selectedVideo}
-            selectedVideoId={tv.selectedVideoId}
-            onSelectVideo={tv.selectVideo}
-            onSeasonChange={tv.setSelectedSeason}
-            onUpload={subtitleActions.uploadSubtitle}
-            onReplace={subtitleActions.replaceSubtitle}
-            onRemove={subtitleActions.removeSubtitle}
-            onPreviewSubtitle={subtitleActions.previewSubtitle}
-            formatTime={subtitleActions.formatTime}
-            busy={subtitleActions.operationLocked}
-            uploading={subtitleActions.uploading}
-            uploadingMessage={subtitleActions.uploadingMessage}
-            episodesPending={tv.episodesPending}
-            subtitleAction={subtitleActions.subtitleAction}
-            drawerMode={dialogs.tvDrawerMode}
-            onModeChange={handleTvDrawerModeChange}
-            onLoadBatchCandidates={dialogs.loadTvBatchCandidates}
-            onUploadBatch={dialogs.uploadBatchSubtitles}
-          />
-        </DialogDrawerContent>
-      </Dialog>
+      <ManagementDialogs
+        dialogs={dialogs}
+        movie={movie}
+        tv={tv}
+        subtitleActions={subtitleActions}
+        movieEmptyText={t("details.movieEmpty")}
+      />
 
       {subtitleActions.uploading && <UploadBlockingOverlay message={subtitleActions.uploadingMessage} />}
     </div>

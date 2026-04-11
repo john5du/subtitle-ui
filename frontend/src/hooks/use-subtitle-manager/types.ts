@@ -50,8 +50,14 @@ export interface SubtitleManagerRefs {
   pendingLoadsRef: MutableRefObject<number>;
   pendingUploadsRef: MutableRefObject<number>;
   pendingLoadChannelsRef: MutableRefObject<Record<LoadChannel, number>>;
+  loadedMovieListSignatureRef: MutableRefObject<string>;
+  requestedMovieListSignatureRef: MutableRefObject<string>;
+  pendingMovieListRequestRef: MutableRefObject<{ signature: string; promise: Promise<void> } | null>;
   pendingTvEpisodesPathRef: MutableRefObject<string>;
   pendingTvEpisodesRequestRef: MutableRefObject<{ path: string; promise: Promise<Video[]> } | null>;
+  loadedTvSeriesSignatureRef: MutableRefObject<string>;
+  requestedTvSeriesSignatureRef: MutableRefObject<string>;
+  pendingTvSeriesRequestRef: MutableRefObject<{ signature: string; promise: Promise<TvSeriesSummary[]> } | null>;
   skipMovieQueryRef: MutableRefObject<boolean>;
   skipTvQueryRef: MutableRefObject<boolean>;
   skipMovieSortRef: MutableRefObject<boolean>;
@@ -180,8 +186,8 @@ export interface SubtitleManagerController extends SubtitleManagerActions {
   loadScanStatus: () => Promise<void>;
   loadDirectoryScanResult: () => Promise<string>;
   loadLogs: () => Promise<void>;
-  loadMovieVideos: (options?: { page?: number }) => Promise<void>;
-  loadTvSeriesPage: (options?: { page?: number }) => Promise<TvSeriesSummary[]>;
+  loadMovieVideos: (options?: { page?: number; force?: boolean }) => Promise<void>;
+  loadTvSeriesPage: (options?: { page?: number; force?: boolean }) => Promise<TvSeriesSummary[]>;
   refreshTvVideosForPath: (seriesPath: string) => Promise<Video[]>;
   loadMovieWorkspace: () => Promise<void>;
   loadTvWorkspace: (seriesPath?: string) => Promise<Video[]>;

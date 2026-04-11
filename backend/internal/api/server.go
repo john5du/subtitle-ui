@@ -212,7 +212,38 @@ func (s *Server) handleVideoPoster(w http.ResponseWriter, r *http.Request, video
 		return
 	}
 
-	http.ServeFile(w, r, posterPath)
+	file, err := os.Open(posterPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			writeError(w, http.StatusNotFound, "poster not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to open poster")
+		return
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to stat poster")
+		return
+	}
+
+	w.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
+	if !info.ModTime().IsZero() {
+		w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
+	}
+
+	etag := makePosterETag(info)
+	if etag != "" {
+		w.Header().Set("ETag", etag)
+		if headerMatchesETag(r.Header.Get("If-None-Match"), etag) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
+	http.ServeContent(w, r, path.Base(posterPath), info.ModTime(), file)
 }
 
 func (s *Server) handleUploadSubtitle(w http.ResponseWriter, r *http.Request, videoID string) {
@@ -455,6 +486,26 @@ func requestBaseURL(r *http.Request) string {
 	}
 
 	return scheme + "://" + host
+}
+
+func makePosterETag(info os.FileInfo) string {
+	if info == nil {
+		return ""
+	}
+	return `W/"` + strconv.FormatInt(info.Size(), 10) + `-` + strconv.FormatInt(info.ModTime().UTC().UnixNano(), 10) + `"`
+}
+
+func headerMatchesETag(raw string, etag string) bool {
+	if etag == "" {
+		return false
+	}
+	for _, candidate := range strings.Split(raw, ",") {
+		trimmed := strings.TrimSpace(candidate)
+		if trimmed == "*" || trimmed == etag {
+			return true
+		}
+	}
+	return false
 }
 
 func existsFile(path string) bool {

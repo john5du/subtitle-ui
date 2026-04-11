@@ -121,8 +121,14 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
     tvEpisodes: 0,
     logs: 0
   });
+  const loadedMovieListSignatureRef = useRef("");
+  const requestedMovieListSignatureRef = useRef("");
+  const pendingMovieListRequestRef = useRef<{ signature: string; promise: Promise<void> } | null>(null);
   const pendingTvEpisodesPathRef = useRef("");
   const pendingTvEpisodesRequestRef = useRef<{ path: string; promise: Promise<Video[]> } | null>(null);
+  const loadedTvSeriesSignatureRef = useRef("");
+  const requestedTvSeriesSignatureRef = useRef("");
+  const pendingTvSeriesRequestRef = useRef<{ signature: string; promise: Promise<TvSeriesSummary[]> } | null>(null);
   const skipMovieQueryRef = useRef(true);
   const skipTvQueryRef = useRef(true);
   const skipMovieSortRef = useRef(true);
@@ -183,8 +189,14 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
       pendingLoadsRef,
       pendingUploadsRef,
       pendingLoadChannelsRef,
+      loadedMovieListSignatureRef,
+      requestedMovieListSignatureRef,
+      pendingMovieListRequestRef,
       pendingTvEpisodesPathRef,
       pendingTvEpisodesRequestRef,
+      loadedTvSeriesSignatureRef,
+      requestedTvSeriesSignatureRef,
+      pendingTvSeriesRequestRef,
       skipMovieQueryRef,
       skipTvQueryRef,
       skipMovieSortRef,
