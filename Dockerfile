@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:20-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 WORKDIR /workspace/frontend
 
 COPY frontend/package.json frontend/package-lock.json ./
@@ -19,7 +19,7 @@ RUN go mod download
 COPY backend/ ./backend/
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o /out/server ./backend/cmd/server
 
-FROM alpine:3.20
+FROM alpine:3.23
 WORKDIR /app
 
 RUN apk add --no-cache ca-certificates \
