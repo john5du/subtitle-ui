@@ -7,9 +7,12 @@ export const zhCNMessages: MessageDictionary = {
 
   "common.actions": "操作",
   "common.preview": "预览",
+  "common.replace": "替换",
   "common.close": "关闭",
   "common.cancel": "取消",
   "common.delete": "删除",
+  "common.replacing": "替换中",
+  "common.deleting": "删除中",
   "common.listView": "列表视图",
   "common.cardView": "卡片视图",
   "common.switchToListView": "切换到列表视图",

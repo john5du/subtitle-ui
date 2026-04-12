@@ -79,6 +79,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const replaceInputRef = useRef<Record<string, HTMLInputElement | null>>({});
   const dragDepthRef = useRef(0);
+  const subtitleRowActionButtonClassName = "h-8 gap-1 px-2 text-[11px]";
 
   const [dragActive, setDragActive] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -534,7 +535,12 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <p className="min-w-0 flex-1 break-all text-sm font-semibold text-foreground">{subtitle.fileName}</p>
+                                  <p
+                                    className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground"
+                                    title={subtitle.fileName || undefined}
+                                  >
+                                    {subtitle.fileName}
+                                  </p>
                                   <Badge variant="secondary" className="shrink-0 text-[11px] uppercase">
                                     {subtitle.format || "-"}
                                   </Badge>
@@ -551,7 +557,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                               </div>
                             </div>
 
-                            <div className="mt-4 flex flex-wrap gap-2">
+                            <div className="mt-4 flex flex-wrap gap-1.5">
                               <input
                                 ref={(node) => {
                                   replaceInputRef.current[subtitle.id] = node;
@@ -564,7 +570,14 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                                 }}
                               />
 
-                              <Button type="button" variant="outline" size="sm" className="gap-1.5" disabled={busy || rowBusy} onClick={() => void openStoredSubtitlePreview(subtitle)}>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className={subtitleRowActionButtonClassName}
+                                disabled={busy || rowBusy}
+                                onClick={() => void openStoredSubtitlePreview(subtitle)}
+                              >
                                 <Eye className="h-3.5 w-3.5" />
                                 {t("common.preview")}
                               </Button>
@@ -573,24 +586,27 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="gap-1.5"
+                                className={subtitleRowActionButtonClassName}
                                 disabled={busy || rowBusy}
                                 onClick={() => replaceInputRef.current[subtitle.id]?.click()}
                               >
                                 {replacePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-                                {replacePending ? t("details.replacing") : t("details.replaceSubtitle")}
+                                {replacePending ? t("common.replacing") : t("common.replace")}
                               </Button>
 
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="gap-1.5 border-red-500/25 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+                                className={cn(
+                                  subtitleRowActionButtonClassName,
+                                  "border-red-500/25 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+                                )}
                                 disabled={busy || rowBusy}
                                 onClick={() => setDeleteDialogSubtitleId(subtitle.id)}
                               >
                                 {deletePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
-                                {deletePending ? t("details.deleting") : t("common.delete")}
+                                {deletePending ? t("common.deleting") : t("common.delete")}
                               </Button>
                             </div>
 

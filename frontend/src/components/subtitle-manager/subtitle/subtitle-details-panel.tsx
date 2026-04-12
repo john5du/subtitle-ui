@@ -57,6 +57,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   const { t } = useI18n();
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const replaceInputRef = useRef<Record<string, HTMLInputElement | null>>({});
+  const subtitleRowActionButtonClassName = "h-8 gap-1 px-2 text-[11px]";
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
@@ -477,15 +478,14 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
             <div className={cn("surface-subtle min-h-0 flex-1", flashSubtitleList && "animate-highlight-flash")}>
               <ScrollArea className="h-full min-h-0">
-                <Table>
+                <Table className="table-fixed">
                   {showSubtitleListCaption ? <TableCaption>{t("details.subtitleListCaption")}</TableCaption> : null}
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t("details.name")}</TableHead>
-                      <TableHead>{t("details.lang")}</TableHead>
-                      <TableHead>{t("batch.format")}</TableHead>
-                      <TableHead>{t("details.modified")}</TableHead>
-                      <TableHead className="w-[196px] text-right">{t("common.actions")}</TableHead>
+                      <TableHead className="w-[96px]">{t("details.lang")}</TableHead>
+                      <TableHead className="w-[88px]">{t("batch.format")}</TableHead>
+                      <TableHead className="w-[148px]">{t("details.modified")}</TableHead>
+                      <TableHead className="w-[216px] text-right">{t("common.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -496,12 +496,11 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
                       return (
                         <TableRow key={subtitle.id} className={cn(rowBusy && "animate-pulse-soft bg-muted/40")}>
-                          <TableCell className="break-all">{subtitle.fileName}</TableCell>
-                          <TableCell>{subtitle.language || "-"}</TableCell>
+                          <TableCell title={subtitle.fileName || undefined}>{subtitle.language || "-"}</TableCell>
                           <TableCell>{subtitle.format || "-"}</TableCell>
                           <TableCell>{formatTime(subtitle.modTime)}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                          <TableCell className="w-[216px] text-right">
+                            <div className="flex flex-wrap items-center justify-end gap-1">
                               <input
                                 ref={(node) => {
                                   replaceInputRef.current[subtitle.id] = node;
@@ -517,7 +516,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-8 gap-1 px-2"
+                                className={subtitleRowActionButtonClassName}
                                 disabled={busy || rowBusy}
                                 onClick={() => void openStoredSubtitlePreview(subtitle)}
                               >
@@ -528,23 +527,26 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-8 gap-1 px-2"
+                                className={subtitleRowActionButtonClassName}
                                 disabled={busy || rowBusy}
                                 onClick={() => replaceInputRef.current[subtitle.id]?.click()}
                               >
                                 {replacePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-                                {replacePending ? t("details.replacing") : t("details.replaceSubtitle")}
+                                {replacePending ? t("common.replacing") : t("common.replace")}
                               </Button>
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-8 gap-1 border-red-500/25 px-2 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+                                className={cn(
+                                  subtitleRowActionButtonClassName,
+                                  "border-red-500/25 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+                                )}
                                 disabled={busy || rowBusy}
                                 onClick={() => setDeleteDialogSubtitleId(subtitle.id)}
                               >
                                 {deletePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
-                                {deletePending ? t("details.deleting") : t("details.deleteSubtitle")}
+                                {deletePending ? t("common.deleting") : t("common.delete")}
                               </Button>
 
                               <DeleteSubtitleDialog
@@ -570,7 +572,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
                     {selectedVideo.subtitles.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
+                        <TableCell colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
                           {t("details.noSubtitles")}
                         </TableCell>
                       </TableRow>

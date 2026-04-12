@@ -5,9 +5,12 @@ export const enMessages = {
 
   "common.actions": "Actions",
   "common.preview": "Preview",
+  "common.replace": "Replace",
   "common.close": "Close",
   "common.cancel": "Cancel",
   "common.delete": "Delete",
+  "common.replacing": "Replacing",
+  "common.deleting": "Deleting",
   "common.listView": "List View",
   "common.cardView": "Card View",
   "common.switchToListView": "Switch to list view",
