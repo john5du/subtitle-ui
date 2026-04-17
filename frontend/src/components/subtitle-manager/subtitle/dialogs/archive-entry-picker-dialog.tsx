@@ -83,7 +83,7 @@ export function ArchiveEntryPickerDialog({
                   return (
                     <TableRow
                       key={entry.id}
-                      className={cn(checked && "bg-[rgba(255,255,255,0.08)]")}
+                      className={cn(checked && "bg-surface-hover")}
                       onClick={() => {
                         if (busy || uploading || zipLoading) {
                           return;

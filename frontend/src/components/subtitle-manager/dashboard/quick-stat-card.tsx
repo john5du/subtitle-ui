@@ -16,20 +16,20 @@ interface QuickStatCardProps {
 export function QuickStatCard({ icon, label, value, hint, tone, pending = false, className }: QuickStatCardProps) {
   const toneClass: Record<QuickStatCardProps["tone"], { iconShell: string; hintText: string }> = {
     success: {
-      iconShell: "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)]",
-      hintText: "text-[rgba(255,255,255,0.5)]"
+      iconShell: "border-border bg-surface-subtle",
+      hintText: "text-foreground-muted"
     },
     info: {
-      iconShell: "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)]",
-      hintText: "text-[rgba(255,255,255,0.5)]"
+      iconShell: "border-border bg-surface-subtle",
+      hintText: "text-foreground-muted"
     },
     warning: {
-      iconShell: "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)]",
-      hintText: "text-[rgba(255,255,255,0.5)]"
+      iconShell: "border-border bg-surface-subtle",
+      hintText: "text-foreground-muted"
     },
     destructive: {
-      iconShell: "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)]",
-      hintText: "text-[rgba(255,255,255,0.5)]"
+      iconShell: "border-border bg-surface-subtle",
+      hintText: "text-foreground-muted"
     }
   };
 

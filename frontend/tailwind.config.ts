@@ -59,7 +59,13 @@ const config: Config = {
         popover: {
           DEFAULT: "var(--popover)",
           foreground: "var(--popover-foreground)"
-        }
+        },
+        "surface-subtle": "var(--surface-subtle)",
+        "surface-strong": "var(--surface-strong)",
+        "surface-hover": "var(--surface-hover)",
+        "foreground-muted": "var(--foreground-muted)",
+        "foreground-subtle": "var(--foreground-subtle)",
+        "ring-offset": "var(--ring-offset)"
       }
     }
   },

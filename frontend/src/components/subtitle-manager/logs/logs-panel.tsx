@@ -24,8 +24,8 @@ export function LogsPanel({
         <Badge variant="secondary">{pending ? t("logs.refreshing") : t("logs.recentCount", { count: logs.length })}</Badge>
       </CardHeader>
       <CardContent className="relative flex min-h-0 flex-1 p-4 pt-0">
-        <ScrollArea className={cn("min-h-0 flex-1 border border-border bg-[rgba(255,255,255,0.03)]", pending && "animate-pulse-soft")}>
-          <ul className="divide-y divide-[rgba(255,255,255,0.1)]">
+        <ScrollArea className={cn("min-h-0 flex-1 border border-border bg-surface-subtle", pending && "animate-pulse-soft")}>
+          <ul className="divide-y divide-border">
             {logs.map((log) => (
               <li key={log.id} className="animate-fade-in-up space-y-1 p-3 text-sm">
                 <p className="text-xs text-muted-foreground">{formatTime(log.timestamp)}</p>

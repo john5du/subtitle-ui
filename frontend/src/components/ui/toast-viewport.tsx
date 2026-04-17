@@ -10,9 +10,9 @@ type ToastItem = AppToastEventDetail;
 function toneClass(level: ToastItem["level"]) {
   switch (level) {
     case "success":
-      return "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.8)]";
+      return "border-border bg-surface-strong text-foreground";
     case "info":
-      return "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.8)]";
+      return "border-border bg-surface-strong text-foreground";
     default:
       return "border-red-500/30 bg-red-500/10 text-red-300";
   }
@@ -62,7 +62,7 @@ export function ToastViewport() {
               {toast.detail && <p className="break-words text-xs opacity-60">{toast.detail}</p>}
             </div>
           </div>
-          <div className="mt-2 h-1 overflow-hidden bg-[rgba(255,255,255,0.1)]">
+          <div className="mt-2 h-1 overflow-hidden bg-border">
             <div
               className="toast-progress h-full origin-left bg-current/70"
               style={{ animationDuration: `${Math.max(1500, toast.durationMs ?? 4200)}ms` }}

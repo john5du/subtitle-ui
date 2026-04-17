@@ -48,8 +48,8 @@ export function LibraryViewToggle({
             className={cn(
               "h-8 flex-1 gap-2 px-3 text-xs font-medium sm:flex-none",
               active
-                ? "bg-white text-[#1f2228] hover:bg-[rgba(255,255,255,0.9)]"
-                : "text-[rgba(255,255,255,0.5)] hover:text-white"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "text-foreground-muted hover:text-white"
             )}
             aria-pressed={active}
             aria-label={item.ariaLabel}

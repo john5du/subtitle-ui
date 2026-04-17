@@ -417,7 +417,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-card">
       <div className="border-b border-border/70 bg-card/96 px-5 pb-4 pt-5 sm:px-6">
-        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-[rgba(255,255,255,0.5)]">
+        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground-muted">
           {t("movie.drawerEyebrow")}
         </p>
         <div className="mt-3 flex flex-wrap items-start gap-3 pr-10">
@@ -441,7 +441,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
             ) : null}
           </div>
           {selectedVideo ? (
-            <Badge variant="outline" className="border-[rgba(255,255,255,0.2)] bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
+            <Badge variant="outline" className="border-input bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
               {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
             </Badge>
           ) : null}
@@ -450,7 +450,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
       {!selectedVideo ? (
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-8">
-          <div className="w-full border border-dashed border-border bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center text-sm text-muted-foreground">
+          <div className="w-full border border-dashed border-border bg-surface-subtle px-6 py-12 text-center text-sm text-muted-foreground">
             {emptyText}
           </div>
         </div>
@@ -480,8 +480,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                     className={cn(
                       "surface-transition flex w-full flex-col items-center justify-center gap-4 border border-dashed px-6 py-8 text-center",
                       dragActive
-                        ? "border-[rgba(255,255,255,0.3)] bg-[rgba(255,255,255,0.05)]"
-                        : "border-border bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.05)]",
+                        ? "border-input bg-surface-strong"
+                        : "border-border bg-surface-subtle hover:border-input hover:bg-surface-strong",
                       (busy || zipLoading) && "cursor-not-allowed opacity-65"
                     )}
                     disabled={busy || zipLoading}
@@ -491,7 +491,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                     onDragLeave={handleDropzoneDragLeave}
                     onDrop={handleDropzoneDrop}
                   >
-                    <span className="flex h-16 w-16 items-center justify-center border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)] text-white">
+                    <span className="flex h-16 w-16 items-center justify-center border border-border bg-surface-strong text-white">
                       {uploadPending || zipLoading ? <SpinnerIcon className="h-7 w-7" /> : <UploadCloud className="h-7 w-7" />}
                     </span>
                     <div className="space-y-1">
@@ -511,7 +511,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
                   <div className="space-y-3">
                     {selectedVideo.subtitles.length === 0 ? (
-                      <div className="border-dashed border border-border bg-[rgba(255,255,255,0.03)] px-5 py-8 text-center text-sm text-muted-foreground">
+                      <div className="border-dashed border border-border bg-surface-subtle px-5 py-8 text-center text-sm text-muted-foreground">
                         {t("movie.drawerEmptyRepository")}
                       </div>
                     ) : (
@@ -524,12 +524,12 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                           <article
                             key={subtitle.id}
                             className={cn(
-                              "border border-border bg-[rgba(255,255,255,0.03)] p-4",
+                              "border border-border bg-surface-subtle p-4",
                               rowBusy && "animate-pulse-soft"
                             )}
                           >
                             <div className="flex flex-wrap items-start gap-3">
-                              <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-border bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.5)]">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-border bg-surface-subtle text-foreground-muted">
                                 <FileArchive className="h-5 w-5" />
                               </div>
 

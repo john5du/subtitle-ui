@@ -36,7 +36,7 @@ const DialogContent = React.forwardRef<
       ref={ref}
       data-dialog-content="true"
       className={cn(
-        "data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-[#1f2228] p-6 will-change-[opacity]",
+        "data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 will-change-[opacity]",
         className
       )}
       {...props}
@@ -44,7 +44,7 @@ const DialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         data-slot="close"
-        className="absolute right-4 top-4 border border-border bg-transparent p-1.5 text-[rgba(255,255,255,0.5)] transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]"
+        className="absolute right-4 top-4 border border-border bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]"
       >
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
@@ -64,7 +64,7 @@ const DialogDrawerContent = React.forwardRef<
       ref={ref}
       data-dialog-content="true"
       className={cn(
-        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden border-l border-border bg-[#1f2228] data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right sm:w-[min(840px,94vw)] xl:w-[min(1040px,88vw)]",
+        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden border-l border-border bg-background data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right sm:w-[min(840px,94vw)] xl:w-[min(1040px,88vw)]",
         className
       )}
       {...props}
@@ -72,7 +72,7 @@ const DialogDrawerContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         data-slot="close"
-        className="absolute right-4 top-4 border border-border bg-transparent p-1.5 text-[rgba(255,255,255,0.5)] transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]"
+        className="absolute right-4 top-4 border border-border bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]"
       >
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
