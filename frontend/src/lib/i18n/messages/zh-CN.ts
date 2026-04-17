@@ -17,6 +17,9 @@ export const zhCNMessages: MessageDictionary = {
   "common.cardView": "卡片视图",
   "common.switchToListView": "切换到列表视图",
   "common.switchToCardView": "切换到卡片视图",
+  "common.clear": "清除",
+  "common.sortAscending": "升序排列",
+  "common.sortDescending": "降序排列",
 
   "nav.overview": "总览",
   "nav.movie": "电影",
@@ -91,6 +94,8 @@ export const zhCNMessages: MessageDictionary = {
   "toast.archiveParsedMessage": "发现 {count} 个字幕文件。",
   "toast.unsupportedFileTitle": "不支持的文件",
   "toast.unsupportedFileDetail": "请选择字幕文件或受支持的压缩包格式。",
+  "toast.uploadInProgressTitle": "上传进行中",
+  "toast.uploadInProgressMessage": "请等待当前上传完成后再关闭窗口。",
 
   "error.loadMovieVideos": "加载电影列表失败",
   "error.loadTvSeries": "加载剧集列表失败",
@@ -293,6 +298,8 @@ export const zhCNMessages: MessageDictionary = {
   "pager.prev": "上一页",
   "pager.next": "下一页",
   "pager.summary": "第 {page} / {totalPages} 页（共 {total} 条）",
+  "pager.gotoLabel": "跳到第",
+  "pager.gotoAria": "跳页,当前第 {page}/{totalPages} 页",
 
   "logs.title": "操作日志",
   "logs.recentCount": "最近 {count} 条",
