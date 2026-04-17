@@ -5,6 +5,7 @@ import { RefreshCw, Search } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import type { TvSeriesSummary } from "@/lib/types";
+import { emitToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -188,9 +189,19 @@ const ManagementDialogs = memo(function ManagementDialogs({
   subtitleActions: SubtitleManagerScreenModel["subtitleActions"];
   movieEmptyText: string;
 }) {
+  const { t } = useI18n();
+  const notifyUploadInProgress = useCallback(() => {
+    emitToast({
+      level: "info",
+      title: t("toast.uploadInProgressTitle"),
+      message: t("toast.uploadInProgressMessage")
+    });
+  }, [t]);
+
   const handleMovieManagerOpenChange = useCallback(
     (open: boolean) => {
       if (!open && subtitleActions.uploading) {
+        notifyUploadInProgress();
         return;
       }
       dialogs.setMovieManagerOpen(open);
@@ -198,12 +209,13 @@ const ManagementDialogs = memo(function ManagementDialogs({
         void dialogs.loadMovieWorkspaceOnDemand();
       }
     },
-    [dialogs, subtitleActions.uploading]
+    [dialogs, subtitleActions.uploading, notifyUploadInProgress]
   );
 
   const handleTvDrawerOpenChange = useCallback(
     (open: boolean) => {
       if (!open && subtitleActions.uploading) {
+        notifyUploadInProgress();
         return;
       }
       dialogs.setTvDrawerOpen(open);
@@ -214,7 +226,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
         }
       }
     },
-    [dialogs, subtitleActions.uploading]
+    [dialogs, subtitleActions.uploading, notifyUploadInProgress]
   );
 
   const handleTvDrawerModeChange = useCallback(
@@ -235,7 +247,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
         open={dialogs.movieManagerOpen}
         onOpenChange={handleMovieManagerOpenChange}
       >
-        <DialogDrawerContent className="p-0 [&>button]:right-5 [&>button]:top-5 [&>button]:z-50">
+        <DialogDrawerContent className="p-0 [&_[data-slot=close]]:right-5 [&_[data-slot=close]]:top-5 [&_[data-slot=close]]:z-50">
           <MovieSubtitleDrawer
             ref={dialogs.movieDetailsRef}
             selectedVideo={movie.selectedVideo}
@@ -257,7 +269,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
         open={dialogs.tvDrawerOpen}
         onOpenChange={handleTvDrawerOpenChange}
       >
-        <DialogDrawerContent className="p-0 xl:w-[min(1240px,92vw)] [&>button]:right-5 [&>button]:top-5 [&>button]:z-50">
+        <DialogDrawerContent className="p-0 xl:w-[min(1240px,92vw)] [&_[data-slot=close]]:right-5 [&_[data-slot=close]]:top-5 [&_[data-slot=close]]:z-50">
           <TvSubtitleDrawer
             selectedSeries={tv.selectedSeries}
             selectedSeason={tv.selectedSeason}
@@ -293,6 +305,7 @@ ManagementDialogs.displayName = "ManagementDialogs";
 export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenModel }) {
   const { t } = useI18n();
   const { shell, dashboard, movie, tv, logs, subtitleActions, dialogs } = model;
+  const activeTabLabel = shell.navItems.find((item) => item.key === shell.activeTab)?.label ?? shell.activeTab;
 
   return (
     <div className="relative h-full w-full px-3 py-3 sm:px-4 md:px-6 md:py-5">
@@ -346,6 +359,8 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   onClick={() => void shell.triggerScan()}
                   disabled={shell.operationLocked}
                   className="h-10 w-10"
+                  aria-label={shell.scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
+                  title={shell.scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
                 >
                   {shell.scanPending ? <SpinnerIcon className="h-5 w-5" /> : <Search className="h-5 w-5" />}
                 </Button>
@@ -356,6 +371,8 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   onClick={() => void shell.refreshActiveTab()}
                   disabled={shell.operationLocked}
                   className="h-10 w-10"
+                  aria-label={shell.refreshPending ? t("sidebar.refreshingTab", { tab: activeTabLabel }) : t("sidebar.refreshTab", { tab: activeTabLabel })}
+                  title={shell.refreshPending ? t("sidebar.refreshingTab", { tab: activeTabLabel }) : t("sidebar.refreshTab", { tab: activeTabLabel })}
                 >
                   {shell.refreshPending ? <SpinnerIcon className="h-5 w-5" /> : <RefreshCw className="h-5 w-5" />}
                 </Button>

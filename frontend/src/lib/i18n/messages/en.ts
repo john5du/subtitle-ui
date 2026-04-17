@@ -15,6 +15,9 @@ export const enMessages = {
   "common.cardView": "Card View",
   "common.switchToListView": "Switch to list view",
   "common.switchToCardView": "Switch to card view",
+  "common.clear": "Clear",
+  "common.sortAscending": "Sort ascending",
+  "common.sortDescending": "Sort descending",
 
   "nav.overview": "Overview",
   "nav.movie": "Movie",
@@ -89,6 +92,8 @@ export const enMessages = {
   "toast.archiveParsedMessage": "{count} subtitle files found.",
   "toast.unsupportedFileTitle": "Unsupported file",
   "toast.unsupportedFileDetail": "Select subtitle files or supported archive formats.",
+  "toast.uploadInProgressTitle": "Upload in progress",
+  "toast.uploadInProgressMessage": "Please wait for the current upload to finish before closing.",
 
   "error.loadMovieVideos": "Load movie videos failed",
   "error.loadTvSeries": "Load TV series failed",
@@ -291,6 +296,8 @@ export const enMessages = {
   "pager.prev": "Prev",
   "pager.next": "Next",
   "pager.summary": "Page {page} / {totalPages} ({total})",
+  "pager.gotoLabel": "Go to page",
+  "pager.gotoAria": "Jump to page, currently page {page} of {totalPages}",
 
   "logs.title": "Operation Logs",
   "logs.recentCount": "Recent {count}",

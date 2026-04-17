@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { ArrowLeft, ExternalLink, Eye, Pencil, Trash2, UploadCloud } from "lucide-react";
+import { ArrowLeft, AlertTriangle, ExternalLink, Eye, Pencil, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import type { Subtitle } from "@/lib/types";
@@ -472,7 +472,12 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                     ))}
                   </div>
                 )}
-                {zipPickError && <span className="text-xs text-destructive">{zipPickError}</span>}
+                {zipPickError && (
+                  <div className="flex items-start gap-2 border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-300">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                    <span className="min-w-0 break-words">{zipPickError}</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -589,6 +594,11 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
         open={uploadDialogOpen}
         onOpenChange={(open) => {
           if (!open && uploading) {
+            emitToast({
+              level: "info",
+              title: t("toast.uploadInProgressTitle"),
+              message: t("toast.uploadInProgressMessage")
+            });
             return;
           }
           if (!open) {
@@ -609,6 +619,11 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
         open={zipPickDialogOpen}
         onOpenChange={(open) => {
           if (!open && uploading) {
+            emitToast({
+              level: "info",
+              title: t("toast.uploadInProgressTitle"),
+              message: t("toast.uploadInProgressMessage")
+            });
             return;
           }
           if (!open) {

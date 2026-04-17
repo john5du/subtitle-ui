@@ -1,4 +1,6 @@
-import { memo } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useRef, useState, type KeyboardEvent } from "react";
+
+import { X } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import type { Pager, Video } from "@/lib/types";
@@ -31,6 +33,8 @@ interface MovieListPanelProps {
   formatTime: (value: string | undefined | null) => string;
 }
 
+const rowFocusClass = "surface-transition cursor-pointer outline-none hover:bg-accent focus-visible:bg-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-[rgba(255,255,255,0.4)]";
+
 const MoviePosterCard = memo(function MoviePosterCard({
   video,
   onOpenManager,
@@ -59,11 +63,13 @@ const MoviePosterCard = memo(function MoviePosterCard({
             sizes="(min-width: 1024px) 18vw, (min-width: 640px) 44vw, 92vw"
           />
         </div>
-        <div className="flex items-start gap-3 p-3">
-          <p className="line-clamp-2 min-w-0 flex-1 text-base font-semibold leading-6 text-foreground">
+        <div className="flex flex-col gap-0.5 p-3">
+          <p className="line-clamp-2 min-w-0 text-base font-semibold leading-6 text-foreground">
             {video.title || video.fileName || "-"}
           </p>
-          <span className="shrink-0 pt-0.5 text-xs font-medium text-muted-foreground">{video.year || "-"}</span>
+          {video.year ? (
+            <span className="text-xs font-medium text-muted-foreground">{video.year}</span>
+          ) : null}
         </div>
       </button>
     </div>
@@ -71,6 +77,27 @@ const MoviePosterCard = memo(function MoviePosterCard({
 });
 
 MoviePosterCard.displayName = "MoviePosterCard";
+
+function SkeletonRows({ rows = 4 }: { rows?: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, index) => (
+        <TableRow key={`skeleton-${index}`} aria-hidden>
+          <TableCell className="py-3">
+            <div className="h-14 w-10 animate-pulse-soft bg-white/10" />
+          </TableCell>
+          <TableCell>
+            <div className="h-4 w-40 animate-pulse-soft bg-white/10" />
+          </TableCell>
+          <TableCell><div className="h-4 w-10 animate-pulse-soft bg-white/10" /></TableCell>
+          <TableCell className="hidden md:table-cell"><div className="h-4 w-24 animate-pulse-soft bg-white/10" /></TableCell>
+          <TableCell className="text-right"><div className="ml-auto h-4 w-6 animate-pulse-soft bg-white/10" /></TableCell>
+          <TableCell className="hidden lg:table-cell"><div className="h-4 w-48 animate-pulse-soft bg-white/10" /></TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+}
 
 export const MovieListPanel = memo(function MovieListPanel({
   query,
@@ -88,6 +115,43 @@ export const MovieListPanel = memo(function MovieListPanel({
   formatTime
 }: MovieListPanelProps) {
   const { t } = useI18n();
+  const [draftQuery, setDraftQuery] = useState(query);
+  const deferredQuery = useDeferredValue(draftQuery);
+  const lastPublishedRef = useRef(query);
+
+  useEffect(() => {
+    if (query !== draftQuery) {
+      setDraftQuery(query);
+      lastPublishedRef.current = query;
+    }
+    // only sync from parent-controlled query
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  useEffect(() => {
+    if (deferredQuery !== lastPublishedRef.current) {
+      lastPublishedRef.current = deferredQuery;
+      onQueryChange(deferredQuery);
+    }
+  }, [deferredQuery, onQueryChange]);
+
+  const handleRowKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTableRowElement>, video: Video) => {
+      if (operationLocked) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onOpenManager(video);
+      }
+    },
+    [operationLocked, onOpenManager]
+  );
+
+  const ariaSort = yearSortOrder === "desc" ? "descending" : "ascending";
+  const sortAriaLabel = yearSortOrder === "desc" ? t("common.sortDescending") : t("common.sortAscending");
+  const showToolbarSortButton = viewMode !== "list";
+  const hasVideos = videos.length > 0;
+  const showSkeleton = !hasVideos && pending;
+
   return (
     <Card className="animate-fade-in-up flex h-full flex-col border bg-card">
       <CardHeader className="space-y-3 p-4">
@@ -96,50 +160,82 @@ export const MovieListPanel = memo(function MovieListPanel({
             <CardTitle className="text-lg">{t("movie.listTitle")}</CardTitle>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:w-auto xl:justify-end">
-            <Input
-              className="h-9 w-full min-w-0 sm:flex-1 xl:w-[260px] xl:flex-none"
-              value={query}
-              aria-label={t("movie.filterAria")}
-              placeholder={t("movie.filterPlaceholder")}
-              onChange={(event) => onQueryChange(event.target.value)}
-            />
+            <div className="relative w-full min-w-0 sm:flex-1 xl:w-[260px] xl:flex-none">
+              <Input
+                className="h-9 w-full pr-8"
+                value={draftQuery}
+                aria-label={t("movie.filterAria")}
+                placeholder={t("movie.filterPlaceholder")}
+                onChange={(event) => setDraftQuery(event.target.value)}
+              />
+              {draftQuery && (
+                <button
+                  type="button"
+                  aria-label={t("common.clear")}
+                  title={t("common.clear")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-white"
+                  onClick={() => setDraftQuery("")}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-2 sm:ml-auto xl:ml-0">
-              <Button type="button" variant="outline" size="sm" className="h-9 min-w-[88px] gap-2 px-3" onClick={onToggleYearSort}>
-                {t("info.year")}
-                <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
-              </Button>
+              {showToolbarSortButton && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 min-w-[88px] gap-2 px-3"
+                  aria-label={`${t("info.year")} · ${sortAriaLabel}`}
+                  onClick={onToggleYearSort}
+                >
+                  {t("info.year")}
+                  <span className="text-[10px]" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+                </Button>
+              )}
               <LibraryViewToggle value={viewMode} onChange={onViewModeChange} />
             </div>
           </div>
         </div>
-        {pending && <InlinePending label={t("movie.updatingResults")} />}
+        {pending && hasVideos && <InlinePending label={t("movie.updatingResults")} />}
       </CardHeader>
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
-        <ScrollArea className={cn("surface-subtle min-h-0 flex-1", pending && "animate-pulse-soft")}>
+        <ScrollArea className={cn("surface-subtle min-h-0 flex-1", pending && hasVideos && "animate-pulse-soft")}>
           {viewMode === "list" ? (
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
                   <TableHead>{t("info.title")}</TableHead>
-                  <TableHead className="w-[96px]">
-                    <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={onToggleYearSort}>
+                  <TableHead className="w-[96px]" aria-sort={ariaSort}>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 hover:text-foreground"
+                      aria-label={`${t("info.year")} · ${sortAriaLabel}`}
+                      onClick={onToggleYearSort}
+                    >
                       {t("info.year")}
-                      <span className="text-[10px]">{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+                      <span className="text-[10px]" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
                     </button>
                   </TableHead>
-                  <TableHead className="w-[156px]">{t("movie.updatedTime")}</TableHead>
+                  <TableHead className="hidden w-[156px] md:table-cell">{t("movie.updatedTime")}</TableHead>
                   <TableHead className="w-[92px] text-right">{t("movie.subtitles")}</TableHead>
-                  <TableHead className="w-[320px]">{t("movie.fileName")}</TableHead>
+                  <TableHead className="hidden lg:table-cell lg:w-[320px]">{t("movie.fileName")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {videos.map((video) => (
+                {showSkeleton && <SkeletonRows />}
+
+                {!showSkeleton && videos.map((video) => (
                   <TableRow
                     key={video.id}
+                    role="button"
+                    tabIndex={operationLocked ? -1 : 0}
+                    aria-label={video.title || video.fileName || t("info.movie")}
                     className={cn(
-                      "surface-transition cursor-pointer hover:bg-accent",
+                      rowFocusClass,
                       operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
                     )}
                     onClick={() => {
@@ -147,6 +243,7 @@ export const MovieListPanel = memo(function MovieListPanel({
                         onOpenManager(video);
                       }
                     }}
+                    onKeyDown={(event) => handleRowKeyDown(event, video)}
                   >
                     <TableCell className="w-[76px] py-2">
                       <PosterThumbnail src={video.posterUrl} />
@@ -155,15 +252,15 @@ export const MovieListPanel = memo(function MovieListPanel({
                       {video.title || "-"}
                     </TableCell>
                     <TableCell>{video.year || "-"}</TableCell>
-                    <TableCell>{formatTime(video.updatedAt)}</TableCell>
+                    <TableCell className="hidden md:table-cell">{formatTime(video.updatedAt)}</TableCell>
                     <TableCell className="text-right">{video.subtitles.length}</TableCell>
-                    <TableCell className="max-w-[320px] truncate" title={video.fileName}>
+                    <TableCell className="hidden max-w-[320px] truncate lg:table-cell" title={video.fileName}>
                       {video.fileName || "-"}
                     </TableCell>
                   </TableRow>
                 ))}
 
-                {videos.length === 0 && (
+                {!showSkeleton && videos.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                       {t("movie.empty")}
@@ -174,7 +271,7 @@ export const MovieListPanel = memo(function MovieListPanel({
             </Table>
           ) : videos.length === 0 ? (
             <div className="flex min-h-[320px] items-center justify-center p-6 text-center text-sm text-muted-foreground">
-              {t("movie.empty")}
+              {pending ? t("movie.updatingResults") : t("movie.empty")}
             </div>
           ) : (
             <div className="p-4">
@@ -191,7 +288,7 @@ export const MovieListPanel = memo(function MovieListPanel({
             </div>
           )}
         </ScrollArea>
-        {pending && <PanelLoadingOverlay label={t("movie.updatingResults")} />}
+        {pending && hasVideos && <PanelLoadingOverlay label={t("movie.updatingResults")} />}
 
         <PagerView pager={pager} onSetPage={onSetPage} disabled={pending} />
       </CardContent>
