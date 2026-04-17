@@ -65,7 +65,7 @@ export function TvSubtitleDrawer({
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-card">
       <div className="border-b border-border/70 bg-card/96 px-5 pb-4 pt-5 sm:px-6">
-        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-[rgba(255,255,255,0.5)]">
+        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground-muted">
           {t("tv.drawerEyebrow")}
         </p>
         <div className="mt-3 flex flex-wrap items-start gap-3 pr-10">
@@ -93,7 +93,7 @@ export function TvSubtitleDrawer({
             </div>
           </div>
           {selectedSeries ? (
-            <Badge variant="outline" className="border-[rgba(255,255,255,0.2)] bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
+            <Badge variant="outline" className="border-input bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
               {selectedSeries.videoCount} {t("tv.videos")}
             </Badge>
           ) : null}
@@ -102,7 +102,7 @@ export function TvSubtitleDrawer({
 
       {!selectedSeries ? (
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-8">
-          <div className="w-full border border-dashed border-border bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center text-sm text-muted-foreground">
+          <div className="w-full border border-dashed border-border bg-surface-subtle px-6 py-12 text-center text-sm text-muted-foreground">
             {t("tv.drawerEmptySeries")}
           </div>
         </div>

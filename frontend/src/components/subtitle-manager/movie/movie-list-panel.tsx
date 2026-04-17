@@ -33,7 +33,7 @@ interface MovieListPanelProps {
   formatTime: (value: string | undefined | null) => string;
 }
 
-const rowFocusClass = "surface-transition cursor-pointer outline-none hover:bg-accent focus-visible:bg-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-[rgba(255,255,255,0.4)]";
+const rowFocusClass = "surface-transition cursor-pointer outline-none hover:bg-accent focus-visible:bg-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-input";
 
 const MoviePosterCard = memo(function MoviePosterCard({
   video,
@@ -47,7 +47,7 @@ const MoviePosterCard = memo(function MoviePosterCard({
   const { t } = useI18n();
 
   return (
-    <div className="flex w-full min-w-0 self-start flex-col border border-border bg-[rgba(255,255,255,0.03)]">
+    <div className="flex w-full min-w-0 self-start flex-col border border-border bg-surface-subtle">
       <button
         type="button"
         className="surface-transition flex w-full min-w-0 flex-col text-left disabled:cursor-not-allowed disabled:opacity-65"
@@ -84,15 +84,15 @@ function SkeletonRows({ rows = 4 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, index) => (
         <TableRow key={`skeleton-${index}`} aria-hidden>
           <TableCell className="py-3">
-            <div className="h-14 w-10 animate-pulse-soft bg-white/10" />
+            <div className="h-14 w-10 animate-pulse-soft bg-surface-hover" />
           </TableCell>
           <TableCell>
-            <div className="h-4 w-40 animate-pulse-soft bg-white/10" />
+            <div className="h-4 w-40 animate-pulse-soft bg-surface-hover" />
           </TableCell>
-          <TableCell><div className="h-4 w-10 animate-pulse-soft bg-white/10" /></TableCell>
-          <TableCell className="hidden md:table-cell"><div className="h-4 w-24 animate-pulse-soft bg-white/10" /></TableCell>
-          <TableCell className="text-right"><div className="ml-auto h-4 w-6 animate-pulse-soft bg-white/10" /></TableCell>
-          <TableCell className="hidden lg:table-cell"><div className="h-4 w-48 animate-pulse-soft bg-white/10" /></TableCell>
+          <TableCell><div className="h-4 w-10 animate-pulse-soft bg-surface-hover" /></TableCell>
+          <TableCell className="hidden md:table-cell"><div className="h-4 w-24 animate-pulse-soft bg-surface-hover" /></TableCell>
+          <TableCell className="text-right"><div className="ml-auto h-4 w-6 animate-pulse-soft bg-surface-hover" /></TableCell>
+          <TableCell className="hidden lg:table-cell"><div className="h-4 w-48 animate-pulse-soft bg-surface-hover" /></TableCell>
         </TableRow>
       ))}
     </>

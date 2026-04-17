@@ -5,16 +5,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "surface-transition inline-flex items-center justify-center gap-2 whitespace-nowrap border font-mono text-sm uppercase tracking-[0.0875em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(59,130,246)/0.5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1f2228] disabled:pointer-events-none disabled:opacity-50",
+  "surface-transition inline-flex items-center justify-center gap-2 whitespace-nowrap border font-mono text-sm uppercase tracking-[0.0875em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(59,130,246)/0.5] focus-visible:ring-offset-2 focus-visible:ring-offset-ring-offset disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-white text-[#1f2228] hover:bg-[rgba(255,255,255,0.9)]",
+        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/90",
         destructive: "border-transparent bg-red-500 text-white hover:bg-red-600",
-        outline: "border-[rgba(255,255,255,0.2)] bg-transparent text-white hover:bg-[rgba(255,255,255,0.05)] hover:text-white",
-        secondary: "border-border bg-[rgba(255,255,255,0.03)] text-white hover:bg-[rgba(255,255,255,0.08)]",
-        ghost: "border-transparent hover:bg-[rgba(255,255,255,0.05)] hover:text-white",
-        link: "border-transparent text-white underline-offset-4 hover:text-[rgba(255,255,255,0.5)]"
+        outline: "border-input bg-transparent text-white hover:bg-surface-strong hover:text-white",
+        secondary: "border-border bg-surface-subtle text-white hover:bg-surface-hover",
+        ghost: "border-transparent hover:bg-surface-strong hover:text-white",
+        link: "border-transparent text-white underline-offset-4 hover:text-foreground-muted"
       },
       size: {
         default: "h-10 px-6 py-2",

@@ -275,7 +275,7 @@ export function TvSeasonBatchUploadWorkspace({
       />
 
       {showSummary && (
-        <div className="mb-4 border border-border bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-muted-foreground">
+        <div className="mb-4 border border-border bg-surface-subtle px-4 py-3 text-sm text-muted-foreground">
           {t("batch.dialogDescription", {
             summary: batchSourceSummary || "-",
             autoMatched: autoMatchedCount,
@@ -433,7 +433,7 @@ export function TvSeasonBatchUploadWorkspace({
         </div>
 
         {batchResult && (
-          <div className="border border-border bg-[rgba(255,255,255,0.03)] p-3 text-xs">
+          <div className="border border-border bg-surface-subtle p-3 text-xs">
             <p>
               {t("batch.result", {
                 success: batchResult.success,

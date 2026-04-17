@@ -454,7 +454,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
               onChange={onUploadFileChange}
             />
             {hasActionToolbar && (
-              <div className="flex flex-col gap-3 border border-border bg-[rgba(255,255,255,0.03)] p-3">
+              <div className="flex flex-col gap-3 border border-border bg-surface-subtle p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {showPrimaryUploadButton && (
                     <Button

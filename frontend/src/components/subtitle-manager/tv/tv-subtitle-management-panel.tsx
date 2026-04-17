@@ -129,8 +129,8 @@ export function TvSubtitleManagementPanel({
                     className={cn(
                       "surface-transition w-full border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
                       active
-                        ? "border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] shadow-[inset_3px_0_0_0_rgba(255,255,255,0.3)]"
-                        : "border-border bg-transparent hover:bg-[rgba(255,255,255,0.05)]",
+                        ? "border-input bg-surface-strong shadow-[inset_3px_0_0_0_var(--input)]"
+                        : "border-border bg-transparent hover:bg-surface-strong",
                       itemBusy && "animate-pulse-soft"
                     )}
                     aria-pressed={active}

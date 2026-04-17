@@ -36,7 +36,7 @@ export function SubtitlePreviewDialog({
           <DialogTitle>{t("details.previewTitle", { name: previewTitle || "-" })}</DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-auto border border-border bg-[rgba(255,255,255,0.03)] p-3">
+        <div className="min-h-0 flex-1 overflow-auto border border-border bg-surface-subtle p-3">
           {previewStatus === "loading" && (
             <div className="flex h-full items-center justify-center">
               <InlinePending label={t("details.previewLoading")} />
@@ -69,7 +69,7 @@ export function SubtitlePreviewDialog({
                   </span>
                 )}
               </div>
-              <pre className="overflow-auto whitespace-pre-wrap break-words border border-border bg-[rgba(255,255,255,0.03)] p-3 font-mono text-xs leading-5">
+              <pre className="overflow-auto whitespace-pre-wrap break-words border border-border bg-surface-subtle p-3 font-mono text-xs leading-5">
                 {previewContent}
               </pre>
             </div>
