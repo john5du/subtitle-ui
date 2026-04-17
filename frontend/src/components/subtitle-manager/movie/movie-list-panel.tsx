@@ -47,7 +47,7 @@ const MoviePosterCard = memo(function MoviePosterCard({
   const { t } = useI18n();
 
   return (
-    <div className="flex w-full min-w-0 self-start flex-col border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)]">
+    <div className="flex w-full min-w-0 self-start flex-col border border-border bg-[rgba(255,255,255,0.03)]">
       <button
         type="button"
         className="surface-transition flex w-full min-w-0 flex-col text-left disabled:cursor-not-allowed disabled:opacity-65"

@@ -130,7 +130,7 @@ export function TvSubtitleManagementPanel({
                       "surface-transition w-full border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
                       active
                         ? "border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] shadow-[inset_3px_0_0_0_rgba(255,255,255,0.3)]"
-                        : "border-[rgba(255,255,255,0.1)] bg-transparent hover:bg-[rgba(255,255,255,0.05)]",
+                        : "border-border bg-transparent hover:bg-[rgba(255,255,255,0.05)]",
                       itemBusy && "animate-pulse-soft"
                     )}
                     aria-pressed={active}
@@ -144,7 +144,7 @@ export function TvSubtitleManagementPanel({
             })}
 
             {videos.length === 0 && (
-              <li className="border-dashed border border-[rgba(255,255,255,0.1)] p-6 text-center text-sm text-muted-foreground">
+              <li className="border-dashed border border-border p-6 text-center text-sm text-muted-foreground">
                 {t("tv.noEpisodesInSeason", { season: selectedSeasonLabel })}
               </li>
             )}

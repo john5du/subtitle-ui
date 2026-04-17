@@ -152,7 +152,7 @@ export function RowActionsMenu({
           rel={item.external ? "noreferrer" : undefined}
           className={cn(
             "surface-transition flex w-full items-center justify-between px-3 py-2.5 text-[13px] font-medium text-popover-foreground hover:bg-[rgba(255,255,255,0.08)] hover:text-white",
-            showDivider && "mt-1 border-t border-[rgba(255,255,255,0.1)] pt-3"
+            showDivider && "mt-1 border-t border-border pt-3"
           )}
           onClick={() => setOpen(false)}
         >
@@ -191,7 +191,7 @@ export function RowActionsMenu({
       role="menu"
       style={{ maxHeight: `${menuMaxHeight}px` }}
       className={cn(
-        "animate-fade-in-fast absolute right-0 z-[90] min-w-[210px] overflow-y-auto overscroll-contain border border-[rgba(255,255,255,0.1)] bg-popover p-1.5 text-popover-foreground",
+        "animate-fade-in-fast absolute right-0 z-[90] min-w-[210px] overflow-y-auto overscroll-contain border border-border bg-popover p-1.5 text-popover-foreground",
         resolvedDirection === "up" ? "bottom-full mb-1" : "top-full mt-1"
       )}
     >
@@ -211,7 +211,7 @@ export function RowActionsMenu({
         bottom: menuPosition.bottom !== undefined ? `${menuPosition.bottom}px` : undefined
       }}
       className={cn(
-        "animate-fade-in-fast fixed z-[130] min-w-[210px] overflow-y-auto overscroll-contain border border-[rgba(255,255,255,0.1)] bg-popover p-1.5 text-popover-foreground",
+        "animate-fade-in-fast fixed z-[130] min-w-[210px] overflow-y-auto overscroll-contain border border-border bg-popover p-1.5 text-popover-foreground",
         resolvedDirection === "up" ? "origin-bottom-right" : "origin-top-right"
       )}
     >

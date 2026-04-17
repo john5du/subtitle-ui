@@ -25,6 +25,7 @@ import { InlinePending, SpinnerIcon } from "../shared/pending-state";
 import { decodeSubtitlePreviewContent } from "./preview-utils";
 import { ArchiveEntryPickerDialog } from "./dialogs/archive-entry-picker-dialog";
 import { DeleteSubtitleDialog } from "./dialogs/delete-subtitle-dialog";
+import { ReplaceSubtitleDialog } from "./dialogs/replace-subtitle-dialog";
 import { SubtitlePreviewDialog } from "./dialogs/subtitle-preview-dialog";
 import { UploadSubtitleDialog } from "./dialogs/upload-subtitle-dialog";
 
@@ -72,6 +73,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   const [zipPickError, setZipPickError] = useState("");
   const [zipLoading, setZipLoading] = useState(false);
   const [deleteDialogSubtitleId, setDeleteDialogSubtitleId] = useState<string | null>(null);
+  const [pendingReplace, setPendingReplace] = useState<{ subtitle: Subtitle; file: File } | null>(null);
   const [flashSubtitleList, setFlashSubtitleList] = useState(false);
   const [metaExpanded, setMetaExpanded] = useState(!metaCollapsedByDefault);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
@@ -212,6 +214,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
     resetZipPickState();
     resetPreviewState();
     setDeleteDialogSubtitleId(null);
+    setPendingReplace(null);
     setFlashSubtitleList(false);
   }, [selectedVideo?.id]);
 
@@ -323,8 +326,15 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
       });
       return;
     }
+    setPendingReplace({ subtitle, file });
+  }
+
+  async function confirmReplaceSubtitle() {
+    if (!pendingReplace || !selectedVideo) return;
+    const { subtitle, file } = pendingReplace;
     const success = await onReplace(selectedVideo, subtitle, file);
     if (success) {
+      setPendingReplace(null);
       triggerSubtitleListFlash();
     }
   }
@@ -404,7 +414,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-0">
         {!selectedVideo ? (
-          <div className="flex flex-1 items-center justify-center border-dashed border-[rgba(255,255,255,0.1)] p-10 text-center text-sm text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center border-dashed border-border p-10 text-center text-sm text-muted-foreground">
             {emptyText}
           </div>
         ) : (
@@ -444,7 +454,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
               onChange={onUploadFileChange}
             />
             {hasActionToolbar && (
-              <div className="flex flex-col gap-3 border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] p-3">
+              <div className="flex flex-col gap-3 border border-border bg-[rgba(255,255,255,0.03)] p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {showPrimaryUploadButton && (
                     <Button
@@ -589,6 +599,32 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
           </div>
         )}
       </CardContent>
+
+      <ReplaceSubtitleDialog
+        open={pendingReplace !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            const isReplacing = subtitleAction?.kind === "replace" && pendingReplace?.subtitle.id === subtitleAction.subtitleId;
+            if (isReplacing) {
+              emitToast({
+                level: "info",
+                title: t("toast.uploadInProgressTitle"),
+                message: t("toast.uploadInProgressMessage")
+              });
+              return;
+            }
+            setPendingReplace(null);
+          }
+        }}
+        subtitle={pendingReplace?.subtitle ?? null}
+        newFileName={pendingReplace?.file.name ?? ""}
+        replacePending={Boolean(
+          subtitleAction?.kind === "replace" && pendingReplace && subtitleAction.subtitleId === pendingReplace.subtitle.id
+        )}
+        onConfirm={() => {
+          void confirmReplaceSubtitle();
+        }}
+      />
 
       <UploadSubtitleDialog
         open={uploadDialogOpen}

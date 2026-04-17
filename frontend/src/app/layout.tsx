@@ -65,7 +65,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <div className="flex h-dvh flex-col">
             <ToastViewport />
             <main className="h-[calc(100dvh-3.5rem)] min-h-0 overflow-auto lg:overflow-hidden">{children}</main>
-            <footer className="h-14 shrink-0 border-t border-[rgba(255,255,255,0.1)] bg-[#1f2228]">
+            <footer className="h-14 shrink-0 border-t border-border bg-[#1f2228]">
               <div className="mx-auto flex h-full w-full max-w-[1620px] items-center justify-between px-4 text-sm text-[rgba(255,255,255,0.5)] md:px-6">
                 <p>&copy; {year} Subtitle UI v{APP_VERSION}</p>
                 <a

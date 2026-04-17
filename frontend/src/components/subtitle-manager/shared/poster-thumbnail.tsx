@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 function PosterPlaceholder({ className }: { className?: string }) {
   return (
     <div
-      className={cn("border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)]", className ?? "h-[72px] w-[48px]")}
+      className={cn("border border-border bg-[rgba(255,255,255,0.03)]", className ?? "h-[72px] w-[48px]")}
       aria-hidden
     />
   );
@@ -40,7 +40,7 @@ export const PosterThumbnail = memo(function PosterThumbnail({
   }
 
   return (
-    <div className={cn("overflow-hidden border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)]", frameClassName)}>
+    <div className={cn("overflow-hidden border border-border bg-[rgba(255,255,255,0.03)]", frameClassName)}>
       <Image
         src={src}
         alt=""
