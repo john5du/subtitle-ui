@@ -102,7 +102,7 @@ export function TvSubtitleDrawer({
 
       {!selectedSeries ? (
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-8">
-          <div className="w-full border border-dashed border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center text-sm text-muted-foreground">
+          <div className="w-full border border-dashed border-border bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center text-sm text-muted-foreground">
             {t("tv.drawerEmptySeries")}
           </div>
         </div>

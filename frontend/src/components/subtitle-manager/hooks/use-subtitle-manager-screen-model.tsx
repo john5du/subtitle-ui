@@ -94,9 +94,9 @@ export function useSubtitleManagerScreenModel() {
       return "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.5)]";
     }
     if (pending.tabSwitch || pending.bootstrapping || loading) {
-      return "border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.5)]";
+      return "border-border bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.5)]";
     }
-    return "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.7)]";
+    return "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] text-muted-foreground";
   }, [loading, pending.bootstrapping, pending.tabSwitch, refreshPending, scanPending, uploading]);
 
   const statusBadgeText = scanPending

@@ -275,7 +275,7 @@ export function TvSeasonBatchUploadWorkspace({
       />
 
       {showSummary && (
-        <div className="mb-4 border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-muted-foreground">
+        <div className="mb-4 border border-border bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-muted-foreground">
           {t("batch.dialogDescription", {
             summary: batchSourceSummary || "-",
             autoMatched: autoMatchedCount,
@@ -370,7 +370,7 @@ export function TvSeasonBatchUploadWorkspace({
 
         <div className="space-y-2">
           <p className="text-sm font-semibold">{t("batch.mappingTitle")}</p>
-          <div className={cn("max-h-[52vh] overflow-auto border border-[rgba(255,255,255,0.1)]", batchPreparing && "animate-pulse-soft")}>
+          <div className={cn("max-h-[52vh] overflow-auto border border-border", batchPreparing && "animate-pulse-soft")}>
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
@@ -433,7 +433,7 @@ export function TvSeasonBatchUploadWorkspace({
         </div>
 
         {batchResult && (
-          <div className="border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] p-3 text-xs">
+          <div className="border border-border bg-[rgba(255,255,255,0.03)] p-3 text-xs">
             <p>
               {t("batch.result", {
                 success: batchResult.success,
@@ -455,7 +455,7 @@ export function TvSeasonBatchUploadWorkspace({
         {batchPreparing && <PanelLoadingOverlay label={t("batch.preparing")} />}
       </div>
 
-      <div className="mt-4 shrink-0 border-t border-[rgba(255,255,255,0.1)] pt-3">
+      <div className="mt-4 shrink-0 border-t border-border pt-3">
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           {showCloseButton && onRequestClose ? (
             <Button type="button" variant="outline" onClick={onRequestClose}>

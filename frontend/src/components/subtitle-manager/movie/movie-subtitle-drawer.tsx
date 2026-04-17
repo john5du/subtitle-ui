@@ -450,7 +450,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
       {!selectedVideo ? (
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-8">
-          <div className="w-full border border-dashed border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center text-sm text-muted-foreground">
+          <div className="w-full border border-dashed border-border bg-[rgba(255,255,255,0.03)] px-6 py-12 text-center text-sm text-muted-foreground">
             {emptyText}
           </div>
         </div>
@@ -481,7 +481,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                       "surface-transition flex w-full flex-col items-center justify-center gap-4 border border-dashed px-6 py-8 text-center",
                       dragActive
                         ? "border-[rgba(255,255,255,0.3)] bg-[rgba(255,255,255,0.05)]"
-                        : "border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.05)]",
+                        : "border-border bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.2)] hover:bg-[rgba(255,255,255,0.05)]",
                       (busy || zipLoading) && "cursor-not-allowed opacity-65"
                     )}
                     disabled={busy || zipLoading}
@@ -511,7 +511,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
                   <div className="space-y-3">
                     {selectedVideo.subtitles.length === 0 ? (
-                      <div className="border-dashed border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] px-5 py-8 text-center text-sm text-muted-foreground">
+                      <div className="border-dashed border border-border bg-[rgba(255,255,255,0.03)] px-5 py-8 text-center text-sm text-muted-foreground">
                         {t("movie.drawerEmptyRepository")}
                       </div>
                     ) : (
@@ -524,12 +524,12 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                           <article
                             key={subtitle.id}
                             className={cn(
-                              "border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] p-4",
+                              "border border-border bg-[rgba(255,255,255,0.03)] p-4",
                               rowBusy && "animate-pulse-soft"
                             )}
                           >
                             <div className="flex flex-wrap items-start gap-3">
-                              <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.5)]">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-border bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.5)]">
                                 <FileArchive className="h-5 w-5" />
                               </div>
 

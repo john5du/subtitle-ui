@@ -309,8 +309,73 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
 
   return (
     <div className="relative h-full w-full px-3 py-3 sm:px-4 md:px-6 md:py-5">
-      <div className="mx-auto grid h-full w-full max-w-[1620px] gap-4 xl:gap-5 lg:grid-cols-[minmax(224px,252px)_minmax(0,1fr)] xl:grid-cols-[minmax(236px,272px)_minmax(0,1fr)]">
-        <Card className="surface-panel animate-fade-in-up lg:h-full">
+      <div className="mx-auto flex h-full w-full max-w-[1620px] flex-col gap-4 xl:gap-5 lg:grid lg:grid-cols-[minmax(224px,252px)_minmax(0,1fr)] xl:grid-cols-[minmax(236px,272px)_minmax(0,1fr)]">
+        <div className="surface-panel flex flex-col gap-3 p-3 lg:hidden">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <Image
+                src="/icon.svg"
+                alt=""
+                aria-hidden
+                width={32}
+                height={32}
+                className="h-8 w-8 border border-border bg-[rgba(255,255,255,0.03)] p-1"
+              />
+              <Badge variant="outline" className={cn("surface-transition truncate px-2 py-1 text-[11px]", shell.statusBadgeClass)}>
+                {shell.statusBadgeText}
+              </Badge>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <LocaleSelect />
+              <Button
+                type="button"
+                size="icon"
+                onClick={() => void shell.triggerScan()}
+                disabled={shell.operationLocked}
+                className="h-9 w-9"
+                aria-label={shell.scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
+                title={shell.scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
+              >
+                {shell.scanPending ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => void shell.refreshActiveTab()}
+                disabled={shell.operationLocked}
+                className="h-9 w-9"
+                aria-label={shell.refreshPending ? t("sidebar.refreshingTab", { tab: activeTabLabel }) : t("sidebar.refreshTab", { tab: activeTabLabel })}
+                title={shell.refreshPending ? t("sidebar.refreshingTab", { tab: activeTabLabel }) : t("sidebar.refreshTab", { tab: activeTabLabel })}
+              >
+                {shell.refreshPending ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <div role="tablist" aria-label={t("sidebar.tagline")} className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-0.5">
+            {shell.navItems.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                role="tab"
+                aria-selected={shell.activeTab === item.key}
+                className={cn(
+                  "surface-transition inline-flex shrink-0 items-center gap-2 border px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60",
+                  shell.activeTab === item.key
+                    ? "border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] text-foreground"
+                    : "border-transparent text-muted-foreground hover:border-border hover:bg-[rgba(255,255,255,0.03)] hover:text-foreground"
+                )}
+                disabled={subtitleActions.uploading || model.dashboard.pending.tabSwitch}
+                onClick={() => void shell.switchTab(item.key)}
+              >
+                <span className="flex h-4 w-4 items-center justify-center">{item.icon}</span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Card className="surface-panel animate-fade-in-up hidden lg:block lg:h-full">
           <CardContent className="flex h-full flex-col gap-5 p-5">
             <div>
               <Image
@@ -319,7 +384,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                 aria-hidden
                 width={56}
                 height={56}
-                className="mb-2 h-14 w-14 border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] p-2"
+                className="mb-2 h-14 w-14 border border-border bg-[rgba(255,255,255,0.03)] p-2"
               />
               <p className="text-display text-sm font-semibold uppercase tracking-[0.26em] text-[rgba(255,255,255,0.5)]">Subtitle UI</p>
               <p className="mt-2 max-w-[22ch] text-xs leading-relaxed text-muted-foreground">{t("sidebar.tagline")}</p>
@@ -334,7 +399,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                     "group surface-transition flex items-center border px-3.5 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-60",
                     shell.activeTab === item.key
                       ? "border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.05)] text-foreground"
-                      : "border-transparent text-[rgba(255,255,255,0.5)] hover:border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.03)] hover:text-foreground"
+                      : "border-transparent text-[rgba(255,255,255,0.5)] hover:border-border hover:bg-[rgba(255,255,255,0.03)] hover:text-foreground"
                   )}
                   disabled={subtitleActions.uploading || model.dashboard.pending.tabSwitch}
                   onClick={() => void shell.switchTab(item.key)}

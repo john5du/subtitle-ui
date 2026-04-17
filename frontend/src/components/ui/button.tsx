@@ -12,7 +12,7 @@ const buttonVariants = cva(
         default: "border-transparent bg-white text-[#1f2228] hover:bg-[rgba(255,255,255,0.9)]",
         destructive: "border-transparent bg-red-500 text-white hover:bg-red-600",
         outline: "border-[rgba(255,255,255,0.2)] bg-transparent text-white hover:bg-[rgba(255,255,255,0.05)] hover:text-white",
-        secondary: "border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] text-white hover:bg-[rgba(255,255,255,0.08)]",
+        secondary: "border-border bg-[rgba(255,255,255,0.03)] text-white hover:bg-[rgba(255,255,255,0.08)]",
         ghost: "border-transparent hover:bg-[rgba(255,255,255,0.05)] hover:text-white",
         link: "border-transparent text-white underline-offset-4 hover:text-[rgba(255,255,255,0.5)]"
       },

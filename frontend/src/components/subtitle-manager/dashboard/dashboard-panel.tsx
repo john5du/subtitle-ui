@@ -80,7 +80,7 @@ export function DashboardPanel({
               {directoryScan.errors.length > 0 ? (
                 <ul className="space-y-2">
                   {directoryScan.errors.slice(0, 6).map((error) => (
-                    <li key={error} className="border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] p-2 text-xs text-[rgba(255,255,255,0.7)]">
+                    <li key={error} className="border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] p-2 text-xs text-muted-foreground">
                       {error}
                     </li>
                   ))}
