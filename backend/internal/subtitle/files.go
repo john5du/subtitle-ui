@@ -67,10 +67,7 @@ func BuildCanonicalSubtitlePath(videoPath string, label string, ext string) stri
 	videoName := filepath.Base(videoPath)
 	videoBase := strings.TrimSuffix(videoName, filepath.Ext(videoName))
 
-	normalizedExt := strings.ToLower(strings.TrimSpace(ext))
-	if normalizedExt != "" && !strings.HasPrefix(normalizedExt, ".") {
-		normalizedExt = "." + normalizedExt
-	}
+	normalizedExt := normalizeSubtitleExtension(ext)
 
 	safeLabel := normalizeLabel(label)
 	candidate := videoBase + normalizedExt
@@ -79,6 +76,22 @@ func BuildCanonicalSubtitlePath(videoPath string, label string, ext string) stri
 	}
 
 	return filepath.Join(videoDir, candidate)
+}
+
+func BuildReplacementSubtitlePath(existingPath string, newExt string) string {
+	dir := filepath.Dir(existingPath)
+	name := filepath.Base(existingPath)
+	base := strings.TrimSuffix(name, filepath.Ext(name))
+	normalizedExt := normalizeSubtitleExtension(newExt)
+	return filepath.Join(dir, base+normalizedExt)
+}
+
+func normalizeSubtitleExtension(ext string) string {
+	normalized := strings.ToLower(strings.TrimSpace(ext))
+	if normalized != "" && !strings.HasPrefix(normalized, ".") {
+		normalized = "." + normalized
+	}
+	return normalized
 }
 
 func InferLabelFromSubtitlePath(videoPath string, subtitlePath string) string {

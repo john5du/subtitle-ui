@@ -37,6 +37,8 @@ type Service struct {
 	scanner *scanner.Scanner
 	store   *store.Store
 
+	scanRunMu sync.Mutex
+
 	statusMu      sync.RWMutex
 	scanRunning   bool
 	scanStartedAt *time.Time
@@ -87,6 +89,15 @@ func (s *Service) RunScan(ctx context.Context) domain.ScanStatus {
 }
 
 func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []string) domain.ScanStatus {
+	if !s.scanRunMu.TryLock() {
+		status := s.ScanStatus()
+		if strings.TrimSpace(status.Error) == "" {
+			status.Error = "scan already running"
+		}
+		return status
+	}
+	defer s.scanRunMu.Unlock()
+
 	beforeVideos, beforeErr := s.listAllVideos()
 	if beforeErr != nil {
 		beforeVideos = []domain.Video{}
@@ -110,14 +121,14 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 		result := make([]domain.Video, 0, 256)
 		var movieScanErr error
 		if len(movieTargets) > 0 {
-			movieVideos, err := s.scanner.ScanDirectoriesWithType(movieTargets, domain.MediaTypeMovie)
+			movieVideos, err := s.scanner.ScanDirectoriesWithTypeCtx(ctx, movieTargets, domain.MediaTypeMovie)
 			movieScanErr = err
 			result = append(result, movieVideos...)
 		}
 
 		var tvScanErr error
 		if len(tvTargets) > 0 {
-			tvVideos, err := s.scanner.ScanDirectoriesWithType(tvTargets, domain.MediaTypeTV)
+			tvVideos, err := s.scanner.ScanDirectoriesWithTypeCtx(ctx, tvTargets, domain.MediaTypeTV)
 			tvScanErr = err
 			result = append(result, tvVideos...)
 		}
@@ -135,17 +146,26 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 		}
 	}()
 
-	var result scanResult
-	select {
-	case <-ctx.Done():
-		result = scanResult{err: ctx.Err()}
-	case result = <-done:
-	}
+	result := <-done
 
 	finished := time.Now().UTC()
-	saveErr := s.store.SaveScanResult(result.videos, started, finished, errorString(result.err))
-	if saveErr != nil {
-		result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
+
+	canceled := errors.Is(result.err, context.Canceled) || errors.Is(result.err, context.DeadlineExceeded)
+	wipeGuardTripped := false
+	if !canceled && result.err == nil && len(result.videos) == 0 && len(beforeVideos) > 0 {
+		wipeGuardTripped = true
+		result.err = fmt.Errorf(
+			"scan returned no videos but previous scan had %d; refusing to overwrite database (check media root access)",
+			len(beforeVideos),
+		)
+	}
+
+	var saveErr error
+	if !canceled {
+		saveErr = s.store.SaveScanResult(result.videos, started, finished, errorString(result.err))
+		if saveErr != nil {
+			result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
+		}
 	}
 
 	currentVideos, currentErr := s.listAllVideos()
@@ -164,6 +184,12 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	)
 	if beforeErr != nil {
 		scanMessage += fmt.Sprintf("; baseline unavailable: %v", beforeErr)
+	}
+	if canceled {
+		scanMessage += "; scan canceled"
+	}
+	if wipeGuardTripped {
+		scanMessage += "; wipe guard tripped"
 	}
 	if result.err != nil {
 		scanMessage += fmt.Sprintf("; error=%s", result.err.Error())
@@ -214,7 +240,7 @@ func (s *Service) DiscoverDirectories(ctx context.Context) domain.DirectoryScanR
 	tvCh := make(chan discoverResult, 1)
 
 	go func() {
-		dirs, err := s.scanner.DiscoverDirectories(movieRoot, domain.MediaTypeMovie)
+		dirs, err := s.scanner.DiscoverDirectoriesCtx(ctx, movieRoot, domain.MediaTypeMovie)
 		movieCh <- discoverResult{dirs: dirs, err: err}
 	}()
 	go func() {
@@ -222,7 +248,7 @@ func (s *Service) DiscoverDirectories(ctx context.Context) domain.DirectoryScanR
 			tvCh <- discoverResult{dirs: []domain.ScanDirectory{}, err: nil}
 			return
 		}
-		dirs, err := s.scanner.DiscoverDirectories(tvRoot, domain.MediaTypeTV)
+		dirs, err := s.scanner.DiscoverDirectoriesCtx(ctx, tvRoot, domain.MediaTypeTV)
 		tvCh <- discoverResult{dirs: dirs, err: err}
 	}()
 
@@ -417,8 +443,7 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 			return domain.Subtitle{}, fmt.Errorf("backup before replace failed: %w", err)
 		}
 
-		preservedLabel := subtitle.InferLabelFromSubtitlePath(video.Path, existing.Path)
-		targetPath = subtitle.BuildCanonicalSubtitlePath(video.Path, preservedLabel, ext)
+		targetPath = subtitle.BuildReplacementSubtitlePath(existing.Path, ext)
 		if !sameFilePath(targetPath, existing.Path) && subtitle.PathExists(targetPath) {
 			return domain.Subtitle{}, fmt.Errorf("%w: subtitle path conflict: %s", ErrBadRequest, filepath.Base(targetPath))
 		}
@@ -758,11 +783,37 @@ func resolveTVSeriesFromVideo(video domain.Video, tvRootPath string) (string, st
 		}
 	}
 
+	key := tvSeriesKeyFromPath(seriesPath, seriesTitle)
+	return key, seriesPath, seriesTitle
+}
+
+func tvSeriesKeyFromPath(seriesPath string, seriesTitle string) string {
 	key := strings.ToLower(filepath.ToSlash(filepath.Clean(seriesPath)))
 	if key == "" {
-		key = strings.ToLower(seriesTitle)
+		return strings.ToLower(seriesTitle)
 	}
-	return key, seriesPath, seriesTitle
+	return key
+}
+
+func computeTVSeriesKeyFromDir(videoDir string, tvRootPath string) string {
+	if strings.TrimSpace(videoDir) == "" {
+		return ""
+	}
+	seriesPath := filepath.Clean(videoDir)
+	root := strings.TrimSpace(tvRootPath)
+	if root != "" {
+		rel, err := filepath.Rel(filepath.Clean(root), filepath.Clean(videoDir))
+		if err == nil {
+			rel = filepath.ToSlash(rel)
+			if rel != "." && rel != ".." && !strings.HasPrefix(rel, "../") {
+				parts := strings.Split(rel, "/")
+				if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
+					seriesPath = filepath.Join(filepath.Clean(root), parts[0])
+				}
+			}
+		}
+	}
+	return tvSeriesKeyFromPath(seriesPath, filepath.Base(seriesPath))
 }
 
 func parseYearNumber(raw string) int {
@@ -961,7 +1012,24 @@ func (s *Service) populateDirectoryScanCounts(result *domain.DirectoryScanResult
 	}
 
 	result.MovieCount = s.ListVideosPage("", domain.MediaTypeMovie, "", 1, 1, "", "").Total
-	result.TVSeriesCount = s.ListTVSeriesPage("", 1, 1, "", "").Total
+	result.TVSeriesCount = s.countTVSeries()
+}
+
+func (s *Service) countTVSeries() int {
+	dirs, err := s.store.ListVideoDirectories(domain.MediaTypeTV)
+	if err != nil {
+		return 0
+	}
+	tvRoot := strings.TrimSpace(s.cfg.TVMediaRoot)
+	seen := make(map[string]struct{}, len(dirs))
+	for _, dir := range dirs {
+		key := computeTVSeriesKeyFromDir(dir, tvRoot)
+		if key == "" {
+			continue
+		}
+		seen[key] = struct{}{}
+	}
+	return len(seen)
 }
 
 func prefixedError(prefix string, err error) error {

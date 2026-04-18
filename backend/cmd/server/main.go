@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"subtitle-ui/backend/internal/api"
@@ -42,12 +45,15 @@ func main() {
 		}
 	}
 
-	initialStatus := service.RunScan(context.Background())
+	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	initialStatus := service.RunScan(rootCtx)
 	log.Printf("initial scan: videos=%d error=%q", initialStatus.VideoCount, initialStatus.Error)
 
 	srv := &http.Server{
 		Addr:              cfg.ServerAddr,
-		Handler:           api.NewServer(service, cfg.UIDist).Handler(),
+		Handler:           api.NewServerWithConfig(service, cfg).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,
@@ -60,7 +66,32 @@ func main() {
 	log.Printf("tv media root: %s", cfg.TVMediaRoot)
 	log.Printf("db path: %s", cfg.DBPath)
 	log.Printf("ui dist: %s", cfg.UIDist)
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("server stopped: %v", err)
+
+	serverErr := make(chan error, 1)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
+			return
+		}
+		serverErr <- nil
+	}()
+
+	select {
+	case <-rootCtx.Done():
+		log.Printf("shutdown signal received, draining in-flight requests")
+	case err := <-serverErr:
+		if err != nil {
+			log.Fatalf("server stopped: %v", err)
+		}
+		return
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("graceful shutdown failed: %v", err)
+	}
+	if err := <-serverErr; err != nil {
+		log.Printf("server exited with error: %v", err)
 	}
 }

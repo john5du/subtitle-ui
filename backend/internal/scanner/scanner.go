@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -58,6 +59,10 @@ func (s *Scanner) ScanWithType(root string, mediaType string) ([]domain.Video, e
 }
 
 func (s *Scanner) ScanDirectoriesWithType(roots []string, mediaType string) ([]domain.Video, error) {
+	return s.ScanDirectoriesWithTypeCtx(context.Background(), roots, mediaType)
+}
+
+func (s *Scanner) ScanDirectoriesWithTypeCtx(ctx context.Context, roots []string, mediaType string) ([]domain.Video, error) {
 	uniqueRoots := uniqueAbsDirectories(roots)
 	if len(uniqueRoots) == 0 {
 		return []domain.Video{}, nil
@@ -68,6 +73,10 @@ func (s *Scanner) ScanDirectoriesWithType(roots []string, mediaType string) ([]d
 	var scanErrs []error
 
 	for _, rootAbs := range uniqueRoots {
+		if err := ctx.Err(); err != nil {
+			scanErrs = append(scanErrs, err)
+			break
+		}
 		info, err := os.Stat(rootAbs)
 		if err != nil {
 			scanErrs = append(scanErrs, fmt.Errorf("stat root %s: %w", rootAbs, err))
@@ -79,6 +88,9 @@ func (s *Scanner) ScanDirectoriesWithType(roots []string, mediaType string) ([]d
 		}
 
 		walkErr := filepath.WalkDir(rootAbs, func(path string, d fs.DirEntry, walkErr error) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if walkErr != nil || d == nil || d.IsDir() {
 				return nil
 			}
@@ -122,6 +134,10 @@ func (s *Scanner) ScanDirectoriesWithType(roots []string, mediaType string) ([]d
 }
 
 func (s *Scanner) DiscoverDirectories(root string, mediaType string) ([]domain.ScanDirectory, error) {
+	return s.DiscoverDirectoriesCtx(context.Background(), root, mediaType)
+}
+
+func (s *Scanner) DiscoverDirectoriesCtx(ctx context.Context, root string, mediaType string) ([]domain.ScanDirectory, error) {
 	rootAbs, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
@@ -142,6 +158,9 @@ func (s *Scanner) DiscoverDirectories(root string, mediaType string) ([]domain.S
 	byDir := make(map[string]*counter, 256)
 
 	walkErr := filepath.WalkDir(rootAbs, func(path string, d fs.DirEntry, walkErr error) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if walkErr != nil || d == nil || d.IsDir() {
 			return nil
 		}
@@ -284,33 +303,49 @@ func (s *Scanner) buildVideo(path string, mediaType string) (domain.Video, error
 }
 
 func readMetadata(dir string, base string) (title string, year string, source string) {
-	candidates := []string{
+	directCandidates := []string{
 		filepath.Join(dir, base+".nfo"),
 		filepath.Join(dir, "movie.nfo"),
 	}
-
-	for _, path := range candidates {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-
-		var parsed nfoMetadata
-		if err := xml.Unmarshal(data, &parsed); err != nil {
-			continue
-		}
-
-		title = strings.TrimSpace(parsed.Title)
-		if title == "" {
-			title = strings.TrimSpace(parsed.OriginalTitle)
-		}
-		year = strings.TrimSpace(parsed.Year)
-		if title != "" || year != "" {
-			return title, year, "nfo"
+	for _, path := range directCandidates {
+		if t, y, ok := parseNFO(path); ok {
+			return t, y, "nfo"
 		}
 	}
 
+	currentDir := dir
+	for i := 0; i < 3; i++ {
+		if t, y, ok := parseNFO(filepath.Join(currentDir, "tvshow.nfo")); ok {
+			return t, y, "nfo"
+		}
+		parent := filepath.Dir(currentDir)
+		if parent == currentDir {
+			break
+		}
+		currentDir = parent
+	}
+
 	return "", "", ""
+}
+
+func parseNFO(path string) (string, string, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", "", false
+	}
+	var parsed nfoMetadata
+	if err := xml.Unmarshal(data, &parsed); err != nil {
+		return "", "", false
+	}
+	title := strings.TrimSpace(parsed.Title)
+	if title == "" {
+		title = strings.TrimSpace(parsed.OriginalTitle)
+	}
+	year := strings.TrimSpace(parsed.Year)
+	if title == "" && year == "" {
+		return "", "", false
+	}
+	return title, year, true
 }
 
 func isVideoExt(ext string) bool {

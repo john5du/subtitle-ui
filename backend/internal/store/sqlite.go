@@ -252,14 +252,10 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 		return nil, 0, err
 	}
 
-	// Query subtitles only after closing the main rows cursor to avoid
+	// Batch-load subtitles after the main rows cursor is closed to avoid
 	// single-connection SQLite deadlocks.
-	for i := range out {
-		subs, err := s.listSubtitlesByVideoID(out[i].ID)
-		if err != nil {
-			return nil, 0, err
-		}
-		out[i].Subtitles = subs
+	if err := s.attachSubtitles(out); err != nil {
+		return nil, 0, err
 	}
 
 	return out, total, nil
@@ -445,6 +441,34 @@ FROM scan_runs ORDER BY id DESC LIMIT 1`,
 	return status, nil
 }
 
+func (s *Store) ListVideoDirectories(mediaType string) ([]string, error) {
+	query := `SELECT DISTINCT directory FROM videos`
+	var args []any
+	if t := normalizeMediaType(mediaType); t != "" {
+		query += ` WHERE media_type = ?`
+		args = append(args, t)
+	}
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]string, 0, 32)
+	for rows.Next() {
+		var dir string
+		if err := rows.Scan(&dir); err != nil {
+			return nil, err
+		}
+		out = append(out, dir)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (s *Store) countVideos() (int, error) {
 	row := s.db.QueryRow(`SELECT COUNT(1) FROM videos`)
 	var count int
@@ -498,6 +522,58 @@ FROM subtitles WHERE video_id = ? ORDER BY file_name ASC`,
 		return nil, err
 	}
 	return out, nil
+}
+
+func (s *Store) attachSubtitles(videos []domain.Video) error {
+	if len(videos) == 0 {
+		return nil
+	}
+
+	placeholders := make([]string, len(videos))
+	args := make([]any, len(videos))
+	indexByID := make(map[string]int, len(videos))
+	for i, v := range videos {
+		placeholders[i] = "?"
+		args[i] = v.ID
+		indexByID[v.ID] = i
+		videos[i].Subtitles = []domain.Subtitle{}
+	}
+
+	query := `SELECT video_id, id, path, file_name, language, format, size, mod_time
+FROM subtitles WHERE video_id IN (` + strings.Join(placeholders, ",") + `) ORDER BY file_name ASC`
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			videoID  string
+			sub      domain.Subtitle
+			modValue string
+		)
+		if err := rows.Scan(
+			&videoID,
+			&sub.ID,
+			&sub.Path,
+			&sub.FileName,
+			&sub.Language,
+			&sub.Format,
+			&sub.Size,
+			&modValue,
+		); err != nil {
+			return err
+		}
+		sub.ModTime = parseTimeOrNow(modValue)
+		idx, ok := indexByID[videoID]
+		if !ok {
+			continue
+		}
+		videos[idx].Subtitles = append(videos[idx].Subtitles, sub)
+	}
+	return rows.Err()
 }
 
 func (s *Store) migrate() error {
@@ -558,21 +634,22 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 	if err != nil {
 		return err
 	}
-	if applied {
-		return nil
-	}
-
-	hasPosterPath, err := s.hasColumn("videos", "poster_path")
-	if err != nil {
-		return err
-	}
-	if !hasPosterPath {
-		if _, err := s.db.Exec(migrationV3); err != nil {
-			return fmt.Errorf("apply migration v3: %w", err)
+	if !applied {
+		hasPosterPath, err := s.hasColumn("videos", "poster_path")
+		if err != nil {
+			return err
+		}
+		if !hasPosterPath {
+			if _, err := s.db.Exec(migrationV3); err != nil {
+				return fmt.Errorf("apply migration v3: %w", err)
+			}
+		}
+		if _, err := s.db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 3, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
 		}
 	}
-	_, err = s.db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 3, time.Now().UTC().Format(time.RFC3339Nano))
-	return err
+
+	return nil
 }
 
 func (s *Store) isMigrationApplied(version int) (bool, error) {

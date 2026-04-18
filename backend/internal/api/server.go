@@ -15,13 +15,16 @@ import (
 	"time"
 
 	"subtitle-ui/backend/internal/app"
+	"subtitle-ui/backend/internal/config"
 	appdomain "subtitle-ui/backend/internal/domain"
 )
 
 type Server struct {
-	service *app.Service
-	uiDist  string
-	mux     *http.ServeMux
+	service               *app.Service
+	uiDist                string
+	mux                   *http.ServeMux
+	allowedOrigins        []string
+	trustForwardedHeaders bool
 }
 
 type fileScanRequest struct {
@@ -30,10 +33,16 @@ type fileScanRequest struct {
 }
 
 func NewServer(service *app.Service, uiDist string) *Server {
+	return NewServerWithConfig(service, config.Config{UIDist: uiDist})
+}
+
+func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	s := &Server{
-		service: service,
-		uiDist:  uiDist,
-		mux:     http.NewServeMux(),
+		service:               service,
+		uiDist:                cfg.UIDist,
+		mux:                   http.NewServeMux(),
+		allowedOrigins:        normalizeAllowedOrigins(cfg.CORSAllowedOrigins),
+		trustForwardedHeaders: cfg.TrustForwardedHeaders,
 	}
 
 	s.mux.HandleFunc("/api/health", s.handleHealth)
@@ -51,7 +60,7 @@ func NewServer(service *app.Service, uiDist string) *Server {
 }
 
 func (s *Server) Handler() http.Handler {
-	return withCORS(withErrorLogging(s.mux))
+	return s.withCORS(withErrorLogging(s.mux))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -277,7 +286,7 @@ func (s *Server) handleSubtitleContent(w http.ResponseWriter, _ *http.Request, v
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(content)
 }
@@ -343,18 +352,88 @@ func (s *Server) writeAppError(w http.ResponseWriter, err error) {
 	}
 }
 
-func withCORS(next http.Handler) http.Handler {
+func (s *Server) withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := strings.TrimSpace(r.Header.Get("Origin"))
+		isMutation := isMutatingMethod(r.Method)
+
+		allowCORS := true
+		switch {
+		case origin == "":
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		case s.originAllowed(origin, r.Host):
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Add("Vary", "Origin")
+		case !isMutation:
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		default:
+			allowCORS = false
+		}
+
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 		if r.Method == http.MethodOptions {
+			if !allowCORS {
+				writeError(w, http.StatusForbidden, "cross-origin request rejected")
+				return
+			}
 			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		if !allowCORS {
+			writeError(w, http.StatusForbidden, "cross-origin write rejected")
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isMutatingMethod(method string) bool {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Server) originAllowed(origin string, host string) bool {
+	if origin == "" {
+		return true
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Host == "" {
+		return false
+	}
+	if strings.EqualFold(parsed.Host, host) {
+		return true
+	}
+	for _, allowed := range s.allowedOrigins {
+		if allowed == "*" {
+			return true
+		}
+		if strings.EqualFold(allowed, origin) {
+			return true
+		}
+		if strings.EqualFold(allowed, parsed.Host) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeAllowedOrigins(raw []string) []string {
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	return out
 }
 
 type errorCaptureResponseWriter struct {
@@ -362,6 +441,8 @@ type errorCaptureResponseWriter struct {
 	status int
 	body   bytes.Buffer
 }
+
+const maxCapturedErrorBodyBytes = 512
 
 func (w *errorCaptureResponseWriter) WriteHeader(status int) {
 	w.status = status
@@ -372,8 +453,14 @@ func (w *errorCaptureResponseWriter) Write(data []byte) (int, error) {
 	if w.status == 0 {
 		w.status = http.StatusOK
 	}
-	if len(data) > 0 {
-		_, _ = w.body.Write(data)
+	if w.status >= http.StatusBadRequest {
+		if remaining := maxCapturedErrorBodyBytes - w.body.Len(); remaining > 0 {
+			chunk := data
+			if len(chunk) > remaining {
+				chunk = chunk[:remaining]
+			}
+			_, _ = w.body.Write(chunk)
+		}
 	}
 	return w.ResponseWriter.Write(data)
 }
@@ -457,14 +544,14 @@ func (s *Server) attachTVSeriesPosterURLs(r *http.Request, rows []appdomain.TVSe
 
 func (s *Server) buildVideoPosterURL(r *http.Request, videoID string) string {
 	pathValue := "/api/videos/" + url.PathEscape(videoID) + "/poster"
-	base := requestBaseURL(r)
+	base := s.requestBaseURL(r)
 	if base == "" {
 		return pathValue
 	}
 	return base + pathValue
 }
 
-func requestBaseURL(r *http.Request) string {
+func (s *Server) requestBaseURL(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
@@ -473,13 +560,14 @@ func requestBaseURL(r *http.Request) string {
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwarded != "" {
-		scheme = strings.TrimSpace(strings.Split(forwarded, ",")[0])
-	}
-
 	host := strings.TrimSpace(r.Host)
-	if forwardedHost := strings.TrimSpace(r.Header.Get("X-Forwarded-Host")); forwardedHost != "" {
-		host = strings.TrimSpace(strings.Split(forwardedHost, ",")[0])
+	if s.trustForwardedHeaders {
+		if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwarded != "" {
+			scheme = strings.TrimSpace(strings.Split(forwarded, ",")[0])
+		}
+		if forwardedHost := strings.TrimSpace(r.Header.Get("X-Forwarded-Host")); forwardedHost != "" {
+			host = strings.TrimSpace(strings.Split(forwardedHost, ",")[0])
+		}
 	}
 	if host == "" {
 		return ""
