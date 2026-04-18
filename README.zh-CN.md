@@ -1,12 +1,24 @@
-﻿<p align="center">
-  <img src="./frontend/public/icon.svg" alt="Subtitle UI 222" width="222" height="112" />
+<p align="center">
+  <img src="./frontend/public/icon.svg" alt="Subtitle UI 图标" width="222" height="222" />
 </p>
 
 # subtitle-ui
 
-基于 Go + Next.js 开发的字幕文件管理 Web 应用。视频元数据从媒体库中 Jellyfin 刮取的侧车文件（NFO）读取。
+基于 Go + Next.js 开发的字幕文件管理 Web 应用，搭配 Jellyfin 风格的媒体库使用。视频元数据从 Jellyfin（或兼容刮削器）生成的侧车 NFO 文件读取。
 
 English version: [`README.md`](./README.md)
+
+## 功能概览
+
+- **电影 / 电视剧分库** — 分别扫描 `movies/` 与 `tv/` 根目录；电视剧支持按剧集-季-分集逐层进入。
+- **卡片 / 列表切换** — 海报网格与紧凑表格两种视图，均支持分页与按年份排序。
+- **字幕操作** — 上传、替换（先备份）、删除（先备份）、在线预览已存字幕内容。
+- **归档上传** — 支持 `.zip`、`.7z`、`.rar`，在前端解压并选择归档内的目标字幕。
+- **电视剧整季批量上传** — 一个归档对应整季，按集号自动匹配。
+- **海报** — 自动识别视频旁的 `poster.*` / `folder.*` / `fanart.*` / `<base>-poster.*`，支持 `.jpg` / `.png` / `.bmp`（剧集在剧根目录）。
+- **仪表盘** — 扫描状态、已发现目录统计、最近操作日志。
+- **多语言** — 英文与简体中文，选项保存在 `localStorage`。
+- **主题** — 浅色 / 深色 / 跟随系统，选项保存在 `localStorage`。
 
 ## 发版流程
 
@@ -23,40 +35,63 @@ npm run build
 
 ```bash
 git push origin main
-git tag v0.1.4
-git push origin v0.1.4
+git tag v0.5.4
+git push origin v0.5.4
 ```
 
 4. 推送 `v*` 标签后，会触发 `.github/workflows/docker-publish.yml`。
 5. 发版结果核对：
 - GitHub Actions 工作流执行成功。
-- `ghcr.io/john5du/subtitle-ui` 生成标签：`v0.1.4`、`0.1.4`、`latest`、`sha-<short>`。
+- `ghcr.io/john5du/subtitle-ui` 生成标签：`v0.5.4`、`0.5.4`、`latest`、`sha-<short>`。
 - 版本文件同步提交已回推到默认分支。
-
-## 本版本实现的功能
-
-- Go 后端骨架，提供扫描与字幕文件 API
-- 媒体扫描器可发现视频、侧车 NFO 元数据和字幕文件
-- 字幕操作：上传、替换（先备份）、删除（先备份）
-- 基于 Next.js + shadcn/ui 的前端，支持扫描、浏览、上传/替换/删除和操作日志
 
 ## 后端 API
 
 - `GET /api/health`
+- `GET /api/version`
 - `POST /api/scan`（兼容：直接文件扫描）
 - `POST /api/scan/directories`（发现包含视频/元数据文件的媒体子目录）
 - `GET /api/scan/directories`（获取最近一次目录发现结果）
 - `POST /api/scan/files`（从选定目录扫描文件，body: `movieDirs[]`, `tvDirs[]`）
 - `GET /api/scan/status`
-- `GET /api/version`
 - `GET /api/videos`（查询参数：`mediaType=movie|tv`，可选 `q`, `dir`, `page`, `pageSize`, `sortBy`, `sortOrder`）
   - 响应：`{ items: Video[], total, page, pageSize, totalPages }`
 - `GET /api/tv/series`（查询参数：可选 `q`, `page`, `pageSize`, `sortYear`, `sortOrder`）
   - 响应：`{ items: TVSeriesSummary[], total, page, pageSize, totalPages }`
 - `GET /api/videos/{videoId}`
+- `GET /api/videos/{videoId}/poster`（在视频所属媒体根内解析并返回海报图）
 - `POST /api/videos/{videoId}/subtitles`（multipart `file`，可选 `label`，可选 `replaceId`）
+- `GET /api/videos/{videoId}/subtitles/{subtitleId}/content`（用于预览的字幕原始字节）
 - `DELETE /api/videos/{videoId}/subtitles/{subtitleId}`
 - `GET /api/logs?limit=30`
+
+## 媒体库目录结构
+
+每个被扫描到的视频都需要带 `<title>` / `<year>` 的侧车 NFO；海报可选。
+
+### 电影
+
+```
+media/movies/
+  The Midnight Compass (2023)/
+    The Midnight Compass.mkv
+    The Midnight Compass.nfo   # 或 movie.nfo
+    poster.png                 # 可选（poster / movie / folder / <base>-poster / cover）
+```
+
+### 电视剧
+
+```
+media/tv/
+  Chronicle of Lanterns/
+    poster.png                 # 可选（poster / folder / fanart）
+    Season 1/
+      Chronicle of Lanterns S01E01.mkv
+      Chronicle of Lanterns S01E01.nfo
+```
+
+识别的视频扩展：`.mp4 .mkv .avi .mov .wmv .flv .m4v .mpeg .mpg`。
+识别的字幕扩展：`.srt .ass .ssa .vtt .sub`。
 
 ## 本地运行（macOS）
 
@@ -191,11 +226,11 @@ docker compose up -d
 ## GitHub Actions 镜像发布
 
 - 工作流文件：`.github/workflows/docker-publish.yml`
-- 触发条件：推送匹配 `v*` 的标签（例如 `v0.1.0`）
+- 触发条件：推送匹配 `v*` 的标签（例如 `v0.5.4`）
 - 镜像仓库：`ghcr.io/john5du/subtitle-ui`
 - 发布标签：
-  - 语义版本标签（`v0.1.0`）
-  - 纯语义版本标签（`0.1.0`）
+  - 语义版本标签（`v0.5.4`）
+  - 纯语义版本标签（`0.5.4`）
   - 滚动标签（`latest`）
   - 提交 SHA 标签（`sha-<short>`）
 - 发布流程会在镜像构建前同步该标签对应的版本文件，并将版本文件改动提交回默认分支，确保仓库与容器内版本一致。
@@ -208,9 +243,12 @@ docker compose up -d
 - `MEDIA_ROOT` 旧版兜底（若设置且 `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` 未设置，则两者都使用它）
 - `DB_PATH` 默认 `./tmp/subtitle_manager.sqlite3`
 - `UI_DIST` 默认 `./frontend/out`
+- `NEXT_PUBLIC_API_BASE`（前端开发）— 覆盖 API 主机地址，例如 `http://localhost:9307`
 
 ## 注意事项
 
 - 上传入口支持字幕文件与归档文件（`.zip`、`.7z`、`.rar`）；归档内仅处理字幕格式：`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`。
-- 扫描器当前读取 `videoName.nfo` 和 `movie.nfo`。
+- 扫描器从视频所在目录读取 `<videoName>.nfo` 和 `movie.nfo`。
+- 海报查找顺序 — 电影：`poster`、`movie`、`folder`、`<base>-poster`、`<base>`、`cover`；电视剧（剧根目录）：`poster`、`folder`、`fanart`。
+- 替换与删除操作会先备份原字幕文件再写入。
 - 本项目尚未达到生产级硬化。
