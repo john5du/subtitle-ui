@@ -7,7 +7,7 @@ import { useTheme, type ThemePreference } from "@/lib/theme";
 
 import { RowActionsMenu } from "./row-actions-menu";
 
-export function ThemeToggle() {
+export function ThemeToggle({ triggerClassName = "h-10 w-10" }: { triggerClassName?: string } = {}) {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const { t } = useI18n();
 
@@ -33,7 +33,7 @@ export function ThemeToggle() {
     <RowActionsMenu
       label={`${t("sidebar.changeTheme")}: ${currentLabel}`}
       triggerIcon={triggerIcon}
-      triggerClassName="h-10 w-10"
+      triggerClassName={triggerClassName}
       menuDirection="up"
       items={[
         { label: t("theme.system"), onSelect: () => select("system"), disabled: theme === "system" },

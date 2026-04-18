@@ -19,6 +19,7 @@ import { MovieListPanel } from "../movie/movie-list-panel";
 import { MovieSubtitleDrawer } from "../movie/movie-subtitle-drawer";
 import { LocaleSelect } from "../shared/settings-controls";
 import { SpinnerIcon } from "../shared/pending-state";
+import { ThemeToggle } from "../shared/theme-toggle";
 import { UploadBlockingOverlay } from "../shared/upload-blocking-overlay";
 import { TvSubtitleDrawer } from "../tv/tv-subtitle-drawer";
 import { TvSeriesListPanel } from "../tv/tv-series-list-panel";
@@ -319,7 +320,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                 aria-hidden
                 width={32}
                 height={32}
-                className="h-8 w-8 border border-border bg-surface-subtle p-1"
+                className="h-8 w-8 bg-surface-subtle p-1"
               />
               <Badge variant="outline" className={cn("surface-transition truncate px-2 py-1 text-[11px]", shell.statusBadgeClass)}>
                 {shell.statusBadgeText}
@@ -327,6 +328,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <LocaleSelect />
+              <ThemeToggle triggerClassName="h-9 w-9" />
               <Button
                 type="button"
                 size="icon"
@@ -360,10 +362,10 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                 role="tab"
                 aria-selected={shell.activeTab === item.key}
                 className={cn(
-                  "surface-transition inline-flex shrink-0 items-center gap-2 border px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60",
+                  "surface-transition inline-flex shrink-0 items-center gap-2 px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60",
                   shell.activeTab === item.key
-                    ? "border-input bg-surface-strong text-foreground"
-                    : "border-transparent text-muted-foreground hover:border-border hover:bg-surface-subtle hover:text-foreground"
+                    ? "bg-surface-strong text-foreground"
+                    : "text-muted-foreground hover:bg-surface-subtle hover:text-foreground"
                 )}
                 disabled={subtitleActions.uploading || model.dashboard.pending.tabSwitch}
                 onClick={() => void shell.switchTab(item.key)}
@@ -384,7 +386,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                 aria-hidden
                 width={56}
                 height={56}
-                className="mb-2 h-14 w-14 border border-border bg-surface-subtle p-2"
+                className="mb-2 h-14 w-14 bg-surface-subtle p-2"
               />
               <p className="text-display text-sm font-semibold uppercase tracking-[0.26em] text-foreground-muted">Subtitle UI</p>
               <p className="mt-2 max-w-[22ch] text-xs leading-relaxed text-muted-foreground">{t("sidebar.tagline")}</p>
@@ -396,16 +398,16 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   key={item.key}
                   type="button"
                   className={cn(
-                    "group surface-transition flex items-center border px-3.5 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                    "group surface-transition flex items-center px-3.5 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-60",
                     shell.activeTab === item.key
-                      ? "border-input bg-surface-strong text-foreground"
-                      : "border-transparent text-foreground-muted hover:border-border hover:bg-surface-subtle hover:text-foreground"
+                      ? "bg-surface-strong text-foreground"
+                      : "text-foreground-muted hover:bg-surface-subtle hover:text-foreground"
                   )}
                   disabled={subtitleActions.uploading || model.dashboard.pending.tabSwitch}
                   onClick={() => void shell.switchTab(item.key)}
                 >
                   <span className="flex items-center gap-3 text-sm font-semibold">
-                    <span className={cn("text-foreground-subtle group-hover:text-white", shell.activeTab === item.key && "text-white")}>{item.icon}</span>
+                    <span className={cn("text-foreground-subtle group-hover:text-foreground", shell.activeTab === item.key && "text-foreground")}>{item.icon}</span>
                     {item.label}
                   </span>
                 </button>
@@ -418,6 +420,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
               </Badge>
               <div className="surface-subtle flex flex-wrap items-center justify-center gap-2 p-1.5 sm:flex-nowrap">
                 <LocaleSelect />
+                <ThemeToggle />
                 <Button
                   type="button"
                   size="icon"

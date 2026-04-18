@@ -67,7 +67,7 @@ export function ArchiveEntryPickerDialog({
 
         <div className="space-y-2">
           <p className="text-sm font-semibold">{t("details.archiveSubtitleFiles")}</p>
-          <div className={cn("max-h-[55vh] overflow-auto border border-border", zipLoading && "animate-pulse-soft")}>
+          <div className={cn("max-h-[55vh] overflow-auto", zipLoading && "animate-pulse-soft")}>
             <Table>
               <TableHeader>
                 <TableRow>

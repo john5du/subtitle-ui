@@ -44,7 +44,7 @@ const DialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         data-slot="close"
-        className="absolute right-4 top-4 border border-border bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]"
+        className="absolute right-4 top-4 bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]"
       >
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
@@ -72,7 +72,7 @@ const DialogDrawerContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         data-slot="close"
-        className="absolute right-4 top-4 border border-border bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]"
+        className="absolute right-4 top-4 bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]"
       >
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>

@@ -93,7 +93,7 @@ export function TvSubtitleDrawer({
             </div>
           </div>
           {selectedSeries ? (
-            <Badge variant="outline" className="border-input bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
+            <Badge variant="outline" className="border-input bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-foreground">
               {selectedSeries.videoCount} {t("tv.videos")}
             </Badge>
           ) : null}
@@ -102,7 +102,7 @@ export function TvSubtitleDrawer({
 
       {!selectedSeries ? (
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-8">
-          <div className="w-full border border-dashed border-border bg-surface-subtle px-6 py-12 text-center text-sm text-muted-foreground">
+          <div className="w-full bg-surface-subtle px-6 py-12 text-center text-sm text-muted-foreground">
             {t("tv.drawerEmptySeries")}
           </div>
         </div>

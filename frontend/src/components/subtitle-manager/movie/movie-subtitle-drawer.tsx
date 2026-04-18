@@ -441,7 +441,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
             ) : null}
           </div>
           {selectedVideo ? (
-            <Badge variant="outline" className="border-input bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white">
+            <Badge variant="outline" className="border-input bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-foreground">
               {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
             </Badge>
           ) : null}
@@ -450,7 +450,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
       {!selectedVideo ? (
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-8">
-          <div className="w-full border border-dashed border-border bg-surface-subtle px-6 py-12 text-center text-sm text-muted-foreground">
+          <div className="w-full bg-surface-subtle px-6 py-12 text-center text-sm text-muted-foreground">
             {emptyText}
           </div>
         </div>
@@ -478,10 +478,10 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                     type="button"
                     aria-label={t("movie.drawerDropAria")}
                     className={cn(
-                      "surface-transition flex w-full flex-col items-center justify-center gap-4 border border-dashed px-6 py-8 text-center",
+                      "surface-transition flex w-full flex-col items-center justify-center gap-4 border border-dashed border-border px-6 py-8 text-center",
                       dragActive
-                        ? "border-input bg-surface-strong"
-                        : "border-border bg-surface-subtle hover:border-input hover:bg-surface-strong",
+                        ? "bg-surface-strong"
+                        : "bg-surface-subtle hover:bg-surface-strong",
                       (busy || zipLoading) && "cursor-not-allowed opacity-65"
                     )}
                     disabled={busy || zipLoading}
@@ -491,7 +491,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                     onDragLeave={handleDropzoneDragLeave}
                     onDrop={handleDropzoneDrop}
                   >
-                    <span className="flex h-16 w-16 items-center justify-center border border-border bg-surface-strong text-white">
+                    <span className="flex h-16 w-16 items-center justify-center bg-surface-strong text-foreground">
                       {uploadPending || zipLoading ? <SpinnerIcon className="h-7 w-7" /> : <UploadCloud className="h-7 w-7" />}
                     </span>
                     <div className="space-y-1">
@@ -511,7 +511,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
                   <div className="space-y-3">
                     {selectedVideo.subtitles.length === 0 ? (
-                      <div className="border-dashed border border-border bg-surface-subtle px-5 py-8 text-center text-sm text-muted-foreground">
+                      <div className="bg-surface-subtle px-5 py-8 text-center text-sm text-muted-foreground">
                         {t("movie.drawerEmptyRepository")}
                       </div>
                     ) : (
@@ -524,12 +524,12 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                           <article
                             key={subtitle.id}
                             className={cn(
-                              "border border-border bg-surface-subtle p-4",
+                              "bg-surface-subtle p-4",
                               rowBusy && "animate-pulse-soft"
                             )}
                           >
                             <div className="flex flex-wrap items-start gap-3">
-                              <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-border bg-surface-subtle text-foreground-muted">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-surface-strong text-foreground-muted">
                                 <FileArchive className="h-5 w-5" />
                               </div>
 

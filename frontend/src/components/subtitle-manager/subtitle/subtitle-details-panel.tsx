@@ -387,7 +387,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   }
 
   return (
-    <Card className="animate-fade-in-up flex h-full w-full flex-col border bg-card">
+    <Card className="animate-fade-in-up flex h-full w-full flex-col bg-card">
       <CardHeader className="p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
@@ -414,7 +414,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-0">
         {!selectedVideo ? (
-          <div className="flex flex-1 items-center justify-center border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center bg-surface-subtle p-10 text-center text-sm text-muted-foreground">
             {emptyText}
           </div>
         ) : (
@@ -454,7 +454,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
               onChange={onUploadFileChange}
             />
             {hasActionToolbar && (
-              <div className="flex flex-col gap-3 border border-border bg-surface-subtle p-3">
+              <div className="flex flex-col gap-3 bg-surface-subtle p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {showPrimaryUploadButton && (
                     <Button
@@ -483,7 +483,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                   </div>
                 )}
                 {zipPickError && (
-                  <div className="flex items-start gap-2 border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-300">
+                  <div className="flex items-start gap-2 bg-red-500/10 p-2 text-sm text-red-300">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <span className="min-w-0 break-words">{zipPickError}</span>
                   </div>

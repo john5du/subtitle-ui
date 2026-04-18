@@ -113,7 +113,7 @@ export function TvSubtitleManagementPanel({
       </CardHeader>
 
       <CardContent className="relative min-h-0 flex-1 p-4 pt-0">
-        <ScrollArea className={cn("h-full border bg-background", episodesPending && "animate-pulse-soft")}>
+        <ScrollArea className={cn("h-full bg-background", episodesPending && "animate-pulse-soft")}>
           <ul className="space-y-2 p-2">
             {videos.map((video) => {
               const active = selectedVideoId === video.id;
@@ -127,10 +127,10 @@ export function TvSubtitleManagementPanel({
                     onClick={() => handleEpisodeSelect(video)}
                     disabled={busy || episodesPending}
                     className={cn(
-                      "surface-transition w-full border px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                      "surface-transition w-full px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
                       active
-                        ? "border-input bg-surface-strong shadow-[inset_3px_0_0_0_var(--input)]"
-                        : "border-border bg-transparent hover:bg-surface-strong",
+                        ? "bg-surface-strong shadow-[inset_3px_0_0_0_var(--input)]"
+                        : "bg-transparent hover:bg-surface-strong",
                       itemBusy && "animate-pulse-soft"
                     )}
                     aria-pressed={active}
@@ -144,7 +144,7 @@ export function TvSubtitleManagementPanel({
             })}
 
             {videos.length === 0 && (
-              <li className="border-dashed border border-border p-6 text-center text-sm text-muted-foreground">
+              <li className="bg-surface-subtle p-6 text-center text-sm text-muted-foreground">
                 {t("tv.noEpisodesInSeason", { season: selectedSeasonLabel })}
               </li>
             )}

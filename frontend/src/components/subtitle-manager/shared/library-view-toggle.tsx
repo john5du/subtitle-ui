@@ -49,7 +49,7 @@ export function LibraryViewToggle({
               "h-8 flex-1 gap-2 px-3 text-xs font-medium sm:flex-none",
               active
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "text-foreground-muted hover:text-white"
+                : "text-foreground-muted hover:text-foreground"
             )}
             aria-pressed={active}
             aria-label={item.ariaLabel}

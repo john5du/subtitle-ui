@@ -265,24 +265,20 @@ body {
   }
 
   .surface-panel {
-    border: 1px solid var(--border);
     background: var(--surface-subtle);
   }
 
   .surface-subtle {
-    border: 1px solid var(--border);
     background: var(--surface-subtle);
   }
 
   .surface-hero {
-    border: 1px solid var(--input);
     color: var(--foreground);
   }
 
   .surface-status-success,
   .surface-status-warning,
   .surface-status-info {
-    border-color: var(--border);
     background-color: var(--surface-subtle);
     color: var(--muted-foreground);
   }

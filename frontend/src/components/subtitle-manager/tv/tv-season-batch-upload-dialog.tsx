@@ -275,7 +275,7 @@ export function TvSeasonBatchUploadWorkspace({
       />
 
       {showSummary && (
-        <div className="mb-4 border border-border bg-surface-subtle px-4 py-3 text-sm text-muted-foreground">
+        <div className="mb-4 bg-surface-subtle px-4 py-3 text-sm text-muted-foreground">
           {t("batch.dialogDescription", {
             summary: batchSourceSummary || "-",
             autoMatched: autoMatchedCount,
@@ -370,7 +370,7 @@ export function TvSeasonBatchUploadWorkspace({
 
         <div className="space-y-2">
           <p className="text-sm font-semibold">{t("batch.mappingTitle")}</p>
-          <div className={cn("max-h-[52vh] overflow-auto border border-border", batchPreparing && "animate-pulse-soft")}>
+          <div className={cn("max-h-[52vh] overflow-auto", batchPreparing && "animate-pulse-soft")}>
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
@@ -433,7 +433,7 @@ export function TvSeasonBatchUploadWorkspace({
         </div>
 
         {batchResult && (
-          <div className="border border-border bg-surface-subtle p-3 text-xs">
+          <div className="bg-surface-subtle p-3 text-xs">
             <p>
               {t("batch.result", {
                 success: batchResult.success,

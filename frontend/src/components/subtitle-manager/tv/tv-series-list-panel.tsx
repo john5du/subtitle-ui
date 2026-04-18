@@ -50,15 +50,15 @@ const TvSeriesPosterCard = memo(function TvSeriesPosterCard({
   const { t } = useI18n();
 
   return (
-    <div className="flex w-full min-w-0 self-start flex-col border border-border bg-surface-subtle">
+    <div className="flex w-full min-w-0 self-start flex-col">
       <button
         type="button"
-        className="surface-transition flex w-full min-w-0 flex-col text-left disabled:cursor-not-allowed disabled:opacity-65"
+        className="surface-transition flex w-full min-w-0 flex-col text-left hover:bg-surface-subtle focus-visible:bg-surface-subtle focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-65"
         aria-label={row.title || t("nav.tv")}
         disabled={operationLocked}
         onClick={() => onOpenManager(row)}
       >
-        <div className="p-3 pb-0">
+        <div className="p-2 pb-0">
           <PosterThumbnail
             src={row.posterUrl}
             className="aspect-[2/3] w-full"
@@ -66,7 +66,7 @@ const TvSeriesPosterCard = memo(function TvSeriesPosterCard({
             sizes="(min-width: 1024px) 18vw, (min-width: 640px) 44vw, 92vw"
           />
         </div>
-        <div className="flex flex-col gap-0.5 p-3">
+        <div className="flex flex-col gap-0.5 p-2">
           <p className="line-clamp-2 min-w-0 text-base font-semibold leading-6 text-foreground">
             {row.title || "-"}
           </p>
@@ -166,7 +166,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
   );
 
   return (
-    <Card className="animate-fade-in-up flex h-full flex-col border bg-card">
+    <Card className="animate-fade-in-up flex h-full flex-col bg-card">
       <CardHeader className="space-y-3 p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-1">
@@ -186,7 +186,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                   type="button"
                   aria-label={t("common.clear")}
                   title={t("common.clear")}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-white"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
                   onClick={() => setDraftQuery("")}
                 >
                   <X className="h-3.5 w-3.5" />
@@ -215,7 +215,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
       </CardHeader>
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
-        <ScrollArea className={cn("surface-subtle min-h-0 flex-1", pending && hasRows && "animate-pulse-soft")}>
+        <ScrollArea className={cn("min-h-0 flex-1", viewMode === "list" && "surface-subtle", pending && hasRows && "animate-pulse-soft")}>
           {viewMode === "list" ? (
             <Table className="table-fixed">
               <TableHeader>
@@ -285,8 +285,8 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
               {pending ? t("tv.updatingResults") : emptyState}
             </div>
           ) : (
-            <div className="p-4">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            <div className="pt-1">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {rows.map((row) => (
                   <TvSeriesPosterCard
                     key={row.key}

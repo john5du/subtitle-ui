@@ -16,19 +16,19 @@ interface QuickStatCardProps {
 export function QuickStatCard({ icon, label, value, hint, tone, pending = false, className }: QuickStatCardProps) {
   const toneClass: Record<QuickStatCardProps["tone"], { iconShell: string; hintText: string }> = {
     success: {
-      iconShell: "border-border bg-surface-subtle",
+      iconShell: "bg-surface-strong",
       hintText: "text-foreground-muted"
     },
     info: {
-      iconShell: "border-border bg-surface-subtle",
+      iconShell: "bg-surface-strong",
       hintText: "text-foreground-muted"
     },
     warning: {
-      iconShell: "border-border bg-surface-subtle",
+      iconShell: "bg-surface-strong",
       hintText: "text-foreground-muted"
     },
     destructive: {
-      iconShell: "border-border bg-surface-subtle",
+      iconShell: "bg-surface-strong",
       hintText: "text-foreground-muted"
     }
   };
@@ -39,7 +39,7 @@ export function QuickStatCard({ icon, label, value, hint, tone, pending = false,
     <Card className={cn("surface-panel", className, pending && "animate-pulse-soft")}>
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center gap-3">
-          <span className={cn("inline-flex h-10 w-10 items-center justify-center border", style.iconShell)}>
+          <span className={cn("inline-flex h-10 w-10 items-center justify-center", style.iconShell)}>
             {icon}
           </span>
           <p className="text-sm text-muted-foreground">{label}</p>
