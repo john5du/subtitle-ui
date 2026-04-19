@@ -15,7 +15,10 @@ import {
 import type {
   BatchLanguagePreference,
   DetectedBatchLanguageType,
-  SeasonBatchMappingRow
+  SeasonBatchMappingFilter,
+  SeasonBatchMappingRow,
+  SeasonBatchMappingStatus,
+  SeasonBatchRowView
 } from "../types";
 
 const BATCH_LANGUAGE_LABEL_KEYS: Record<DetectedBatchLanguageType, Parameters<TranslateFn>[0]> = {
@@ -39,6 +42,12 @@ const BATCH_LANGUAGE_ORDER: DetectedBatchLanguageType[] = [
 ];
 
 const BATCH_FORMAT_ORDER = [".ass", ".ssa", ".srt", ".vtt", ".sub"];
+const BATCH_STATUS_ORDER: Record<SeasonBatchMappingStatus, number> = {
+  unassigned: 0,
+  manual: 1,
+  skipped: 2,
+  auto: 3
+};
 
 function compareSubtitleFormats(a: string, b: string) {
   const ia = BATCH_FORMAT_ORDER.indexOf(a);
@@ -119,6 +128,18 @@ export function normalizeSubtitleFormat(value: string) {
   return value.toLowerCase();
 }
 
+export function describeBatchEntrySource(entry: ZipSubtitleEntry) {
+  const normalizedPath = entry.path.replace(/\\/g, "/");
+  const suffix = normalizedPath.toLowerCase().endsWith(`/${entry.fileName.toLowerCase()}`)
+    ? normalizedPath.slice(0, normalizedPath.length - entry.fileName.length - 1)
+    : "";
+
+  return {
+    fileName: entry.fileName,
+    sourcePath: suffix
+  };
+}
+
 export function getLanguageTypesFromEntries(entries: ZipSubtitleEntry[]) {
   const set = new Set<DetectedBatchLanguageType>();
   for (const entry of entries) {
@@ -179,24 +200,9 @@ export function buildSeasonBatchRows(videos: Video[], entries: ZipSubtitleEntry[
       season,
       episode,
       autoVideoId,
-      selectedVideoId: autoVideoId
+      selectedVideoId: autoVideoId,
+      skipped: false
     } satisfies SeasonBatchMappingRow;
-  });
-
-  rows.sort((a, b) => {
-    const seasonA = a.season ?? Number.MAX_SAFE_INTEGER;
-    const seasonB = b.season ?? Number.MAX_SAFE_INTEGER;
-    if (seasonA !== seasonB) {
-      return seasonA - seasonB;
-    }
-
-    const episodeA = a.episode ?? Number.MAX_SAFE_INTEGER;
-    const episodeB = b.episode ?? Number.MAX_SAFE_INTEGER;
-    if (episodeA !== episodeB) {
-      return episodeA - episodeB;
-    }
-
-    return a.entry.path.localeCompare(b.entry.path);
   });
 
   return rows;
@@ -216,6 +222,94 @@ export function candidateVideosForBatchRow(row: SeasonBatchMappingRow, videos: V
   }
 
   return allSorted;
+}
+
+export function getSeasonBatchRowStatus(row: SeasonBatchMappingRow): SeasonBatchMappingStatus {
+  if (row.skipped) {
+    return "skipped";
+  }
+
+  if (!row.selectedVideoId) {
+    return "unassigned";
+  }
+
+  if (row.autoVideoId && row.autoVideoId === row.selectedVideoId) {
+    return "auto";
+  }
+
+  return "manual";
+}
+
+function compareSeasonBatchRows(a: SeasonBatchMappingRow, b: SeasonBatchMappingRow) {
+  const statusOrderDiff = BATCH_STATUS_ORDER[getSeasonBatchRowStatus(a)] - BATCH_STATUS_ORDER[getSeasonBatchRowStatus(b)];
+  if (statusOrderDiff !== 0) {
+    return statusOrderDiff;
+  }
+
+  const seasonA = a.season ?? Number.MAX_SAFE_INTEGER;
+  const seasonB = b.season ?? Number.MAX_SAFE_INTEGER;
+  if (seasonA !== seasonB) {
+    return seasonA - seasonB;
+  }
+
+  const episodeA = a.episode ?? Number.MAX_SAFE_INTEGER;
+  const episodeB = b.episode ?? Number.MAX_SAFE_INTEGER;
+  if (episodeA !== episodeB) {
+    return episodeA - episodeB;
+  }
+
+  return a.entry.path.localeCompare(b.entry.path);
+}
+
+export function buildSeasonBatchRowViews(rows: SeasonBatchMappingRow[], videos: Video[]): SeasonBatchRowView[] {
+  const videosById = new Map(videos.map((video) => [video.id, video]));
+
+  return [...rows]
+    .sort(compareSeasonBatchRows)
+    .map((row) => ({
+      ...row,
+      status: getSeasonBatchRowStatus(row),
+      candidateCount: candidateVideosForBatchRow(row, videos).length,
+      languageType: detectSubtitleLanguageType(`${row.entry.path} ${row.entry.fileName}`),
+      format: normalizeSubtitleFormat(subtitleExtension(row.entry.fileName || row.entry.path)),
+      targetVideo: videosById.get(row.selectedVideoId) ?? null
+    }));
+}
+
+export function summarizeSeasonBatchRows(rows: SeasonBatchRowView[]) {
+  const summary = {
+    total: rows.length,
+    auto: 0,
+    manual: 0,
+    mapped: 0,
+    unassigned: 0,
+    skipped: 0
+  };
+
+  for (const row of rows) {
+    summary[row.status] += 1;
+    if (row.status === "auto" || row.status === "manual") {
+      summary.mapped += 1;
+    }
+  }
+
+  return summary;
+}
+
+export function filterSeasonBatchRowViews(rows: SeasonBatchRowView[], filter: SeasonBatchMappingFilter) {
+  if (filter === "all") {
+    return rows;
+  }
+
+  if (filter === "pending") {
+    return rows.filter((row) => row.status === "unassigned");
+  }
+
+  if (filter === "mapped") {
+    return rows.filter((row) => row.status === "auto" || row.status === "manual");
+  }
+
+  return rows.filter((row) => row.status === "skipped");
 }
 
 export function detectSubtitleLanguageType(fileNameOrPath: string): DetectedBatchLanguageType {

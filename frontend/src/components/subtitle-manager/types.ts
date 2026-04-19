@@ -18,6 +18,8 @@ export type DetectedBatchLanguageType =
 export type BatchLanguagePreference = "any" | DetectedBatchLanguageType;
 export type LibraryViewMode = "list" | "card";
 export type TvDrawerMode = "manage" | "batch";
+export type SeasonBatchMappingStatus = "auto" | "manual" | "unassigned" | "skipped";
+export type SeasonBatchMappingFilter = "all" | "pending" | "mapped" | "skipped";
 
 export interface SeasonBatchMappingRow {
   id: string;
@@ -26,6 +28,15 @@ export interface SeasonBatchMappingRow {
   episode: number | null;
   autoVideoId: string;
   selectedVideoId: string;
+  skipped?: boolean;
+}
+
+export interface SeasonBatchRowView extends SeasonBatchMappingRow {
+  status: SeasonBatchMappingStatus;
+  candidateCount: number;
+  languageType: DetectedBatchLanguageType;
+  format: string;
+  targetVideo: Video | null;
 }
 
 export interface RowActionItem {
