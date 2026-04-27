@@ -40,6 +40,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
   const selectTvVideo = useCallback((video: Video) => controllerRef.current.selectTvVideo(video), []);
   const setMoviePage = useCallback((nextPage: number) => controllerRef.current.setMoviePage(nextPage), []);
   const setTvPage = useCallback((nextPage: number) => controllerRef.current.setTvPage(nextPage), []);
+  const setLogsPage = useCallback((nextPage: number) => controllerRef.current.setLogsPage(nextPage), []);
   const toggleMovieYearSort = useCallback(() => controllerRef.current.toggleMovieYearSort(), []);
   const toggleTvSeriesYearSort = useCallback(() => controllerRef.current.toggleTvSeriesYearSort(), []);
   const loadMovieWorkspace = useCallback(() => controllerRef.current.loadMovieWorkspace(), []);
@@ -50,6 +51,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
   const switchTab = useCallback((tab: ActiveTab) => controllerRef.current.switchTab(tab), []);
   const triggerScan = useCallback(() => controllerRef.current.triggerScan(), []);
   const refreshActiveTab = useCallback(() => controllerRef.current.refreshActiveTab(), []);
+  const clearLogs = useCallback(() => controllerRef.current.clearLogs(), []);
   const uploadSubtitle = useCallback((video: Video, file: File, label: string) => controllerRef.current.uploadSubtitle(video, file, label), []);
   const replaceSubtitle = useCallback((video: Video, subtitle: Subtitle, file: File) => controllerRef.current.replaceSubtitle(video, subtitle, file), []);
   const removeSubtitle = useCallback((video: Video, subtitle: Subtitle) => controllerRef.current.removeSubtitle(video, subtitle), []);
@@ -69,7 +71,10 @@ export function useSubtitleManager(): SubtitleManagerResult {
     dashboard: {
       scanStatus: state.scanStatus,
       directoryScan: state.directoryScan,
-      logs: state.logs
+      logs: state.logs,
+      logsPager: state.logsPager,
+      setLogsPage,
+      clearLogs
     },
     movie: {
       query: state.queryByType.movie,

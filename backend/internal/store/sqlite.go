@@ -364,22 +364,35 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
 	return err
 }
 
-func (s *Store) ListLogs(limit int) ([]domain.OperationLog, error) {
-	if limit <= 0 {
-		limit = 50
+func (s *Store) ListLogs(page int, pageSize int) ([]domain.OperationLog, int, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 8
+	}
+	if pageSize > 200 {
+		pageSize = 200
 	}
 
+	total, err := s.countByQuery(`SELECT COUNT(1) FROM operation_logs`, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
 	rows, err := s.db.Query(
 		`SELECT id, timestamp, action, video_id, target_path, backup_path, status, message
-FROM operation_logs ORDER BY timestamp DESC LIMIT ?`,
-		limit,
+FROM operation_logs ORDER BY timestamp DESC, id DESC LIMIT ? OFFSET ?`,
+		pageSize,
+		offset,
 	)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
-	out := make([]domain.OperationLog, 0, limit)
+	out := make([]domain.OperationLog, 0, pageSize)
 	for rows.Next() {
 		var (
 			log       domain.OperationLog
@@ -395,15 +408,20 @@ FROM operation_logs ORDER BY timestamp DESC LIMIT ?`,
 			&log.Status,
 			&log.Message,
 		); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		log.Timestamp = parseTimeOrNow(timeValue)
 		out = append(out, log)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return out, nil
+	return out, total, nil
+}
+
+func (s *Store) ClearLogs() error {
+	_, err := s.db.Exec(`DELETE FROM operation_logs`)
+	return err
 }
 
 func (s *Store) GetLatestScanStatus() (domain.ScanStatus, error) {

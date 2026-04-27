@@ -18,6 +18,7 @@ import type { LocalizedText } from "@/lib/subtitle-manager/messages";
 import type { SubtitleManagerStateApi } from "./types";
 
 export const DEFAULT_PAGE_SIZE = 30;
+export const DEFAULT_LOG_PAGE_SIZE = 8;
 
 const EMPTY_DIRECTORY_SCAN: DirectoryScanResult = {
   generatedAt: "",
@@ -42,10 +43,10 @@ const EMPTY_PENDING_STATE: UiPendingState = {
   subtitleAction: null
 } as const;
 
-function createDefaultPager(): Pager {
+function createDefaultPager(pageSize = DEFAULT_PAGE_SIZE): Pager {
   return {
     page: 1,
-    pageSize: DEFAULT_PAGE_SIZE,
+    pageSize,
     total: 0,
     totalPages: 0
   };
@@ -83,8 +84,7 @@ function createDefaultLoadedTabs(): Record<ActiveTab, boolean> {
   return {
     dashboard: false,
     movie: false,
-    tv: false,
-    logs: false
+    tv: false
   };
 }
 
@@ -110,6 +110,7 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
   const [messageState, setMessageState] = useState<LocalizedText>(null);
   const [scanStatus, setScanStatus] = useState<ScanStatus | null>(null);
   const [logs, setLogs] = useState<OperationLog[]>([]);
+  const [logsPager, setLogsPager] = useState<Pager>(() => createDefaultPager(DEFAULT_LOG_PAGE_SIZE));
   const [directoryScan, setDirectoryScan] = useState<DirectoryScanResult>(EMPTY_DIRECTORY_SCAN);
   const [loadedTabs, setLoadedTabs] = useState<Record<ActiveTab, boolean>>(createDefaultLoadedTabs);
 
@@ -157,6 +158,7 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
       messageState,
       scanStatus,
       logs,
+      logsPager,
       directoryScan,
       loadedTabs
     },
@@ -182,6 +184,7 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
       setMessageState,
       setScanStatus,
       setLogs,
+      setLogsPager,
       setDirectoryScan,
       setLoadedTabs
     },

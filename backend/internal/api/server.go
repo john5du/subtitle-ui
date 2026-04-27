@@ -292,17 +292,23 @@ func (s *Server) handleSubtitleContent(w http.ResponseWriter, _ *http.Request, v
 }
 
 func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-	limit := 50
-	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
-			limit = parsed
+	switch r.Method {
+	case http.MethodGet:
+		page := parsePositiveIntOrDefault(r.URL.Query().Get("page"), 1)
+		pageSize := parsePositiveIntOrDefault(r.URL.Query().Get("pageSize"), 8)
+		if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" && strings.TrimSpace(r.URL.Query().Get("pageSize")) == "" {
+			pageSize = parsePositiveIntOrDefault(rawLimit, pageSize)
 		}
+		writeJSON(w, http.StatusOK, s.service.ListLogsPage(page, pageSize))
+	case http.MethodDelete:
+		if err := s.service.ClearLogs(); err != nil {
+			writeError(w, http.StatusInternalServerError, "clear logs failed")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
-	writeJSON(w, http.StatusOK, s.service.ListLogs(limit))
 }
 
 func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {

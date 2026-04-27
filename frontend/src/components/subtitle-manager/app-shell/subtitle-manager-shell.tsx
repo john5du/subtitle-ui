@@ -14,7 +14,6 @@ import { Dialog, DialogDrawerContent } from "@/components/ui/dialog";
 
 import type { SubtitleManagerScreenModel } from "../hooks/use-subtitle-manager-screen-model";
 import { DashboardPanel } from "../dashboard/dashboard-panel";
-import { LogsPanel } from "../logs/logs-panel";
 import { MovieListPanel } from "../movie/movie-list-panel";
 import { MovieSubtitleDrawer } from "../movie/movie-subtitle-drawer";
 import { LocaleSelect } from "../shared/settings-controls";
@@ -31,8 +30,10 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   formatTime,
   dashboardScanStatus,
   dashboardDirectoryScan,
-  dashboardMessage,
   dashboardLogs,
+  dashboardLogsPager,
+  dashboardSetLogsPage,
+  dashboardClearLogs,
   dashboardPending,
   dashboardFormatTime,
   movieQuery,
@@ -58,10 +59,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   tvOpenManagerForSeries,
   tvShowScanPrompt,
   tvScanLoading,
-  tvPendingList,
-  logsItems,
-  logsPending,
-  logsFormatTime
+  tvPendingList
 }: {
   activeTab: SubtitleManagerScreenModel["shell"]["activeTab"];
   operationLocked: boolean;
@@ -69,8 +67,10 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   formatTime: SubtitleManagerScreenModel["subtitleActions"]["formatTime"];
   dashboardScanStatus: SubtitleManagerScreenModel["dashboard"]["scanStatus"];
   dashboardDirectoryScan: SubtitleManagerScreenModel["dashboard"]["directoryScan"];
-  dashboardMessage: SubtitleManagerScreenModel["dashboard"]["message"];
   dashboardLogs: SubtitleManagerScreenModel["dashboard"]["logs"];
+  dashboardLogsPager: SubtitleManagerScreenModel["dashboard"]["logsPager"];
+  dashboardSetLogsPage: SubtitleManagerScreenModel["dashboard"]["setLogsPage"];
+  dashboardClearLogs: SubtitleManagerScreenModel["dashboard"]["clearLogs"];
   dashboardPending: SubtitleManagerScreenModel["dashboard"]["pending"];
   dashboardFormatTime: SubtitleManagerScreenModel["dashboard"]["formatTime"];
   movieQuery: SubtitleManagerScreenModel["movie"]["query"];
@@ -97,9 +97,6 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   tvShowScanPrompt: SubtitleManagerScreenModel["tv"]["showScanPrompt"];
   tvScanLoading: SubtitleManagerScreenModel["tv"]["scanLoading"];
   tvPendingList: SubtitleManagerScreenModel["tv"]["pendingList"];
-  logsItems: SubtitleManagerScreenModel["logs"]["items"];
-  logsPending: SubtitleManagerScreenModel["logs"]["pending"];
-  logsFormatTime: SubtitleManagerScreenModel["logs"]["formatTime"];
 }) {
   const openTvManagerForRow = useCallback(
     (series: TvSeriesSummary) => {
@@ -111,12 +108,14 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   return (
     <div key={activeTab} className="surface-panel animate-fade-in-up min-h-0 p-2 sm:p-3 lg:flex-1">
       {activeTab === "dashboard" && (
-        <div className="lg:h-full lg:overflow-auto lg:pr-1">
+        <div className="min-h-0 lg:h-full">
           <DashboardPanel
             scanStatus={dashboardScanStatus}
             directoryScan={dashboardDirectoryScan}
-            message={dashboardMessage}
             logs={dashboardLogs}
+            logsPager={dashboardLogsPager}
+            onSetLogsPage={dashboardSetLogsPage}
+            onClearLogs={dashboardClearLogs}
             pending={dashboardPending}
             formatTime={dashboardFormatTime}
           />
@@ -166,11 +165,6 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
         </div>
       )}
 
-      {activeTab === "logs" && (
-        <div className="min-h-[340px] lg:h-full">
-          <LogsPanel logs={logsItems} pending={logsPending} formatTime={logsFormatTime} />
-        </div>
-      )}
     </div>
   );
 });
@@ -305,7 +299,7 @@ ManagementDialogs.displayName = "ManagementDialogs";
 
 export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenModel }) {
   const { t } = useI18n();
-  const { shell, dashboard, movie, tv, logs, subtitleActions, dialogs } = model;
+  const { shell, dashboard, movie, tv, subtitleActions, dialogs } = model;
   const activeTabLabel = shell.navItems.find((item) => item.key === shell.activeTab)?.label ?? shell.activeTab;
 
   return (
@@ -457,8 +451,10 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             formatTime={subtitleActions.formatTime}
             dashboardScanStatus={dashboard.scanStatus}
             dashboardDirectoryScan={dashboard.directoryScan}
-            dashboardMessage={dashboard.message}
             dashboardLogs={dashboard.logs}
+            dashboardLogsPager={dashboard.logsPager}
+            dashboardSetLogsPage={dashboard.setLogsPage}
+            dashboardClearLogs={dashboard.clearLogs}
             dashboardPending={dashboard.pending}
             dashboardFormatTime={dashboard.formatTime}
             movieQuery={movie.query}
@@ -485,9 +481,6 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             tvShowScanPrompt={tv.showScanPrompt}
             tvScanLoading={tv.scanLoading}
             tvPendingList={tv.pendingList}
-            logsItems={logs.items}
-            logsPending={logs.pending}
-            logsFormatTime={logs.formatTime}
           />
         </div>
       </div>

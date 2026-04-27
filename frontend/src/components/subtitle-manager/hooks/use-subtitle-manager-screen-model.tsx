@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Film, FileText, LayoutDashboard, Tv } from "lucide-react";
+import { Film, LayoutDashboard, Tv } from "lucide-react";
 
 import { useSubtitleManager } from "@/hooks/use-subtitle-manager";
 import { useI18n } from "@/lib/i18n";
@@ -28,7 +28,7 @@ export function useSubtitleManagerScreenModel() {
     message,
     formatTime
   } = core;
-  const { logs, scanStatus, directoryScan } = dashboard;
+  const { logs, logsPager, scanStatus, directoryScan } = dashboard;
 
   const operationLocked = pending.scan || uploading || Boolean(pending.refreshTab);
   const scanPending = pending.scan;
@@ -59,8 +59,7 @@ export function useSubtitleManagerScreenModel() {
     () => [
       { key: "dashboard", icon: <LayoutDashboard className="h-5 w-5" />, label: t("nav.overview") },
       { key: "movie", icon: <Film className="h-5 w-5" />, label: t("nav.movie") },
-      { key: "tv", icon: <Tv className="h-5 w-5" />, label: t("nav.tv") },
-      { key: "logs", icon: <FileText className="h-5 w-5" />, label: t("nav.logs") }
+      { key: "tv", icon: <Tv className="h-5 w-5" />, label: t("nav.tv") }
     ],
     [t]
   );
@@ -218,11 +217,13 @@ export function useSubtitleManagerScreenModel() {
   const dashboardModel = useMemo(() => ({
       scanStatus,
       directoryScan,
-      message,
       logs,
+      logsPager,
+      setLogsPage: dashboard.setLogsPage,
+      clearLogs: dashboard.clearLogs,
       pending,
       formatTime
-    }), [directoryScan, formatTime, logs, message, pending, scanStatus]);
+    }), [dashboard.clearLogs, dashboard.setLogsPage, directoryScan, formatTime, logs, logsPager, pending, scanStatus]);
 
   const movieModel = useMemo(() => ({
       query: movie.query,
@@ -310,12 +311,6 @@ export function useSubtitleManagerScreenModel() {
       libraryViewMode
     ]);
 
-  const logsModel = useMemo(() => ({
-      items: logs,
-      pending: pending.logs,
-      formatTime
-    }), [formatTime, logs, pending.logs]);
-
   const subtitleActionsModel = useMemo(() => ({
       uploadSubtitle: actions.uploadSubtitle,
       replaceSubtitle: actions.replaceSubtitle,
@@ -365,7 +360,6 @@ export function useSubtitleManagerScreenModel() {
     dashboard: dashboardModel,
     movie: movieModel,
     tv: tvModel,
-    logs: logsModel,
     subtitleActions: subtitleActionsModel,
     dialogs: dialogsModel
   };

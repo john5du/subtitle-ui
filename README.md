@@ -63,7 +63,9 @@ git push origin v0.5.4
 - `POST /api/videos/{videoId}/subtitles` (multipart `file`, optional `label`, optional `replaceId`)
 - `GET /api/videos/{videoId}/subtitles/{subtitleId}/content` (subtitle bytes for preview)
 - `DELETE /api/videos/{videoId}/subtitles/{subtitleId}`
-- `GET /api/logs?limit=30`
+- `GET /api/logs` (query: optional `page`, `pageSize`)
+  - response: `{ items: OperationLog[], total, page, pageSize, totalPages }`
+- `DELETE /api/logs` (clears all operation logs)
 
 ## Media library layout
 

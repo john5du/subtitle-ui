@@ -95,15 +95,81 @@ func TestStoreScanAndLogs(t *testing.T) {
 		t.Fatalf("append log: %v", err)
 	}
 
-	logs, err := st.ListLogs(10)
+	logs, total, err := st.ListLogs(1, 10)
 	if err != nil {
 		t.Fatalf("list logs: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected 1 total log, got %d", total)
 	}
 	if len(logs) != 1 {
 		t.Fatalf("expected 1 log, got %d", len(logs))
 	}
 	if logs[0].ID != "L1" {
 		t.Fatalf("unexpected log id: %s", logs[0].ID)
+	}
+}
+
+func TestListLogsPagesAndClear(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "logs.sqlite3")
+	st, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() {
+		_ = st.Close()
+	}()
+
+	now := time.Now().UTC()
+	for index := 1; index <= 3; index += 1 {
+		item := domain.OperationLog{
+			ID:         "L" + string(rune('0'+index)),
+			Timestamp:  now.Add(time.Duration(index) * time.Second),
+			Action:     "upload",
+			VideoID:    "V1",
+			TargetPath: "movie.zh.srt",
+			Status:     "ok",
+		}
+		if err := st.AppendLog(item); err != nil {
+			t.Fatalf("append log %d: %v", index, err)
+		}
+	}
+
+	firstPage, total, err := st.ListLogs(1, 2)
+	if err != nil {
+		t.Fatalf("list first page: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("expected total=3, got %d", total)
+	}
+	if len(firstPage) != 2 {
+		t.Fatalf("expected 2 logs on first page, got %d", len(firstPage))
+	}
+	if firstPage[0].ID != "L3" || firstPage[1].ID != "L2" {
+		t.Fatalf("unexpected first page order: %q, %q", firstPage[0].ID, firstPage[1].ID)
+	}
+
+	secondPage, total, err := st.ListLogs(2, 2)
+	if err != nil {
+		t.Fatalf("list second page: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("expected total=3 on second page, got %d", total)
+	}
+	if len(secondPage) != 1 || secondPage[0].ID != "L1" {
+		t.Fatalf("unexpected second page: %+v", secondPage)
+	}
+
+	if err := st.ClearLogs(); err != nil {
+		t.Fatalf("clear logs: %v", err)
+	}
+
+	afterClear, total, err := st.ListLogs(1, 2)
+	if err != nil {
+		t.Fatalf("list after clear: %v", err)
+	}
+	if total != 0 || len(afterClear) != 0 {
+		t.Fatalf("expected no logs after clear, total=%d len=%d", total, len(afterClear))
 	}
 }
 

@@ -42,6 +42,7 @@ export interface SubtitleManagerState {
   messageState: LocalizedText;
   scanStatus: ScanStatus | null;
   logs: OperationLog[];
+  logsPager: Pager;
   directoryScan: DirectoryScanResult;
   loadedTabs: Record<ActiveTab, boolean>;
 }
@@ -86,6 +87,7 @@ export interface SubtitleManagerSetters {
   setMessageState: Dispatch<SetStateAction<LocalizedText>>;
   setScanStatus: Dispatch<SetStateAction<ScanStatus | null>>;
   setLogs: Dispatch<SetStateAction<OperationLog[]>>;
+  setLogsPager: Dispatch<SetStateAction<Pager>>;
   setDirectoryScan: Dispatch<SetStateAction<DirectoryScanResult>>;
   setLoadedTabs: Dispatch<SetStateAction<Record<ActiveTab, boolean>>>;
 }
@@ -124,6 +126,9 @@ export interface SubtitleManagerDashboardDomain {
   scanStatus: ScanStatus | null;
   directoryScan: DirectoryScanResult;
   logs: OperationLog[];
+  logsPager: Pager;
+  setLogsPage: (nextPage: number) => void;
+  clearLogs: () => Promise<boolean>;
 }
 
 export interface SubtitleManagerMovieDomain {
@@ -185,7 +190,8 @@ export interface SubtitleManagerController extends SubtitleManagerActions {
   finishBootstrapping: () => void;
   loadScanStatus: () => Promise<void>;
   loadDirectoryScanResult: () => Promise<string>;
-  loadLogs: () => Promise<void>;
+  loadLogs: (options?: { page?: number }) => Promise<void>;
+  clearLogs: () => Promise<boolean>;
   loadMovieVideos: (options?: { page?: number; force?: boolean }) => Promise<void>;
   loadTvSeriesPage: (options?: { page?: number; force?: boolean }) => Promise<TvSeriesSummary[]>;
   refreshTvVideosForPath: (seriesPath: string) => Promise<Video[]>;
@@ -196,6 +202,7 @@ export interface SubtitleManagerController extends SubtitleManagerActions {
   selectTvDirectory: (path: string) => void;
   setMoviePage: (nextPage: number) => void;
   setTvPage: (nextPage: number) => void;
+  setLogsPage: (nextPage: number) => void;
   toggleMovieYearSort: () => void;
   toggleTvSeriesYearSort: () => void;
   loadTvBatchCandidates: () => Promise<Video[]>;

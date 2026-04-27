@@ -30,7 +30,10 @@ var (
 	ErrInvalidFileType = errors.New("invalid subtitle file extension")
 )
 
-const systemOperationVideoID = "SYSTEM"
+const (
+	systemOperationVideoID = "SYSTEM"
+	defaultLogPageSize     = 8
+)
 
 type Service struct {
 	cfg     config.Config
@@ -542,12 +545,51 @@ func (s *Service) ReadSubtitleContent(videoID string, subtitleID string) ([]byte
 	return data, nil
 }
 
-func (s *Service) ListLogs(limit int) []domain.OperationLog {
-	logs, err := s.store.ListLogs(limit)
-	if err != nil {
-		return []domain.OperationLog{}
+func (s *Service) ListLogsPage(page int, pageSize int) domain.OperationLogPage {
+	if page <= 0 {
+		page = 1
 	}
-	return logs
+	if pageSize <= 0 {
+		pageSize = defaultLogPageSize
+	}
+	if pageSize > 200 {
+		pageSize = 200
+	}
+
+	logs, total, err := s.store.ListLogs(page, pageSize)
+	if err != nil {
+		return domain.OperationLogPage{
+			Items:      []domain.OperationLog{},
+			Total:      0,
+			Page:       page,
+			PageSize:   pageSize,
+			TotalPages: 0,
+		}
+	}
+
+	totalPages := 0
+	if total > 0 {
+		totalPages = (total + pageSize - 1) / pageSize
+	}
+
+	return domain.OperationLogPage{
+		Items:      logs,
+		Total:      total,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: totalPages,
+	}
+}
+
+func (s *Service) ListLogs(limit int) []domain.OperationLog {
+	if limit <= 0 {
+		limit = 50
+	}
+	return s.ListLogsPage(1, limit).Items
+}
+
+func (s *Service) ClearLogs() error {
+	return s.store.ClearLogs()
 }
 
 func (s *Service) listAllTVVideos() ([]domain.Video, error) {

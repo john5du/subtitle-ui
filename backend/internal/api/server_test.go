@@ -146,6 +146,66 @@ func TestListResponsesIncludePosterURLs(t *testing.T) {
 	}
 }
 
+func TestHandleLogsPagesAndClears(t *testing.T) {
+	fixture := newPosterTestFixture(t)
+	defer fixture.cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/logs?page=1&pageSize=1", nil)
+	recorder := httptest.NewRecorder()
+	fixture.server.Handler().ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected logs status 200, got %d", recorder.Code)
+	}
+
+	var page struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+		Total      int `json:"total"`
+		Page       int `json:"page"`
+		PageSize   int `json:"pageSize"`
+		TotalPages int `json:"totalPages"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &page); err != nil {
+		t.Fatalf("decode logs page: %v", err)
+	}
+	if page.Total < 1 {
+		t.Fatalf("expected at least one operation log, got total=%d", page.Total)
+	}
+	if page.Page != 1 || page.PageSize != 1 {
+		t.Fatalf("unexpected pagination metadata: page=%d pageSize=%d", page.Page, page.PageSize)
+	}
+	if len(page.Items) != 1 {
+		t.Fatalf("expected one log item on page, got %d", len(page.Items))
+	}
+	if page.TotalPages < 1 {
+		t.Fatalf("expected totalPages >= 1, got %d", page.TotalPages)
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, "/api/logs", nil)
+	recorder = httptest.NewRecorder()
+	fixture.server.Handler().ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected delete logs status 204, got %d", recorder.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/logs?page=1&pageSize=1", nil)
+	recorder = httptest.NewRecorder()
+	fixture.server.Handler().ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected logs status 200 after clear, got %d", recorder.Code)
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &page); err != nil {
+		t.Fatalf("decode logs page after clear: %v", err)
+	}
+	if page.Total != 0 || len(page.Items) != 0 {
+		t.Fatalf("expected logs to be empty after clear, total=%d len=%d", page.Total, len(page.Items))
+	}
+}
+
 func TestHandleVideoPoster(t *testing.T) {
 	fixture := newPosterTestFixture(t)
 	defer fixture.cleanup()

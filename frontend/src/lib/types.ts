@@ -1,5 +1,5 @@
 ﻿export type MediaType = "movie" | "tv";
-export type ActiveTab = "dashboard" | "movie" | "tv" | "logs";
+export type ActiveTab = "dashboard" | "movie" | "tv";
 export type SubtitleOperationKind = "upload" | "replace" | "delete" | "batch";
 
 export interface Subtitle {
@@ -51,6 +51,14 @@ export interface OperationLog {
   backupPath?: string;
   status: string;
   message?: string;
+}
+
+export interface OperationLogPage {
+  items: OperationLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface ScanDirectory {
@@ -160,4 +168,3 @@ export interface UiPendingState {
   logs: boolean;
   subtitleAction: PendingSubtitleAction | null;
 }
-

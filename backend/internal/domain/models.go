@@ -51,6 +51,14 @@ type OperationLog struct {
 	Message    string    `json:"message,omitempty"`
 }
 
+type OperationLogPage struct {
+	Items      []OperationLog `json:"items"`
+	Total      int            `json:"total"`
+	Page       int            `json:"page"`
+	PageSize   int            `json:"pageSize"`
+	TotalPages int            `json:"totalPages"`
+}
+
 type ScanDirectory struct {
 	ID                string `json:"id"`
 	Path              string `json:"path"`

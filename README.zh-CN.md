@@ -63,7 +63,9 @@ git push origin v0.5.4
 - `POST /api/videos/{videoId}/subtitles`（multipart `file`，可选 `label`，可选 `replaceId`）
 - `GET /api/videos/{videoId}/subtitles/{subtitleId}/content`（用于预览的字幕原始字节）
 - `DELETE /api/videos/{videoId}/subtitles/{subtitleId}`
-- `GET /api/logs?limit=30`
+- `GET /api/logs`（查询参数：可选 `page`, `pageSize`）
+  - 响应：`{ items: OperationLog[], total, page, pageSize, totalPages }`
+- `DELETE /api/logs`（清空全部操作日志）
 
 ## 媒体库目录结构
 

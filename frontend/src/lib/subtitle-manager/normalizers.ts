@@ -1,6 +1,7 @@
 import type {
   DirectoryScanResult,
   OperationLog,
+  OperationLogPage,
   ScanDirectory,
   ScanStatus,
   TvSeriesPage,
@@ -97,4 +98,30 @@ export function normalizeLogs(payload: unknown): OperationLog[] {
     return [];
   }
   return payload as OperationLog[];
+}
+
+export function normalizeLogsPage(payload: unknown, fallbackPage: number, fallbackPageSize: number): OperationLogPage {
+  if (Array.isArray(payload)) {
+    return {
+      items: payload as OperationLog[],
+      total: payload.length,
+      page: fallbackPage,
+      pageSize: fallbackPageSize,
+      totalPages: payload.length > 0 ? 1 : 0
+    };
+  }
+
+  const body = isRecord(payload) ? payload : {};
+  const items = Array.isArray(body.items) ? (body.items as OperationLog[]) : [];
+  const total = typeof body.total === "number" ? body.total : items.length;
+  const page = typeof body.page === "number" ? body.page : fallbackPage;
+  const pageSize = typeof body.pageSize === "number" ? body.pageSize : fallbackPageSize;
+  const totalPages =
+    typeof body.totalPages === "number"
+      ? body.totalPages
+      : total > 0
+        ? Math.ceil(total / Math.max(1, pageSize))
+        : 0;
+
+  return { items, total, page, pageSize, totalPages };
 }

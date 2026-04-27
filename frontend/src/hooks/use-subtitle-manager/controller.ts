@@ -11,14 +11,14 @@ import type {
 import { requestBinary, requestPayload } from "@/lib/subtitle-manager/api-client";
 import {
   normalizeDirectoryScanResult,
-  normalizeLogs,
+  normalizeLogsPage,
   normalizePagedVideosResponse,
   normalizeScanStatus,
   normalizeTvSeriesPage
 } from "@/lib/subtitle-manager/normalizers";
 import { normalizeForCompare, pickDefaultTvDirectory } from "@/lib/subtitle-manager/tv-tree";
 
-import { DEFAULT_PAGE_SIZE } from "./state";
+import { DEFAULT_LOG_PAGE_SIZE, DEFAULT_PAGE_SIZE } from "./state";
 import type {
   LoadChannel,
   SubtitleManagerController,
@@ -401,13 +401,49 @@ export function createSubtitleManagerController({
     }
   }
 
-  async function loadLogs() {
+  async function loadLogs(options: { page?: number } = {}) {
+    const page = options.page || state.logsPager.page || 1;
+    const pageSize = state.logsPager.pageSize || DEFAULT_LOG_PAGE_SIZE;
+
     beginLoadChannel("logs");
     try {
-      const payload = await requestPayload<unknown>("/api/logs?limit=50");
-      setters.setLogs(normalizeLogs(payload));
+      const params = new URLSearchParams();
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
+
+      const payload = await requestPayload<unknown>(`/api/logs?${params.toString()}`);
+      const pageData = normalizeLogsPage(payload, page, pageSize);
+      setters.setLogs(pageData.items);
+      setters.setLogsPager({
+        page: pageData.page,
+        pageSize: pageData.pageSize,
+        total: pageData.total,
+        totalPages: pageData.totalPages
+      });
     } catch (error) {
       reportRequestError("error.loadLogs", error);
+    } finally {
+      endLoadChannel("logs");
+    }
+  }
+
+  async function clearLogs() {
+    beginLoadChannel("logs");
+    try {
+      await requestPayload<unknown>("/api/logs", { method: "DELETE" });
+      setters.setLogs([]);
+      setters.setLogsPager({
+        page: 1,
+        pageSize: state.logsPager.pageSize || DEFAULT_LOG_PAGE_SIZE,
+        total: 0,
+        totalPages: 0
+      });
+      setTranslatedMessage("status.logsCleared");
+      notifySuccess(t("toast.logsClearedTitle"), t("toast.logsClearedMessage"));
+      return true;
+    } catch (error) {
+      reportRequestError("error.clearLogs", error);
+      return false;
     } finally {
       endLoadChannel("logs");
     }
@@ -421,12 +457,6 @@ export function createSubtitleManagerController({
       if (tab === "dashboard") {
         await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadLogs()]);
         setters.setLoadedTabs((prev) => ({ ...prev, dashboard: true }));
-        return;
-      }
-
-      if (tab === "logs") {
-        await loadLogs();
-        setters.setLoadedTabs((prev) => ({ ...prev, logs: true }));
         return;
       }
 
@@ -497,7 +527,7 @@ export function createSubtitleManagerController({
         loadMovieVideos({ page: 1, force: true }),
         loadTvSeriesPage({ page: 1, force: true }),
         refreshTvVideosForPath(selectors.selectedTvSeries?.path || state.selectedTvDirPath || state.tvEpisodesPath || targetDir),
-        loadLogs()
+        loadLogs({ page: 1 })
       ]);
 
       const warningCount = discovered.errors.length;
@@ -532,13 +562,6 @@ export function createSubtitleManagerController({
         await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadLogs()]);
         setTranslatedMessage("status.dashboardRefreshed");
         notifySuccess(t("toast.dashboardRefreshedTitle"), t("toast.dashboardRefreshedMessage"));
-        return;
-      }
-
-      if (state.activeTab === "logs") {
-        await loadLogs();
-        setTranslatedMessage("status.logsRefreshed");
-        notifySuccess(t("toast.logsRefreshedTitle"), t("toast.logsRefreshedMessage"));
         return;
       }
 
@@ -604,6 +627,14 @@ export function createSubtitleManagerController({
     void loadTvSeriesPage({ page: nextPage });
   }
 
+  function setLogsPage(nextPage: number) {
+    const totalPages = Math.max(1, state.logsPager.totalPages || 1);
+    if (nextPage < 1 || nextPage > totalPages || nextPage === state.logsPager.page) {
+      return;
+    }
+    void loadLogs({ page: nextPage });
+  }
+
   function toggleMovieYearSort() {
     setters.setMovieYearSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
   }
@@ -645,12 +676,12 @@ export function createSubtitleManagerController({
       await Promise.all([
         loadTvSeriesPage({ page: state.tvSeriesPager.page || 1, force: true }),
         refreshTvVideosForPath(targetDir || ""),
-        loadLogs()
+        loadLogs({ page: 1 })
       ]);
       return;
     }
 
-    await Promise.all([loadMovieVideos({ page: selectors.moviePager.page || 1, force: true }), loadLogs()]);
+    await Promise.all([loadMovieVideos({ page: selectors.moviePager.page || 1, force: true }), loadLogs({ page: 1 })]);
   }
 
   async function uploadSubtitle(video: Video, file: File, label: string) {
@@ -796,7 +827,7 @@ export function createSubtitleManagerController({
               state.directoryScan.tvRoot ||
               ""
           ),
-          loadLogs()
+          loadLogs({ page: 1 })
         ]);
       } catch (error) {
         const errorText = error instanceof Error ? error.message : String(error);
@@ -846,6 +877,7 @@ export function createSubtitleManagerController({
     loadScanStatus,
     loadDirectoryScanResult,
     loadLogs,
+    clearLogs,
     loadMovieVideos,
     loadTvSeriesPage,
     refreshTvVideosForPath,
@@ -859,6 +891,7 @@ export function createSubtitleManagerController({
     selectTvDirectory,
     setMoviePage,
     setTvPage,
+    setLogsPage,
     toggleMovieYearSort,
     toggleTvSeriesYearSort,
     uploadSubtitle,
