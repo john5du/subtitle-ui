@@ -1,7 +1,7 @@
 {
   "name": "subtitle",
   "private": true,
-  "version": "0.6.2",
+  "version": "0.6.3",
   "scripts": {
     "prepare:libarchive": "node ./scripts/prepare-libarchive.mjs",
     "predev": "npm run prepare:libarchive",
