@@ -96,8 +96,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   const uploadPending = subtitleAction?.kind === "upload" && subtitleAction.videoId === selectedVideo?.id;
   const searchActionItems = showSearchLinks && searchLinks
     ? [
-        { label: "Zimuku", href: searchLinks.zimuku },
-        { label: "SubHD", href: searchLinks.subhd }
+        { label: "SubHD", href: searchLinks.subhd },
+        { label: "Zimuku", href: searchLinks.zimuku }
       ]
     : [];
   const subtitleActionWidthClass = "w-full sm:w-auto";

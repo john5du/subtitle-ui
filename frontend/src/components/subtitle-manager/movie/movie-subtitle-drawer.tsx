@@ -426,14 +426,14 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
             {searchLinks ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button type="button" variant="outline" size="sm" className="gap-1.5" asChild>
-                  <a href={searchLinks.zimuku} target="_blank" rel="noreferrer">
-                    <span>Zimuku</span>
+                  <a href={searchLinks.subhd} target="_blank" rel="noreferrer">
+                    <span>SubHD</span>
                     <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                   </a>
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="gap-1.5" asChild>
-                  <a href={searchLinks.subhd} target="_blank" rel="noreferrer">
-                    <span>SubHD</span>
+                  <a href={searchLinks.zimuku} target="_blank" rel="noreferrer">
+                    <span>Zimuku</span>
                     <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                   </a>
                 </Button>
