@@ -12,7 +12,7 @@ A Go + Next.js web application for managing subtitle files alongside a Jellyfin-
 
 - **Movie and TV libraries** — split browsing for `movies/` and `tv/` roots, with per-series season and episode drilldowns.
 - **Card and list views** — toggleable poster grid or compact table, with pagination and year sort.
-- **Subtitle operations** — upload, replace (backup first), delete (backup first), preview stored subtitle content.
+- **Subtitle operations** — upload, replace (backup first), delete, preview stored subtitle content.
 - **Archive uploads** — accepts `.zip`, `.7z`, `.rar` payloads; entries are parsed client-side and you pick which subtitle inside to install.
 - **TV season batch upload** — match one archive against a whole season by episode number.
 - **Posters** — reads `poster.*` / `folder.*` / `fanart.*` / `<base>-poster.*` next to the video (or at series root for TV) in `.jpg` / `.png` / `.bmp`.
