@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 
 import { ToastViewport } from "@/components/ui/toast-viewport";
@@ -31,6 +31,12 @@ export const metadata: Metadata = {
     shortcut: "/favicon.svg",
     apple: "/icon.svg"
   }
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover"
 };
 
 const localeBootstrapScript = `
@@ -80,9 +86,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <I18nProvider>
             <div className="flex h-dvh flex-col">
               <ToastViewport />
-              <main className="h-[calc(100dvh-3.5rem)] min-h-0 overflow-auto lg:overflow-hidden">{children}</main>
-              <footer className="h-14 shrink-0 border-t border-border bg-background">
-                <div className="mx-auto flex h-full w-full max-w-[1620px] items-center justify-between px-4 text-sm text-foreground-muted md:px-6">
+              <main className="min-h-0 flex-1 overflow-auto lg:overflow-hidden">{children}</main>
+              <footer className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
+                <div className="mx-auto flex h-14 w-full max-w-[1620px] items-center justify-between px-4 text-sm text-foreground-muted md:px-6">
                   <p>&copy; {year} Subtitle UI v{APP_VERSION}</p>
                   <a
                     href="https://github.com/john5du/subtitle-ui"
