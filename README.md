@@ -27,7 +27,7 @@ A Go + Next.js web application for managing subtitle files alongside a Jellyfin-
 ```bash
 go test ./...
 cd frontend
-npm run build
+bun run build
 ```
 
 2. Commit release changes on `main` (Conventional Commit style).
@@ -99,7 +99,7 @@ Subtitle extensions recognized: `.srt .ass .ssa .vtt .sub`.
 
 Requirements:
 - macOS with `bash` and `lsof`
-- Local `go`, `node`, and `npm`
+- Local `go` and `bun`
 
 ### One-click startup
 
@@ -143,8 +143,8 @@ go run ./backend/cmd/server
 
 ```bash
 cd frontend
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 3. Open browser: `http://localhost:3300`
@@ -154,21 +154,21 @@ npm run dev
 ```bash
 export NEXT_PUBLIC_API_BASE=http://localhost:9307
 cd frontend
-npm run dev
+bun run dev
 ```
 
 Or:
 
 ```bash
 cd frontend
-NEXT_PUBLIC_API_BASE=http://localhost:9307 npm run dev
+NEXT_PUBLIC_API_BASE=http://localhost:9307 bun run dev
 ```
 
 ## Frontend build output (for Go static hosting)
 
 ```bash
 cd frontend
-npm run build
+bun run build
 ```
 
 - Static export output is `./frontend/out`

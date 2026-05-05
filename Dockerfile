@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24-alpine AS frontend-builder
+FROM oven/bun:1.3.13-alpine AS frontend-builder
 WORKDIR /workspace/frontend
 
-COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/package.json frontend/bun.lock ./
 COPY frontend/scripts/ ./scripts/
-RUN npm ci
+RUN bun ci
 
 COPY frontend/ ./
-RUN npm run build
+RUN bun run build
 
 FROM golang:1.26-alpine AS backend-builder
 WORKDIR /workspace

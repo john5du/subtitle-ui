@@ -97,7 +97,7 @@ done
 
 require_cmd lsof
 require_cmd go
-require_cmd npm
+require_cmd bun
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
@@ -144,7 +144,7 @@ if [ "$skip_install" = "false" ] && [ ! -d "$node_modules_dir" ]; then
   log_step "frontend/node_modules not found. Installing dependencies ..."
   (
     cd "$frontend_dir" || exit 1
-    npm install
+    bun install --frozen-lockfile
   )
 fi
 
@@ -156,7 +156,7 @@ else
   rm -f "$frontend_out" "$frontend_err"
 
   pushd "$frontend_dir" >/dev/null
-  nohup npm run dev >"$frontend_out" 2>"$frontend_err" < /dev/null &
+  nohup bun run dev >"$frontend_out" 2>"$frontend_err" < /dev/null &
   frontend_launcher_pid=$!
   disown "$frontend_launcher_pid" 2>/dev/null || true
   popd >/dev/null

@@ -27,7 +27,7 @@ English version: [`README.md`](./README.md)
 ```bash
 go test ./...
 cd frontend
-npm run build
+bun run build
 ```
 
 2. 在 `main` 提交发版改动（遵循 Conventional Commit）。
@@ -99,7 +99,7 @@ media/tv/
 
 依赖要求：
 - macOS 自带 `bash` 与 `lsof`
-- 本地已安装 `go`、`node`、`npm`
+- 本地已安装 `go`、`bun`
 
 ### 一键启动
 
@@ -143,8 +143,8 @@ go run ./backend/cmd/server
 
 ```bash
 cd frontend
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 3. 打开浏览器：`http://localhost:3300`
@@ -154,21 +154,21 @@ npm run dev
 ```bash
 export NEXT_PUBLIC_API_BASE=http://localhost:9307
 cd frontend
-npm run dev
+bun run dev
 ```
 
 或者：
 
 ```bash
 cd frontend
-NEXT_PUBLIC_API_BASE=http://localhost:9307 npm run dev
+NEXT_PUBLIC_API_BASE=http://localhost:9307 bun run dev
 ```
 
 ## 前端构建输出（用于 Go 静态托管）
 
 ```bash
 cd frontend
-npm run build
+bun run build
 ```
 
 - 静态导出目录：`./frontend/out`

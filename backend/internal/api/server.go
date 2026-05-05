@@ -321,7 +321,7 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
 	if err != nil || !info.IsDir() {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("frontend is not built yet. Run `npm install && npm run build` in frontend/"))
+		_, _ = w.Write([]byte("frontend is not built yet. Run `bun install && bun run build` in frontend/"))
 		return
 	}
 
