@@ -236,7 +236,20 @@ func parseSRTCues(raw string) ([]srtCue, error) {
 		}
 		match := srtTimeRangePattern.FindStringSubmatch(timeLine)
 		if match == nil {
-			return nil, fmt.Errorf("invalid srt time range near line %d", i+1)
+			if len(cues) == 0 || isSRTSequenceNumberLine(timeLine) {
+				return nil, fmt.Errorf("invalid srt time range near line %d", i+1)
+			}
+			orphanLines := make([]string, 0, 1)
+			for i < len(lines) && strings.TrimSpace(lines[i]) != "" {
+				orphanLines = append(orphanLines, lines[i])
+				i++
+			}
+			if len(orphanLines) > 0 {
+				last := len(cues) - 1
+				cues[last].Lines = append(cues[last].Lines, "")
+				cues[last].Lines = append(cues[last].Lines, orphanLines...)
+			}
+			continue
 		}
 		startMS, err := parseSRTMilliseconds(match[1])
 		if err != nil {
@@ -262,6 +275,15 @@ func parseSRTCues(raw string) ([]srtCue, error) {
 		return nil, errors.New("srt file contains no subtitle cues")
 	}
 	return cues, nil
+}
+
+func isSRTSequenceNumberLine(raw string) bool {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return false
+	}
+	_, err := strconv.Atoi(trimmed)
+	return err == nil
 }
 
 func parseSRTMilliseconds(raw string) (int, error) {
