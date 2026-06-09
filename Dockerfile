@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM oven/bun:1.3.13-alpine AS frontend-builder
+FROM oven/bun:1.3.14-alpine AS frontend-builder
 WORKDIR /workspace/frontend
 
 COPY frontend/package.json frontend/bun.lock ./
