@@ -1,4 +1,4 @@
-import type { PendingSubtitleAction, Subtitle, Video } from "@/lib/types";
+import type { PendingSubtitleAction, Subtitle, SubtitleSourceEncoding, SubtitleUploadOptions, Video } from "@/lib/types";
 import type { ZipSubtitleEntry } from "@/lib/subtitle-zip";
 
 export interface SeasonEpisodeInfo {
@@ -59,8 +59,9 @@ export interface SubtitleDetailsPanelProps {
   showBack: boolean;
   onBack: () => void;
   infoRows: SubtitleDetailsInfoRow[];
-  onUpload: (video: Video, file: File, label: string) => Promise<boolean>;
+  onUpload: (video: Video, file: File, label: string, options?: SubtitleUploadOptions) => Promise<boolean>;
   onReplace: (video: Video, subtitle: Subtitle, file: File) => Promise<boolean>;
+  onConvertSubtitle: (video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) => Promise<boolean>;
   onRemove: (video: Video, subtitle: Subtitle) => Promise<boolean>;
   onPreviewSubtitle: (video: Video, subtitle: Subtitle) => Promise<ArrayBuffer>;
   formatTime: (value: string | undefined | null) => string;

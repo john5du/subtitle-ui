@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/subtitle"
 )
 
 func TestRunFileScanWritesScanLogWithChangeSummary(t *testing.T) {
@@ -279,6 +281,143 @@ func TestReadSubtitleContentReturnsStoredFileBytes(t *testing.T) {
 	}
 }
 
+func TestSubtitleConversionConfigDefaultsAndRejectsInvalidTemplate(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	cfg, err := svc.GetSubtitleConversionConfig()
+	if err != nil {
+		t.Fatalf("get default conversion config: %v", err)
+	}
+	if cfg.ASSTemplate != subtitle.DefaultASSTemplate {
+		t.Fatalf("expected default ass template")
+	}
+	if cfg.SourceEncodingDefault != subtitle.DefaultSourceEncoding {
+		t.Fatalf("expected default source encoding, got %q", cfg.SourceEncodingDefault)
+	}
+
+	customTemplate := strings.Replace(subtitle.DefaultASSTemplate, "Style: Default,Arial,48", "Style: Default,Verdana,46", 1)
+	saved, err := svc.UpdateSubtitleConversionConfig(domain.SubtitleConversionConfigUpdate{
+		ASSTemplate:           customTemplate,
+		SourceEncodingDefault: "gb18030",
+	})
+	if err != nil {
+		t.Fatalf("save conversion config: %v", err)
+	}
+	if saved.SourceEncodingDefault != "gb18030" {
+		t.Fatalf("expected normalized source encoding, got %q", saved.SourceEncodingDefault)
+	}
+
+	_, err = svc.UpdateSubtitleConversionConfig(domain.SubtitleConversionConfigUpdate{
+		ASSTemplate:           strings.Replace(customTemplate, subtitle.ASSTemplateDialoguesPlaceholder, "", 1),
+		SourceEncodingDefault: "utf-8",
+	})
+	if !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("expected bad request for invalid template, got %v", err)
+	}
+
+	after, err := svc.GetSubtitleConversionConfig()
+	if err != nil {
+		t.Fatalf("get conversion config after invalid update: %v", err)
+	}
+	if after.ASSTemplate != strings.TrimSpace(customTemplate) || after.SourceEncodingDefault != "gb18030" {
+		t.Fatalf("invalid update should not overwrite config")
+	}
+}
+
+func TestUploadSubtitleWithASSConversionPreservesOriginalSRT(t *testing.T) {
+	base := t.TempDir()
+	svc, video := newMovieServiceFixture(t, base, "")
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	uploadPath := filepath.Join(base, "upload.zh.srt")
+	srtContent := []byte("1\n00:00:01,000 --> 00:00:02,500\nhello upload\n")
+	if err := os.WriteFile(uploadPath, srtContent, 0o644); err != nil {
+		t.Fatalf("write upload source: %v", err)
+	}
+	file, err := os.Open(uploadPath)
+	if err != nil {
+		t.Fatalf("open upload source: %v", err)
+	}
+	defer file.Close()
+
+	created, err := svc.UploadSubtitleWithOptions(video.ID, file, &multipart.FileHeader{Filename: "upload.zh.srt"}, "zh", "", SubtitleUploadOptions{
+		ConvertTo:      "ass",
+		SourceEncoding: "utf-8",
+	})
+	if err != nil {
+		t.Fatalf("upload with ass conversion: %v", err)
+	}
+	if created.Format != "ass" {
+		t.Fatalf("expected returned subtitle to be ass, got %s", created.Format)
+	}
+
+	srtPath := filepath.Join(video.Directory, "movie-a.zh.srt")
+	assPath := filepath.Join(video.Directory, "movie-a.zh.ass")
+	if _, err := os.Stat(srtPath); err != nil {
+		t.Fatalf("expected original srt to exist: %v", err)
+	}
+	assBytes, err := os.ReadFile(assPath)
+	if err != nil {
+		t.Fatalf("expected converted ass to exist: %v", err)
+	}
+	if !strings.Contains(string(assBytes), "Dialogue: 0,0:00:01.00,0:00:02.50") {
+		t.Fatalf("expected converted dialogue, got %q", string(assBytes))
+	}
+
+	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	if len(page.Items) != 1 || len(page.Items[0].Subtitles) != 2 {
+		t.Fatalf("expected srt and ass subtitles, got page=%+v", page)
+	}
+}
+
+func TestConvertExistingSRTSubtitleToASS(t *testing.T) {
+	base := t.TempDir()
+	srtContent := "1\n00:00:03,000 --> 00:00:04,000\nexisting\n"
+	svc, video := newMovieServiceFixture(t, base, srtContent)
+	defer func() {
+		_ = svc.Close()
+	}()
+	if len(video.Subtitles) != 1 {
+		t.Fatalf("expected existing subtitle, got %d", len(video.Subtitles))
+	}
+
+	created, err := svc.ConvertSubtitleToASS(video.ID, video.Subtitles[0].ID, SubtitleConvertOptions{SourceEncoding: "utf-8"})
+	if err != nil {
+		t.Fatalf("convert existing srt: %v", err)
+	}
+	if created.Format != "ass" {
+		t.Fatalf("expected ass subtitle, got %s", created.Format)
+	}
+	if _, err := os.Stat(video.Subtitles[0].Path); err != nil {
+		t.Fatalf("expected original srt to remain: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(video.Directory, "movie-a.zh.ass")); err != nil {
+		t.Fatalf("expected converted ass file: %v", err)
+	}
+}
+
 func TestRunFileScanPersistsPosterPaths(t *testing.T) {
 	base := t.TempDir()
 	movieRoot := filepath.Join(base, "movies")
@@ -473,6 +612,50 @@ func TestResolveVideoPosterPathRejectsUnsafeCandidate(t *testing.T) {
 	if !errors.Is(err, ErrUnsafePath) {
 		t.Fatalf("expected ErrUnsafePath, got %v", err)
 	}
+}
+
+func newMovieServiceFixture(t *testing.T, base string, srtContent string) (*Service, domain.Video) {
+	t.Helper()
+
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	movieDir := filepath.Join(movieRoot, "Movie A")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatalf("mkdir movie dir: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write video: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.nfo"), []byte(sampleNFO("Movie A", "2025")), 0o644); err != nil {
+		t.Fatalf("write nfo: %v", err)
+	}
+	if srtContent != "" {
+		if err := os.WriteFile(filepath.Join(movieDir, "movie-a.zh.srt"), []byte(srtContent), 0o644); err != nil {
+			t.Fatalf("write srt: %v", err)
+		}
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		_ = svc.Close()
+		t.Fatalf("scan: %s", status.Error)
+	}
+	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	if len(page.Items) != 1 {
+		_ = svc.Close()
+		t.Fatalf("expected one movie, got %d", len(page.Items))
+	}
+	return svc, page.Items[0]
 }
 
 func latestLogByAction(logs []domain.OperationLog, action string) (domain.OperationLog, bool) {

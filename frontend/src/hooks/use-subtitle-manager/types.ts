@@ -10,6 +10,8 @@ import type {
   Pager,
   ScanStatus,
   Subtitle,
+  SubtitleSourceEncoding,
+  SubtitleUploadOptions,
   TvSeasonOption,
   TvSeriesSummary,
   UiPendingState,
@@ -171,8 +173,9 @@ export interface SubtitleManagerActions {
   switchTab: (tab: ActiveTab) => Promise<void>;
   triggerScan: () => Promise<void>;
   refreshActiveTab: () => Promise<void>;
-  uploadSubtitle: (video: Video, file: File, label: string) => Promise<boolean>;
+  uploadSubtitle: (video: Video, file: File, label: string, options?: SubtitleUploadOptions) => Promise<boolean>;
   replaceSubtitle: (video: Video, subtitle: Subtitle, file: File) => Promise<boolean>;
+  convertSubtitleToAss: (video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) => Promise<boolean>;
   removeSubtitle: (video: Video, subtitle: Subtitle) => Promise<boolean>;
   previewSubtitle: (video: Video, subtitle: Subtitle) => Promise<ArrayBuffer>;
   uploadBatchSubtitles: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;

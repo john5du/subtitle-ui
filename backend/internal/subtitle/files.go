@@ -86,6 +86,26 @@ func BuildReplacementSubtitlePath(existingPath string, newExt string) string {
 	return filepath.Join(dir, base+normalizedExt)
 }
 
+func BuildUniqueSiblingSubtitlePath(sourcePath string, newExt string) (string, error) {
+	dir := filepath.Dir(sourcePath)
+	name := filepath.Base(sourcePath)
+	base := strings.TrimSuffix(name, filepath.Ext(name))
+	normalizedExt := normalizeSubtitleExtension(newExt)
+	target := filepath.Join(dir, base+normalizedExt)
+	if !exists(target) {
+		return target, nil
+	}
+
+	for i := 1; i <= 9999; i++ {
+		next := filepath.Join(dir, fmt.Sprintf("%s-%d%s", base, i, normalizedExt))
+		if !exists(next) {
+			return next, nil
+		}
+	}
+
+	return "", fmt.Errorf("unable to build unique subtitle filename for %s", sourcePath)
+}
+
 func normalizeSubtitleExtension(ext string) string {
 	normalized := strings.ToLower(strings.TrimSpace(ext))
 	if normalized != "" && !strings.HasPrefix(normalized, ".") {
@@ -154,6 +174,35 @@ func WriteUploadedFile(file multipart.File, target string) error {
 	tmpName := tmp.Name()
 
 	if _, err := io.Copy(tmp, file); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return err
+	}
+
+	if err := os.Rename(tmpName, target); err != nil {
+		_ = os.Remove(tmpName)
+		return err
+	}
+	return nil
+}
+
+func WriteFileBytes(data []byte, target string) error {
+	dir := filepath.Dir(target)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+
+	tmp, err := os.CreateTemp(dir, ".subtitle-*"+filepath.Ext(target))
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+
+	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmpName)
 		return err

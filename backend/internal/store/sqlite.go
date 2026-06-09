@@ -73,6 +73,14 @@ const migrationV3 = `
 ALTER TABLE videos ADD COLUMN poster_path TEXT NOT NULL DEFAULT '';
 `
 
+const migrationV4 = `
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+`
+
 type Store struct {
 	db *sql.DB
 }
@@ -424,6 +432,76 @@ func (s *Store) ClearLogs() error {
 	return err
 }
 
+func (s *Store) GetAppSettings(keys []string) (map[string]domain.AppSetting, error) {
+	out := make(map[string]domain.AppSetting, len(keys))
+	if len(keys) == 0 {
+		return out, nil
+	}
+
+	placeholders := make([]string, len(keys))
+	args := make([]any, len(keys))
+	for i, key := range keys {
+		placeholders[i] = "?"
+		args[i] = key
+	}
+
+	rows, err := s.db.Query(
+		`SELECT key, value, updated_at FROM app_settings WHERE key IN (`+strings.Join(placeholders, ",")+`)`,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			setting    domain.AppSetting
+			updatedRaw string
+		)
+		if err := rows.Scan(&setting.Key, &setting.Value, &updatedRaw); err != nil {
+			return nil, err
+		}
+		setting.UpdatedAt = parseTimeOrNow(updatedRaw)
+		out[setting.Key] = setting
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *Store) SetAppSettings(values map[string]string, updatedAt time.Time) error {
+	if len(values) == 0 {
+		return nil
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	updatedValue := updatedAt.UTC().Format(time.RFC3339Nano)
+	for key, value := range values {
+		if _, err = tx.Exec(
+			`INSERT INTO app_settings(key, value, updated_at) VALUES(?, ?, ?)
+ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+			key,
+			value,
+			updatedValue,
+		); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 func (s *Store) GetLatestScanStatus() (domain.ScanStatus, error) {
 	status := domain.ScanStatus{}
 	row := s.db.QueryRow(
@@ -663,6 +741,19 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 			}
 		}
 		if _, err := s.db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 3, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
+	applied, err = s.isMigrationApplied(4)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		if _, err := s.db.Exec(migrationV4); err != nil {
+			return fmt.Errorf("apply migration v4: %w", err)
+		}
+		if _, err := s.db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 4, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 			return err
 		}
 	}

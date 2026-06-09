@@ -16,7 +16,7 @@ import type { SubtitleManagerScreenModel } from "../hooks/use-subtitle-manager-s
 import { DashboardPanel } from "../dashboard/dashboard-panel";
 import { MovieListPanel } from "../movie/movie-list-panel";
 import { MovieSubtitleDrawer } from "../movie/movie-subtitle-drawer";
-import { LocaleSelect } from "../shared/settings-controls";
+import { LocaleSelect, SubtitleConversionSettingsButton } from "../shared/settings-controls";
 import { SpinnerIcon } from "../shared/pending-state";
 import { ThemeToggle } from "../shared/theme-toggle";
 import { UploadBlockingOverlay } from "../shared/upload-blocking-overlay";
@@ -249,6 +249,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
             emptyText={movieEmptyText}
             onUpload={subtitleActions.uploadSubtitle}
             onReplace={subtitleActions.replaceSubtitle}
+            onConvertSubtitle={subtitleActions.convertSubtitleToAss}
             onRemove={subtitleActions.removeSubtitle}
             onPreviewSubtitle={subtitleActions.previewSubtitle}
             formatTime={subtitleActions.formatTime}
@@ -276,6 +277,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
             onSeasonChange={tv.setSelectedSeason}
             onUpload={subtitleActions.uploadSubtitle}
             onReplace={subtitleActions.replaceSubtitle}
+            onConvertSubtitle={subtitleActions.convertSubtitleToAss}
             onRemove={subtitleActions.removeSubtitle}
             onPreviewSubtitle={subtitleActions.previewSubtitle}
             formatTime={subtitleActions.formatTime}
@@ -322,6 +324,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <LocaleSelect />
+              <SubtitleConversionSettingsButton triggerClassName="h-9 w-9" />
               <ThemeToggle triggerClassName="h-9 w-9" />
               <Button
                 type="button"
@@ -414,6 +417,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
               </Badge>
               <div className="surface-subtle flex flex-wrap items-center justify-center gap-2 p-1.5 sm:flex-nowrap">
                 <LocaleSelect />
+                <SubtitleConversionSettingsButton />
                 <ThemeToggle />
                 <Button
                   type="button"

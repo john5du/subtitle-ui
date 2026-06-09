@@ -314,6 +314,7 @@ export function useSubtitleManagerScreenModel() {
   const subtitleActionsModel = useMemo(() => ({
       uploadSubtitle: actions.uploadSubtitle,
       replaceSubtitle: actions.replaceSubtitle,
+      convertSubtitleToAss: actions.convertSubtitleToAss,
       removeSubtitle: actions.removeSubtitle,
       previewSubtitle: actions.previewSubtitle,
       uploading,
@@ -323,6 +324,7 @@ export function useSubtitleManagerScreenModel() {
       operationLocked
     }), [
       actions.previewSubtitle,
+      actions.convertSubtitleToAss,
       actions.removeSubtitle,
       actions.replaceSubtitle,
       actions.uploadSubtitle,

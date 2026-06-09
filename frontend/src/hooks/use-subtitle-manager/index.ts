@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef } from "react";
 
 import { useI18n } from "@/lib/i18n";
-import type { ActiveTab, BatchSubtitleUploadItem, Subtitle, Video } from "@/lib/types";
+import type { ActiveTab, BatchSubtitleUploadItem, Subtitle, SubtitleSourceEncoding, SubtitleUploadOptions, Video } from "@/lib/types";
 import { formatTimeWithLocale, resolveLocalizedText } from "@/lib/subtitle-manager/messages";
 
 import { createSubtitleManagerController } from "./controller";
@@ -52,8 +52,9 @@ export function useSubtitleManager(): SubtitleManagerResult {
   const triggerScan = useCallback(() => controllerRef.current.triggerScan(), []);
   const refreshActiveTab = useCallback(() => controllerRef.current.refreshActiveTab(), []);
   const clearLogs = useCallback(() => controllerRef.current.clearLogs(), []);
-  const uploadSubtitle = useCallback((video: Video, file: File, label: string) => controllerRef.current.uploadSubtitle(video, file, label), []);
+  const uploadSubtitle = useCallback((video: Video, file: File, label: string, options?: SubtitleUploadOptions) => controllerRef.current.uploadSubtitle(video, file, label, options), []);
   const replaceSubtitle = useCallback((video: Video, subtitle: Subtitle, file: File) => controllerRef.current.replaceSubtitle(video, subtitle, file), []);
+  const convertSubtitleToAss = useCallback((video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) => controllerRef.current.convertSubtitleToAss(video, subtitle, sourceEncoding), []);
   const removeSubtitle = useCallback((video: Video, subtitle: Subtitle) => controllerRef.current.removeSubtitle(video, subtitle), []);
   const previewSubtitle = useCallback((video: Video, subtitle: Subtitle) => controllerRef.current.previewSubtitle(video, subtitle), []);
   const uploadBatchSubtitles = useCallback((items: BatchSubtitleUploadItem[]) => controllerRef.current.uploadBatchSubtitles(items), []);
@@ -116,6 +117,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
       refreshActiveTab,
       uploadSubtitle,
       replaceSubtitle,
+      convertSubtitleToAss,
       removeSubtitle,
       previewSubtitle,
       uploadBatchSubtitles

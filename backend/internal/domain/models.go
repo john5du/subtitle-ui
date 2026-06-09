@@ -59,6 +59,24 @@ type OperationLogPage struct {
 	TotalPages int            `json:"totalPages"`
 }
 
+type AppSetting struct {
+	Key       string
+	Value     string
+	UpdatedAt time.Time
+}
+
+type SubtitleConversionConfig struct {
+	ASSTemplate           string    `json:"assTemplate"`
+	DefaultASSTemplate    string    `json:"defaultAssTemplate"`
+	SourceEncodingDefault string    `json:"sourceEncodingDefault"`
+	UpdatedAt             time.Time `json:"updatedAt"`
+}
+
+type SubtitleConversionConfigUpdate struct {
+	ASSTemplate           string `json:"assTemplate"`
+	SourceEncodingDefault string `json:"sourceEncodingDefault"`
+}
+
 type ScanDirectory struct {
 	ID                string `json:"id"`
 	Path              string `json:"path"`

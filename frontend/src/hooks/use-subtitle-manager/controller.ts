@@ -6,6 +6,8 @@ import type {
   BatchSubtitleUploadResult,
   PendingSubtitleAction,
   Subtitle,
+  SubtitleSourceEncoding,
+  SubtitleUploadOptions,
   Video
 } from "@/lib/types";
 import { requestBinary, requestPayload } from "@/lib/subtitle-manager/api-client";
@@ -684,10 +686,14 @@ export function createSubtitleManagerController({
     await Promise.all([loadMovieVideos({ page: selectors.moviePager.page || 1, force: true }), loadLogs({ page: 1 })]);
   }
 
-  async function uploadSubtitle(video: Video, file: File, label: string) {
+  async function uploadSubtitle(video: Video, file: File, label: string, options: SubtitleUploadOptions = {}) {
     const body = new FormData();
     body.append("file", file);
     body.append("label", label || "");
+    if (options.convertToAss) {
+      body.append("convertTo", "ass");
+      body.append("sourceEncoding", options.sourceEncoding || "auto");
+    }
 
     setSubtitleActionPending({
       kind: "upload",
@@ -701,6 +707,13 @@ export function createSubtitleManagerController({
       notifySuccess(t("toast.subtitleUploadedTitle"), video.title || video.fileName, file.name);
       return true;
     } catch (error) {
+      if (options.convertToAss) {
+        try {
+          await refreshAfterSubtitleMutation(video);
+        } catch {
+          // Best-effort refresh: conversion can fail after the original SRT is saved.
+        }
+      }
       reportRequestError("error.uploadFailed", error);
       return false;
     } finally {
@@ -729,6 +742,33 @@ export function createSubtitleManagerController({
       return true;
     } catch (error) {
       reportRequestError("error.replaceFailed", error);
+      return false;
+    } finally {
+      endUpload();
+      setSubtitleActionPending(null);
+    }
+  }
+
+  async function convertSubtitleToAss(video: Video, subtitle: Subtitle, sourceEncoding: SubtitleSourceEncoding = "auto") {
+    setSubtitleActionPending({
+      kind: "convert",
+      videoId: video.id,
+      subtitleId: subtitle.id,
+      subtitleFileName: subtitle.fileName
+    });
+    beginUpload("status.convertingSubtitle");
+    try {
+      await requestPayload(`/api/videos/${video.id}/subtitles/${subtitle.id}/convert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetFormat: "ass", sourceEncoding })
+      });
+      await refreshAfterSubtitleMutation(video);
+      setTranslatedMessage("status.convertedSubtitle", { name: subtitle.fileName });
+      notifySuccess(t("toast.subtitleConvertedTitle"), subtitle.fileName, "ASS");
+      return true;
+    } catch (error) {
+      reportRequestError("error.convertFailed", error);
       return false;
     } finally {
       endUpload();
@@ -896,6 +936,7 @@ export function createSubtitleManagerController({
     toggleTvSeriesYearSort,
     uploadSubtitle,
     replaceSubtitle,
+    convertSubtitleToAss,
     removeSubtitle,
     previewSubtitle,
     loadTvBatchCandidates,

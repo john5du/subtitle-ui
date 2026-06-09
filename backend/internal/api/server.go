@@ -32,6 +32,11 @@ type fileScanRequest struct {
 	TvDirs    []string `json:"tvDirs"`
 }
 
+type subtitleConvertRequest struct {
+	TargetFormat   string `json:"targetFormat"`
+	SourceEncoding string `json:"sourceEncoding"`
+}
+
 func NewServer(service *app.Service, uiDist string) *Server {
 	return NewServerWithConfig(service, config.Config{UIDist: uiDist})
 }
@@ -51,6 +56,7 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	s.mux.HandleFunc("/api/scan/files", s.handleScanFiles)
 	s.mux.HandleFunc("/api/scan/status", s.handleScanStatus)
 	s.mux.HandleFunc("/api/version", s.handleVersion)
+	s.mux.HandleFunc("/api/config/subtitle-conversion", s.handleSubtitleConversionConfig)
 	s.mux.HandleFunc("/api/videos", s.handleVideos)
 	s.mux.HandleFunc("/api/tv/series", s.handleTVSeries)
 	s.mux.HandleFunc("/api/videos/", s.handleVideoRoute)
@@ -200,6 +206,10 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleSubtitleContent(w, r, videoID, segments[2])
 		return
 
+	case len(segments) == 4 && segments[1] == "subtitles" && segments[3] == "convert" && r.Method == http.MethodPost:
+		s.handleConvertSubtitle(w, r, videoID, segments[2])
+		return
+
 	case len(segments) == 3 && segments[1] == "subtitles" && r.Method == http.MethodDelete:
 		err := s.service.DeleteSubtitle(videoID, segments[2])
 		if err != nil {
@@ -270,8 +280,69 @@ func (s *Server) handleUploadSubtitle(w http.ResponseWriter, r *http.Request, vi
 
 	label := strings.TrimSpace(r.FormValue("label"))
 	replaceID := strings.TrimSpace(r.FormValue("replaceId"))
+	convertTo := strings.TrimSpace(r.FormValue("convertTo"))
+	sourceEncoding := strings.TrimSpace(r.FormValue("sourceEncoding"))
 
-	subtitle, err := s.service.UploadSubtitle(videoID, file, header, label, replaceID)
+	subtitle, err := s.service.UploadSubtitleWithOptions(videoID, file, header, label, replaceID, app.SubtitleUploadOptions{
+		ConvertTo:      convertTo,
+		SourceEncoding: sourceEncoding,
+	})
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, subtitle)
+}
+
+func (s *Server) handleSubtitleConversionConfig(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		cfg, err := s.service.GetSubtitleConversionConfig()
+		if err != nil {
+			s.writeAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	case http.MethodPut:
+		var req appdomain.SubtitleConversionConfigUpdate
+		if r.Body != nil {
+			defer r.Body.Close()
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json body")
+			return
+		}
+		cfg, err := s.service.UpdateSubtitleConversionConfig(req)
+		if err != nil {
+			s.writeAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func (s *Server) handleConvertSubtitle(w http.ResponseWriter, r *http.Request, videoID string, subtitleID string) {
+	req := subtitleConvertRequest{TargetFormat: "ass"}
+	if r.Body != nil && r.ContentLength != 0 {
+		defer r.Body.Close()
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json body")
+			return
+		}
+	}
+	if strings.TrimSpace(req.TargetFormat) == "" {
+		req.TargetFormat = "ass"
+	}
+	if !strings.EqualFold(strings.TrimSpace(req.TargetFormat), "ass") {
+		writeError(w, http.StatusBadRequest, "unsupported conversion target")
+		return
+	}
+
+	subtitle, err := s.service.ConvertSubtitleToASS(videoID, subtitleID, app.SubtitleConvertOptions{
+		SourceEncoding: strings.TrimSpace(req.SourceEncoding),
+	})
 	if err != nil {
 		s.writeAppError(w, err)
 		return
@@ -376,7 +447,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 			allowCORS = false
 		}
 
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 		if r.Method == http.MethodOptions {

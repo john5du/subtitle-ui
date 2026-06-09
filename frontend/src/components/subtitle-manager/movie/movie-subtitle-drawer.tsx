@@ -10,12 +10,12 @@ import {
   type ChangeEvent,
   type DragEvent
 } from "react";
-import { ExternalLink, Eye, FileArchive, Languages, Pencil, Trash2, UploadCloud } from "lucide-react";
+import { ExternalLink, Eye, FileArchive, FileCode2, Languages, Pencil, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import { buildSubtitleSearchLinks } from "@/lib/subtitle-search";
 import { emitToast } from "@/lib/toast";
-import type { Subtitle } from "@/lib/types";
+import type { Subtitle, SubtitleSourceEncoding } from "@/lib/types";
 import {
   extractSubtitleEntriesFromArchiveFile,
   isArchiveFileName,
@@ -31,6 +31,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { SubtitleDetailsPanelHandle, SubtitleDetailsPanelProps } from "../types";
 import { InlinePending, SpinnerIcon } from "../shared/pending-state";
 import { ArchiveEntryPickerDialog } from "../subtitle/dialogs/archive-entry-picker-dialog";
+import { ConvertSubtitleDialog } from "../subtitle/dialogs/convert-subtitle-dialog";
 import { DeleteSubtitleDialog } from "../subtitle/dialogs/delete-subtitle-dialog";
 import { SubtitlePreviewDialog } from "../subtitle/dialogs/subtitle-preview-dialog";
 import { UploadSubtitleDialog } from "../subtitle/dialogs/upload-subtitle-dialog";
@@ -54,9 +55,17 @@ function formatSubtitleSize(size: number) {
   return `${(size / (1024 * 1024)).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
 }
 
+function isSRTFileName(fileName: string) {
+  return fileName.toLowerCase().endsWith(".srt");
+}
+
+function isSRTSubtitle(subtitle: Subtitle) {
+  return subtitle.format.toLowerCase() === "srt" || isSRTFileName(subtitle.fileName);
+}
+
 type MovieSubtitleDrawerProps = Pick<
   SubtitleDetailsPanelProps,
-  "selectedVideo" | "emptyText" | "onUpload" | "onReplace" | "onRemove" | "onPreviewSubtitle" | "formatTime" | "busy" | "uploading" | "uploadingMessage" | "subtitleAction"
+  "selectedVideo" | "emptyText" | "onUpload" | "onReplace" | "onConvertSubtitle" | "onRemove" | "onPreviewSubtitle" | "formatTime" | "busy" | "uploading" | "uploadingMessage" | "subtitleAction"
 >;
 
 export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieSubtitleDrawerProps>(function MovieSubtitleDrawer(
@@ -65,6 +74,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     emptyText,
     onUpload,
     onReplace,
+    onConvertSubtitle,
     onRemove,
     onPreviewSubtitle,
     formatTime,
@@ -85,6 +95,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   const [uploadLabel, setUploadLabel] = useState("zh");
+  const [uploadConvertToAss, setUploadConvertToAss] = useState(false);
+  const [uploadSourceEncoding, setUploadSourceEncoding] = useState<SubtitleSourceEncoding>("auto");
   const [zipPickDialogOpen, setZipPickDialogOpen] = useState(false);
   const [zipPickMode, setZipPickMode] = useState<"upload" | "replace">("upload");
   const [zipPickFileName, setZipPickFileName] = useState("");
@@ -95,6 +107,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   const [zipPickError, setZipPickError] = useState("");
   const [zipLoading, setZipLoading] = useState(false);
   const [deleteDialogSubtitleId, setDeleteDialogSubtitleId] = useState<string | null>(null);
+  const [pendingConvertSubtitle, setPendingConvertSubtitle] = useState<Subtitle | null>(null);
+  const [convertSourceEncoding, setConvertSourceEncoding] = useState<SubtitleSourceEncoding>("auto");
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewTitle, setPreviewTitle] = useState("");
   const [previewStatus, setPreviewStatus] = useState<"idle" | "loading" | "success" | "error" | "empty">("idle");
@@ -113,6 +127,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     setUploadDialogOpen(false);
     setPendingUploadFile(null);
     setUploadLabel("zh");
+    setUploadConvertToAss(false);
+    setUploadSourceEncoding("auto");
     setZipPickDialogOpen(false);
     setZipPickMode("upload");
     setZipPickFileName("");
@@ -123,6 +139,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     setZipPickError("");
     setZipLoading(false);
     setDeleteDialogSubtitleId(null);
+    setPendingConvertSubtitle(null);
+    setConvertSourceEncoding("auto");
     setPreviewDialogOpen(false);
     setPreviewTitle("");
     setPreviewStatus("idle");
@@ -274,6 +292,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
     if (mode === "upload") {
       setPendingUploadFile(file);
+      setUploadConvertToAss(false);
+      setUploadSourceEncoding("auto");
       setUploadDialogOpen(true);
       return;
     }
@@ -310,11 +330,16 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     if (!selectedVideo || !pendingUploadFile) {
       return;
     }
-    const success = await onUpload(selectedVideo, pendingUploadFile, uploadLabel.trim());
+    const success = await onUpload(selectedVideo, pendingUploadFile, uploadLabel.trim(), {
+      convertToAss: uploadConvertToAss && isSRTFileName(pendingUploadFile.name),
+      sourceEncoding: uploadSourceEncoding
+    });
     if (success) {
       setUploadDialogOpen(false);
       setPendingUploadFile(null);
       setUploadLabel("zh");
+      setUploadConvertToAss(false);
+      setUploadSourceEncoding("auto");
       setZipPickError("");
     }
   }
@@ -364,6 +389,17 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     const success = await onRemove(selectedVideo, subtitle);
     if (success) {
       setDeleteDialogSubtitleId(null);
+    }
+  }
+
+  async function confirmConvertSubtitle() {
+    if (!selectedVideo || !pendingConvertSubtitle) {
+      return;
+    }
+    const success = await onConvertSubtitle(selectedVideo, pendingConvertSubtitle, convertSourceEncoding);
+    if (success) {
+      setPendingConvertSubtitle(null);
+      setConvertSourceEncoding("auto");
     }
   }
 
@@ -517,8 +553,9 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                     ) : (
                       selectedVideo.subtitles.map((subtitle) => {
                         const replacePending = subtitleAction?.kind === "replace" && subtitleAction.subtitleId === subtitle.id;
+                        const convertPending = subtitleAction?.kind === "convert" && subtitleAction.subtitleId === subtitle.id;
                         const deletePending = subtitleAction?.kind === "delete" && subtitleAction.subtitleId === subtitle.id;
-                        const rowBusy = replacePending || deletePending;
+                        const rowBusy = replacePending || convertPending || deletePending;
 
                         return (
                           <article
@@ -594,6 +631,23 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                                 {replacePending ? t("common.replacing") : t("common.replace")}
                               </Button>
 
+                              {isSRTSubtitle(subtitle) && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className={subtitleRowActionButtonClassName}
+                                  disabled={busy || rowBusy}
+                                  onClick={() => {
+                                    setPendingConvertSubtitle(subtitle);
+                                    setConvertSourceEncoding("auto");
+                                  }}
+                                >
+                                  {convertPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <FileCode2 className="h-3.5 w-3.5" />}
+                                  {convertPending ? t("conversion.converting") : t("conversion.convertToAss")}
+                                </Button>
+                              )}
+
                               <Button
                                 type="button"
                                 variant="outline"
@@ -650,11 +704,35 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
         pendingUploadFile={pendingUploadFile}
         uploadLabel={uploadLabel}
         onUploadLabelChange={setUploadLabel}
+        canConvertToAss={Boolean(pendingUploadFile && isSRTFileName(pendingUploadFile.name))}
+        convertToAss={uploadConvertToAss}
+        onConvertToAssChange={setUploadConvertToAss}
+        sourceEncoding={uploadSourceEncoding}
+        onSourceEncodingChange={setUploadSourceEncoding}
         onConfirm={() => {
           void confirmUpload();
         }}
         busy={busy}
         uploadPending={uploadPending}
+      />
+
+      <ConvertSubtitleDialog
+        open={pendingConvertSubtitle !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingConvertSubtitle(null);
+            setConvertSourceEncoding("auto");
+          }
+        }}
+        subtitle={pendingConvertSubtitle}
+        sourceEncoding={convertSourceEncoding}
+        onSourceEncodingChange={setConvertSourceEncoding}
+        convertPending={Boolean(
+          subtitleAction?.kind === "convert" && pendingConvertSubtitle && subtitleAction.subtitleId === pendingConvertSubtitle.id
+        )}
+        onConfirm={() => {
+          void confirmConvertSubtitle();
+        }}
       />
 
       <ArchiveEntryPickerDialog

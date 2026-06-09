@@ -33,6 +33,8 @@ var (
 const (
 	systemOperationVideoID = "SYSTEM"
 	defaultLogPageSize     = 8
+	settingASSTemplate     = "subtitle_conversion.ass_template"
+	settingSourceEncoding  = "subtitle_conversion.source_encoding_default"
 )
 
 type Service struct {
@@ -48,6 +50,15 @@ type Service struct {
 
 	dirScanMu   sync.RWMutex
 	lastDirScan domain.DirectoryScanResult
+}
+
+type SubtitleUploadOptions struct {
+	ConvertTo      string
+	SourceEncoding string
+}
+
+type SubtitleConvertOptions struct {
+	SourceEncoding string
 }
 
 func NewService(cfg config.Config) (*Service, error) {
@@ -416,6 +427,10 @@ func (s *Service) GetVideo(videoID string) (domain.Video, bool) {
 }
 
 func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *multipart.FileHeader, label string, replaceID string) (domain.Subtitle, error) {
+	return s.UploadSubtitleWithOptions(videoID, file, header, label, replaceID, SubtitleUploadOptions{})
+}
+
+func (s *Service) UploadSubtitleWithOptions(videoID string, file multipart.File, header *multipart.FileHeader, label string, replaceID string, options SubtitleUploadOptions) (domain.Subtitle, error) {
 	video, ok := s.GetVideo(videoID)
 	if !ok {
 		return domain.Subtitle{}, ErrNotFound
@@ -426,6 +441,19 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 		return domain.Subtitle{}, ErrInvalidFileType
 	}
 
+	convertTo := strings.ToLower(strings.TrimSpace(options.ConvertTo))
+	shouldConvertToASS := convertTo == "ass"
+	if convertTo != "" && !shouldConvertToASS {
+		return domain.Subtitle{}, fmt.Errorf("%w: unsupported conversion target: %s", ErrBadRequest, options.ConvertTo)
+	}
+	if shouldConvertToASS && replaceID != "" {
+		return domain.Subtitle{}, fmt.Errorf("%w: conversion is only supported for new srt uploads", ErrBadRequest)
+	}
+	if shouldConvertToASS && ext != ".srt" {
+		return domain.Subtitle{}, fmt.Errorf("%w: only srt uploads can be converted to ass", ErrBadRequest)
+	}
+
+	var err error
 	targetPath := ""
 	backupPath := ""
 	action := "upload"
@@ -440,7 +468,6 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 			return domain.Subtitle{}, ErrUnsafePath
 		}
 		replaceSourcePath = existing.Path
-		var err error
 		backupPath, err = subtitle.BackupFile(existing.Path)
 		if err != nil {
 			return domain.Subtitle{}, fmt.Errorf("backup before replace failed: %w", err)
@@ -452,7 +479,6 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 		}
 		action = "replace"
 	} else {
-		var err error
 		targetPath, err = subtitle.BuildNewSubtitlePath(video.Path, label, ext)
 		if err != nil {
 			return domain.Subtitle{}, err
@@ -471,7 +497,27 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 		}
 	}
 
-	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, targetPath)
+	selectedTargetPath := targetPath
+	convertedTargetPath := ""
+	if shouldConvertToASS {
+		convertedTargetPath, err = s.convertSRTPathToASS(targetPath, options.SourceEncoding)
+		if err != nil {
+			_, _, _ = s.refreshVideoSubtitles(videoID, targetPath)
+			_ = s.store.AppendLog(domain.OperationLog{
+				ID:         makeID(fmt.Sprintf("convert-error-%s-%d", targetPath, time.Now().UnixNano())),
+				Timestamp:  time.Now().UTC(),
+				Action:     "convert",
+				VideoID:    videoID,
+				TargetPath: targetPath,
+				Status:     "error",
+				Message:    err.Error(),
+			})
+			return domain.Subtitle{}, err
+		}
+		selectedTargetPath = convertedTargetPath
+	}
+
+	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, selectedTargetPath)
 	if err != nil {
 		return domain.Subtitle{}, err
 	}
@@ -486,7 +532,171 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 		Status:     "ok",
 	})
 
+	if convertedTargetPath != "" {
+		_ = s.store.AppendLog(domain.OperationLog{
+			ID:         makeID(fmt.Sprintf("convert-%s-%d", convertedTargetPath, time.Now().UnixNano())),
+			Timestamp:  time.Now().UTC(),
+			Action:     "convert",
+			VideoID:    updatedVideo.ID,
+			TargetPath: convertedTargetPath,
+			Status:     "ok",
+			Message:    fmt.Sprintf("generated from %s", filepath.Base(targetPath)),
+		})
+	}
+
 	return updatedSub, nil
+}
+
+func (s *Service) GetSubtitleConversionConfig() (domain.SubtitleConversionConfig, error) {
+	settings, err := s.store.GetAppSettings([]string{settingASSTemplate, settingSourceEncoding})
+	if err != nil {
+		return domain.SubtitleConversionConfig{}, err
+	}
+
+	template := subtitle.DefaultASSTemplate
+	updatedAt := time.Time{}
+	if setting, ok := settings[settingASSTemplate]; ok && strings.TrimSpace(setting.Value) != "" {
+		template = setting.Value
+		updatedAt = setting.UpdatedAt
+	}
+
+	sourceEncodingDefault := subtitle.DefaultSourceEncoding
+	if setting, ok := settings[settingSourceEncoding]; ok && strings.TrimSpace(setting.Value) != "" {
+		normalized, err := subtitle.NormalizeSourceEncoding(setting.Value)
+		if err == nil {
+			sourceEncodingDefault = normalized
+			if setting.UpdatedAt.After(updatedAt) {
+				updatedAt = setting.UpdatedAt
+			}
+		}
+	}
+
+	return domain.SubtitleConversionConfig{
+		ASSTemplate:           template,
+		DefaultASSTemplate:    subtitle.DefaultASSTemplate,
+		SourceEncodingDefault: sourceEncodingDefault,
+		UpdatedAt:             updatedAt,
+	}, nil
+}
+
+func (s *Service) UpdateSubtitleConversionConfig(req domain.SubtitleConversionConfigUpdate) (domain.SubtitleConversionConfig, error) {
+	template := strings.TrimSpace(req.ASSTemplate)
+	if err := subtitle.ValidateASSTemplate(template); err != nil {
+		return domain.SubtitleConversionConfig{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
+	}
+	sourceEncodingDefault, err := subtitle.NormalizeSourceEncoding(req.SourceEncodingDefault)
+	if err != nil {
+		return domain.SubtitleConversionConfig{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
+	}
+
+	updatedAt := time.Now().UTC()
+	err = s.store.SetAppSettings(map[string]string{
+		settingASSTemplate:    template,
+		settingSourceEncoding: sourceEncodingDefault,
+	}, updatedAt)
+	if err != nil {
+		return domain.SubtitleConversionConfig{}, err
+	}
+
+	return domain.SubtitleConversionConfig{
+		ASSTemplate:           template,
+		DefaultASSTemplate:    subtitle.DefaultASSTemplate,
+		SourceEncodingDefault: sourceEncodingDefault,
+		UpdatedAt:             updatedAt,
+	}, nil
+}
+
+func (s *Service) ConvertSubtitleToASS(videoID string, subtitleID string, options SubtitleConvertOptions) (domain.Subtitle, error) {
+	video, ok := s.GetVideo(videoID)
+	if !ok {
+		return domain.Subtitle{}, ErrNotFound
+	}
+	existing, found := findSubtitle(video.Subtitles, subtitleID)
+	if !found {
+		return domain.Subtitle{}, ErrNotFound
+	}
+	if !strings.EqualFold(filepath.Ext(existing.Path), ".srt") {
+		return domain.Subtitle{}, fmt.Errorf("%w: only srt subtitles can be converted to ass", ErrBadRequest)
+	}
+	if !s.isWithinMediaRoots(existing.Path) {
+		return domain.Subtitle{}, ErrUnsafePath
+	}
+
+	targetPath, err := s.convertSRTPathToASS(existing.Path, options.SourceEncoding)
+	if err != nil {
+		_ = s.store.AppendLog(domain.OperationLog{
+			ID:         makeID(fmt.Sprintf("convert-error-%s-%d", existing.Path, time.Now().UnixNano())),
+			Timestamp:  time.Now().UTC(),
+			Action:     "convert",
+			VideoID:    videoID,
+			TargetPath: existing.Path,
+			Status:     "error",
+			Message:    err.Error(),
+		})
+		return domain.Subtitle{}, err
+	}
+
+	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, targetPath)
+	if err != nil {
+		return domain.Subtitle{}, err
+	}
+
+	_ = s.store.AppendLog(domain.OperationLog{
+		ID:         makeID(fmt.Sprintf("convert-%s-%d", targetPath, time.Now().UnixNano())),
+		Timestamp:  time.Now().UTC(),
+		Action:     "convert",
+		VideoID:    updatedVideo.ID,
+		TargetPath: targetPath,
+		Status:     "ok",
+		Message:    fmt.Sprintf("generated from %s", existing.FileName),
+	})
+
+	return updatedSub, nil
+}
+
+func (s *Service) convertSRTPathToASS(sourcePath string, sourceEncoding string) (string, error) {
+	if !strings.EqualFold(filepath.Ext(sourcePath), ".srt") {
+		return "", fmt.Errorf("%w: only srt subtitles can be converted to ass", ErrBadRequest)
+	}
+	if !s.isWithinMediaRoots(sourcePath) {
+		return "", ErrUnsafePath
+	}
+
+	cfg, err := s.GetSubtitleConversionConfig()
+	if err != nil {
+		return "", err
+	}
+	encodingName := strings.TrimSpace(sourceEncoding)
+	if encodingName == "" {
+		encodingName = cfg.SourceEncodingDefault
+	}
+	if _, err := subtitle.NormalizeSourceEncoding(encodingName); err != nil {
+		return "", fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
+	}
+
+	sourceData, err := os.ReadFile(sourcePath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+	assData, err := subtitle.ConvertSRTBytesToASS(sourceData, encodingName, cfg.ASSTemplate)
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
+	}
+
+	targetPath, err := subtitle.BuildUniqueSiblingSubtitlePath(sourcePath, ".ass")
+	if err != nil {
+		return "", err
+	}
+	if !s.isWithinMediaRoots(targetPath) {
+		return "", ErrUnsafePath
+	}
+	if err := subtitle.WriteFileBytes(assData, targetPath); err != nil {
+		return "", err
+	}
+	return targetPath, nil
 }
 
 func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {

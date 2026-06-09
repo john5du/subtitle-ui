@@ -1,6 +1,7 @@
 ﻿export type MediaType = "movie" | "tv";
 export type ActiveTab = "dashboard" | "movie" | "tv";
-export type SubtitleOperationKind = "upload" | "replace" | "delete" | "batch";
+export type SubtitleOperationKind = "upload" | "replace" | "delete" | "convert" | "batch";
+export type SubtitleSourceEncoding = "auto" | "utf-8" | "utf-16le" | "utf-16be" | "gb18030" | "big5";
 
 export interface Subtitle {
   id: string;
@@ -112,6 +113,18 @@ export interface BatchSubtitleUploadItem {
   file: File;
   label: string;
   sourceName?: string;
+}
+
+export interface SubtitleUploadOptions {
+  convertToAss?: boolean;
+  sourceEncoding?: SubtitleSourceEncoding;
+}
+
+export interface SubtitleConversionConfig {
+  assTemplate: string;
+  defaultAssTemplate: string;
+  sourceEncodingDefault: SubtitleSourceEncoding;
+  updatedAt: string;
 }
 
 export interface BatchSubtitleUploadResult {
