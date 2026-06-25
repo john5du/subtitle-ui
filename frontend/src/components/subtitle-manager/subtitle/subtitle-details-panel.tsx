@@ -23,6 +23,8 @@ import type { SubtitleDetailsPanelHandle, SubtitleDetailsPanelProps } from "../t
 import { InfoItem } from "../shared/info-item";
 import { InlinePending, SpinnerIcon } from "../shared/pending-state";
 import { decodeSubtitlePreviewContent } from "./preview-utils";
+import { SubtitleSourceDetailButton } from "./source-detail-button";
+import { formatSubtitleSourceLabel } from "./source-utils";
 import { ArchiveEntryPickerDialog } from "./dialogs/archive-entry-picker-dialog";
 import { ConvertSubtitleDialog } from "./dialogs/convert-subtitle-dialog";
 import { DeleteSubtitleDialog } from "./dialogs/delete-subtitle-dialog";
@@ -533,10 +535,11 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                   {showSubtitleListCaption ? <TableCaption>{t("details.subtitleListCaption")}</TableCaption> : null}
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[96px]">{t("details.lang")}</TableHead>
-                      <TableHead className="w-[88px]">{t("batch.format")}</TableHead>
-                      <TableHead className="w-[148px]">{t("details.modified")}</TableHead>
-                      <TableHead className="w-[216px] text-right">{t("common.actions")}</TableHead>
+                      <TableHead className="w-[72px]">{t("details.lang")}</TableHead>
+                      <TableHead className="w-[72px]">{t("batch.format")}</TableHead>
+                      <TableHead className="w-[136px]">{t("details.source")}</TableHead>
+                      <TableHead className="w-[184px]">{t("details.modified")}</TableHead>
+                      <TableHead className="w-[320px] text-right">{t("common.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -545,14 +548,21 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       const convertPending = subtitleAction?.kind === "convert" && subtitleAction.subtitleId === subtitle.id;
                       const deletePending = subtitleAction?.kind === "delete" && subtitleAction.subtitleId === subtitle.id;
                       const rowBusy = replacePending || convertPending || deletePending;
+                      const sourceText = formatSubtitleSourceLabel(subtitle, t);
 
                       return (
                         <TableRow key={subtitle.id} className={cn(rowBusy && "animate-pulse-soft bg-muted/40")}>
                           <TableCell title={subtitle.fileName || undefined}>{subtitle.language || "-"}</TableCell>
                           <TableCell>{subtitle.format || "-"}</TableCell>
+                          <TableCell>
+                            <div className="flex min-w-0 items-center gap-1">
+                              <span className="min-w-0 truncate" title={sourceText}>{sourceText}</span>
+                              <SubtitleSourceDetailButton subtitle={subtitle} sourceLabel={sourceText} />
+                            </div>
+                          </TableCell>
                           <TableCell>{formatTime(subtitle.modTime)}</TableCell>
-                          <TableCell className="w-[216px] text-right">
-                            <div className="flex flex-wrap items-center justify-end gap-1">
+                          <TableCell className="w-[320px] text-right">
+                            <div className="flex flex-nowrap items-center justify-end gap-1">
                               <input
                                 ref={(node) => {
                                   replaceInputRef.current[subtitle.id] = node;
@@ -640,7 +650,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
                     {selectedVideo.subtitles.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
+                        <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
                           {t("details.noSubtitles")}
                         </TableCell>
                       </TableRow>

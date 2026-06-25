@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 	"time"
@@ -32,13 +33,15 @@ func TestStoreScanAndLogs(t *testing.T) {
 		UpdatedAt:      now,
 		Subtitles: []domain.Subtitle{
 			{
-				ID:       "S1",
-				Path:     filepath.Join(t.TempDir(), "movie.zh.srt"),
-				FileName: "movie.zh.srt",
-				Language: "zh",
-				Format:   "srt",
-				Size:     128,
-				ModTime:  now,
+				ID:           "S1",
+				Path:         filepath.Join(t.TempDir(), "movie.zh.srt"),
+				FileName:     "movie.zh.srt",
+				Language:     "zh",
+				Format:       "srt",
+				Size:         128,
+				ModTime:      now,
+				Source:       domain.SubtitleSourceUpload,
+				SourceDetail: "upload.zh.srt",
 			},
 		},
 	}
@@ -60,6 +63,9 @@ func TestStoreScanAndLogs(t *testing.T) {
 	if len(videos[0].Subtitles) != 1 {
 		t.Fatalf("expected 1 subtitle, got %d", len(videos[0].Subtitles))
 	}
+	if videos[0].Subtitles[0].Source != domain.SubtitleSourceUpload || videos[0].Subtitles[0].SourceDetail != "upload.zh.srt" {
+		t.Fatalf("unexpected subtitle source: %+v", videos[0].Subtitles[0])
+	}
 	if videos[0].PosterPath != video.PosterPath {
 		t.Fatalf("expected poster path %q, got %q", video.PosterPath, videos[0].PosterPath)
 	}
@@ -73,6 +79,26 @@ func TestStoreScanAndLogs(t *testing.T) {
 	}
 	if storedVideo.PosterPath != video.PosterPath {
 		t.Fatalf("expected stored poster path %q, got %q", video.PosterPath, storedVideo.PosterPath)
+	}
+	if storedVideo.Subtitles[0].Source != domain.SubtitleSourceUpload || storedVideo.Subtitles[0].SourceDetail != "upload.zh.srt" {
+		t.Fatalf("expected stored subtitle source to be preserved, got %+v", storedVideo.Subtitles[0])
+	}
+
+	rescanned := video
+	rescanned.Subtitles[0].Source = domain.SubtitleSourceDirectory
+	rescanned.Subtitles[0].SourceDetail = ""
+	if err := st.SaveScanResult([]domain.Video{rescanned}, now.Add(2*time.Second), now.Add(3*time.Second), ""); err != nil {
+		t.Fatalf("save rescan result: %v", err)
+	}
+	afterRescan, found, err := st.GetVideo("V1")
+	if err != nil {
+		t.Fatalf("get video after rescan: %v", err)
+	}
+	if !found {
+		t.Fatalf("expected stored video after rescan")
+	}
+	if afterRescan.Subtitles[0].Source != domain.SubtitleSourceUpload || afterRescan.Subtitles[0].SourceDetail != "upload.zh.srt" {
+		t.Fatalf("expected rescan to preserve subtitle source, got %+v", afterRescan.Subtitles[0])
 	}
 
 	status, err := st.GetLatestScanStatus()
@@ -107,6 +133,88 @@ func TestStoreScanAndLogs(t *testing.T) {
 	}
 	if logs[0].ID != "L1" {
 		t.Fatalf("unexpected log id: %s", logs[0].ID)
+	}
+}
+
+func TestMigrationV5AddsAndBackfillsSubtitleSources(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "legacy.sqlite3")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open legacy db: %v", err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	statements := []string{
+		`CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)`,
+		`INSERT INTO schema_migrations(version, applied_at) VALUES(1, '` + now + `'), (2, '` + now + `'), (3, '` + now + `'), (4, '` + now + `')`,
+		`CREATE TABLE subtitles (
+  id TEXT PRIMARY KEY,
+  video_id TEXT NOT NULL,
+  path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  language TEXT NOT NULL DEFAULT 'und',
+  format TEXT NOT NULL DEFAULT '',
+  size INTEGER NOT NULL DEFAULT 0,
+  mod_time TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+)`,
+		`CREATE TABLE operation_logs (
+  id TEXT PRIMARY KEY,
+  timestamp TEXT NOT NULL,
+  action TEXT NOT NULL,
+  video_id TEXT NOT NULL,
+  target_path TEXT NOT NULL DEFAULT '',
+  backup_path TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL,
+  message TEXT NOT NULL DEFAULT ''
+)`,
+		`INSERT INTO subtitles(id, video_id, path, file_name, language, format, size, mod_time, updated_at)
+VALUES('S1', 'V1', '/media/movie.zh.srt', 'movie.zh.srt', 'zh', 'srt', 1, '` + now + `', '` + now + `'),
+      ('S2', 'V1', '/media/movie.zh.ass', 'movie.zh.ass', 'zh', 'ass', 1, '` + now + `', '` + now + `')`,
+		`INSERT INTO operation_logs(id, timestamp, action, video_id, target_path, status, message)
+VALUES('L1', '` + now + `', 'upload', 'V1', '/media/movie.zh.srt', 'ok', ''),
+      ('L2', '` + now + `', 'convert', 'V1', '/media/movie.zh.ass', 'ok', 'generated from movie.zh.srt')`,
+	}
+	for _, statement := range statements {
+		if _, err := db.Exec(statement); err != nil {
+			_ = db.Close()
+			t.Fatalf("prepare legacy db: %v", err)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close legacy db: %v", err)
+	}
+
+	st, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open migrated store: %v", err)
+	}
+	defer func() {
+		_ = st.Close()
+	}()
+
+	rows, err := st.db.Query(`SELECT file_name, source, source_detail FROM subtitles ORDER BY file_name ASC`)
+	if err != nil {
+		t.Fatalf("query migrated subtitles: %v", err)
+	}
+	defer rows.Close()
+
+	got := map[string]subtitleSourceInfo{}
+	for rows.Next() {
+		var fileName string
+		var info subtitleSourceInfo
+		if err := rows.Scan(&fileName, &info.Source, &info.SourceDetail); err != nil {
+			t.Fatalf("scan migrated subtitle: %v", err)
+		}
+		got[fileName] = info
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate migrated subtitles: %v", err)
+	}
+	if got["movie.zh.ass"].Source != domain.SubtitleSourceGenerated || got["movie.zh.ass"].SourceDetail != "movie.zh.srt" {
+		t.Fatalf("unexpected generated backfill: %+v", got["movie.zh.ass"])
+	}
+	if got["movie.zh.srt"].Source != domain.SubtitleSourceUpload || got["movie.zh.srt"].SourceDetail != "movie.zh.srt" {
+		t.Fatalf("unexpected upload backfill: %+v", got["movie.zh.srt"])
 	}
 }
 

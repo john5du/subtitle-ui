@@ -372,6 +372,9 @@ func TestUploadSubtitleWithASSConversionPreservesOriginalSRT(t *testing.T) {
 	if created.Format != "ass" {
 		t.Fatalf("expected returned subtitle to be ass, got %s", created.Format)
 	}
+	if created.Source != domain.SubtitleSourceGenerated || created.SourceDetail != "movie-a.zh.srt" {
+		t.Fatalf("unexpected generated subtitle source: %+v", created)
+	}
 
 	srtPath := filepath.Join(video.Directory, "movie-a.zh.srt")
 	assPath := filepath.Join(video.Directory, "movie-a.zh.ass")
@@ -389,6 +392,64 @@ func TestUploadSubtitleWithASSConversionPreservesOriginalSRT(t *testing.T) {
 	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
 	if len(page.Items) != 1 || len(page.Items[0].Subtitles) != 2 {
 		t.Fatalf("expected srt and ass subtitles, got page=%+v", page)
+	}
+	uploadedSRT, ok := findSubtitleByFileName(page.Items[0].Subtitles, "movie-a.zh.srt")
+	if !ok {
+		t.Fatalf("expected uploaded srt subtitle in refreshed page")
+	}
+	if uploadedSRT.Source != domain.SubtitleSourceUpload || uploadedSRT.SourceDetail != "upload.zh.srt" {
+		t.Fatalf("unexpected uploaded srt source: %+v", uploadedSRT)
+	}
+	generatedASS, ok := findSubtitleByFileName(page.Items[0].Subtitles, "movie-a.zh.ass")
+	if !ok {
+		t.Fatalf("expected generated ass subtitle in refreshed page")
+	}
+	if generatedASS.Source != domain.SubtitleSourceGenerated || generatedASS.SourceDetail != "movie-a.zh.srt" {
+		t.Fatalf("unexpected generated ass source: %+v", generatedASS)
+	}
+}
+
+func TestUploadAndReplaceSubtitleSources(t *testing.T) {
+	base := t.TempDir()
+	svc, video := newMovieServiceFixture(t, base, "")
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	uploadPath := filepath.Join(base, "upload.zh.srt")
+	if err := os.WriteFile(uploadPath, []byte("1\n00:00:01,000 --> 00:00:02,000\nuploaded\n"), 0o644); err != nil {
+		t.Fatalf("write upload source: %v", err)
+	}
+	uploadFile, err := os.Open(uploadPath)
+	if err != nil {
+		t.Fatalf("open upload source: %v", err)
+	}
+	defer uploadFile.Close()
+
+	created, err := svc.UploadSubtitle(video.ID, uploadFile, &multipart.FileHeader{Filename: "upload.zh.srt"}, "zh", "")
+	if err != nil {
+		t.Fatalf("upload subtitle: %v", err)
+	}
+	if created.Source != domain.SubtitleSourceUpload || created.SourceDetail != "upload.zh.srt" {
+		t.Fatalf("unexpected uploaded subtitle source: %+v", created)
+	}
+
+	replacementPath := filepath.Join(base, "replacement.zh.ass")
+	if err := os.WriteFile(replacementPath, []byte("[Script Info]\n"), 0o644); err != nil {
+		t.Fatalf("write replacement source: %v", err)
+	}
+	replacementFile, err := os.Open(replacementPath)
+	if err != nil {
+		t.Fatalf("open replacement source: %v", err)
+	}
+	defer replacementFile.Close()
+
+	replaced, err := svc.UploadSubtitle(video.ID, replacementFile, &multipart.FileHeader{Filename: "replacement.zh.ass"}, "", created.ID)
+	if err != nil {
+		t.Fatalf("replace subtitle: %v", err)
+	}
+	if replaced.Source != domain.SubtitleSourceUpload || replaced.SourceDetail != "replacement.zh.ass" {
+		t.Fatalf("unexpected replaced subtitle source: %+v", replaced)
 	}
 }
 
@@ -410,11 +471,22 @@ func TestConvertExistingSRTSubtitleToASS(t *testing.T) {
 	if created.Format != "ass" {
 		t.Fatalf("expected ass subtitle, got %s", created.Format)
 	}
+	if created.Source != domain.SubtitleSourceGenerated || created.SourceDetail != "movie-a.zh.srt" {
+		t.Fatalf("unexpected generated subtitle source: %+v", created)
+	}
 	if _, err := os.Stat(video.Subtitles[0].Path); err != nil {
 		t.Fatalf("expected original srt to remain: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(video.Directory, "movie-a.zh.ass")); err != nil {
 		t.Fatalf("expected converted ass file: %v", err)
+	}
+	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	originalSRT, ok := findSubtitleByFileName(page.Items[0].Subtitles, "movie-a.zh.srt")
+	if !ok {
+		t.Fatalf("expected original srt subtitle")
+	}
+	if originalSRT.Source != domain.SubtitleSourceDirectory {
+		t.Fatalf("expected original srt to keep directory source, got %+v", originalSRT)
 	}
 }
 
@@ -665,6 +737,15 @@ func latestLogByAction(logs []domain.OperationLog, action string) (domain.Operat
 		}
 	}
 	return domain.OperationLog{}, false
+}
+
+func findSubtitleByFileName(subtitles []domain.Subtitle, fileName string) (domain.Subtitle, bool) {
+	for _, sub := range subtitles {
+		if sub.FileName == fileName {
+			return sub, true
+		}
+	}
+	return domain.Subtitle{}, false
 }
 
 func sampleNFO(title string, year string) string {

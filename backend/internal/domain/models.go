@@ -7,6 +7,12 @@ const (
 	MediaTypeTV    = "tv"
 )
 
+const (
+	SubtitleSourceDirectory = "directory"
+	SubtitleSourceUpload    = "upload"
+	SubtitleSourceGenerated = "generated"
+)
+
 type Video struct {
 	ID             string     `json:"id"`
 	Path           string     `json:"path"`
@@ -23,13 +29,15 @@ type Video struct {
 }
 
 type Subtitle struct {
-	ID       string    `json:"id"`
-	Path     string    `json:"path"`
-	FileName string    `json:"fileName"`
-	Language string    `json:"language"`
-	Format   string    `json:"format"`
-	Size     int64     `json:"size"`
-	ModTime  time.Time `json:"modTime"`
+	ID           string    `json:"id"`
+	Path         string    `json:"path"`
+	FileName     string    `json:"fileName"`
+	Language     string    `json:"language"`
+	Format       string    `json:"format"`
+	Size         int64     `json:"size"`
+	ModTime      time.Time `json:"modTime"`
+	Source       string    `json:"source"`
+	SourceDetail string    `json:"sourceDetail,omitempty"`
 }
 
 type ScanStatus struct {

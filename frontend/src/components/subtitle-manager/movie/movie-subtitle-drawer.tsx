@@ -36,6 +36,8 @@ import { DeleteSubtitleDialog } from "../subtitle/dialogs/delete-subtitle-dialog
 import { SubtitlePreviewDialog } from "../subtitle/dialogs/subtitle-preview-dialog";
 import { UploadSubtitleDialog } from "../subtitle/dialogs/upload-subtitle-dialog";
 import { decodeSubtitlePreviewContent } from "../subtitle/preview-utils";
+import { SubtitleSourceDetailButton } from "../subtitle/source-detail-button";
+import { formatSubtitleSourceLabel } from "../subtitle/source-utils";
 
 const ACCEPTED_UPLOAD_TYPES = ".srt,.ass,.ssa,.vtt,.sub,.zip,.7z,.rar";
 
@@ -553,6 +555,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                         const convertPending = subtitleAction?.kind === "convert" && subtitleAction.subtitleId === subtitle.id;
                         const deletePending = subtitleAction?.kind === "delete" && subtitleAction.subtitleId === subtitle.id;
                         const rowBusy = replacePending || convertPending || deletePending;
+                        const sourceText = formatSubtitleSourceLabel(subtitle, t);
 
                         return (
                           <article
@@ -584,6 +587,10 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                                   <div className="flex items-center gap-2">
                                     <Languages className="h-3.5 w-3.5" />
                                     <span>{subtitle.language || "-"}</span>
+                                  </div>
+                                  <div className="flex min-w-0 items-center gap-1">
+                                    <span className="min-w-0 truncate" title={sourceText}>{sourceText}</span>
+                                    <SubtitleSourceDetailButton subtitle={subtitle} sourceLabel={sourceText} />
                                   </div>
                                   <div>{t("details.sizeValue", { value: formatSubtitleSize(subtitle.size) })}</div>
                                   <div>{formatTime(subtitle.modTime)}</div>

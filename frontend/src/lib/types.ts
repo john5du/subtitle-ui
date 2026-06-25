@@ -2,6 +2,7 @@
 export type ActiveTab = "dashboard" | "movie" | "tv";
 export type SubtitleOperationKind = "upload" | "replace" | "delete" | "convert" | "batch";
 export type SubtitleSourceEncoding = "auto" | "utf-8" | "utf-16le" | "utf-16be" | "gb18030" | "big5";
+export type SubtitleSource = "directory" | "upload" | "generated";
 
 export interface Subtitle {
   id: string;
@@ -11,6 +12,8 @@ export interface Subtitle {
   format: string;
   size: number;
   modTime: string;
+  source: SubtitleSource;
+  sourceDetail?: string;
 }
 
 export interface Video {

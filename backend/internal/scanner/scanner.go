@@ -366,6 +366,7 @@ func (s *Scanner) ScanSubtitlesForVideo(videoPath string) ([]domain.Subtitle, er
 			Format:   strings.TrimPrefix(ext, "."),
 			Size:     info.Size(),
 			ModTime:  info.ModTime(),
+			Source:   domain.SubtitleSourceDirectory,
 		})
 	}
 

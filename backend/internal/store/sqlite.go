@@ -81,8 +81,21 @@ CREATE TABLE IF NOT EXISTS app_settings (
 );
 `
 
+const migrationV5AddSource = `
+ALTER TABLE subtitles ADD COLUMN source TEXT NOT NULL DEFAULT 'directory';
+`
+
+const migrationV5AddSourceDetail = `
+ALTER TABLE subtitles ADD COLUMN source_detail TEXT NOT NULL DEFAULT '';
+`
+
 type Store struct {
 	db *sql.DB
+}
+
+type subtitleSourceInfo struct {
+	Source       string
+	SourceDetail string
 }
 
 func Open(dbPath string) (*Store, error) {
@@ -143,6 +156,10 @@ func (s *Store) SaveScanResult(videos []domain.Video, startedAt time.Time, finis
 	}
 
 	if scanErr == "" || len(videos) > 0 {
+		existingSubtitleSources, err := s.loadSubtitleSourcesTx(tx, "")
+		if err != nil {
+			return err
+		}
 		if _, err = tx.Exec(`DELETE FROM subtitles`); err != nil {
 			return err
 		}
@@ -170,9 +187,10 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			}
 
 			for _, sub := range video.Subtitles {
+				sub = mergeSubtitleSource(sub, existingSubtitleSources)
 				_, err = tx.Exec(
-					`INSERT OR REPLACE INTO subtitles(id, video_id, path, file_name, language, format, size, mod_time, updated_at)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+					`INSERT OR REPLACE INTO subtitles(id, video_id, path, file_name, language, format, size, mod_time, updated_at, source, source_detail)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 					sub.ID,
 					video.ID,
 					sub.Path,
@@ -182,6 +200,8 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 					sub.Size,
 					sub.ModTime.UTC().Format(time.RFC3339Nano),
 					video.UpdatedAt.UTC().Format(time.RFC3339Nano),
+					sub.Source,
+					sub.SourceDetail,
 				)
 				if err != nil {
 					return err
@@ -332,13 +352,18 @@ func (s *Store) UpdateVideoSubtitles(videoID string, subtitles []domain.Subtitle
 		return sql.ErrNoRows
 	}
 
+	existingSubtitleSources, err := s.loadSubtitleSourcesTx(tx, videoID)
+	if err != nil {
+		return err
+	}
 	if _, err = tx.Exec(`DELETE FROM subtitles WHERE video_id = ?`, videoID); err != nil {
 		return err
 	}
 	for _, sub := range subtitles {
+		sub = mergeSubtitleSource(sub, existingSubtitleSources)
 		_, err = tx.Exec(
-			`INSERT INTO subtitles(id, video_id, path, file_name, language, format, size, mod_time, updated_at)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO subtitles(id, video_id, path, file_name, language, format, size, mod_time, updated_at, source, source_detail)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			sub.ID,
 			videoID,
 			sub.Path,
@@ -348,6 +373,8 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			sub.Size,
 			sub.ModTime.UTC().Format(time.RFC3339Nano),
 			updatedAt.UTC().Format(time.RFC3339Nano),
+			sub.Source,
+			sub.SourceDetail,
 		)
 		if err != nil {
 			return err
@@ -585,7 +612,7 @@ func (s *Store) countByQuery(query string, args []any) (int, error) {
 
 func (s *Store) listSubtitlesByVideoID(videoID string) ([]domain.Subtitle, error) {
 	rows, err := s.db.Query(
-		`SELECT id, path, file_name, language, format, size, mod_time
+		`SELECT id, path, file_name, language, format, size, mod_time, source, source_detail
 FROM subtitles WHERE video_id = ? ORDER BY file_name ASC`,
 		videoID,
 	)
@@ -608,10 +635,13 @@ FROM subtitles WHERE video_id = ? ORDER BY file_name ASC`,
 			&sub.Format,
 			&sub.Size,
 			&modValue,
+			&sub.Source,
+			&sub.SourceDetail,
 		); err != nil {
 			return nil, err
 		}
 		sub.ModTime = parseTimeOrNow(modValue)
+		sub = normalizeSubtitleSource(sub)
 		out = append(out, sub)
 	}
 	if err := rows.Err(); err != nil {
@@ -635,7 +665,7 @@ func (s *Store) attachSubtitles(videos []domain.Video) error {
 		videos[i].Subtitles = []domain.Subtitle{}
 	}
 
-	query := `SELECT video_id, id, path, file_name, language, format, size, mod_time
+	query := `SELECT video_id, id, path, file_name, language, format, size, mod_time, source, source_detail
 FROM subtitles WHERE video_id IN (` + strings.Join(placeholders, ",") + `) ORDER BY file_name ASC`
 
 	rows, err := s.db.Query(query, args...)
@@ -659,10 +689,13 @@ FROM subtitles WHERE video_id IN (` + strings.Join(placeholders, ",") + `) ORDER
 			&sub.Format,
 			&sub.Size,
 			&modValue,
+			&sub.Source,
+			&sub.SourceDetail,
 		); err != nil {
 			return err
 		}
 		sub.ModTime = parseTimeOrNow(modValue)
+		sub = normalizeSubtitleSource(sub)
 		idx, ok := indexByID[videoID]
 		if !ok {
 			continue
@@ -670,6 +703,129 @@ FROM subtitles WHERE video_id IN (` + strings.Join(placeholders, ",") + `) ORDER
 		videos[idx].Subtitles = append(videos[idx].Subtitles, sub)
 	}
 	return rows.Err()
+}
+
+func (s *Store) loadSubtitleSourcesTx(tx *sql.Tx, videoID string) (map[string]subtitleSourceInfo, error) {
+	query := `SELECT path, source, source_detail FROM subtitles`
+	args := []any{}
+	if strings.TrimSpace(videoID) != "" {
+		query += ` WHERE video_id = ?`
+		args = append(args, videoID)
+	}
+
+	rows, err := tx.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[string]subtitleSourceInfo, 32)
+	for rows.Next() {
+		var (
+			pathValue string
+			info      subtitleSourceInfo
+		)
+		if err := rows.Scan(&pathValue, &info.Source, &info.SourceDetail); err != nil {
+			return nil, err
+		}
+		info.Source = normalizeSubtitleSourceValue(info.Source)
+		info.SourceDetail = strings.TrimSpace(info.SourceDetail)
+		out[subtitlePathKey(pathValue)] = info
+	}
+	return out, rows.Err()
+}
+
+func mergeSubtitleSource(sub domain.Subtitle, existing map[string]subtitleSourceInfo) domain.Subtitle {
+	source := strings.TrimSpace(sub.Source)
+	detail := strings.TrimSpace(sub.SourceDetail)
+	if source == "" || (normalizeSubtitleSourceValue(source) == domain.SubtitleSourceDirectory && detail == "") {
+		if info, ok := existing[subtitlePathKey(sub.Path)]; ok {
+			sub.Source = info.Source
+			sub.SourceDetail = info.SourceDetail
+			return normalizeSubtitleSource(sub)
+		}
+	}
+	return normalizeSubtitleSource(sub)
+}
+
+func normalizeSubtitleSource(sub domain.Subtitle) domain.Subtitle {
+	sub.Source = normalizeSubtitleSourceValue(sub.Source)
+	sub.SourceDetail = strings.TrimSpace(sub.SourceDetail)
+	return sub
+}
+
+func normalizeSubtitleSourceValue(source string) string {
+	switch strings.ToLower(strings.TrimSpace(source)) {
+	case domain.SubtitleSourceUpload:
+		return domain.SubtitleSourceUpload
+	case domain.SubtitleSourceGenerated:
+		return domain.SubtitleSourceGenerated
+	default:
+		return domain.SubtitleSourceDirectory
+	}
+}
+
+func subtitlePathKey(pathValue string) string {
+	normalized := filepath.Clean(strings.TrimSpace(pathValue))
+	normalized = strings.ReplaceAll(normalized, "\\", "/")
+	return strings.ToLower(normalized)
+}
+
+func (s *Store) backfillSubtitleSources() error {
+	type backfillInfo struct {
+		targetPath   string
+		source       string
+		sourceDetail string
+	}
+
+	rows, err := s.db.Query(
+		`SELECT target_path, action, message
+FROM operation_logs
+WHERE status = 'ok'
+  AND action IN ('upload', 'replace', 'convert')
+  AND trim(target_path) != ''
+ORDER BY timestamp ASC`,
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	latestByPath := make(map[string]backfillInfo, 32)
+	for rows.Next() {
+		var targetPath, action, message string
+		if err := rows.Scan(&targetPath, &action, &message); err != nil {
+			return err
+		}
+		info := backfillInfo{targetPath: targetPath}
+		switch action {
+		case "convert":
+			info.source = domain.SubtitleSourceGenerated
+			info.sourceDetail = strings.TrimSpace(strings.TrimPrefix(message, "generated from "))
+		default:
+			info.source = domain.SubtitleSourceUpload
+			info.sourceDetail = filepath.Base(targetPath)
+		}
+		latestByPath[subtitlePathKey(targetPath)] = info
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, info := range latestByPath {
+		if info.sourceDetail == "" || info.sourceDetail == "." {
+			info.sourceDetail = filepath.Base(info.targetPath)
+		}
+		if _, err := s.db.Exec(
+			`UPDATE subtitles SET source = ?, source_detail = ? WHERE lower(path) = lower(?)`,
+			info.source,
+			info.sourceDetail,
+			info.targetPath,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) migrate() error {
@@ -754,6 +910,37 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 			return fmt.Errorf("apply migration v4: %w", err)
 		}
 		if _, err := s.db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 4, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
+	applied, err = s.isMigrationApplied(5)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		hasSource, err := s.hasColumn("subtitles", "source")
+		if err != nil {
+			return err
+		}
+		if !hasSource {
+			if _, err := s.db.Exec(migrationV5AddSource); err != nil {
+				return fmt.Errorf("apply migration v5 source: %w", err)
+			}
+		}
+		hasSourceDetail, err := s.hasColumn("subtitles", "source_detail")
+		if err != nil {
+			return err
+		}
+		if !hasSourceDetail {
+			if _, err := s.db.Exec(migrationV5AddSourceDetail); err != nil {
+				return fmt.Errorf("apply migration v5 source_detail: %w", err)
+			}
+		}
+		if err := s.backfillSubtitleSources(); err != nil {
+			return fmt.Errorf("backfill migration v5 subtitle sources: %w", err)
+		}
+		if _, err := s.db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 5, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 			return err
 		}
 	}

@@ -61,6 +61,11 @@ type SubtitleConvertOptions struct {
 	SourceEncoding string
 }
 
+type subtitleSourceOverride struct {
+	Source       string
+	SourceDetail string
+}
+
 func NewService(cfg config.Config) (*Service, error) {
 	st, err := store.Open(cfg.DBPath)
 	if err != nil {
@@ -497,12 +502,18 @@ func (s *Service) UploadSubtitleWithOptions(videoID string, file multipart.File,
 		}
 	}
 
+	sourceOverrides := map[string]subtitleSourceOverride{
+		subtitleSourceOverrideKey(targetPath): {
+			Source:       domain.SubtitleSourceUpload,
+			SourceDetail: subtitleSourceDetailFromUpload(header.Filename, targetPath),
+		},
+	}
 	selectedTargetPath := targetPath
 	convertedTargetPath := ""
 	if shouldConvertToASS {
 		convertedTargetPath, err = s.convertSRTPathToASS(targetPath, options.SourceEncoding)
 		if err != nil {
-			_, _, _ = s.refreshVideoSubtitles(videoID, targetPath)
+			_, _, _ = s.refreshVideoSubtitles(videoID, targetPath, sourceOverrides)
 			_ = s.store.AppendLog(domain.OperationLog{
 				ID:         makeID(fmt.Sprintf("convert-error-%s-%d", targetPath, time.Now().UnixNano())),
 				Timestamp:  time.Now().UTC(),
@@ -514,10 +525,14 @@ func (s *Service) UploadSubtitleWithOptions(videoID string, file multipart.File,
 			})
 			return domain.Subtitle{}, err
 		}
+		sourceOverrides[subtitleSourceOverrideKey(convertedTargetPath)] = subtitleSourceOverride{
+			Source:       domain.SubtitleSourceGenerated,
+			SourceDetail: filepath.Base(targetPath),
+		}
 		selectedTargetPath = convertedTargetPath
 	}
 
-	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, selectedTargetPath)
+	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, selectedTargetPath, sourceOverrides)
 	if err != nil {
 		return domain.Subtitle{}, err
 	}
@@ -636,7 +651,13 @@ func (s *Service) ConvertSubtitleToASS(videoID string, subtitleID string, option
 		return domain.Subtitle{}, err
 	}
 
-	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, targetPath)
+	sourceOverrides := map[string]subtitleSourceOverride{
+		subtitleSourceOverrideKey(targetPath): {
+			Source:       domain.SubtitleSourceGenerated,
+			SourceDetail: existing.FileName,
+		},
+	}
+	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, targetPath, sourceOverrides)
 	if err != nil {
 		return domain.Subtitle{}, err
 	}
@@ -716,7 +737,7 @@ func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {
 		return err
 	}
 
-	_, _, err := s.refreshVideoSubtitles(videoID, "")
+	_, _, err := s.refreshVideoSubtitles(videoID, "", nil)
 	if err != nil {
 		return err
 	}
@@ -906,6 +927,10 @@ func videoContentSignature(video domain.Video) string {
 		b.WriteString(strconv.FormatInt(sub.Size, 10))
 		b.WriteString(":")
 		b.WriteString(sub.ModTime.UTC().Format(time.RFC3339Nano))
+		b.WriteString(":")
+		b.WriteString(strings.TrimSpace(sub.Source))
+		b.WriteString(":")
+		b.WriteString(strings.TrimSpace(sub.SourceDetail))
 	}
 	return b.String()
 }
@@ -1089,7 +1114,7 @@ func normalizeSortOrder(raw string) string {
 	}
 }
 
-func (s *Service) refreshVideoSubtitles(videoID string, targetPath string) (domain.Video, domain.Subtitle, error) {
+func (s *Service) refreshVideoSubtitles(videoID string, targetPath string, sourceOverrides map[string]subtitleSourceOverride) (domain.Video, domain.Subtitle, error) {
 	video, found, err := s.store.GetVideo(videoID)
 	if err != nil {
 		return domain.Video{}, domain.Subtitle{}, err
@@ -1102,6 +1127,7 @@ func (s *Service) refreshVideoSubtitles(videoID string, targetPath string) (doma
 	if err != nil {
 		return domain.Video{}, domain.Subtitle{}, err
 	}
+	applySubtitleSourceOverrides(subs, sourceOverrides)
 
 	updatedAt := time.Now().UTC()
 	err = s.store.UpdateVideoSubtitles(videoID, subs, updatedAt)
@@ -1129,6 +1155,35 @@ func (s *Service) refreshVideoSubtitles(videoID string, targetPath string) (doma
 		}
 	}
 	return domain.Video{}, domain.Subtitle{}, ErrNotFound
+}
+
+func applySubtitleSourceOverrides(subtitles []domain.Subtitle, overrides map[string]subtitleSourceOverride) {
+	if len(overrides) == 0 {
+		return
+	}
+	for i := range subtitles {
+		override, ok := overrides[subtitleSourceOverrideKey(subtitles[i].Path)]
+		if !ok {
+			continue
+		}
+		subtitles[i].Source = override.Source
+		subtitles[i].SourceDetail = strings.TrimSpace(override.SourceDetail)
+	}
+}
+
+func subtitleSourceOverrideKey(pathValue string) string {
+	normalized := filepath.Clean(strings.TrimSpace(pathValue))
+	normalized = strings.ReplaceAll(normalized, "\\", "/")
+	return strings.ToLower(normalized)
+}
+
+func subtitleSourceDetailFromUpload(uploadName string, targetPath string) string {
+	cleanUploadName := strings.ReplaceAll(strings.TrimSpace(uploadName), "\\", "/")
+	detail := strings.TrimSpace(filepath.Base(cleanUploadName))
+	if detail != "" && detail != "." {
+		return detail
+	}
+	return filepath.Base(targetPath)
 }
 
 func findSubtitle(subtitles []domain.Subtitle, subtitleID string) (domain.Subtitle, bool) {
