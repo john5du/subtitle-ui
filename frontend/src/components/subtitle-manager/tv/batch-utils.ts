@@ -315,7 +315,7 @@ export function filterSeasonBatchRowViews(rows: SeasonBatchRowView[], filter: Se
 export function detectSubtitleLanguageType(fileNameOrPath: string): DetectedBatchLanguageType {
   const text = fileNameOrPath.toLowerCase();
 
-  if (/双语|bilingual|中英|简英|繁英|chs[._\-\s&+]*eng|eng[._\-\s&+]*chs|zh[._\-\s&+]*en|en[._\-\s&+]*zh/.test(text)) {
+  if (/双语|bilingual|中英|简英|繁英|(?:chs|cht|zh)[._\-\s&+]*(?:en|eng)|(?:en|eng)[._\-\s&+]*(?:chs|cht|zh)/.test(text)) {
     return "bilingual";
   }
 
