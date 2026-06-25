@@ -63,6 +63,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   compactMeta = false,
   metaCollapsedByDefault = false,
   showMetaSection = true,
+  showPanelTitle = true,
   showSubtitleListCaption = true
 }: SubtitleDetailsPanelProps, ref) {
   const { t } = useI18n();
@@ -426,7 +427,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
       <CardHeader className="p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
-            <CardTitle className="text-lg">{panelTitle}</CardTitle>
+            {showPanelTitle && panelTitle ? <CardTitle className="text-lg">{panelTitle}</CardTitle> : null}
             {selectedVideo ? (
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="text-[11px]">

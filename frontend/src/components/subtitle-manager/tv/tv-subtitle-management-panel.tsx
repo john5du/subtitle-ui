@@ -5,7 +5,7 @@ import type { PendingSubtitleAction, TvSeasonOption, TvSeriesSummary, Video } fr
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -91,7 +91,6 @@ export function TvSubtitleManagementPanel({
   const episodesPane = (
     <Card className="animate-fade-in-up flex h-full min-h-0 flex-col bg-card">
       <CardHeader className="space-y-3 p-4">
-        <CardTitle className="text-lg">{t("tv.episodesTitle")}</CardTitle>
         <div className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tv.seasonLabel")}</p>
           <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
@@ -156,7 +155,6 @@ export function TvSubtitleManagementPanel({
   const subtitlesPane = (
     <div className="min-h-0 flex-1">
       <SubtitleDetailsPanel
-        panelTitle={t("tv.managementTitle")}
         selectedVideo={selectedVideo}
         emptyText={t("tv.selectEpisodeEmpty")}
         showBack={false}
@@ -177,6 +175,7 @@ export function TvSubtitleManagementPanel({
         showMediaType={false}
         showMetadata={false}
         showMetaSection={false}
+        showPanelTitle={false}
         showSubtitleListCaption={false}
       />
     </div>

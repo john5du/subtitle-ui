@@ -62,7 +62,11 @@ export function TvSubtitleDrawer({
   onUploadBatch
 }: TvSubtitleDrawerProps) {
   const { t } = useI18n();
-  const selectedSeriesTitle = selectedSeries?.title || t("tv.managementTitle");
+  const selectedSeriesTitle = selectedSeries?.title || selectedSeries?.path || "";
+  const selectedSeriesSubtitledCount = selectedSeries ? Math.max(selectedSeries.videoCount - selectedSeries.noSubtitleCount, 0) : 0;
+  const selectedSeriesCoverageLabel = selectedSeries
+    ? t("tv.subtitleCoverage", { subtitled: selectedSeriesSubtitledCount, total: selectedSeries.videoCount })
+    : "";
 
   function handleModeChange(value: string) {
     if (value === "manage" || value === "batch") {
@@ -73,13 +77,12 @@ export function TvSubtitleDrawer({
   return (
     <Tabs value={drawerMode} onValueChange={handleModeChange} className="flex h-full min-h-0 w-full flex-col bg-card">
       <div className="border-b border-border/70 bg-card/96 px-5 pb-4 pt-5 sm:px-6">
-        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground-muted">
-          {t("tv.drawerEyebrow")}
-        </p>
-        <div className="mt-3 flex flex-wrap items-start gap-3 pr-10">
+        <div className="flex flex-wrap items-start gap-3 pr-10">
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-2xl font-semibold tracking-tight sm:text-[2rem]">{selectedSeriesTitle}</h2>
-            <TabsList className="mt-3 h-9 w-full max-w-[420px]">
+            {selectedSeriesTitle ? (
+              <h2 className="truncate text-2xl font-semibold tracking-tight sm:text-[2rem]">{selectedSeriesTitle}</h2>
+            ) : null}
+            <TabsList className={cn("h-9 w-full max-w-[420px]", selectedSeriesTitle && "mt-3")}>
               <TabsTrigger value="manage" className="h-full flex-1" disabled={uploading && drawerMode !== "manage"}>
                 {t("tv.stepSubtitles")}
               </TabsTrigger>
@@ -89,8 +92,12 @@ export function TvSubtitleDrawer({
             </TabsList>
           </div>
           {selectedSeries ? (
-            <Badge variant="outline" className="border-input bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-foreground">
-              {selectedSeries.videoCount} {t("tv.videos")}
+            <Badge
+              variant="outline"
+              className="whitespace-nowrap border-input bg-transparent px-3 py-1 text-xs font-medium text-foreground"
+              title={selectedSeriesCoverageLabel}
+            >
+              {selectedSeriesCoverageLabel}
             </Badge>
           ) : null}
         </div>

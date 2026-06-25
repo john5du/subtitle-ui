@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { CircleAlert, CircleCheck, Info, ListFilter, TriangleAlert } from "lucide-react";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import type { BatchSubtitleUploadItem, BatchSubtitleUploadResult, Video } from "@/lib/types";
@@ -437,85 +437,6 @@ export function TvSeasonBatchUploadWorkspace({
       />
 
       <div className="relative min-h-0 flex-1 space-y-4 overflow-auto pr-1">
-        <div className="flex flex-col gap-3 border-b border-border/70 pb-4 md:flex-row md:flex-wrap md:items-end">
-          <div className="space-y-2 md:shrink-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
-              {t("batch.file")}
-            </p>
-            <Button
-              type="button"
-              variant={batchInputFiles.length > 0 ? "outline" : "default"}
-              disabled={busy || batchPreparing}
-              className="w-full md:w-auto"
-              onClick={() => batchInputRef.current?.click()}
-            >
-              {batchInputFiles.length > 0 ? t("batch.reselectFiles") : t("batch.selectFiles")}
-            </Button>
-          </div>
-
-          {showBatchLanguageSelector ? (
-            <div className="space-y-2 md:w-[220px] md:border-l md:border-border/60 md:pl-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
-                {t("batch.languageType")}
-              </p>
-              <Select
-                value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
-                onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
-                disabled={busy || batchPreparing || batchRawEntries.length === 0}
-              >
-                <SelectTrigger className="h-10 w-full bg-card">
-                  <SelectValue placeholder={t("batch.languageTypePlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {batchLanguageOptions.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {formatLanguageTypeLabel(item, t)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-
-          {showBatchFormatSelector ? (
-            <div className="space-y-2 md:w-[220px] md:border-l md:border-border/60 md:pl-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
-                {t("batch.format")}
-              </p>
-              <Select
-                value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
-                onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
-                disabled={busy || batchPreparing || batchRawEntries.length === 0}
-              >
-                <SelectTrigger className="h-10 w-full bg-card">
-                  <SelectValue placeholder={t("batch.format")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {batchFormatOptions.map((ext) => (
-                    <SelectItem key={ext} value={ext}>
-                      {formatSubtitleExtLabel(ext)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-
-          <div className="space-y-2 md:w-[220px] md:border-l md:border-border/60 md:pl-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
-              {t("batch.label")}
-            </p>
-            <Input
-              value={batchLabel}
-              maxLength={32}
-              placeholder="zh"
-              className="h-10 w-full bg-card"
-              disabled={busy || batchPreparing}
-              onChange={(event) => setBatchLabel(event.target.value)}
-            />
-          </div>
-        </div>
-
         {(batchPreparing || uploading) ? (
           <div className="flex flex-wrap items-center gap-2">
             {batchPreparing ? <InlinePending label={t("batch.preparing")} /> : null}
@@ -545,61 +466,55 @@ export function TvSeasonBatchUploadWorkspace({
           </div>
         ) : null}
 
-        <WorkspaceSection
-          icon={<ListFilter className="h-4 w-4" />}
-          title={t("batch.mappingTitle")}
-          className="min-h-[320px]"
-        >
-          <div className="space-y-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap gap-2">
-                {filterActions.map((item) => (
-                  <Button
-                    key={item.key}
-                    type="button"
-                    size="sm"
-                    variant={batchFilter === item.key ? "default" : "outline"}
-                    disabled={batchRows.length === 0}
-                    onClick={() => setBatchFilter(item.key)}
+        <div className="min-h-[320px] space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {filterActions.map((item) => (
+                <Button
+                  key={item.key}
+                  type="button"
+                  size="sm"
+                  variant={batchFilter === item.key ? "default" : "outline"}
+                  disabled={batchRows.length === 0}
+                  onClick={() => setBatchFilter(item.key)}
+                >
+                  {item.label}
+                  <Badge
+                    variant={batchFilter === item.key ? "secondary" : "outline"}
+                    className={cn(
+                      "px-2 py-0 text-[10px]",
+                      batchFilter === item.key && "border-transparent bg-primary-foreground/10 text-current"
+                    )}
                   >
-                    {item.label}
-                    <Badge
-                      variant={batchFilter === item.key ? "secondary" : "outline"}
-                      className={cn(
-                        "px-2 py-0 text-[10px]",
-                        batchFilter === item.key && "border-transparent bg-primary-foreground/10 text-current"
-                      )}
-                    >
-                      {item.count}
-                    </Badge>
-                  </Button>
-                ))}
-              </div>
-              {batchSummary.total > 0 ? <p className="text-sm text-muted-foreground">{filteredBatchRows.length}/{batchSummary.total}</p> : null}
+                    {item.count}
+                  </Badge>
+                </Button>
+              ))}
             </div>
-
-            <div className={cn("space-y-3", batchPreparing && "animate-pulse-soft")}>
-              {filteredBatchRows.length > 0 ? (
-                filteredBatchRows.map((row) => (
-                  <MappingRow
-                    key={row.id}
-                    row={row}
-                    videos={batchCandidates}
-                    disabled={busy || batchPreparing || uploading}
-                    t={t}
-                    onSelectionChange={updateBatchRowSelection}
-                  />
-                ))
-              ) : (
-                <div className="border border-dashed border-border/70 bg-surface-subtle px-6 py-10 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    {batchRows.length === 0 ? t("batch.empty") : t("batch.filterEmpty")}
-                  </p>
-                </div>
-              )}
-            </div>
+            {batchSummary.total > 0 ? <p className="text-sm text-muted-foreground">{filteredBatchRows.length}/{batchSummary.total}</p> : null}
           </div>
-        </WorkspaceSection>
+
+          <div className={cn("space-y-3", batchPreparing && "animate-pulse-soft")}>
+            {filteredBatchRows.length > 0 ? (
+              filteredBatchRows.map((row) => (
+                <MappingRow
+                  key={row.id}
+                  row={row}
+                  videos={batchCandidates}
+                  disabled={busy || batchPreparing || uploading}
+                  t={t}
+                  onSelectionChange={updateBatchRowSelection}
+                />
+              ))
+            ) : (
+              <div className="border border-dashed border-border/70 bg-surface-subtle px-6 py-10 text-center">
+                <p className="text-sm text-muted-foreground">
+                  {batchRows.length === 0 ? t("batch.empty") : t("batch.filterEmpty")}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
 
         {batchResult ? (
           <WorkspaceSection
@@ -641,19 +556,100 @@ export function TvSeasonBatchUploadWorkspace({
       </div>
 
       <div className="mt-4 shrink-0 border-t border-border pt-3">
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          {showCloseButton && onRequestClose ? (
-            <Button type="button" variant="outline" onClick={onRequestClose}>
-              {t("common.close")}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+            <div className="space-y-2 lg:shrink-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
+                {t("batch.file")}
+              </p>
+              <Button
+                type="button"
+                variant={batchInputFiles.length > 0 ? "outline" : "default"}
+                disabled={busy || batchPreparing}
+                className="w-full lg:w-auto"
+                onClick={() => batchInputRef.current?.click()}
+              >
+                {batchInputFiles.length > 0 ? t("batch.reselectFiles") : t("batch.selectFiles")}
+              </Button>
+            </div>
+
+            {showBatchLanguageSelector ? (
+              <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border/60 lg:pl-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
+                  {t("batch.languageType")}
+                </p>
+                <Select
+                  value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
+                  onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
+                  disabled={busy || batchPreparing || batchRawEntries.length === 0}
+                >
+                  <SelectTrigger className="h-10 w-full bg-card">
+                    <SelectValue placeholder={t("batch.languageTypePlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {batchLanguageOptions.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {formatLanguageTypeLabel(item, t)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
+            {showBatchFormatSelector ? (
+              <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border/60 lg:pl-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
+                  {t("batch.format")}
+                </p>
+                <Select
+                  value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
+                  onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
+                  disabled={busy || batchPreparing || batchRawEntries.length === 0}
+                >
+                  <SelectTrigger className="h-10 w-full bg-card">
+                    <SelectValue placeholder={t("batch.format")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {batchFormatOptions.map((ext) => (
+                      <SelectItem key={ext} value={ext}>
+                        {formatSubtitleExtLabel(ext)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
+            <div className="space-y-2 lg:w-[180px] lg:border-l lg:border-border/60 lg:pl-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
+                {t("batch.label")}
+              </p>
+              <Input
+                value={batchLabel}
+                maxLength={32}
+                placeholder="zh"
+                className="h-10 w-full bg-card"
+                disabled={busy || batchPreparing}
+                onChange={(event) => setBatchLabel(event.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex shrink-0 flex-col-reverse gap-2 lg:flex-row lg:justify-end">
+            {showCloseButton && onRequestClose ? (
+              <Button type="button" variant="outline" onClick={onRequestClose}>
+                {t("common.close")}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              disabled={busy || batchPreparing || batchSummary.mapped === 0}
+              onClick={() => void submitSeasonBatch()}
+            >
+              {t("batch.uploadMapped")}
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            disabled={busy || batchPreparing || batchSummary.mapped === 0}
-            onClick={() => void submitSeasonBatch()}
-          >
-            {t("batch.uploadMapped")}
-          </Button>
+          </div>
         </div>
       </div>
     </div>

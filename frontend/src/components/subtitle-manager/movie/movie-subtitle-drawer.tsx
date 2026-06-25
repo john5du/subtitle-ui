@@ -453,10 +453,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-card">
       <div className="border-b border-border/70 bg-card/96 px-5 pb-4 pt-5 sm:px-6">
-        <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground-muted">
-          {t("movie.drawerEyebrow")}
-        </p>
-        <div className="mt-3 flex flex-wrap items-start gap-3 pr-10">
+        <div className="flex flex-wrap items-start gap-3 pr-10">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-2xl font-semibold tracking-tight sm:text-[2rem]">{selectedMovieTitle}</h2>
             {searchLinks ? (

@@ -53,7 +53,7 @@ export interface SubtitleDetailsInfoRow {
 }
 
 export interface SubtitleDetailsPanelProps {
-  panelTitle: string;
+  panelTitle?: string;
   selectedVideo: Video | null;
   emptyText: string;
   showBack: boolean;
@@ -77,6 +77,7 @@ export interface SubtitleDetailsPanelProps {
   compactMeta?: boolean;
   metaCollapsedByDefault?: boolean;
   showMetaSection?: boolean;
+  showPanelTitle?: boolean;
   showSubtitleListCaption?: boolean;
 }
 
