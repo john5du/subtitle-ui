@@ -189,18 +189,18 @@ export function TvSubtitleManagementPanel({
   if (variant === "drawer") {
     return (
       <div className={cn("flex h-full w-full min-h-0 flex-col", className)}>
-        <div className="hidden min-h-0 flex-1 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-4">
-          <div className="min-h-0">{episodesPane}</div>
-          <div className="min-h-0">{subtitlesPane}</div>
+        <div className="hidden min-h-0 flex-1 lg:flex">
+          <div className="min-h-0 w-[320px] shrink-0 border-r border-border/60">{episodesPane}</div>
+          <div className="min-h-0 min-w-0 flex-1">{subtitlesPane}</div>
         </div>
 
         <div className="min-h-0 flex-1 lg:hidden">
           <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col">
-            <TabsList className="grid h-9 w-full grid-cols-2">
-              <TabsTrigger value="episodes" className="h-full" disabled={activeStep === "episodes"}>
+            <TabsList className="h-9 w-full">
+              <TabsTrigger value="episodes" className="h-full flex-1" disabled={activeStep === "episodes"}>
                 {t("tv.stepEpisodes")}
               </TabsTrigger>
-              <TabsTrigger value="subtitles" className="h-full" disabled={activeStep === "subtitles"}>
+              <TabsTrigger value="subtitles" className="h-full flex-1" disabled={activeStep === "subtitles"}>
                 {t("tv.stepSubtitles")}
               </TabsTrigger>
             </TabsList>
@@ -229,11 +229,11 @@ export function TvSubtitleManagementPanel({
   return (
     <div className={cn("flex h-full w-full min-h-0 flex-col gap-3 p-3 md:p-4", className)}>
       <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col">
-        <TabsList className="grid h-9 w-full grid-cols-2 sm:max-w-[360px]">
-          <TabsTrigger value="episodes" className="h-full" disabled={activeStep === "episodes"}>
+        <TabsList className="h-9 w-full sm:max-w-[360px]">
+          <TabsTrigger value="episodes" className="h-full flex-1" disabled={activeStep === "episodes"}>
             {t("tv.stepEpisodes")}
           </TabsTrigger>
-          <TabsTrigger value="subtitles" className="h-full" disabled={activeStep === "subtitles"}>
+          <TabsTrigger value="subtitles" className="h-full flex-1" disabled={activeStep === "subtitles"}>
             {t("tv.stepSubtitles")}
           </TabsTrigger>
         </TabsList>

@@ -61,7 +61,7 @@ const MoviePosterCard = memo(function MoviePosterCard({
               src={video.posterUrl}
               className="aspect-[2/3] w-full"
               imageClassName="h-full w-full"
-              sizes="(min-width: 1024px) 18vw, (min-width: 640px) 44vw, 92vw"
+              sizes="176px"
             />
             <span
               className="absolute bottom-2 right-2 min-w-7 border border-white/20 bg-black/70 px-2 py-1 text-center text-xs font-semibold leading-none text-white backdrop-blur"
@@ -159,6 +159,7 @@ export const MovieListPanel = memo(function MovieListPanel({
   const showToolbarSortButton = viewMode !== "list";
   const hasVideos = videos.length > 0;
   const showSkeleton = !hasVideos && pending;
+  const showPager = Math.max(1, pager.totalPages) > 1 || pager.total > 0;
 
   return (
     <Card className="animate-fade-in-up flex h-full flex-col bg-card">
@@ -209,92 +210,94 @@ export const MovieListPanel = memo(function MovieListPanel({
         {pending && hasVideos && <InlinePending label={t("movie.updatingResults")} />}
       </CardHeader>
 
-      <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
+      <CardContent className="relative flex min-h-0 flex-1 flex-col p-4 pt-0">
         <ScrollArea className={cn("min-h-0 flex-1", viewMode === "list" && "surface-subtle", pending && hasVideos && "animate-pulse-soft")}>
-          {viewMode === "list" ? (
-            <Table className="table-fixed">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
-                  <TableHead>{t("info.title")}</TableHead>
-                  <TableHead className="w-[96px]" aria-sort={ariaSort}>
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                      aria-label={`${t("info.year")} · ${sortAriaLabel}`}
-                      onClick={onToggleYearSort}
-                    >
-                      {t("info.year")}
-                      <span className="text-[10px]" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
-                    </button>
-                  </TableHead>
-                  <TableHead className="hidden w-[156px] md:table-cell">{t("movie.updatedTime")}</TableHead>
-                  <TableHead className="w-[92px] text-right">{t("movie.subtitles")}</TableHead>
-                  <TableHead className="hidden lg:table-cell lg:w-[320px]">{t("movie.fileName")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {showSkeleton && <SkeletonRows />}
-
-                {!showSkeleton && videos.map((video) => (
-                  <TableRow
-                    key={video.id}
-                    role="button"
-                    tabIndex={operationLocked ? -1 : 0}
-                    aria-label={video.title || video.fileName || t("info.movie")}
-                    className={cn(
-                      rowFocusClass,
-                      operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
-                    )}
-                    onClick={() => {
-                      if (!operationLocked) {
-                        onOpenManager(video);
-                      }
-                    }}
-                    onKeyDown={(event) => handleRowKeyDown(event, video)}
-                  >
-                    <TableCell className="w-[76px] py-2">
-                      <PosterThumbnail src={video.posterUrl} />
-                    </TableCell>
-                    <TableCell className="max-w-[260px] truncate font-medium" title={video.title}>
-                      {video.title || "-"}
-                    </TableCell>
-                    <TableCell>{video.year || "-"}</TableCell>
-                    <TableCell className="hidden md:table-cell">{formatTime(video.updatedAt)}</TableCell>
-                    <TableCell className="text-right">{video.subtitles.length}</TableCell>
-                    <TableCell className="hidden max-w-[320px] truncate lg:table-cell" title={video.fileName}>
-                      {video.fileName || "-"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-
-                {!showSkeleton && videos.length === 0 && (
+          <div className={cn(showPager && "pb-20")}>
+            {viewMode === "list" ? (
+              <Table className="table-fixed">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                      {t("movie.empty")}
-                    </TableCell>
+                    <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
+                    <TableHead>{t("info.title")}</TableHead>
+                    <TableHead className="w-[96px]" aria-sort={ariaSort}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                        aria-label={`${t("info.year")} · ${sortAriaLabel}`}
+                        onClick={onToggleYearSort}
+                      >
+                        {t("info.year")}
+                        <span className="text-[10px]" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+                      </button>
+                    </TableHead>
+                    <TableHead className="hidden w-[156px] md:table-cell">{t("movie.updatedTime")}</TableHead>
+                    <TableHead className="w-[92px] text-right">{t("movie.subtitles")}</TableHead>
+                    <TableHead className="hidden lg:table-cell lg:w-[320px]">{t("movie.fileName")}</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          ) : videos.length === 0 ? (
-            <div className="flex min-h-[320px] items-center justify-center p-6 text-center text-sm text-muted-foreground">
-              {pending ? t("movie.updatingResults") : t("movie.empty")}
-            </div>
-          ) : (
-            <div className="pt-1">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                {videos.map((video) => (
-                  <MoviePosterCard
-                    key={video.id}
-                    video={video}
-                    onOpenManager={onOpenManager}
-                    operationLocked={operationLocked}
-                  />
-                ))}
+                </TableHeader>
+                <TableBody>
+                  {showSkeleton && <SkeletonRows />}
+
+                  {!showSkeleton && videos.map((video) => (
+                    <TableRow
+                      key={video.id}
+                      role="button"
+                      tabIndex={operationLocked ? -1 : 0}
+                      aria-label={video.title || video.fileName || t("info.movie")}
+                      className={cn(
+                        rowFocusClass,
+                        operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
+                      )}
+                      onClick={() => {
+                        if (!operationLocked) {
+                          onOpenManager(video);
+                        }
+                      }}
+                      onKeyDown={(event) => handleRowKeyDown(event, video)}
+                    >
+                      <TableCell className="w-[76px] py-2">
+                        <PosterThumbnail src={video.posterUrl} />
+                      </TableCell>
+                      <TableCell className="max-w-[260px] truncate font-medium" title={video.title}>
+                        {video.title || "-"}
+                      </TableCell>
+                      <TableCell>{video.year || "-"}</TableCell>
+                      <TableCell className="hidden md:table-cell">{formatTime(video.updatedAt)}</TableCell>
+                      <TableCell className="text-right">{video.subtitles.length}</TableCell>
+                      <TableCell className="hidden max-w-[320px] truncate lg:table-cell" title={video.fileName}>
+                        {video.fileName || "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+
+                  {!showSkeleton && videos.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                        {t("movie.empty")}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            ) : videos.length === 0 ? (
+              <div className="flex min-h-[320px] items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                {pending ? t("movie.updatingResults") : t("movie.empty")}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="pt-1">
+                <div className="grid grid-cols-[repeat(auto-fit,176px)] justify-start gap-3">
+                  {videos.map((video) => (
+                    <MoviePosterCard
+                      key={video.id}
+                      video={video}
+                      onOpenManager={onOpenManager}
+                      operationLocked={operationLocked}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </ScrollArea>
         {pending && hasVideos && <PanelLoadingOverlay label={t("movie.updatingResults")} />}
 

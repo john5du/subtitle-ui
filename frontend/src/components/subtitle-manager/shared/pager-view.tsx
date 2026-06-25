@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useState, type KeyboardEvent } from "react";
 
 import { useI18n } from "@/lib/i18n";
 import type { Pager } from "@/lib/types";
@@ -17,6 +17,7 @@ export function PagerView({
   const { t } = useI18n();
   const totalPages = Math.max(1, pager.totalPages);
   const [jumpDraft, setJumpDraft] = useState(String(pager.page));
+  const jumpInputId = useId();
 
   useEffect(() => {
     setJumpDraft(String(pager.page));
@@ -50,43 +51,45 @@ export function PagerView({
   const jumpAria = t("pager.gotoAria", { page: pager.page, totalPages });
 
   return (
-    <div className="surface-subtle flex flex-col gap-3 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-      <Button type="button" variant="outline" size="sm" className="sm:min-w-[92px]" disabled={disabled || pager.page <= 1} onClick={() => onSetPage(pager.page - 1)}>
-        {t("pager.prev")}
-      </Button>
-      <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
-        <span>{t("pager.summary", { page: pager.page, totalPages, total: pager.total })}</span>
-        {totalPages > 1 && (
-          <span className="flex items-center gap-1">
-            <label className="sr-only" htmlFor="pager-goto-input">
-              {jumpAria}
-            </label>
-            <Input
-              id="pager-goto-input"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              className="h-7 w-14 px-2 text-center text-xs"
-              value={jumpDraft}
-              disabled={disabled}
-              aria-label={jumpAria}
-              onChange={(event) => setJumpDraft(event.target.value.replace(/[^0-9]/g, ""))}
-              onBlur={commitJump}
-              onKeyDown={onKeyDown}
-            />
-            <span>/ {totalPages}</span>
-          </span>
-        )}
+    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 flex justify-center sm:inset-x-4 sm:bottom-4">
+      <div className="pointer-events-auto flex w-full max-w-[720px] flex-col gap-2 border border-border/70 bg-card/90 px-3 py-2.5 shadow-lg backdrop-blur sm:w-auto sm:min-w-[520px] sm:flex-row sm:items-center sm:justify-between">
+        <Button type="button" variant="outline" size="sm" className="sm:min-w-[92px]" disabled={disabled || pager.page <= 1} onClick={() => onSetPage(pager.page - 1)}>
+          {t("pager.prev")}
+        </Button>
+        <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
+          <span>{t("pager.summary", { page: pager.page, totalPages, total: pager.total })}</span>
+          {totalPages > 1 && (
+            <span className="flex items-center gap-1">
+              <label className="sr-only" htmlFor={jumpInputId}>
+                {jumpAria}
+              </label>
+              <Input
+                id={jumpInputId}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="h-7 w-14 px-2 text-center text-xs"
+                value={jumpDraft}
+                disabled={disabled}
+                aria-label={jumpAria}
+                onChange={(event) => setJumpDraft(event.target.value.replace(/[^0-9]/g, ""))}
+                onBlur={commitJump}
+                onKeyDown={onKeyDown}
+              />
+              <span>/ {totalPages}</span>
+            </span>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="sm:min-w-[92px]"
+          disabled={disabled || pager.page >= totalPages}
+          onClick={() => onSetPage(pager.page + 1)}
+        >
+          {t("pager.next")}
+        </Button>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="sm:min-w-[92px]"
-        disabled={disabled || pager.page >= totalPages}
-        onClick={() => onSetPage(pager.page + 1)}
-      >
-        {t("pager.next")}
-      </Button>
     </div>
   );
 }

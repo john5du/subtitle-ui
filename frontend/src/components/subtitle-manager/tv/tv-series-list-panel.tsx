@@ -65,7 +65,7 @@ const TvSeriesPosterCard = memo(function TvSeriesPosterCard({
               src={row.posterUrl}
               className="aspect-[2/3] w-full"
               imageClassName="h-full w-full"
-              sizes="(min-width: 1024px) 18vw, (min-width: 640px) 44vw, 92vw"
+              sizes="176px"
             />
             <span
               className="absolute bottom-2 right-2 min-w-10 border border-white/20 bg-black/70 px-2 py-1 text-center text-xs font-semibold leading-none text-white backdrop-blur"
@@ -161,6 +161,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
   const showToolbarSortButton = viewMode !== "list";
   const hasRows = rows.length > 0;
   const showSkeleton = !hasRows && pending;
+  const showPager = Math.max(1, pager.totalPages) > 1 || pager.total > 0;
 
   const emptyState = showScanPrompt ? (
     <div className="flex flex-col items-center gap-3 text-center">
@@ -223,90 +224,92 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
         {pending && hasRows && <InlinePending label={t("tv.updatingResults")} />}
       </CardHeader>
 
-      <CardContent className="relative flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
+      <CardContent className="relative flex min-h-0 flex-1 flex-col p-4 pt-0">
         <ScrollArea className={cn("min-h-0 flex-1", viewMode === "list" && "surface-subtle", pending && hasRows && "animate-pulse-soft")}>
-          {viewMode === "list" ? (
-            <Table className="table-fixed">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
-                  <TableHead>{t("info.title")}</TableHead>
-                  <TableHead className="w-[116px]" aria-sort={ariaSort}>
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                      aria-label={`${t("tv.latestYear")} · ${sortAriaLabel}`}
-                      onClick={onToggleYearSort}
-                    >
-                      {t("tv.latestYear")}
-                      <span className="text-[10px]" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
-                    </button>
-                  </TableHead>
-                  <TableHead className="hidden w-[156px] md:table-cell">{t("movie.updatedTime")}</TableHead>
-                  <TableHead className="w-[92px] text-right">{t("tv.videos")}</TableHead>
-                  <TableHead className="w-[112px] text-right">{t("tv.noSubtitles")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {showSkeleton && <SkeletonRows />}
-
-                {!showSkeleton && rows.map((row) => (
-                  <TableRow
-                    key={row.key}
-                    role="button"
-                    tabIndex={operationLocked ? -1 : 0}
-                    aria-label={row.title || t("nav.tv")}
-                    className={cn(
-                      rowFocusClass,
-                      operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
-                    )}
-                    onClick={() => {
-                      if (!operationLocked) {
-                        onOpenManager(row);
-                      }
-                    }}
-                    onKeyDown={(event) => handleRowKeyDown(event, row)}
-                  >
-                    <TableCell className="w-[76px] py-2">
-                      <PosterThumbnail src={row.posterUrl} />
-                    </TableCell>
-                    <TableCell className="max-w-[260px] truncate font-medium" title={row.title}>
-                      {row.title || "-"}
-                    </TableCell>
-                    <TableCell>{row.latestEpisodeYear || "-"}</TableCell>
-                    <TableCell className="hidden truncate md:table-cell" title={formatTime(row.updatedAt)}>{formatTime(row.updatedAt)}</TableCell>
-                    <TableCell className="text-right">{row.videoCount}</TableCell>
-                    <TableCell className="text-right">{row.noSubtitleCount}</TableCell>
-                  </TableRow>
-                ))}
-
-                {!showSkeleton && rows.length === 0 && (
+          <div className={cn(showPager && "pb-20")}>
+            {viewMode === "list" ? (
+              <Table className="table-fixed">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                      {emptyState}
-                    </TableCell>
+                    <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
+                    <TableHead>{t("info.title")}</TableHead>
+                    <TableHead className="w-[116px]" aria-sort={ariaSort}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                        aria-label={`${t("tv.latestYear")} · ${sortAriaLabel}`}
+                        onClick={onToggleYearSort}
+                      >
+                        {t("tv.latestYear")}
+                        <span className="text-[10px]" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+                      </button>
+                    </TableHead>
+                    <TableHead className="hidden w-[156px] md:table-cell">{t("movie.updatedTime")}</TableHead>
+                    <TableHead className="w-[92px] text-right">{t("tv.videos")}</TableHead>
+                    <TableHead className="w-[112px] text-right">{t("tv.noSubtitles")}</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          ) : rows.length === 0 ? (
-            <div className="flex min-h-[320px] items-center justify-center p-6 text-center text-sm text-muted-foreground">
-              {pending ? t("tv.updatingResults") : emptyState}
-            </div>
-          ) : (
-            <div className="pt-1">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                {rows.map((row) => (
-                  <TvSeriesPosterCard
-                    key={row.key}
-                    row={row}
-                    onOpenManager={onOpenManager}
-                    operationLocked={operationLocked}
-                  />
-                ))}
+                </TableHeader>
+                <TableBody>
+                  {showSkeleton && <SkeletonRows />}
+
+                  {!showSkeleton && rows.map((row) => (
+                    <TableRow
+                      key={row.key}
+                      role="button"
+                      tabIndex={operationLocked ? -1 : 0}
+                      aria-label={row.title || t("nav.tv")}
+                      className={cn(
+                        rowFocusClass,
+                        operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
+                      )}
+                      onClick={() => {
+                        if (!operationLocked) {
+                          onOpenManager(row);
+                        }
+                      }}
+                      onKeyDown={(event) => handleRowKeyDown(event, row)}
+                    >
+                      <TableCell className="w-[76px] py-2">
+                        <PosterThumbnail src={row.posterUrl} />
+                      </TableCell>
+                      <TableCell className="max-w-[260px] truncate font-medium" title={row.title}>
+                        {row.title || "-"}
+                      </TableCell>
+                      <TableCell>{row.latestEpisodeYear || "-"}</TableCell>
+                      <TableCell className="hidden truncate md:table-cell" title={formatTime(row.updatedAt)}>{formatTime(row.updatedAt)}</TableCell>
+                      <TableCell className="text-right">{row.videoCount}</TableCell>
+                      <TableCell className="text-right">{row.noSubtitleCount}</TableCell>
+                    </TableRow>
+                  ))}
+
+                  {!showSkeleton && rows.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                        {emptyState}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            ) : rows.length === 0 ? (
+              <div className="flex min-h-[320px] items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                {pending ? t("tv.updatingResults") : emptyState}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="pt-1">
+                <div className="grid grid-cols-[repeat(auto-fit,176px)] justify-start gap-3">
+                  {rows.map((row) => (
+                    <TvSeriesPosterCard
+                      key={row.key}
+                      row={row}
+                      onOpenManager={onOpenManager}
+                      operationLocked={operationLocked}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </ScrollArea>
         {pending && hasRows && <PanelLoadingOverlay label={t("tv.refreshingSeries")} />}
 

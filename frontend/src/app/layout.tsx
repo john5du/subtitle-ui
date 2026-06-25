@@ -4,7 +4,6 @@ import localFont from "next/font/local";
 import { ToastViewport } from "@/components/ui/toast-viewport";
 import { I18nProvider } from "@/lib/i18n";
 import { ThemeProvider } from "@/lib/theme";
-import { APP_VERSION } from "@/lib/app-version";
 import "./globals.css";
 
 const appSans = localFont({
@@ -78,8 +77,6 @@ const localeBootstrapScript = `
 `;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const year = new Date().getFullYear();
-
   return (
     <html lang="en">
       <head>
@@ -91,19 +88,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <div className="flex h-dvh flex-col">
               <ToastViewport />
               <main className="min-h-0 flex-1 overflow-auto lg:overflow-hidden">{children}</main>
-              <footer className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
-                <div className="mx-auto flex h-14 w-full max-w-[1620px] items-center justify-between px-4 text-sm text-foreground-muted md:px-6">
-                  <p>&copy; {year} Subtitle UI v{APP_VERSION}</p>
-                  <a
-                    href="https://github.com/john5du/subtitle-ui"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-mono text-sm uppercase tracking-[0.0875em] transition-colors hover:text-foreground"
-                  >
-                    GitHub
-                  </a>
-                </div>
-              </footer>
             </div>
           </I18nProvider>
         </ThemeProvider>

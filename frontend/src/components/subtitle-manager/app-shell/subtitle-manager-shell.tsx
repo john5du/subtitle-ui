@@ -3,6 +3,7 @@ import { memo, useCallback } from "react";
 import Image from "next/image";
 import { PanelLeftClose, PanelLeftOpen, RefreshCw, Search } from "lucide-react";
 
+import { APP_VERSION } from "@/lib/app-version";
 import { useI18n } from "@/lib/i18n";
 import type { TvSeriesSummary } from "@/lib/types";
 import { emitToast } from "@/lib/toast";
@@ -106,9 +107,9 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   );
 
   return (
-    <div key={activeTab} className="surface-panel animate-fade-in-up min-h-0 p-2 sm:p-3 lg:flex-1">
+    <div key={activeTab} className="animate-fade-in-up flex min-h-0 flex-1 flex-col">
       {activeTab === "dashboard" && (
-        <div className="min-h-0 lg:h-full">
+        <div className="min-h-0 flex-1 lg:h-full">
           <DashboardPanel
             scanStatus={dashboardScanStatus}
             directoryScan={dashboardDirectoryScan}
@@ -123,7 +124,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
       )}
 
       {activeTab === "movie" && (
-        <div className="min-h-[360px] lg:h-full">
+        <div className="min-h-[360px] flex-1 lg:h-full">
           <MovieListPanel
             query={movieQuery}
             onQueryChange={movieSetQuery}
@@ -143,7 +144,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
       )}
 
       {activeTab === "tv" && (
-        <div className="min-h-[400px] lg:h-full">
+        <div className="min-h-[400px] flex-1 lg:h-full">
           <TvSeriesListPanel
             query={tvQuery}
             onQueryChange={tvSetQuery}
@@ -307,16 +308,8 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
   const sidebarToggleLabel = sidebarCollapsed ? t("sidebar.expand") : t("sidebar.collapse");
 
   return (
-    <div className="relative h-full w-full px-3 py-3 sm:px-4 md:px-6 md:py-5">
-      <div
-        className={cn(
-          "mx-auto flex h-full w-full max-w-[1620px] flex-col gap-4 transition-all duration-200 xl:gap-5 lg:grid",
-          sidebarCollapsed
-            ? "lg:grid-cols-[72px_minmax(0,1fr)] xl:grid-cols-[72px_minmax(0,1fr)]"
-            : "lg:grid-cols-[minmax(224px,252px)_minmax(0,1fr)] xl:grid-cols-[minmax(236px,272px)_minmax(0,1fr)]"
-        )}
-      >
-        <div className="surface-panel flex flex-col gap-3 p-3 lg:hidden">
+    <div className="relative flex h-full min-h-0 w-full min-w-0 flex-col lg:flex-row">
+        <div className="surface-panel flex shrink-0 flex-col gap-3 p-3 lg:hidden">
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <Image
@@ -383,7 +376,12 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
           </div>
         </div>
 
-        <Card className="surface-panel animate-fade-in-up hidden overflow-hidden lg:block lg:h-full">
+        <Card
+          className={cn(
+            "surface-panel animate-fade-in-up hidden overflow-hidden transition-[width] duration-200 lg:block lg:h-full lg:shrink-0",
+            sidebarCollapsed ? "lg:w-[72px]" : "lg:w-[252px] xl:w-[272px]"
+          )}
+        >
           <CardContent className={cn("flex h-full flex-col", sidebarCollapsed ? "items-center gap-4 p-3" : "gap-5 p-5")}>
             <div className={cn("flex", sidebarCollapsed ? "w-full flex-col items-center gap-3" : "items-start justify-between gap-3")}>
               <div className={sidebarCollapsed ? "flex flex-col items-center" : "min-w-0"}>
@@ -418,7 +416,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
               </Button>
             </div>
 
-            <div role="tablist" aria-label={t("sidebar.tagline")} className={cn("grid", sidebarCollapsed ? "w-full gap-2" : "gap-1.5")}>
+            <div role="tablist" aria-label={t("sidebar.tagline")} className={cn("flex flex-col", sidebarCollapsed ? "w-full gap-2" : "gap-1.5")}>
               {shell.navItems.map((item) => (
                 <button
                   key={item.key}
@@ -487,11 +485,20 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   {shell.refreshPending ? <SpinnerIcon className="h-5 w-5" /> : <RefreshCw className="h-5 w-5" />}
                 </Button>
               </div>
+              <p
+                className={cn(
+                  "text-display w-full text-center text-[10px] uppercase tracking-[0.12em] text-foreground-muted",
+                  !sidebarCollapsed && "text-xs"
+                )}
+                title={`Subtitle UI v${APP_VERSION}`}
+              >
+                {sidebarCollapsed ? `v${APP_VERSION}` : `Subtitle UI v${APP_VERSION}`}
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        <div className="min-h-0 min-w-0 lg:flex lg:h-full lg:flex-col">
+        <div className="min-h-0 min-w-0 flex-1 lg:flex lg:h-full lg:flex-col">
           <ActiveWorkspace
             activeTab={shell.activeTab}
             operationLocked={shell.operationLocked}
@@ -531,7 +538,6 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             tvPendingList={tv.pendingList}
           />
         </div>
-      </div>
 
       <ManagementDialogs
         dialogs={dialogs}

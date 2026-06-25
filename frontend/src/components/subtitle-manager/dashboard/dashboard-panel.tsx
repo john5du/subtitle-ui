@@ -48,6 +48,7 @@ export function DashboardPanel({
   const tvSeriesCount = directoryScan.tvSeriesCount || 0;
   const discoveredDirCount = movieCount + tvSeriesCount;
   const clearDisabled = pending.logs || logsPager.total <= 0;
+  const showLogsPager = Math.max(1, logsPager.totalPages) > 1 || logsPager.total > 0;
   const { t } = useI18n();
 
   function confirmClearLogs() {
@@ -60,8 +61,8 @@ export function DashboardPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 lg:h-full">
-      <div className="grid shrink-0 gap-3 md:grid-cols-3">
+    <div className="flex min-h-0 flex-col lg:h-full">
+      <div className="flex shrink-0 flex-col md:flex-row">
         <QuickStatCard
           icon={<Activity className="h-5 w-5" />}
           label={t("dashboard.lastScanVideos")}
@@ -69,7 +70,7 @@ export function DashboardPanel({
           hint={scanStatus?.running ? t("dashboard.scanInProgress") : t("dashboard.scannerIdle")}
           tone="success"
           pending={pending.scan || pending.bootstrapping}
-          className="animate-fade-in-up"
+          className="animate-fade-in-up flex-1 border-b border-border/60 md:border-b-0 md:border-r"
         />
         <QuickStatCard
           icon={<FolderTree className="h-5 w-5" />}
@@ -78,7 +79,7 @@ export function DashboardPanel({
           hint={t("dashboard.movieTvCount", { movie: movieCount, tv: tvSeriesCount })}
           tone="info"
           pending={pending.scan || pending.bootstrapping}
-          className="animate-fade-in-up"
+          className="animate-fade-in-up flex-1 border-b border-border/60 md:border-b-0 md:border-r"
         />
         <QuickStatCard
           icon={<AlertTriangle className="h-5 w-5" />}
@@ -87,12 +88,12 @@ export function DashboardPanel({
           hint={directoryScan.errors.length > 0 ? t("dashboard.needsReview") : t("dashboard.allClear")}
           tone={directoryScan.errors.length > 0 ? "destructive" : "warning"}
           pending={pending.scan || pending.bootstrapping}
-          className="animate-fade-in-up"
+          className="animate-fade-in-up flex-1"
         />
       </div>
 
-      <Card className="surface-panel animate-fade-in-up flex min-h-[520px] flex-col lg:min-h-0 lg:flex-1">
-        <CardHeader className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="surface-panel animate-fade-in-up flex min-h-[520px] flex-col border-t border-border/60 lg:min-h-0 lg:flex-1">
+        <CardHeader className="flex flex-col gap-3 border-b border-border/60 p-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-lg">{t("dashboard.recentOperationsTitle")}</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">
@@ -110,9 +111,9 @@ export function DashboardPanel({
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="relative flex min-h-0 flex-1 flex-col p-4 pt-0">
-          <ScrollArea className={cn("surface-subtle min-h-[360px] flex-1 lg:min-h-0", pending.logs && "animate-pulse-soft")}>
-            <ul className="divide-y divide-border">
+        <CardContent className="relative flex min-h-0 flex-1 flex-col p-0">
+          <ScrollArea className={cn("min-h-[360px] flex-1 lg:min-h-0", pending.logs && "animate-pulse-soft")}>
+            <ul className={cn("divide-y divide-border", showLogsPager && "pb-20")}>
               {logs.map((log) => (
                 <li key={log.id} className="animate-fade-in-up space-y-2 p-3 text-sm">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -133,9 +134,7 @@ export function DashboardPanel({
               )}
             </ul>
           </ScrollArea>
-          <div className="mt-3 shrink-0">
-            <PagerView pager={logsPager} onSetPage={onSetLogsPage} disabled={pending.logs} />
-          </div>
+          <PagerView pager={logsPager} onSetPage={onSetLogsPage} disabled={pending.logs} />
           {pending.logs && <PanelLoadingOverlay label={t("logs.refreshing")} />}
         </CardContent>
       </Card>

@@ -143,8 +143,8 @@ export function SubtitleConversionSettingsButton({ triggerClassName = "h-10 w-10
           </DialogHeader>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-auto">
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
-              <div className="space-y-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:gap-0">
+              <div className="min-w-0 flex-1 space-y-2 sm:pr-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("conversion.assTemplate")}</p>
                 <textarea
                   value={draftTemplate}
@@ -157,7 +157,7 @@ export function SubtitleConversionSettingsButton({ triggerClassName = "h-10 w-10
                 />
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-4 border-t border-border/60 pt-3 sm:w-[220px] sm:shrink-0 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("conversion.defaultSourceEncoding")}</p>
                   <Select value={draftEncoding} onValueChange={(value) => setDraftEncoding(value as SubtitleSourceEncoding)} disabled={loading || saving}>

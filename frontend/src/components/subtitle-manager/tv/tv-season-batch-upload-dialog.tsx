@@ -135,8 +135,8 @@ function MappingRow({
         row.status === "skipped" && "border-border/60 bg-background/70"
       )}
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:gap-0">
+        <div className="min-w-0 space-y-3 xl:flex-1 xl:pr-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="break-all text-sm font-semibold">{fileName}</p>
@@ -163,7 +163,7 @@ function MappingRow({
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 border-t border-border/60 pt-3 xl:w-[320px] xl:shrink-0 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-foreground-muted">
             {t("batch.targetEpisode")}
           </p>
@@ -437,8 +437,8 @@ export function TvSeasonBatchUploadWorkspace({
       />
 
       <div className="relative min-h-0 flex-1 space-y-4 overflow-auto pr-1">
-        <div className="grid gap-3 border-b border-border/70 pb-4 md:grid-cols-[auto_repeat(3,minmax(0,220px))] md:items-end">
-          <div className="space-y-2">
+        <div className="flex flex-col gap-3 border-b border-border/70 pb-4 md:flex-row md:flex-wrap md:items-end">
+          <div className="space-y-2 md:shrink-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
               {t("batch.file")}
             </p>
@@ -454,7 +454,7 @@ export function TvSeasonBatchUploadWorkspace({
           </div>
 
           {showBatchLanguageSelector ? (
-            <div className="space-y-2">
+            <div className="space-y-2 md:w-[220px] md:border-l md:border-border/60 md:pl-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
                 {t("batch.languageType")}
               </p>
@@ -475,12 +475,10 @@ export function TvSeasonBatchUploadWorkspace({
                 </SelectContent>
               </Select>
             </div>
-          ) : (
-            <div className="hidden md:block" />
-          )}
+          ) : null}
 
           {showBatchFormatSelector ? (
-            <div className="space-y-2">
+            <div className="space-y-2 md:w-[220px] md:border-l md:border-border/60 md:pl-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
                 {t("batch.format")}
               </p>
@@ -501,11 +499,9 @@ export function TvSeasonBatchUploadWorkspace({
                 </SelectContent>
               </Select>
             </div>
-          ) : (
-            <div className="hidden md:block" />
-          )}
+          ) : null}
 
-          <div className="space-y-2">
+          <div className="space-y-2 md:w-[220px] md:border-l md:border-border/60 md:pl-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
               {t("batch.label")}
             </p>

@@ -118,7 +118,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   const showPrimaryUploadButton = showUploadButton;
   const hasActionToolbar = showPrimaryUploadButton || searchActionItems.length > 0 || zipLoading || Boolean(zipPickError);
   const detailsInfoGrid = selectedVideo ? (
-    <div className="grid gap-2 text-sm md:grid-cols-2">
+    <div className="flex flex-col divide-y divide-border/60 overflow-hidden border border-border/60 text-sm">
       <InfoItem label={t("info.title")} value={selectedVideo.title || "-"} />
       <InfoItem label={t("info.year")} value={selectedVideo.year || "-"} />
       {showMediaType && <InfoItem label={t("info.mediaType")} value={selectedVideo.mediaType === "movie" ? t("info.movie") : t("info.tv")} />}
