@@ -6,7 +6,7 @@ import { useI18n } from "@/lib/i18n";
 import type { Pager, Video } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -169,10 +169,7 @@ export const MovieListPanel = memo(function MovieListPanel({
   return (
     <Card className="animate-fade-in-up flex h-full flex-col bg-card">
       <CardHeader className="space-y-3 p-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-1">
-            <CardTitle className="text-lg">{t("movie.listTitle")}</CardTitle>
-          </div>
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-end">
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:w-auto xl:justify-end">
             <div className="relative w-full min-w-0 sm:flex-1 xl:w-[260px] xl:flex-none">
               <Input
@@ -215,7 +212,7 @@ export const MovieListPanel = memo(function MovieListPanel({
         {pending && hasVideos && <InlinePending label={t("movie.updatingResults")} />}
       </CardHeader>
 
-      <CardContent className="relative flex min-h-0 flex-1 flex-col p-4 pt-0">
+      <CardContent className="relative flex min-h-0 flex-1 flex-col p-0">
         <ScrollArea viewportRef={scrollViewportRef} className={cn("min-h-0 flex-1", viewMode === "list" && "surface-subtle", pending && hasVideos && "animate-pulse-soft")}>
           <div className={cn(showPager && "pb-20")}>
             {viewMode === "list" ? (

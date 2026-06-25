@@ -162,7 +162,6 @@ export const enMessages = {
   "dashboard.logVideoStatus": "videoId: {videoId} | status: {status}",
   "dashboard.logDetails": "details: {details}",
 
-  "movie.listTitle": "Movie List",
   "movie.filterAria": "Filter movies by title or path",
   "movie.filterPlaceholder": "Filter by title/path",
   "movie.updatingResults": "Updating movie results...",
@@ -183,7 +182,6 @@ export const enMessages = {
   "movie.drawerEmptyRepository": "No subtitles yet. Upload a subtitle file or archive to get started.",
   "movie.drawerDropAria": "Upload subtitle file or archive",
 
-  "tv.listTitle": "TV Series List",
   "tv.filterAria": "Filter TV series by name or path",
   "tv.filterPlaceholder": "Filter by series title/path",
   "tv.updatingResults": "Updating series results...",

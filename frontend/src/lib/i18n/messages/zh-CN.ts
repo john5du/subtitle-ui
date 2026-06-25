@@ -164,7 +164,6 @@ export const zhCNMessages: MessageDictionary = {
   "dashboard.logVideoStatus": "videoId：{videoId} | 状态：{status}",
   "dashboard.logDetails": "详情：{details}",
 
-  "movie.listTitle": "电影列表",
   "movie.filterAria": "按标题或路径筛选电影",
   "movie.filterPlaceholder": "按标题/路径筛选",
   "movie.updatingResults": "正在更新电影结果...",
@@ -185,7 +184,6 @@ export const zhCNMessages: MessageDictionary = {
   "movie.drawerEmptyRepository": "还没有字幕。上传字幕文件或压缩包以开始。",
   "movie.drawerDropAria": "上传字幕文件或压缩包",
 
-  "tv.listTitle": "剧集列表",
   "tv.filterAria": "按名称或路径筛选剧集",
   "tv.filterPlaceholder": "按剧集标题/路径筛选",
   "tv.updatingResults": "正在更新剧集结果...",
