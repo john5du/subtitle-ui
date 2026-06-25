@@ -10,11 +10,11 @@ type ToastItem = AppToastEventDetail;
 function toneClass(level: ToastItem["level"]) {
   switch (level) {
     case "success":
-      return "border-border bg-surface-strong text-foreground";
+      return "border-input bg-popover text-popover-foreground";
     case "info":
-      return "border-border bg-surface-strong text-foreground";
+      return "border-input bg-popover text-popover-foreground";
     default:
-      return "border-red-500/30 bg-red-500/10 text-red-300";
+      return "border-red-500/50 bg-red-50 text-red-950 dark:bg-red-950 dark:text-red-50";
   }
 }
 
@@ -51,7 +51,7 @@ export function ToastViewport() {
           role="status"
           aria-live="polite"
           className={cn(
-            "animate-scale-in pointer-events-auto overflow-hidden border px-3 py-2 text-sm",
+            "animate-scale-in pointer-events-auto overflow-hidden border px-3 py-2 text-sm shadow-xl",
             toneClass(toast.level)
           )}
         >
@@ -59,7 +59,7 @@ export function ToastViewport() {
             <div className="min-w-0 space-y-1">
               {toast.title && <p className="font-mono text-xs uppercase tracking-[0.0625em]">{toast.title}</p>}
               <p className={cn("break-words", toast.title ? "text-sm" : "font-medium")}>{toast.message}</p>
-              {toast.detail && <p className="break-words text-xs opacity-60">{toast.detail}</p>}
+              {toast.detail && <p className="break-words text-xs opacity-80">{toast.detail}</p>}
             </div>
           </div>
           <div className="mt-2 h-1 overflow-hidden bg-border">

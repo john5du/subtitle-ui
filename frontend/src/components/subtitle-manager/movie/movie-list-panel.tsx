@@ -61,7 +61,7 @@ const MoviePosterCard = memo(function MoviePosterCard({
               src={video.posterUrl}
               className="aspect-[2/3] w-full"
               imageClassName="h-full w-full"
-              sizes="176px"
+              sizes="(max-width: 420px) 100vw, (max-width: 768px) 50vw, 220px"
             />
             <span
               className="absolute bottom-2 right-2 min-w-7 border border-white/20 bg-black/70 px-2 py-1 text-center text-xs font-semibold leading-none text-white backdrop-blur"
@@ -290,7 +290,7 @@ export const MovieListPanel = memo(function MovieListPanel({
               </div>
             ) : (
               <div className="pt-1">
-                <div className="grid grid-cols-[repeat(auto-fit,176px)] justify-start gap-3">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-3">
                   {videos.map((video) => (
                     <MoviePosterCard
                       key={video.id}
