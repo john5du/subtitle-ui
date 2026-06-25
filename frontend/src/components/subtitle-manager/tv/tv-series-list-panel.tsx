@@ -48,6 +48,7 @@ const TvSeriesPosterCard = memo(function TvSeriesPosterCard({
   operationLocked: boolean;
 }) {
   const { t } = useI18n();
+  const subtitledVideoCount = Math.max(row.videoCount - row.noSubtitleCount, 0);
 
   return (
     <div className="flex w-full min-w-0 self-start flex-col">
@@ -59,12 +60,20 @@ const TvSeriesPosterCard = memo(function TvSeriesPosterCard({
         onClick={() => onOpenManager(row)}
       >
         <div className="p-2 pb-0">
-          <PosterThumbnail
-            src={row.posterUrl}
-            className="aspect-[2/3] w-full"
-            imageClassName="h-full w-full"
-            sizes="(min-width: 1024px) 18vw, (min-width: 640px) 44vw, 92vw"
-          />
+          <div className="relative">
+            <PosterThumbnail
+              src={row.posterUrl}
+              className="aspect-[2/3] w-full"
+              imageClassName="h-full w-full"
+              sizes="(min-width: 1024px) 18vw, (min-width: 640px) 44vw, 92vw"
+            />
+            <span
+              className="absolute bottom-2 right-2 min-w-10 border border-white/20 bg-black/70 px-2 py-1 text-center text-xs font-semibold leading-none text-white backdrop-blur"
+              aria-hidden
+            >
+              {subtitledVideoCount}/{row.videoCount}
+            </span>
+          </div>
         </div>
         <div className="flex flex-col gap-0.5 p-2">
           <p className="line-clamp-2 min-w-0 text-base font-semibold leading-6 text-foreground">

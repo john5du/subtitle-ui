@@ -56,12 +56,20 @@ const MoviePosterCard = memo(function MoviePosterCard({
         onClick={() => onOpenManager(video)}
       >
         <div className="p-2 pb-0">
-          <PosterThumbnail
-            src={video.posterUrl}
-            className="aspect-[2/3] w-full"
-            imageClassName="h-full w-full"
-            sizes="(min-width: 1024px) 18vw, (min-width: 640px) 44vw, 92vw"
-          />
+          <div className="relative">
+            <PosterThumbnail
+              src={video.posterUrl}
+              className="aspect-[2/3] w-full"
+              imageClassName="h-full w-full"
+              sizes="(min-width: 1024px) 18vw, (min-width: 640px) 44vw, 92vw"
+            />
+            <span
+              className="absolute bottom-2 right-2 min-w-7 border border-white/20 bg-black/70 px-2 py-1 text-center text-xs font-semibold leading-none text-white backdrop-blur"
+              aria-hidden
+            >
+              {video.subtitles.length}
+            </span>
+          </div>
         </div>
         <div className="flex flex-col gap-0.5 p-2">
           <p className="line-clamp-2 min-w-0 text-base font-semibold leading-6 text-foreground">
