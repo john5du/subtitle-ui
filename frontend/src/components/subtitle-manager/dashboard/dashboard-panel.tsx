@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Activity, AlertTriangle, FolderTree, Trash2 } from "lucide-react";
 
@@ -44,12 +44,17 @@ export function DashboardPanel({
   formatTime: (value: string | undefined | null) => string;
 }) {
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const logsViewportRef = useRef<HTMLDivElement | null>(null);
   const movieCount = directoryScan.movieCount || 0;
   const tvSeriesCount = directoryScan.tvSeriesCount || 0;
   const discoveredDirCount = movieCount + tvSeriesCount;
   const clearDisabled = pending.logs || logsPager.total <= 0;
   const showLogsPager = Math.max(1, logsPager.totalPages) > 1 || logsPager.total > 0;
   const { t } = useI18n();
+
+  useEffect(() => {
+    logsViewportRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [logsPager.page]);
 
   function confirmClearLogs() {
     void (async () => {
@@ -112,7 +117,7 @@ export function DashboardPanel({
           </div>
         </CardHeader>
         <CardContent className="relative flex min-h-0 flex-1 flex-col p-0">
-          <ScrollArea className={cn("min-h-[360px] flex-1 lg:min-h-0", pending.logs && "animate-pulse-soft")}>
+          <ScrollArea viewportRef={logsViewportRef} className={cn("min-h-[360px] flex-1 lg:min-h-0", pending.logs && "animate-pulse-soft")}>
             <ul className={cn("divide-y divide-border", showLogsPager && "pb-20")}>
               {logs.map((log) => (
                 <li key={log.id} className="animate-fade-in-up space-y-2 p-3 text-sm">

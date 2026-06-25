@@ -89,13 +89,9 @@ export function TvSubtitleManagementPanel({
   }
 
   const episodesPane = (
-    <Card className="animate-fade-in-up flex h-full min-h-0 flex-col border bg-card">
+    <Card className="animate-fade-in-up flex h-full min-h-0 flex-col bg-card">
       <CardHeader className="space-y-3 p-4">
         <CardTitle className="text-lg">{t("tv.episodesTitle")}</CardTitle>
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tv.seriesLabel")}</p>
-          <p className="truncate text-sm font-semibold">{selectedSeries?.title || "-"}</p>
-        </div>
         <div className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tv.seasonLabel")}</p>
           <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>

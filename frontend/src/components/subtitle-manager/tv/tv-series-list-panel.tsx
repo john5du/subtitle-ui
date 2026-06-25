@@ -129,6 +129,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
   const [draftQuery, setDraftQuery] = useState(query);
   const deferredQuery = useDeferredValue(draftQuery);
   const lastPublishedRef = useRef(query);
+  const scrollViewportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (query !== draftQuery) {
@@ -144,6 +145,10 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
       onQueryChange(deferredQuery);
     }
   }, [deferredQuery, onQueryChange]);
+
+  useEffect(() => {
+    scrollViewportRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [pager.page]);
 
   const handleRowKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTableRowElement>, row: TvSeriesSummary) => {
@@ -225,7 +230,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
       </CardHeader>
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col p-4 pt-0">
-        <ScrollArea className={cn("min-h-0 flex-1", viewMode === "list" && "surface-subtle", pending && hasRows && "animate-pulse-soft")}>
+        <ScrollArea viewportRef={scrollViewportRef} className={cn("min-h-0 flex-1", viewMode === "list" && "surface-subtle", pending && hasRows && "animate-pulse-soft")}>
           <div className={cn(showPager && "pb-20")}>
             {viewMode === "list" ? (
               <Table className="table-fixed">

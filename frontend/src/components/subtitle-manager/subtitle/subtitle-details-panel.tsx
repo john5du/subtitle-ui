@@ -504,19 +504,19 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                     </Button>
                   )}
                   {zipLoading && <InlinePending label={t("details.parsingArchive")} />}
+                  {searchActionItems.length > 0 && (
+                    <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                      {searchActionItems.map((item) => (
+                        <Button key={item.label} type="button" variant="outline" size="sm" className={subtitleActionWidthClass} asChild>
+                          <a href={item.href} target="_blank" rel="noreferrer">
+                            <span>{item.label}</span>
+                            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                          </a>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {searchActionItems.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {searchActionItems.map((item) => (
-                      <Button key={item.label} type="button" variant="outline" size="sm" className={subtitleActionWidthClass} asChild>
-                        <a href={item.href} target="_blank" rel="noreferrer">
-                          <span>{item.label}</span>
-                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                        </a>
-                      </Button>
-                    ))}
-                  </div>
-                )}
                 {zipPickError && (
                   <div className="flex items-start gap-2 bg-red-500/10 p-2 text-sm text-red-300">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />

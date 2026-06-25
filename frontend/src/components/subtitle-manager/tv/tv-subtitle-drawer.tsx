@@ -3,7 +3,7 @@
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import type { BatchSubtitleUploadItem, BatchSubtitleUploadResult, PendingSubtitleAction, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
 import type { SubtitleDetailsPanelProps, TvDrawerMode } from "../types";
@@ -64,8 +64,14 @@ export function TvSubtitleDrawer({
   const { t } = useI18n();
   const selectedSeriesTitle = selectedSeries?.title || t("tv.managementTitle");
 
+  function handleModeChange(value: string) {
+    if (value === "manage" || value === "batch") {
+      onModeChange(value);
+    }
+  }
+
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-card">
+    <Tabs value={drawerMode} onValueChange={handleModeChange} className="flex h-full min-h-0 w-full flex-col bg-card">
       <div className="border-b border-border/70 bg-card/96 px-5 pb-4 pt-5 sm:px-6">
         <p className="text-display text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground-muted">
           {t("tv.drawerEyebrow")}
@@ -73,26 +79,14 @@ export function TvSubtitleDrawer({
         <div className="mt-3 flex flex-wrap items-start gap-3 pr-10">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-2xl font-semibold tracking-tight sm:text-[2rem]">{selectedSeriesTitle}</h2>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={drawerMode === "manage" ? "default" : "outline"}
-                disabled={uploading || drawerMode === "manage"}
-                onClick={() => onModeChange("manage")}
-              >
+            <TabsList className="mt-3 h-9 w-full max-w-[420px]">
+              <TabsTrigger value="manage" className="h-full flex-1" disabled={uploading && drawerMode !== "manage"}>
                 {t("tv.stepSubtitles")}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={drawerMode === "batch" ? "default" : "outline"}
-                disabled={uploading || drawerMode === "batch"}
-                onClick={() => onModeChange("batch")}
-              >
+              </TabsTrigger>
+              <TabsTrigger value="batch" className="h-full flex-1" disabled={uploading && drawerMode !== "batch"}>
                 {t("tv.seasonBatchUpload")}
-              </Button>
-            </div>
+              </TabsTrigger>
+            </TabsList>
           </div>
           {selectedSeries ? (
             <Badge variant="outline" className="border-input bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-foreground">
@@ -111,7 +105,7 @@ export function TvSubtitleDrawer({
       ) : (
         <div className="min-h-0 flex-1 px-5 py-5 sm:px-6">
           <div className="flex h-full min-h-0 flex-col">
-            {drawerMode === "manage" ? (
+            <TabsContent value="manage" className="m-0 mt-0 flex min-h-0 flex-1 flex-col">
               <TvSubtitleManagementPanel
                 className="min-h-0 flex-1"
                 variant="drawer"
@@ -135,7 +129,8 @@ export function TvSubtitleDrawer({
                 episodesPending={episodesPending}
                 subtitleAction={subtitleAction}
               />
-            ) : (
+            </TabsContent>
+            <TabsContent value="batch" className="m-0 mt-0 flex min-h-0 flex-1 flex-col">
               <TvSeasonBatchUploadWorkspace
                 className={cn("min-h-0 flex-1")}
                 busy={busy}
@@ -145,10 +140,10 @@ export function TvSubtitleDrawer({
                 onUploadBatch={onUploadBatch}
                 showSummary={true}
               />
-            )}
+            </TabsContent>
           </div>
         </div>
       )}
-    </div>
+    </Tabs>
   );
 }
