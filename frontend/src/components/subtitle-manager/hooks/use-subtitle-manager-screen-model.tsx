@@ -10,6 +10,13 @@ import type { ActiveTab, Video } from "@/lib/types";
 import type { LibraryViewMode, SubtitleDetailsPanelHandle, TvDrawerMode } from "../types";
 
 const LIBRARY_VIEW_STORAGE_KEY = "subtitle-ui:library-view";
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "subtitle-ui:sidebar-collapsed";
+
+declare global {
+  interface Window {
+    __subtitleUiSidebarCollapsed?: boolean;
+  }
+}
 
 function isLibraryViewMode(value: string | null | undefined): value is LibraryViewMode {
   return value === "list" || value === "card";
@@ -51,6 +58,19 @@ export function useSubtitleManagerScreenModel() {
       return isLibraryViewMode(storedView) ? storedView : "card";
     } catch {
       return "card";
+    }
+  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    try {
+      if (typeof window.__subtitleUiSidebarCollapsed === "boolean") {
+        return window.__subtitleUiSidebarCollapsed;
+      }
+      return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+    } catch {
+      return false;
     }
   });
   const movieDetailsRef = useRef<SubtitleDetailsPanelHandle | null>(null);
@@ -165,6 +185,10 @@ export function useSubtitleManagerScreenModel() {
     void tvLoadWorkspaceRef.current(path);
   }, []);
 
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((current) => !current);
+  }, []);
+
   useEffect(() => {
     if (!movieManagerOpen || !pendingMovieUploadPick) {
       return;
@@ -190,9 +214,23 @@ export function useSubtitleManagerScreenModel() {
     }
   }, [libraryViewMode]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(sidebarCollapsed));
+      window.__subtitleUiSidebarCollapsed = sidebarCollapsed;
+    } catch {
+      window.__subtitleUiSidebarCollapsed = sidebarCollapsed;
+    }
+  }, [sidebarCollapsed]);
+
   const shellModel = useMemo(() => ({
       activeTab,
       navItems,
+      sidebarCollapsed,
+      toggleSidebarCollapsed,
       operationLocked,
       scanPending,
       refreshPending,
@@ -210,8 +248,10 @@ export function useSubtitleManagerScreenModel() {
       operationLocked,
       refreshPending,
       scanPending,
+      sidebarCollapsed,
       statusBadgeClass,
-      statusBadgeText
+      statusBadgeText,
+      toggleSidebarCollapsed
     ]);
 
   const dashboardModel = useMemo(() => ({

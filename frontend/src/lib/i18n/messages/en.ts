@@ -30,6 +30,8 @@ export const enMessages = {
   "sidebar.scanningMediaLibrary": "Scanning media library",
   "sidebar.refreshTab": "Refresh {tab}",
   "sidebar.refreshingTab": "Refreshing {tab}",
+  "sidebar.collapse": "Collapse sidebar",
+  "sidebar.expand": "Expand sidebar",
 
   "theme.system": "System",
   "theme.light": "Light",

@@ -32,6 +32,8 @@ export const zhCNMessages: MessageDictionary = {
   "sidebar.scanningMediaLibrary": "正在扫描媒体库",
   "sidebar.refreshTab": "刷新{tab}",
   "sidebar.refreshingTab": "正在刷新{tab}",
+  "sidebar.collapse": "折叠侧边栏",
+  "sidebar.expand": "展开侧边栏",
 
   "theme.system": "跟随系统",
   "theme.light": "浅色",

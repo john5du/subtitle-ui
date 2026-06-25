@@ -50,6 +50,9 @@ const localeBootstrapScript = `
     const libraryView = storedView === "list" ? "list" : "card";
     window.__subtitleUiLocale = locale;
     window.__subtitleUiLibraryView = libraryView;
+    const sidebarKey = "subtitle-ui:sidebar-collapsed";
+    const storedSidebarCollapsed = window.localStorage.getItem(sidebarKey);
+    window.__subtitleUiSidebarCollapsed = storedSidebarCollapsed === "true";
     document.documentElement.lang = locale;
 
     const themeKey = "subtitle-ui:theme";
@@ -66,6 +69,7 @@ const localeBootstrapScript = `
   } catch {
     window.__subtitleUiLocale = "en";
     window.__subtitleUiLibraryView = "card";
+    window.__subtitleUiSidebarCollapsed = false;
     window.__subtitleUiTheme = "system";
     document.documentElement.lang = "en";
     document.documentElement.classList.add("dark");

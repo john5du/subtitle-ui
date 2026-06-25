@@ -1,7 +1,7 @@
 import { memo, useCallback } from "react";
 
 import Image from "next/image";
-import { RefreshCw, Search } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, RefreshCw, Search } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import type { TvSeriesSummary } from "@/lib/types";
@@ -303,10 +303,19 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
   const { t } = useI18n();
   const { shell, dashboard, movie, tv, subtitleActions, dialogs } = model;
   const activeTabLabel = shell.navItems.find((item) => item.key === shell.activeTab)?.label ?? shell.activeTab;
+  const sidebarCollapsed = shell.sidebarCollapsed;
+  const sidebarToggleLabel = sidebarCollapsed ? t("sidebar.expand") : t("sidebar.collapse");
 
   return (
     <div className="relative h-full w-full px-3 py-3 sm:px-4 md:px-6 md:py-5">
-      <div className="mx-auto flex h-full w-full max-w-[1620px] flex-col gap-4 xl:gap-5 lg:grid lg:grid-cols-[minmax(224px,252px)_minmax(0,1fr)] xl:grid-cols-[minmax(236px,272px)_minmax(0,1fr)]">
+      <div
+        className={cn(
+          "mx-auto flex h-full w-full max-w-[1620px] flex-col gap-4 transition-all duration-200 xl:gap-5 lg:grid",
+          sidebarCollapsed
+            ? "lg:grid-cols-[72px_minmax(0,1fr)] xl:grid-cols-[72px_minmax(0,1fr)]"
+            : "lg:grid-cols-[minmax(224px,252px)_minmax(0,1fr)] xl:grid-cols-[minmax(236px,272px)_minmax(0,1fr)]"
+        )}
+      >
         <div className="surface-panel flex flex-col gap-3 p-3 lg:hidden">
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
@@ -374,28 +383,55 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
           </div>
         </div>
 
-        <Card className="surface-panel animate-fade-in-up hidden lg:block lg:h-full">
-          <CardContent className="flex h-full flex-col gap-5 p-5">
-            <div>
-              <Image
-                src="/icon.svg"
-                alt=""
-                aria-hidden
-                width={56}
-                height={56}
-                className="mb-2 h-14 w-14 bg-surface-subtle p-2"
-              />
-              <p className="text-display text-sm font-semibold uppercase tracking-[0.26em] text-foreground-muted">Subtitle UI</p>
-              <p className="mt-2 max-w-[22ch] text-xs leading-relaxed text-muted-foreground">{t("sidebar.tagline")}</p>
+        <Card className="surface-panel animate-fade-in-up hidden overflow-hidden lg:block lg:h-full">
+          <CardContent className={cn("flex h-full flex-col", sidebarCollapsed ? "items-center gap-4 p-3" : "gap-5 p-5")}>
+            <div className={cn("flex", sidebarCollapsed ? "w-full flex-col items-center gap-3" : "items-start justify-between gap-3")}>
+              <div className={sidebarCollapsed ? "flex flex-col items-center" : "min-w-0"}>
+                <Image
+                  src="/icon.svg"
+                  alt=""
+                  aria-hidden
+                  width={sidebarCollapsed ? 40 : 56}
+                  height={sidebarCollapsed ? 40 : 56}
+                  className={cn(
+                    "bg-surface-subtle",
+                    sidebarCollapsed ? "h-10 w-10 p-1.5" : "mb-2 h-14 w-14 p-2"
+                  )}
+                />
+                {!sidebarCollapsed && (
+                  <>
+                    <p className="text-display text-sm font-semibold uppercase tracking-[0.26em] text-foreground-muted">Subtitle UI</p>
+                    <p className="mt-2 max-w-[22ch] text-xs leading-relaxed text-muted-foreground">{t("sidebar.tagline")}</p>
+                  </>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                aria-label={sidebarToggleLabel}
+                title={sidebarToggleLabel}
+                onClick={shell.toggleSidebarCollapsed}
+              >
+                {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              </Button>
             </div>
 
-            <div className="grid gap-1.5">
+            <div role="tablist" aria-label={t("sidebar.tagline")} className={cn("grid", sidebarCollapsed ? "w-full gap-2" : "gap-1.5")}>
               {shell.navItems.map((item) => (
                 <button
                   key={item.key}
                   type="button"
+                  role="tab"
+                  aria-selected={shell.activeTab === item.key}
+                  aria-label={item.label}
+                  title={sidebarCollapsed ? item.label : undefined}
                   className={cn(
-                    "group surface-transition flex items-center px-3.5 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                    "group surface-transition flex disabled:cursor-not-allowed disabled:opacity-60",
+                    sidebarCollapsed
+                      ? "h-10 w-full items-center justify-center px-0 py-0"
+                      : "items-center px-3.5 py-2.5 text-left",
                     shell.activeTab === item.key
                       ? "bg-surface-strong text-foreground"
                       : "text-foreground-muted hover:bg-surface-subtle hover:text-foreground"
@@ -403,19 +439,27 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   disabled={subtitleActions.uploading || model.dashboard.pending.tabSwitch}
                   onClick={() => void shell.switchTab(item.key)}
                 >
-                  <span className="flex items-center gap-3 text-sm font-semibold">
-                    <span className={cn("text-foreground-subtle group-hover:text-foreground", shell.activeTab === item.key && "text-foreground")}>{item.icon}</span>
-                    {item.label}
-                  </span>
+                  {sidebarCollapsed ? (
+                    <span className={cn("flex h-5 w-5 items-center justify-center text-foreground-subtle group-hover:text-foreground", shell.activeTab === item.key && "text-foreground")}>
+                      {item.icon}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-3 text-sm font-semibold">
+                      <span className={cn("text-foreground-subtle group-hover:text-foreground", shell.activeTab === item.key && "text-foreground")}>{item.icon}</span>
+                      {item.label}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
 
-            <div className="mt-auto space-y-3">
-              <Badge variant="outline" className={cn("surface-transition flex w-full items-center justify-center px-3 py-1.5 text-center text-xs", shell.statusBadgeClass)}>
-                {shell.statusBadgeText}
-              </Badge>
-              <div className="surface-subtle flex flex-wrap items-center justify-center gap-2 p-1.5 sm:flex-nowrap">
+            <div className={cn("mt-auto", sidebarCollapsed ? "flex w-full flex-col items-center gap-3" : "space-y-3")}>
+              {!sidebarCollapsed && (
+                <Badge variant="outline" className={cn("surface-transition flex w-full items-center justify-center px-3 py-1.5 text-center text-xs", shell.statusBadgeClass)}>
+                  {shell.statusBadgeText}
+                </Badge>
+              )}
+              <div className={cn("surface-subtle flex items-center justify-center gap-2 p-1.5", sidebarCollapsed ? "w-full flex-col" : "flex-wrap sm:flex-nowrap")}>
                 <LocaleSelect />
                 <SubtitleConversionSettingsButton />
                 <ThemeToggle />
