@@ -22,9 +22,16 @@ export interface Video {
   directory: string;
   fileName: string;
   title: string;
+  originalTitle?: string;
   year?: string;
+  imdbId?: string;
+  tmdbId?: string;
   mediaType: MediaType;
   metadataSource: string;
+  seriesTitle?: string;
+  seriesOriginalTitle?: string;
+  seriesImdbId?: string;
+  seriesTmdbId?: string;
   posterUrl?: string;
   subtitles: Subtitle[];
   updatedAt: string;
@@ -141,6 +148,9 @@ export interface TvSeriesSummary {
   key: string;
   path: string;
   title: string;
+  originalTitle?: string;
+  imdbId?: string;
+  tmdbId?: string;
   latestEpisodeYear?: string;
   updatedAt: string;
   videoCount: number;

@@ -14,18 +14,25 @@ const (
 )
 
 type Video struct {
-	ID             string     `json:"id"`
-	Path           string     `json:"path"`
-	Directory      string     `json:"directory"`
-	FileName       string     `json:"fileName"`
-	Title          string     `json:"title"`
-	Year           string     `json:"year,omitempty"`
-	MediaType      string     `json:"mediaType"`
-	MetadataSource string     `json:"metadataSource"`
-	PosterPath     string     `json:"-"`
-	PosterURL      string     `json:"posterUrl,omitempty"`
-	Subtitles      []Subtitle `json:"subtitles"`
-	UpdatedAt      time.Time  `json:"updatedAt"`
+	ID                  string     `json:"id"`
+	Path                string     `json:"path"`
+	Directory           string     `json:"directory"`
+	FileName            string     `json:"fileName"`
+	Title               string     `json:"title"`
+	OriginalTitle       string     `json:"originalTitle,omitempty"`
+	Year                string     `json:"year,omitempty"`
+	ImdbID              string     `json:"imdbId,omitempty"`
+	TmdbID              string     `json:"tmdbId,omitempty"`
+	MediaType           string     `json:"mediaType"`
+	MetadataSource      string     `json:"metadataSource"`
+	SeriesTitle         string     `json:"seriesTitle,omitempty"`
+	SeriesOriginalTitle string     `json:"seriesOriginalTitle,omitempty"`
+	SeriesImdbID        string     `json:"seriesImdbId,omitempty"`
+	SeriesTmdbID        string     `json:"seriesTmdbId,omitempty"`
+	PosterPath          string     `json:"-"`
+	PosterURL           string     `json:"posterUrl,omitempty"`
+	Subtitles           []Subtitle `json:"subtitles"`
+	UpdatedAt           time.Time  `json:"updatedAt"`
 }
 
 type Subtitle struct {
@@ -118,6 +125,9 @@ type TVSeriesSummary struct {
 	Key               string `json:"key"`
 	Path              string `json:"path"`
 	Title             string `json:"title"`
+	OriginalTitle     string `json:"originalTitle,omitempty"`
+	ImdbID            string `json:"imdbId,omitempty"`
+	TmdbID            string `json:"tmdbId,omitempty"`
 	LatestEpisodeYear string `json:"latestEpisodeYear,omitempty"`
 	UpdatedAt         string `json:"updatedAt"`
 	VideoCount        int    `json:"videoCount"`

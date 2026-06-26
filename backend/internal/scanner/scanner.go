@@ -155,6 +155,8 @@ type nfoMetadata struct {
 	Title         string `xml:"title"`
 	OriginalTitle string `xml:"originaltitle"`
 	Year          string `xml:"year"`
+	ImdbID        string `xml:"imdb_id"`
+	TmdbID        string `xml:"tmdbid"`
 }
 
 func New() *Scanner {
@@ -387,12 +389,28 @@ func (s *Scanner) buildVideo(path string, mediaType string) (domain.Video, error
 	fileName := filepath.Base(absPath)
 	base := strings.TrimSuffix(fileName, filepath.Ext(fileName))
 
-	title, year, source := readMetadata(dir, base)
+	videoMetadata, source := readVideoMetadata(dir, base)
+	seriesMetadata := nfoMetadata{}
+	seriesSource := ""
+	if mediaType == domain.MediaTypeTV {
+		seriesMetadata, seriesSource = readTVSeriesMetadata(dir)
+	}
+	if source == "" && seriesSource != "" {
+		source = seriesSource
+	}
 	if source == "" {
 		return domain.Video{}, errMetadataNotFound
 	}
+	title := videoMetadata.Title
+	if title == "" && mediaType == domain.MediaTypeTV {
+		title = seriesMetadata.Title
+	}
 	if title == "" {
 		title = base
+	}
+	year := videoMetadata.Year
+	if year == "" && mediaType == domain.MediaTypeTV {
+		year = seriesMetadata.Year
 	}
 
 	subtitles, err := s.ScanSubtitlesForVideo(absPath)
@@ -401,34 +419,44 @@ func (s *Scanner) buildVideo(path string, mediaType string) (domain.Video, error
 	}
 
 	return domain.Video{
-		ID:             makeID(absPath),
-		Path:           absPath,
-		Directory:      dir,
-		FileName:       fileName,
-		Title:          title,
-		Year:           year,
-		MediaType:      mediaType,
-		MetadataSource: source,
-		Subtitles:      subtitles,
-		UpdatedAt:      time.Now().UTC(),
+		ID:                  makeID(absPath),
+		Path:                absPath,
+		Directory:           dir,
+		FileName:            fileName,
+		Title:               title,
+		OriginalTitle:       videoMetadata.OriginalTitle,
+		Year:                year,
+		ImdbID:              videoMetadata.ImdbID,
+		TmdbID:              videoMetadata.TmdbID,
+		MediaType:           mediaType,
+		MetadataSource:      source,
+		SeriesTitle:         seriesMetadata.Title,
+		SeriesOriginalTitle: seriesMetadata.OriginalTitle,
+		SeriesImdbID:        seriesMetadata.ImdbID,
+		SeriesTmdbID:        seriesMetadata.TmdbID,
+		Subtitles:           subtitles,
+		UpdatedAt:           time.Now().UTC(),
 	}, nil
 }
 
-func readMetadata(dir string, base string) (title string, year string, source string) {
+func readVideoMetadata(dir string, base string) (nfoMetadata, string) {
 	directCandidates := []string{
 		filepath.Join(dir, base+".nfo"),
 		filepath.Join(dir, "movie.nfo"),
 	}
 	for _, path := range directCandidates {
-		if t, y, ok := parseNFO(path); ok {
-			return t, y, "nfo"
+		if metadata, ok := parseNFO(path); ok {
+			return metadata, "nfo"
 		}
 	}
+	return nfoMetadata{}, ""
+}
 
+func readTVSeriesMetadata(dir string) (nfoMetadata, string) {
 	currentDir := dir
 	for i := 0; i < 3; i++ {
-		if t, y, ok := parseNFO(filepath.Join(currentDir, "tvshow.nfo")); ok {
-			return t, y, "nfo"
+		if metadata, ok := parseNFO(filepath.Join(currentDir, "tvshow.nfo")); ok {
+			return metadata, "nfo"
 		}
 		parent := filepath.Dir(currentDir)
 		if parent == currentDir {
@@ -436,28 +464,30 @@ func readMetadata(dir string, base string) (title string, year string, source st
 		}
 		currentDir = parent
 	}
-
-	return "", "", ""
+	return nfoMetadata{}, ""
 }
 
-func parseNFO(path string) (string, string, bool) {
+func parseNFO(path string) (nfoMetadata, bool) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", "", false
+		return nfoMetadata{}, false
 	}
 	var parsed nfoMetadata
 	if err := xml.Unmarshal(data, &parsed); err != nil {
-		return "", "", false
+		return nfoMetadata{}, false
 	}
-	title := strings.TrimSpace(parsed.Title)
-	if title == "" {
-		title = strings.TrimSpace(parsed.OriginalTitle)
+	parsed.Title = strings.TrimSpace(parsed.Title)
+	parsed.OriginalTitle = strings.TrimSpace(parsed.OriginalTitle)
+	parsed.Year = strings.TrimSpace(parsed.Year)
+	parsed.ImdbID = strings.TrimSpace(parsed.ImdbID)
+	parsed.TmdbID = strings.TrimSpace(parsed.TmdbID)
+	if parsed.Title == "" {
+		parsed.Title = parsed.OriginalTitle
 	}
-	year := strings.TrimSpace(parsed.Year)
-	if title == "" && year == "" {
-		return "", "", false
+	if parsed.Title == "" && parsed.OriginalTitle == "" && parsed.Year == "" && parsed.ImdbID == "" && parsed.TmdbID == "" {
+		return nfoMetadata{}, false
 	}
-	return title, year, true
+	return parsed, true
 }
 
 func isVideoExt(ext string) bool {

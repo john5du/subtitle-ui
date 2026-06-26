@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 
 import type { PendingSubtitleAction, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { tvSeriesSearchTitle } from "@/lib/subtitle-manager/media-metadata";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -70,10 +71,10 @@ export function TvSubtitleManagementPanel({
       return "";
     }
     const parsed = parseVideoSeasonEpisode(selectedVideo);
-    const series = (selectedSeries?.title || selectedVideo.title || "").trim();
+    const series = (tvSeriesSearchTitle(selectedSeries) || selectedVideo.seriesOriginalTitle || selectedVideo.seriesTitle || selectedVideo.title || "").trim();
     const episodeCode = parsed ? formatSeasonEpisodeText(parsed.season, parsed.episode) : "";
     return `${series} ${episodeCode}`.trim();
-  }, [selectedSeries?.title, selectedVideo]);
+  }, [selectedSeries, selectedVideo]);
 
   useEffect(() => {
     setActiveStep("episodes");

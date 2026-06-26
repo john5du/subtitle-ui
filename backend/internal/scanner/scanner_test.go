@@ -19,7 +19,7 @@ func TestScanReadsVideoMetadataAndSubtitles(t *testing.T) {
 	if err := os.WriteFile(subPath, []byte("subtitle-data"), 0o644); err != nil {
 		t.Fatalf("write subtitle: %v", err)
 	}
-	nfo := `<movie><title>My Test Movie</title><year>2025</year></movie>`
+	nfo := `<movie><title>My Test Movie</title><originaltitle>My Test Movie Original</originaltitle><year>2025</year><imdb_id>tt1234567</imdb_id><tmdbid>7654321</tmdbid></movie>`
 	if err := os.WriteFile(nfoPath, []byte(nfo), 0o644); err != nil {
 		t.Fatalf("write nfo: %v", err)
 	}
@@ -37,14 +37,69 @@ func TestScanReadsVideoMetadataAndSubtitles(t *testing.T) {
 	if video.Title != "My Test Movie" {
 		t.Fatalf("unexpected title: %q", video.Title)
 	}
+	if video.OriginalTitle != "My Test Movie Original" {
+		t.Fatalf("unexpected original title: %q", video.OriginalTitle)
+	}
 	if video.Year != "2025" {
 		t.Fatalf("unexpected year: %q", video.Year)
+	}
+	if video.ImdbID != "tt1234567" || video.TmdbID != "7654321" {
+		t.Fatalf("unexpected external ids: imdb=%q tmdb=%q", video.ImdbID, video.TmdbID)
 	}
 	if len(video.Subtitles) != 1 {
 		t.Fatalf("expected 1 subtitle, got %d", len(video.Subtitles))
 	}
 	if video.Subtitles[0].Language != "zh" {
 		t.Fatalf("unexpected language: %q", video.Subtitles[0].Language)
+	}
+}
+
+func TestScanTVReadsEpisodeAndSeriesMetadata(t *testing.T) {
+	root := t.TempDir()
+	episodeDir := filepath.Join(root, "Daredevil - Born Again", "Season 1")
+	if err := os.MkdirAll(episodeDir, 0o755); err != nil {
+		t.Fatalf("mkdir episode dir: %v", err)
+	}
+
+	videoPath := filepath.Join(episodeDir, "Afterlight Station S01E01.mkv")
+	episodeNFOPath := filepath.Join(episodeDir, "Afterlight Station S01E01.nfo")
+	seriesNFOPath := filepath.Join(root, "Daredevil - Born Again", "tvshow.nfo")
+	if err := os.WriteFile(videoPath, []byte("video-data"), 0o644); err != nil {
+		t.Fatalf("write video: %v", err)
+	}
+	episodeNFO := `<episodedetails><title>Platform Zero</title><originaltitle>Platform Zero Original</originaltitle><year>2025</year></episodedetails>`
+	if err := os.WriteFile(episodeNFOPath, []byte(episodeNFO), 0o644); err != nil {
+		t.Fatalf("write episode nfo: %v", err)
+	}
+	seriesNFO := `<tvshow><title>夜魔侠：重生</title><originaltitle>Daredevil: Born Again</originaltitle><year>2025</year><imdb_id>tt18923754</imdb_id><tmdbid>202555</tmdbid></tvshow>`
+	if err := os.WriteFile(seriesNFOPath, []byte(seriesNFO), 0o644); err != nil {
+		t.Fatalf("write series nfo: %v", err)
+	}
+
+	sc := New()
+	videos, err := sc.ScanWithType(root, "tv")
+	if err != nil {
+		t.Fatalf("scan failed: %v", err)
+	}
+	if len(videos) != 1 {
+		t.Fatalf("expected 1 video, got %d", len(videos))
+	}
+
+	video := videos[0]
+	if video.Title != "Platform Zero" {
+		t.Fatalf("expected episode title, got %q", video.Title)
+	}
+	if video.OriginalTitle != "Platform Zero Original" {
+		t.Fatalf("unexpected episode original title: %q", video.OriginalTitle)
+	}
+	if video.SeriesTitle != "夜魔侠：重生" {
+		t.Fatalf("unexpected series title: %q", video.SeriesTitle)
+	}
+	if video.SeriesOriginalTitle != "Daredevil: Born Again" {
+		t.Fatalf("unexpected series original title: %q", video.SeriesOriginalTitle)
+	}
+	if video.SeriesImdbID != "tt18923754" || video.SeriesTmdbID != "202555" {
+		t.Fatalf("unexpected series external ids: imdb=%q tmdb=%q", video.SeriesImdbID, video.SeriesTmdbID)
 	}
 }
 

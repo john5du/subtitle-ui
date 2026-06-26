@@ -1,8 +1,10 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n";
+import { tvSeriesDisplayTitleParts } from "@/lib/subtitle-manager/media-metadata";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { MediaExternalLinks } from "../shared/media-external-links";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import type { BatchSubtitleUploadItem, BatchSubtitleUploadResult, PendingSubtitleAction, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
@@ -61,8 +63,10 @@ export function TvSubtitleDrawer({
   onLoadBatchCandidates,
   onUploadBatch
 }: TvSubtitleDrawerProps) {
-  const { t } = useI18n();
-  const selectedSeriesTitle = selectedSeries?.title || selectedSeries?.path || "";
+  const { t, locale } = useI18n();
+  const selectedSeriesTitle = tvSeriesDisplayTitleParts(selectedSeries, locale);
+  const selectedSeriesPrimaryTitle = selectedSeriesTitle.title || selectedSeries?.path || "";
+  const selectedSeriesFullTitle = selectedSeriesTitle.fullTitle || selectedSeriesPrimaryTitle;
   const selectedSeriesSubtitledCount = selectedSeries ? Math.max(selectedSeries.videoCount - selectedSeries.noSubtitleCount, 0) : 0;
   const selectedSeriesCoverageLabel = selectedSeries
     ? t("tv.subtitleCoverage", { subtitled: selectedSeriesSubtitledCount, total: selectedSeries.videoCount })
@@ -79,10 +83,22 @@ export function TvSubtitleDrawer({
       <div className="border-b border-border/70 bg-card/96 px-5 pb-4 pt-5 sm:px-6">
         <div className="flex flex-wrap items-start gap-3 pr-10">
           <div className="min-w-0 flex-1">
-            {selectedSeriesTitle ? (
-              <h2 className="truncate text-2xl font-semibold tracking-tight sm:text-[2rem]">{selectedSeriesTitle}</h2>
+            {selectedSeriesPrimaryTitle ? (
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                <h2 className="min-w-0 max-w-full truncate text-2xl font-semibold tracking-tight sm:text-[2rem]" title={selectedSeriesFullTitle}>
+                  {selectedSeriesPrimaryTitle}
+                  {selectedSeriesTitle.secondaryTitle ? (
+                    <span className="ml-2 align-baseline text-base font-medium text-muted-foreground sm:text-lg">
+                      {selectedSeriesTitle.secondaryTitle}
+                    </span>
+                  ) : null}
+                </h2>
+                {selectedSeries ? (
+                  <MediaExternalLinks imdbId={selectedSeries.imdbId} tmdbId={selectedSeries.tmdbId} mediaType="tv" />
+                ) : null}
+              </div>
             ) : null}
-            <TabsList className={cn("h-9 w-full max-w-[420px]", selectedSeriesTitle && "mt-3")}>
+            <TabsList className={cn("h-9 w-full max-w-[420px]", selectedSeriesPrimaryTitle && "mt-3")}>
               <TabsTrigger value="manage" className="h-full flex-1" disabled={uploading && drawerMode !== "manage"}>
                 {t("tv.stepSubtitles")}
               </TabsTrigger>

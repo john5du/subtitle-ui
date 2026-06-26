@@ -3,6 +3,7 @@ import { memo, useCallback, useDeferredValue, useEffect, useRef, useState, type 
 import { Search, X } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
+import { tvSeriesDisplayTitle } from "@/lib/subtitle-manager/media-metadata";
 import type { Pager, TvSeriesSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -47,15 +48,16 @@ const TvSeriesPosterCard = memo(function TvSeriesPosterCard({
   onOpenManager: (series: TvSeriesSummary) => void;
   operationLocked: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const subtitledVideoCount = Math.max(row.videoCount - row.noSubtitleCount, 0);
+  const displayTitle = tvSeriesDisplayTitle(row, locale) || t("nav.tv");
 
   return (
     <div className="flex w-full min-w-0 self-start flex-col">
       <button
         type="button"
         className="surface-transition flex w-full min-w-0 flex-col text-left hover:bg-surface-subtle focus-visible:bg-surface-subtle focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-65"
-        aria-label={row.title || t("nav.tv")}
+        aria-label={displayTitle}
         disabled={operationLocked}
         onClick={() => onOpenManager(row)}
       >
@@ -76,8 +78,8 @@ const TvSeriesPosterCard = memo(function TvSeriesPosterCard({
           </div>
         </div>
         <div className="flex flex-col gap-0.5 p-2">
-          <p className="line-clamp-2 min-w-0 text-base font-semibold leading-6 text-foreground">
-            {row.title || "-"}
+          <p className="line-clamp-2 min-w-0 text-base font-semibold leading-6 text-foreground" title={displayTitle}>
+            {displayTitle || "-"}
           </p>
           {row.latestEpisodeYear ? (
             <span className="text-xs font-medium text-muted-foreground">{row.latestEpisodeYear}</span>
@@ -125,7 +127,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
   pending,
   formatTime
 }: TvSeriesListPanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [draftQuery, setDraftQuery] = useState(query);
   const deferredQuery = useDeferredValue(draftQuery);
   const lastPublishedRef = useRef(query);
@@ -254,35 +256,38 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                 <TableBody>
                   {showSkeleton && <SkeletonRows />}
 
-                  {!showSkeleton && rows.map((row) => (
-                    <TableRow
-                      key={row.key}
-                      role="button"
-                      tabIndex={operationLocked ? -1 : 0}
-                      aria-label={row.title || t("nav.tv")}
-                      className={cn(
-                        rowFocusClass,
-                        operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
-                      )}
-                      onClick={() => {
-                        if (!operationLocked) {
-                          onOpenManager(row);
-                        }
-                      }}
-                      onKeyDown={(event) => handleRowKeyDown(event, row)}
-                    >
-                      <TableCell className="w-[76px] py-2">
-                        <PosterThumbnail src={row.posterUrl} />
-                      </TableCell>
-                      <TableCell className="max-w-[260px] truncate font-medium" title={row.title}>
-                        {row.title || "-"}
-                      </TableCell>
-                      <TableCell>{row.latestEpisodeYear || "-"}</TableCell>
-                      <TableCell className="hidden truncate md:table-cell" title={formatTime(row.updatedAt)}>{formatTime(row.updatedAt)}</TableCell>
-                      <TableCell className="text-right">{row.videoCount}</TableCell>
-                      <TableCell className="text-right">{row.noSubtitleCount}</TableCell>
-                    </TableRow>
-                  ))}
+                  {!showSkeleton && rows.map((row) => {
+                    const displayTitle = tvSeriesDisplayTitle(row, locale) || t("nav.tv");
+                    return (
+                      <TableRow
+                        key={row.key}
+                        role="button"
+                        tabIndex={operationLocked ? -1 : 0}
+                        aria-label={displayTitle}
+                        className={cn(
+                          rowFocusClass,
+                          operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
+                        )}
+                        onClick={() => {
+                          if (!operationLocked) {
+                            onOpenManager(row);
+                          }
+                        }}
+                        onKeyDown={(event) => handleRowKeyDown(event, row)}
+                      >
+                        <TableCell className="w-[76px] py-2">
+                          <PosterThumbnail src={row.posterUrl} />
+                        </TableCell>
+                        <TableCell className="max-w-[260px] truncate font-medium" title={displayTitle}>
+                          {displayTitle || "-"}
+                        </TableCell>
+                        <TableCell>{row.latestEpisodeYear || "-"}</TableCell>
+                        <TableCell className="hidden truncate md:table-cell" title={formatTime(row.updatedAt)}>{formatTime(row.updatedAt)}</TableCell>
+                        <TableCell className="text-right">{row.videoCount}</TableCell>
+                        <TableCell className="text-right">{row.noSubtitleCount}</TableCell>
+                      </TableRow>
+                    );
+                  })}
 
                   {!showSkeleton && rows.length === 0 && (
                     <TableRow>
@@ -298,7 +303,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                 {pending ? t("tv.updatingResults") : emptyState}
               </div>
             ) : (
-              <div className="pt-1">
+              <div className="px-2 pb-2 pt-1 sm:px-3">
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-3">
                   {rows.map((row) => (
                     <TvSeriesPosterCard

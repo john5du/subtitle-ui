@@ -89,6 +89,19 @@ const migrationV5AddSourceDetail = `
 ALTER TABLE subtitles ADD COLUMN source_detail TEXT NOT NULL DEFAULT '';
 `
 
+var migrationV6VideoMetadataColumns = []struct {
+	name      string
+	statement string
+}{
+	{name: "original_title", statement: `ALTER TABLE videos ADD COLUMN original_title TEXT NOT NULL DEFAULT '';`},
+	{name: "imdb_id", statement: `ALTER TABLE videos ADD COLUMN imdb_id TEXT NOT NULL DEFAULT '';`},
+	{name: "tmdb_id", statement: `ALTER TABLE videos ADD COLUMN tmdb_id TEXT NOT NULL DEFAULT '';`},
+	{name: "series_title", statement: `ALTER TABLE videos ADD COLUMN series_title TEXT NOT NULL DEFAULT '';`},
+	{name: "series_original_title", statement: `ALTER TABLE videos ADD COLUMN series_original_title TEXT NOT NULL DEFAULT '';`},
+	{name: "series_imdb_id", statement: `ALTER TABLE videos ADD COLUMN series_imdb_id TEXT NOT NULL DEFAULT '';`},
+	{name: "series_tmdb_id", statement: `ALTER TABLE videos ADD COLUMN series_tmdb_id TEXT NOT NULL DEFAULT '';`},
+}
+
 type Store struct {
 	db *sql.DB
 }
@@ -169,16 +182,23 @@ func (s *Store) SaveScanResult(videos []domain.Video, startedAt time.Time, finis
 
 		for _, video := range videos {
 			_, err = tx.Exec(
-				`INSERT OR REPLACE INTO videos(id, path, directory, file_name, title, year, media_type, metadata_source, poster_path, updated_at)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				`INSERT OR REPLACE INTO videos(id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, updated_at)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				video.ID,
 				video.Path,
 				video.Directory,
 				video.FileName,
 				video.Title,
+				video.OriginalTitle,
 				video.Year,
+				video.ImdbID,
+				video.TmdbID,
 				defaultMediaType(video.MediaType),
 				video.MetadataSource,
+				video.SeriesTitle,
+				video.SeriesOriginalTitle,
+				video.SeriesImdbID,
+				video.SeriesTmdbID,
 				video.PosterPath,
 				video.UpdatedAt.UTC().Format(time.RFC3339Nano),
 			)
@@ -224,15 +244,15 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 		pageSize = 200
 	}
 
-	baseQuery := `SELECT id, path, directory, file_name, title, year, media_type, metadata_source, poster_path, updated_at FROM videos`
+	baseQuery := `SELECT id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, updated_at FROM videos`
 	args := []any{}
 	conditions := make([]string, 0, 2)
 
 	needle := strings.TrimSpace(strings.ToLower(query))
 	if needle != "" {
-		conditions = append(conditions, `(lower(title) LIKE ? OR lower(path) LIKE ?)`)
+		conditions = append(conditions, `(lower(title) LIKE ? OR lower(original_title) LIKE ? OR lower(series_title) LIKE ? OR lower(series_original_title) LIKE ? OR lower(path) LIKE ?)`)
 		like := "%" + needle + "%"
-		args = append(args, like, like)
+		args = append(args, like, like, like, like, like)
 	}
 	typeFilter := normalizeMediaType(mediaType)
 	if typeFilter != "" {
@@ -291,7 +311,7 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 
 func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 	row := s.db.QueryRow(
-		`SELECT id, path, directory, file_name, title, year, media_type, metadata_source, poster_path, updated_at FROM videos WHERE id = ?`,
+		`SELECT id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, updated_at FROM videos WHERE id = ?`,
 		videoID,
 	)
 
@@ -306,9 +326,16 @@ func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 		&video.Directory,
 		&video.FileName,
 		&video.Title,
+		&video.OriginalTitle,
 		&video.Year,
+		&video.ImdbID,
+		&video.TmdbID,
 		&video.MediaType,
 		&video.MetadataSource,
+		&video.SeriesTitle,
+		&video.SeriesOriginalTitle,
+		&video.SeriesImdbID,
+		&video.SeriesTmdbID,
 		&posterPath,
 		&updatedRaw,
 	)
@@ -945,6 +972,27 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 		}
 	}
 
+	applied, err = s.isMigrationApplied(6)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		for _, column := range migrationV6VideoMetadataColumns {
+			hasMetadataColumn, err := s.hasColumn("videos", column.name)
+			if err != nil {
+				return err
+			}
+			if !hasMetadataColumn {
+				if _, err := s.db.Exec(column.statement); err != nil {
+					return fmt.Errorf("apply migration v6 %s: %w", column.name, err)
+				}
+			}
+		}
+		if _, err := s.db.Exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 6, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -1042,9 +1090,16 @@ func scanVideoRow(rows *sql.Rows) (domain.Video, error) {
 		&video.Directory,
 		&video.FileName,
 		&video.Title,
+		&video.OriginalTitle,
 		&video.Year,
+		&video.ImdbID,
+		&video.TmdbID,
 		&video.MediaType,
 		&video.MetadataSource,
+		&video.SeriesTitle,
+		&video.SeriesOriginalTitle,
+		&video.SeriesImdbID,
+		&video.SeriesTmdbID,
 		&posterPath,
 		&updatedRaw,
 	); err != nil {

@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import type { SubtitleDetailsPanelHandle, SubtitleDetailsPanelProps } from "../types";
+import { MediaExternalLinks } from "../shared/media-external-links";
 import { InlinePending, SpinnerIcon } from "../shared/pending-state";
 import { ArchiveEntryPickerDialog } from "../subtitle/dialogs/archive-entry-picker-dialog";
 import { ConvertSubtitleDialog } from "../subtitle/dialogs/convert-subtitle-dialog";
@@ -457,7 +458,12 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
       <div className="border-b border-border/70 bg-card/96 px-5 pb-4 pt-5 sm:px-6">
         <div className="flex flex-wrap items-start gap-3 pr-10">
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-2xl font-semibold tracking-tight sm:text-[2rem]">{selectedMovieTitle}</h2>
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+              <h2 className="min-w-0 max-w-full truncate text-2xl font-semibold tracking-tight sm:text-[2rem]">{selectedMovieTitle}</h2>
+              {selectedVideo ? (
+                <MediaExternalLinks imdbId={selectedVideo.imdbId} tmdbId={selectedVideo.tmdbId} mediaType="movie" />
+              ) : null}
+            </div>
             {searchLinks ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button type="button" variant="outline" size="sm" className="gap-1.5" asChild>

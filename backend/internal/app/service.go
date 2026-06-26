@@ -899,11 +899,25 @@ func videoContentSignature(video domain.Video) string {
 	b.WriteString("|")
 	b.WriteString(strings.TrimSpace(video.Title))
 	b.WriteString("|")
+	b.WriteString(strings.TrimSpace(video.OriginalTitle))
+	b.WriteString("|")
 	b.WriteString(strings.TrimSpace(video.Year))
+	b.WriteString("|")
+	b.WriteString(strings.TrimSpace(video.ImdbID))
+	b.WriteString("|")
+	b.WriteString(strings.TrimSpace(video.TmdbID))
 	b.WriteString("|")
 	b.WriteString(strings.ToLower(strings.TrimSpace(video.MediaType)))
 	b.WriteString("|")
 	b.WriteString(strings.TrimSpace(video.MetadataSource))
+	b.WriteString("|")
+	b.WriteString(strings.TrimSpace(video.SeriesTitle))
+	b.WriteString("|")
+	b.WriteString(strings.TrimSpace(video.SeriesOriginalTitle))
+	b.WriteString("|")
+	b.WriteString(strings.TrimSpace(video.SeriesImdbID))
+	b.WriteString("|")
+	b.WriteString(strings.TrimSpace(video.SeriesTmdbID))
 	b.WriteString("|")
 	b.WriteString(strings.ToLower(strings.TrimSpace(video.PosterPath)))
 
@@ -944,14 +958,19 @@ func buildTVSeriesSummaries(videos []domain.Video, tvRootPath string) []domain.T
 	bySeries := make(map[string]*group, 128)
 
 	for _, video := range videos {
-		key, seriesPath, seriesTitle := resolveTVSeriesFromVideo(video, tvRootPath)
+		key, seriesPath, fallbackTitle := resolveTVSeriesFromVideo(video, tvRootPath)
+		seriesTitle := strings.TrimSpace(video.SeriesTitle)
+		seriesOriginalTitle := strings.TrimSpace(video.SeriesOriginalTitle)
 		item, ok := bySeries[key]
 		if !ok {
 			item = &group{
 				item: domain.TVSeriesSummary{
 					Key:             key,
 					Path:            seriesPath,
-					Title:           seriesTitle,
+					Title:           firstNonEmpty(seriesTitle, seriesOriginalTitle, fallbackTitle, video.Title, "Unknown"),
+					OriginalTitle:   seriesOriginalTitle,
+					ImdbID:          strings.TrimSpace(video.SeriesImdbID),
+					TmdbID:          strings.TrimSpace(video.SeriesTmdbID),
 					UpdatedAt:       video.UpdatedAt.UTC().Format(time.RFC3339Nano),
 					VideoCount:      0,
 					NoSubtitleCount: 0,
@@ -960,6 +979,18 @@ func buildTVSeriesSummaries(videos []domain.Video, tvRootPath string) []domain.T
 				updatedTime: video.UpdatedAt.UTC(),
 			}
 			bySeries[key] = item
+		}
+		if seriesTitle != "" {
+			item.item.Title = seriesTitle
+		}
+		if seriesOriginalTitle != "" {
+			item.item.OriginalTitle = seriesOriginalTitle
+		}
+		if imdbID := strings.TrimSpace(video.SeriesImdbID); imdbID != "" {
+			item.item.ImdbID = imdbID
+		}
+		if tmdbID := strings.TrimSpace(video.SeriesTmdbID); tmdbID != "" {
+			item.item.TmdbID = tmdbID
 		}
 
 		item.item.VideoCount += 1
@@ -996,7 +1027,11 @@ func filterTVSeriesSummaries(items []domain.TVSeriesSummary, query string) []dom
 
 	filtered := make([]domain.TVSeriesSummary, 0, len(items))
 	for _, item := range items {
-		if strings.Contains(strings.ToLower(item.Title), needle) || strings.Contains(strings.ToLower(item.Path), needle) {
+		if strings.Contains(strings.ToLower(item.Title), needle) ||
+			strings.Contains(strings.ToLower(item.OriginalTitle), needle) ||
+			strings.Contains(strings.ToLower(item.Path), needle) ||
+			strings.Contains(strings.ToLower(item.ImdbID), needle) ||
+			strings.Contains(strings.ToLower(item.TmdbID), needle) {
 			filtered = append(filtered, item)
 		}
 	}
@@ -1103,6 +1138,15 @@ func parseYearNumber(raw string) int {
 		return 0
 	}
 	return year
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func normalizeSortOrder(raw string) string {

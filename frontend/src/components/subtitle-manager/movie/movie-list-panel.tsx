@@ -286,7 +286,7 @@ export const MovieListPanel = memo(function MovieListPanel({
                 {pending ? t("movie.updatingResults") : t("movie.empty")}
               </div>
             ) : (
-              <div className="pt-1">
+              <div className="px-2 pb-2 pt-1 sm:px-3">
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-3">
                   {videos.map((video) => (
                     <MoviePosterCard

@@ -21,16 +21,23 @@ func TestStoreScanAndLogs(t *testing.T) {
 
 	now := time.Now().UTC()
 	video := domain.Video{
-		ID:             "V1",
-		Path:           filepath.Join(t.TempDir(), "movie.mkv"),
-		Directory:      filepath.Join(t.TempDir(), "dir"),
-		FileName:       "movie.mkv",
-		Title:          "Movie",
-		Year:           "2025",
-		MediaType:      domain.MediaTypeMovie,
-		MetadataSource: "nfo",
-		PosterPath:     filepath.Join(t.TempDir(), "dir", "poster.jpg"),
-		UpdatedAt:      now,
+		ID:                  "V1",
+		Path:                filepath.Join(t.TempDir(), "movie.mkv"),
+		Directory:           filepath.Join(t.TempDir(), "dir"),
+		FileName:            "movie.mkv",
+		Title:               "Movie",
+		OriginalTitle:       "Movie Original",
+		Year:                "2025",
+		ImdbID:              "tt7654321",
+		TmdbID:              "12345",
+		MediaType:           domain.MediaTypeMovie,
+		MetadataSource:      "nfo",
+		SeriesTitle:         "Series Local",
+		SeriesOriginalTitle: "Series Original",
+		SeriesImdbID:        "tt1111111",
+		SeriesTmdbID:        "67890",
+		PosterPath:          filepath.Join(t.TempDir(), "dir", "poster.jpg"),
+		UpdatedAt:           now,
 		Subtitles: []domain.Subtitle{
 			{
 				ID:           "S1",
@@ -69,6 +76,21 @@ func TestStoreScanAndLogs(t *testing.T) {
 	if videos[0].PosterPath != video.PosterPath {
 		t.Fatalf("expected poster path %q, got %q", video.PosterPath, videos[0].PosterPath)
 	}
+	if videos[0].OriginalTitle != video.OriginalTitle || videos[0].ImdbID != video.ImdbID || videos[0].TmdbID != video.TmdbID {
+		t.Fatalf("unexpected movie metadata fields: %+v", videos[0])
+	}
+	if videos[0].SeriesTitle != video.SeriesTitle || videos[0].SeriesOriginalTitle != video.SeriesOriginalTitle ||
+		videos[0].SeriesImdbID != video.SeriesImdbID || videos[0].SeriesTmdbID != video.SeriesTmdbID {
+		t.Fatalf("unexpected series metadata fields: %+v", videos[0])
+	}
+
+	matches, total, err := st.ListVideos("Original", domain.MediaTypeMovie, "", 1, 20, "", "")
+	if err != nil {
+		t.Fatalf("list videos by original title: %v", err)
+	}
+	if total != 1 || len(matches) != 1 || matches[0].ID != video.ID {
+		t.Fatalf("expected original title query to match stored video, total=%d matches=%+v", total, matches)
+	}
 
 	storedVideo, found, err := st.GetVideo("V1")
 	if err != nil {
@@ -79,6 +101,13 @@ func TestStoreScanAndLogs(t *testing.T) {
 	}
 	if storedVideo.PosterPath != video.PosterPath {
 		t.Fatalf("expected stored poster path %q, got %q", video.PosterPath, storedVideo.PosterPath)
+	}
+	if storedVideo.OriginalTitle != video.OriginalTitle || storedVideo.ImdbID != video.ImdbID || storedVideo.TmdbID != video.TmdbID {
+		t.Fatalf("unexpected stored movie metadata fields: %+v", storedVideo)
+	}
+	if storedVideo.SeriesTitle != video.SeriesTitle || storedVideo.SeriesOriginalTitle != video.SeriesOriginalTitle ||
+		storedVideo.SeriesImdbID != video.SeriesImdbID || storedVideo.SeriesTmdbID != video.SeriesTmdbID {
+		t.Fatalf("unexpected stored series metadata fields: %+v", storedVideo)
 	}
 	if storedVideo.Subtitles[0].Source != domain.SubtitleSourceUpload || storedVideo.Subtitles[0].SourceDetail != "upload.zh.srt" {
 		t.Fatalf("expected stored subtitle source to be preserved, got %+v", storedVideo.Subtitles[0])
@@ -146,6 +175,18 @@ func TestMigrationV5AddsAndBackfillsSubtitleSources(t *testing.T) {
 	statements := []string{
 		`CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)`,
 		`INSERT INTO schema_migrations(version, applied_at) VALUES(1, '` + now + `'), (2, '` + now + `'), (3, '` + now + `'), (4, '` + now + `')`,
+		`CREATE TABLE videos (
+  id TEXT PRIMARY KEY,
+  path TEXT NOT NULL UNIQUE,
+  directory TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  title TEXT NOT NULL,
+  year TEXT NOT NULL DEFAULT '',
+  metadata_source TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL,
+  media_type TEXT NOT NULL DEFAULT 'movie',
+  poster_path TEXT NOT NULL DEFAULT ''
+)`,
 		`CREATE TABLE subtitles (
   id TEXT PRIMARY KEY,
   video_id TEXT NOT NULL,
@@ -215,6 +256,60 @@ VALUES('L1', '` + now + `', 'upload', 'V1', '/media/movie.zh.srt', 'ok', ''),
 	}
 	if got["movie.zh.srt"].Source != domain.SubtitleSourceUpload || got["movie.zh.srt"].SourceDetail != "movie.zh.srt" {
 		t.Fatalf("unexpected upload backfill: %+v", got["movie.zh.srt"])
+	}
+}
+
+func TestMigrationV6AddsVideoMetadataColumns(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "legacy-v6.sqlite3")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open legacy db: %v", err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	statements := []string{
+		`CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)`,
+		`INSERT INTO schema_migrations(version, applied_at) VALUES(1, '` + now + `'), (2, '` + now + `'), (3, '` + now + `'), (4, '` + now + `'), (5, '` + now + `')`,
+		`CREATE TABLE videos (
+  id TEXT PRIMARY KEY,
+  path TEXT NOT NULL UNIQUE,
+  directory TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  title TEXT NOT NULL,
+  year TEXT NOT NULL DEFAULT '',
+  metadata_source TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL,
+  media_type TEXT NOT NULL DEFAULT 'movie',
+  poster_path TEXT NOT NULL DEFAULT ''
+)`,
+		`INSERT INTO videos(id, path, directory, file_name, title, year, metadata_source, updated_at, media_type, poster_path)
+VALUES('V1', '/media/movie.mkv', '/media', 'movie.mkv', 'Movie', '2025', 'nfo', '` + now + `', 'movie', '')`,
+	}
+	for _, statement := range statements {
+		if _, err := db.Exec(statement); err != nil {
+			_ = db.Close()
+			t.Fatalf("prepare legacy db: %v", err)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close legacy db: %v", err)
+	}
+
+	st, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open migrated store: %v", err)
+	}
+	defer func() {
+		_ = st.Close()
+	}()
+
+	row := st.db.QueryRow(`SELECT original_title, imdb_id, tmdb_id, series_title, series_original_title, series_imdb_id, series_tmdb_id FROM videos WHERE id = 'V1'`)
+	var originalTitle, imdbID, tmdbID, seriesTitle, seriesOriginalTitle, seriesImdbID, seriesTmdbID string
+	if err := row.Scan(&originalTitle, &imdbID, &tmdbID, &seriesTitle, &seriesOriginalTitle, &seriesImdbID, &seriesTmdbID); err != nil {
+		t.Fatalf("query migrated video metadata columns: %v", err)
+	}
+	if originalTitle != "" || imdbID != "" || tmdbID != "" || seriesTitle != "" || seriesOriginalTitle != "" || seriesImdbID != "" || seriesTmdbID != "" {
+		t.Fatalf("expected empty defaults after migration, got original=%q imdb=%q tmdb=%q series=%q/%q/%q/%q",
+			originalTitle, imdbID, tmdbID, seriesTitle, seriesOriginalTitle, seriesImdbID, seriesTmdbID)
 	}
 }
 
