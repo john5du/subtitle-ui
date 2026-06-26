@@ -4,7 +4,7 @@
 
 # subtitle-ui
 
-A Go + Next.js web application for managing subtitle files alongside a Jellyfin-style media library. Video metadata is read from sidecar NFO files scraped by Jellyfin (or any compatible scraper).
+A Go + Next.js web application for managing subtitle files alongside a Jellyfin-style media library. It is designed around Chinese subtitle workflows: browse movies and TV shows from sidecar NFO metadata, jump directly to Zimuku/SubHD subtitle searches, upload or replace subtitle files safely, convert SRT subtitles to ASS, and edit the global ASS template used for conversions.
 
 中文文档：[`README.zh-CN.md`](./README.zh-CN.md)
 
@@ -12,7 +12,11 @@ A Go + Next.js web application for managing subtitle files alongside a Jellyfin-
 
 - **Movie and TV libraries** — split browsing for `movies/` and `tv/` roots, with per-series season and episode drilldowns.
 - **Card and list views** — toggleable poster grid or compact table, with pagination and year sort.
+- **Chinese subtitle workflow** — Chinese UI support plus quick links to common Chinese subtitle search sites.
+- **One-click subtitle search** — open Zimuku (`zimuku.org`) or SubHD (`subhd.tv`) searches from the selected title.
 - **Subtitle operations** — upload, replace (backup first), delete, preview stored subtitle content.
+- **SRT to ASS conversion** — generate ASS while uploading a new SRT, or convert an existing SRT into an additional ASS file.
+- **ASS template editing** — edit the global ASS conversion template and default source encoding.
 - **Archive uploads** — accepts `.zip`, `.7z`, `.rar` payloads; entries are parsed client-side and you pick which subtitle inside to install.
 - **TV season batch upload** — match one archive against a whole season by episode number.
 - **Posters** — reads `poster.*` / `folder.*` / `fanart.*` / `<base>-poster.*` next to the video (or at series root for TV) in `.jpg` / `.png` / `.bmp`.
@@ -31,18 +35,18 @@ bun run build
 ```
 
 2. Commit release changes on `main` (Conventional Commit style).
-3. Create and push the release tag:
+3. Current source version is `0.7.2`. Create and push the release tag for the version you want to publish:
 
 ```bash
 git push origin main
-git tag v0.5.4
-git push origin v0.5.4
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
-4. Tag push (`v*`) triggers `.github/workflows/docker-publish.yml`.
+4. Tag push (`v*`) triggers `.github/workflows/docker-publish.yml`. You can also run the workflow manually with `workflow_dispatch`; the optional version input accepts `0.7.3` or `v0.7.3`, and if omitted the workflow increments the patch version from the version files.
 5. Confirm release artifacts:
 - GitHub Actions workflow succeeded.
-- `ghcr.io/john5du/subtitle-ui` has tags: `v0.5.4`, `0.5.4`, `latest`, `sha-<short>`.
+- `ghcr.io/john5du/subtitle-ui` has tags: `vX.Y.Z`, `X.Y.Z`, `latest`, `sha-<short>`.
 - Version file sync commit is pushed back to the default branch.
 
 ## Backend API
@@ -54,14 +58,18 @@ git push origin v0.5.4
 - `GET /api/scan/directories` (get last discovered directory result)
 - `POST /api/scan/files` (scan files from selected directories, body: `movieDirs[]`, `tvDirs[]`)
 - `GET /api/scan/status`
+- `GET /api/config/subtitle-conversion`
+  - response: `{ assTemplate, defaultAssTemplate, sourceEncodingDefault, updatedAt }`
+- `PUT /api/config/subtitle-conversion` (body: `assTemplate`, `sourceEncodingDefault`)
 - `GET /api/videos` (query: `mediaType=movie|tv`, optional `q`, `dir`, `page`, `pageSize`, `sortBy`, `sortOrder`)
   - response: `{ items: Video[], total, page, pageSize, totalPages }`
 - `GET /api/tv/series` (query: optional `q`, `page`, `pageSize`, `sortYear`, `sortOrder`)
   - response: `{ items: TVSeriesSummary[], total, page, pageSize, totalPages }`
 - `GET /api/videos/{videoId}`
 - `GET /api/videos/{videoId}/poster` (serves poster image resolved under the video's media root)
-- `POST /api/videos/{videoId}/subtitles` (multipart `file`, optional `label`, optional `replaceId`)
+- `POST /api/videos/{videoId}/subtitles` (multipart `file`, optional `label`, optional `replaceId`; optional `convertTo=ass`, `sourceEncoding` for new SRT uploads)
 - `GET /api/videos/{videoId}/subtitles/{subtitleId}/content` (subtitle bytes for preview)
+- `POST /api/videos/{videoId}/subtitles/{subtitleId}/convert` (body: `targetFormat=ass`, optional `sourceEncoding`)
 - `DELETE /api/videos/{videoId}/subtitles/{subtitleId}`
 - `GET /api/logs` (query: optional `page`, `pageSize`)
   - response: `{ items: OperationLog[], total, page, pageSize, totalPages }`
@@ -99,7 +107,7 @@ Subtitle extensions recognized: `.srt .ass .ssa .vtt .sub`.
 
 Requirements:
 - macOS with `bash` and `lsof`
-- Local `go` and `bun`
+- Local `go` and `bun` (`frontend/package.json` currently pins `bun@1.3.14`)
 
 ### One-click startup
 
@@ -228,14 +236,14 @@ docker compose up -d
 ## GitHub Actions image publish
 
 - Workflow file: `.github/workflows/docker-publish.yml`
-- Trigger: push tag matching `v*` (for example `v0.5.4`)
+- Trigger: push tag matching `v*` (for example `v0.7.2`) or manual `workflow_dispatch`
 - Registry: `ghcr.io/john5du/subtitle-ui`
 - Tags published:
-  - semantic tag (`v0.5.4`)
-  - semantic version tag (`0.5.4`)
+  - semantic tag (`vX.Y.Z`)
+  - semantic version tag (`X.Y.Z`)
   - moving tag (`latest`)
   - commit SHA tag (`sha-<short>`)
-- The publish workflow syncs version files from the pushed tag before image build, and commits those file changes back to the default branch.
+- The publish workflow syncs version files before image build, and commits those file changes back to the default branch when needed.
 
 ## Configuration
 
@@ -245,11 +253,14 @@ docker compose up -d
 - `MEDIA_ROOT` legacy fallback (if set and `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` not set, both use it)
 - `DB_PATH` default `./tmp/subtitle_manager.sqlite3`
 - `UI_DIST` default `./frontend/out`
+- `CORS_ALLOWED_ORIGINS` comma-separated allowed origins for mutating cross-origin API requests
+- `TRUST_FORWARDED_HEADERS` set to `1`, `true`, `yes`, or `on` to build absolute poster URLs from `X-Forwarded-Proto` / `X-Forwarded-Host`
 - `NEXT_PUBLIC_API_BASE` (frontend dev) — overrides the API host, e.g. `http://localhost:9307`
 
 ## Notes
 
 - Upload entry points accept subtitle files and archives (`.zip`, `.7z`, `.rar`); only subtitle files (`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`) inside archives are processed.
+- SRT to ASS conversion supports `auto`, `utf-8`, `utf-16le`, `utf-16be`, `gb18030`, and `big5` source encodings.
 - Scanner reads `<videoName>.nfo` and `movie.nfo` from the video's directory.
 - Poster resolution order — movies: `poster`, `movie`, `folder`, `<base>-poster`, `<base>`, `cover`; TV (at series root): `poster`, `folder`, `fanart`.
 - Replace and delete operations back up the existing subtitle file before writing.
