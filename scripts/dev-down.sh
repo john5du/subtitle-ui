@@ -110,6 +110,45 @@ stop_by_pid_file() {
   stop_pid "$raw_pid" "$label" || true
 }
 
+read_next_lock_pid() {
+  local lock_file="$1"
+
+  if [ ! -f "$lock_file" ]; then
+    return 0
+  fi
+
+  node -e '
+const fs = require("fs");
+try {
+  const lock = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  if (Number.isInteger(lock.pid) && lock.pid > 0) {
+    console.log(lock.pid);
+  }
+} catch {}
+' "$lock_file" 2>/dev/null || true
+}
+
+stop_by_next_lock_file() {
+  local label="$1"
+  local lock_file="$2"
+  local raw_pid
+
+  if [ ! -f "$lock_file" ]; then
+    log_step "$label lock file not found: $lock_file"
+    return 0
+  fi
+
+  raw_pid="$(read_next_lock_pid "$lock_file" | tr -d '[:space:]')"
+  rm -f "$lock_file"
+
+  if [ -z "$raw_pid" ]; then
+    log_step "$label lock file did not contain a PID."
+    return 0
+  fi
+
+  stop_pid "$raw_pid" "$label lock" || true
+}
+
 stop_port_listener() {
   local port="$1"
   local label="$2"
@@ -180,19 +219,25 @@ while [ "$#" -gt 0 ]; do
 done
 
 require_cmd lsof
+require_cmd node
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
+frontend_dir="$repo_root/frontend"
 tmp_dir="$repo_root/tmp"
 backend_port=9307
 frontend_port=3300
 
 backend_pid_file="$tmp_dir/backend.pid"
 frontend_pid_file="$tmp_dir/frontend.pid"
+frontend_next_lock_file="$frontend_dir/.next/dev/lock"
 
 log_step "Stopping services from pid files ..."
 stop_by_pid_file "backend" "$backend_pid_file"
 stop_by_pid_file "frontend" "$frontend_pid_file"
+
+log_step "Stopping frontend from Next dev lock ..."
+stop_by_next_lock_file "frontend" "$frontend_next_lock_file"
 
 if [ "$kill_by_port" = "true" ]; then
   log_step "Kill-by-port fallback enabled."

@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode
 } from "react";
@@ -60,10 +61,17 @@ function resolveTheme(theme: ThemePreference): ResolvedTheme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemePreference>(() => readStoredTheme());
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(readStoredTheme()));
+  const [theme, setThemeState] = useState<ThemePreference>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("dark");
+  const hasMounted = useRef(false);
+  const hasAppliedTheme = useRef(false);
 
   useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, theme);
     window.__subtitleUiTheme = theme;
@@ -71,6 +79,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storedTheme = readStoredTheme();
+    setResolvedTheme(resolveTheme(storedTheme));
+
+    if (storedTheme !== theme) {
+      setThemeState(storedTheme);
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    if (!hasAppliedTheme.current) {
+      hasAppliedTheme.current = true;
+      return;
+    }
+
     if (typeof document === "undefined") return;
     document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
   }, [resolvedTheme]);

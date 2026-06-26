@@ -66,6 +66,47 @@ wait_port_open() {
   return 1
 }
 
+wait_http_ready() {
+  local url="$1"
+  local timeout_sec="$2"
+  local timeout_ms=$((timeout_sec * 1000))
+  local waited_ms=0
+  local interval_ms=300
+
+  while [ "$waited_ms" -lt "$timeout_ms" ]; do
+    if curl -fs --max-time 2 -o /dev/null "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.3
+    waited_ms=$((waited_ms + interval_ms))
+  done
+
+  return 1
+}
+
+wait_service_ready() {
+  local port="$1"
+  local url="$2"
+  local timeout_sec="$3"
+  local pid
+
+  if ! pid="$(wait_port_open "$port" "$timeout_sec")"; then
+    return 1
+  fi
+
+  if ! wait_http_ready "$url" "$timeout_sec"; then
+    return 1
+  fi
+
+  sleep 1
+  pid="$(get_listener_pid "$port")"
+  if [ -z "$pid" ]; then
+    return 1
+  fi
+
+  printf '%s\n' "$pid"
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --skip-install)
@@ -98,6 +139,8 @@ done
 require_cmd lsof
 require_cmd go
 require_cmd bun
+require_cmd node
+require_cmd curl
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
@@ -105,6 +148,8 @@ frontend_dir="$repo_root/frontend"
 tmp_dir="$repo_root/tmp"
 backend_port=9307
 frontend_port=3300
+backend_url="http://127.0.0.1:$backend_port/"
+frontend_url="http://127.0.0.1:$frontend_port/"
 
 if [ ! -d "$frontend_dir" ]; then
   die "frontend directory not found: $frontend_dir"
@@ -122,6 +167,9 @@ frontend_pid_file="$tmp_dir/frontend.pid"
 
 backend_pid="$(get_listener_pid "$backend_port")"
 if [ -n "$backend_pid" ]; then
+  if ! wait_http_ready "$backend_url" "$wait_timeout_sec"; then
+    die "Backend is listening on :$backend_port (PID=$backend_pid) but did not respond at $backend_url."
+  fi
   log_step "Backend already listening on :$backend_port (PID=$backend_pid)."
 else
   log_step "Starting backend on :$backend_port ..."
@@ -133,8 +181,8 @@ else
   disown "$backend_launcher_pid" 2>/dev/null || true
   popd >/dev/null
 
-  if ! backend_pid="$(wait_port_open "$backend_port" "$wait_timeout_sec")"; then
-    die "Backend failed to listen on :$backend_port within $wait_timeout_sec seconds. See $backend_err"
+  if ! backend_pid="$(wait_service_ready "$backend_port" "$backend_url" "$wait_timeout_sec")"; then
+    die "Backend failed to respond at $backend_url within $wait_timeout_sec seconds. See $backend_err"
   fi
   log_step "Backend is up (PID=$backend_pid)."
 fi
@@ -150,6 +198,9 @@ fi
 
 frontend_pid="$(get_listener_pid "$frontend_port")"
 if [ -n "$frontend_pid" ]; then
+  if ! wait_http_ready "$frontend_url" "$wait_timeout_sec"; then
+    die "Frontend is listening on :$frontend_port (PID=$frontend_pid) but did not respond at $frontend_url."
+  fi
   log_step "Frontend already listening on :$frontend_port (PID=$frontend_pid)."
 else
   log_step "Starting frontend dev server on :$frontend_port ..."
@@ -161,8 +212,8 @@ else
   disown "$frontend_launcher_pid" 2>/dev/null || true
   popd >/dev/null
 
-  if ! frontend_pid="$(wait_port_open "$frontend_port" "$wait_timeout_sec")"; then
-    die "Frontend failed to listen on :$frontend_port within $wait_timeout_sec seconds. See $frontend_err"
+  if ! frontend_pid="$(wait_service_ready "$frontend_port" "$frontend_url" "$wait_timeout_sec")"; then
+    die "Frontend failed to respond at $frontend_url within $wait_timeout_sec seconds. See $frontend_err"
   fi
   log_step "Frontend is up (PID=$frontend_pid)."
 fi

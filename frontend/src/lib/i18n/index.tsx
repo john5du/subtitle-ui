@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode
 } from "react";
@@ -67,31 +68,37 @@ export function I18nProvider({
   children: ReactNode;
   initialLocale?: Locale;
 }) {
-  const [locale, setLocale] = useState<Locale>(() => {
-    if (typeof window === "undefined") {
-      return initialLocale;
-    }
-
-    const bootstrapLocale = window.__subtitleUiLocale;
-    if (isLocale(bootstrapLocale)) {
-      return bootstrapLocale;
-    }
-
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (isLocale(stored)) {
-      return stored;
-    }
-
-    return initialLocale;
-  });
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+  const hasMounted = useRef(false);
 
   useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+
     if (typeof window !== "undefined") {
       window.localStorage.setItem(STORAGE_KEY, locale);
       window.__subtitleUiLocale = locale;
     }
     document.documentElement.lang = locale;
   }, [locale]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const bootstrapLocale = window.__subtitleUiLocale;
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const nextLocale = isLocale(bootstrapLocale) ? bootstrapLocale : isLocale(stored) ? stored : initialLocale;
+
+    document.documentElement.lang = nextLocale;
+
+    if (nextLocale !== locale) {
+      setLocale(nextLocale);
+    }
+  }, [initialLocale, locale]);
 
   const t = useCallback<TranslateFn>((key, values) => {
     return translate(locale, key, values);

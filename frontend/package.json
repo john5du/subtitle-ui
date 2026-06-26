@@ -7,7 +7,7 @@
   "scripts": {
     "prepare:libarchive": "bun ./scripts/prepare-libarchive.mjs",
     "predev": "bun run prepare:libarchive",
-    "dev": "bun --bun next dev -p 3300",
+    "dev": "node ./scripts/dev-next.mjs",
     "prebuild": "bun run prepare:libarchive",
     "build": "bun --bun next build",
     "start": "bun --bun next start",

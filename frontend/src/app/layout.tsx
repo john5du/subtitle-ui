@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import Script from "next/script";
 
 import { ToastViewport } from "@/components/ui/toast-viewport";
 import { I18nProvider } from "@/lib/i18n";
@@ -78,9 +79,13 @@ const localeBootstrapScript = `
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: localeBootstrapScript }} />
+        <Script
+          id="subtitle-ui-bootstrap"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: localeBootstrapScript }}
+        />
       </head>
       <body className={`${appSans.variable} ${appMono.variable}`}>
         <ThemeProvider>
