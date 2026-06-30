@@ -406,17 +406,59 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   </>
                 )}
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 shrink-0"
-                aria-label={sidebarToggleLabel}
-                title={sidebarToggleLabel}
-                onClick={shell.toggleSidebarCollapsed}
-              >
-                {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-              </Button>
+              {sidebarCollapsed ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    aria-label={sidebarToggleLabel}
+                    title={sidebarToggleLabel}
+                    onClick={shell.toggleSidebarCollapsed}
+                  >
+                    {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => void shell.refreshActiveTab()}
+                    disabled={refreshDisabled}
+                    className="h-9 w-9 shrink-0"
+                    aria-label={refreshLabel}
+                    title={refreshLabel}
+                  >
+                    {shell.refreshPending ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+                  </Button>
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => void shell.refreshActiveTab()}
+                    disabled={refreshDisabled}
+                    className="h-9 w-9 shrink-0"
+                    aria-label={refreshLabel}
+                    title={refreshLabel}
+                  >
+                    {shell.refreshPending ? <SpinnerIcon className="h-5 w-5" /> : <RefreshCw className="h-5 w-5" />}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    aria-label={sidebarToggleLabel}
+                    title={sidebarToggleLabel}
+                    onClick={shell.toggleSidebarCollapsed}
+                  >
+                    {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div role="tablist" aria-label={t("sidebar.tagline")} className={cn("flex flex-col", sidebarCollapsed ? "w-full gap-2" : "gap-1.5")}>
@@ -460,20 +502,6 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   {shell.statusBadgeText}
                 </Badge>
               )}
-              <div className={cn("surface-subtle flex items-center justify-center gap-2 p-1.5", sidebarCollapsed ? "w-full flex-col" : "flex-wrap sm:flex-nowrap")}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => void shell.refreshActiveTab()}
-                  disabled={refreshDisabled}
-                  className="h-10 w-10"
-                  aria-label={refreshLabel}
-                  title={refreshLabel}
-                >
-                  {shell.refreshPending ? <SpinnerIcon className="h-5 w-5" /> : <RefreshCw className="h-5 w-5" />}
-                </Button>
-              </div>
               <a
                 href={APP_REPOSITORY_URL}
                 target="_blank"
