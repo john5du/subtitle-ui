@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Film, LayoutDashboard, Tv } from "lucide-react";
+import { Film, LayoutDashboard, Settings, Tv } from "lucide-react";
 
 import { useSubtitleManager } from "@/hooks/use-subtitle-manager";
 import { useI18n } from "@/lib/i18n";
@@ -79,7 +79,8 @@ export function useSubtitleManagerScreenModel() {
     () => [
       { key: "dashboard", icon: <LayoutDashboard className="h-5 w-5" />, label: t("nav.overview") },
       { key: "movie", icon: <Film className="h-5 w-5" />, label: t("nav.movie") },
-      { key: "tv", icon: <Tv className="h-5 w-5" />, label: t("nav.tv") }
+      { key: "tv", icon: <Tv className="h-5 w-5" />, label: t("nav.tv") },
+      { key: "settings", icon: <Settings className="h-5 w-5" />, label: t("nav.settings") }
     ],
     [t]
   );
@@ -260,10 +261,11 @@ export function useSubtitleManagerScreenModel() {
       logs,
       logsPager,
       setLogsPage: dashboard.setLogsPage,
+      refreshLogs: dashboard.refreshLogs,
       clearLogs: dashboard.clearLogs,
       pending,
       formatTime
-    }), [dashboard.clearLogs, dashboard.setLogsPage, directoryScan, formatTime, logs, logsPager, pending, scanStatus]);
+    }), [dashboard.clearLogs, dashboard.refreshLogs, dashboard.setLogsPage, directoryScan, formatTime, logs, logsPager, pending, scanStatus]);
 
   const movieModel = useMemo(() => ({
       query: movie.query,

@@ -1,7 +1,7 @@
 import { memo, useCallback } from "react";
 
 import Image from "next/image";
-import { PanelLeftClose, PanelLeftOpen, RefreshCw, Search } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, RefreshCw } from "lucide-react";
 
 import { APP_REPOSITORY_URL, APP_VERSION } from "@/lib/app-version";
 import { useI18n } from "@/lib/i18n";
@@ -17,9 +17,8 @@ import type { SubtitleManagerScreenModel } from "../hooks/use-subtitle-manager-s
 import { DashboardPanel } from "../dashboard/dashboard-panel";
 import { MovieListPanel } from "../movie/movie-list-panel";
 import { MovieSubtitleDrawer } from "../movie/movie-subtitle-drawer";
-import { LocaleSelect, SubtitleConversionSettingsButton } from "../shared/settings-controls";
+import { SettingsPanel } from "../settings/settings-panel";
 import { SpinnerIcon } from "../shared/pending-state";
-import { ThemeToggle } from "../shared/theme-toggle";
 import { UploadBlockingOverlay } from "../shared/upload-blocking-overlay";
 import { TvSubtitleDrawer } from "../tv/tv-subtitle-drawer";
 import { TvSeriesListPanel } from "../tv/tv-series-list-panel";
@@ -34,6 +33,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   dashboardLogs,
   dashboardLogsPager,
   dashboardSetLogsPage,
+  dashboardRefreshLogs,
   dashboardClearLogs,
   dashboardPending,
   dashboardFormatTime,
@@ -71,6 +71,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   dashboardLogs: SubtitleManagerScreenModel["dashboard"]["logs"];
   dashboardLogsPager: SubtitleManagerScreenModel["dashboard"]["logsPager"];
   dashboardSetLogsPage: SubtitleManagerScreenModel["dashboard"]["setLogsPage"];
+  dashboardRefreshLogs: SubtitleManagerScreenModel["dashboard"]["refreshLogs"];
   dashboardClearLogs: SubtitleManagerScreenModel["dashboard"]["clearLogs"];
   dashboardPending: SubtitleManagerScreenModel["dashboard"]["pending"];
   dashboardFormatTime: SubtitleManagerScreenModel["dashboard"]["formatTime"];
@@ -113,12 +114,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
           <DashboardPanel
             scanStatus={dashboardScanStatus}
             directoryScan={dashboardDirectoryScan}
-            logs={dashboardLogs}
-            logsPager={dashboardLogsPager}
-            onSetLogsPage={dashboardSetLogsPage}
-            onClearLogs={dashboardClearLogs}
             pending={dashboardPending}
-            formatTime={dashboardFormatTime}
           />
         </div>
       )}
@@ -166,6 +162,20 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
         </div>
       )}
 
+      {activeTab === "settings" && (
+        <SettingsPanel
+          operationLocked={operationLocked}
+          scanPending={dashboardPending.scan}
+          triggerScan={triggerScan}
+          logs={dashboardLogs}
+          logsPager={dashboardLogsPager}
+          onSetLogsPage={dashboardSetLogsPage}
+          onRefreshLogs={dashboardRefreshLogs}
+          onClearLogs={dashboardClearLogs}
+          pending={dashboardPending}
+          formatTime={dashboardFormatTime}
+        />
+      )}
     </div>
   );
 });
@@ -306,6 +316,13 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
   const activeTabLabel = shell.navItems.find((item) => item.key === shell.activeTab)?.label ?? shell.activeTab;
   const sidebarCollapsed = shell.sidebarCollapsed;
   const sidebarToggleLabel = sidebarCollapsed ? t("sidebar.expand") : t("sidebar.collapse");
+  const refreshUnavailable = shell.activeTab === "settings";
+  const refreshDisabled = shell.operationLocked || refreshUnavailable;
+  const refreshLabel = refreshUnavailable
+    ? t("settings.refreshUnavailable")
+    : shell.refreshPending
+      ? t("sidebar.refreshingTab", { tab: activeTabLabel })
+      : t("sidebar.refreshTab", { tab: activeTabLabel });
 
   return (
     <div className="relative flex h-full min-h-0 w-full min-w-0 flex-col lg:flex-row">
@@ -325,29 +342,15 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
               </Badge>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <LocaleSelect />
-              <SubtitleConversionSettingsButton triggerClassName="h-9 w-9" />
-              <ThemeToggle triggerClassName="h-9 w-9" />
-              <Button
-                type="button"
-                size="icon"
-                onClick={() => void shell.triggerScan()}
-                disabled={shell.operationLocked}
-                className="h-9 w-9"
-                aria-label={shell.scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
-                title={shell.scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
-              >
-                {shell.scanPending ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-              </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
                 onClick={() => void shell.refreshActiveTab()}
-                disabled={shell.operationLocked}
+                disabled={refreshDisabled}
                 className="h-9 w-9"
-                aria-label={shell.refreshPending ? t("sidebar.refreshingTab", { tab: activeTabLabel }) : t("sidebar.refreshTab", { tab: activeTabLabel })}
-                title={shell.refreshPending ? t("sidebar.refreshingTab", { tab: activeTabLabel }) : t("sidebar.refreshTab", { tab: activeTabLabel })}
+                aria-label={refreshLabel}
+                title={refreshLabel}
               >
                 {shell.refreshPending ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
               </Button>
@@ -458,29 +461,15 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                 </Badge>
               )}
               <div className={cn("surface-subtle flex items-center justify-center gap-2 p-1.5", sidebarCollapsed ? "w-full flex-col" : "flex-wrap sm:flex-nowrap")}>
-                <LocaleSelect />
-                <SubtitleConversionSettingsButton />
-                <ThemeToggle />
-                <Button
-                  type="button"
-                  size="icon"
-                  onClick={() => void shell.triggerScan()}
-                  disabled={shell.operationLocked}
-                  className="h-10 w-10"
-                  aria-label={shell.scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
-                  title={shell.scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
-                >
-                  {shell.scanPending ? <SpinnerIcon className="h-5 w-5" /> : <Search className="h-5 w-5" />}
-                </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
                   onClick={() => void shell.refreshActiveTab()}
-                  disabled={shell.operationLocked}
+                  disabled={refreshDisabled}
                   className="h-10 w-10"
-                  aria-label={shell.refreshPending ? t("sidebar.refreshingTab", { tab: activeTabLabel }) : t("sidebar.refreshTab", { tab: activeTabLabel })}
-                  title={shell.refreshPending ? t("sidebar.refreshingTab", { tab: activeTabLabel }) : t("sidebar.refreshTab", { tab: activeTabLabel })}
+                  aria-label={refreshLabel}
+                  title={refreshLabel}
                 >
                   {shell.refreshPending ? <SpinnerIcon className="h-5 w-5" /> : <RefreshCw className="h-5 w-5" />}
                 </Button>
@@ -513,6 +502,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             dashboardLogs={dashboard.logs}
             dashboardLogsPager={dashboard.logsPager}
             dashboardSetLogsPage={dashboard.setLogsPage}
+            dashboardRefreshLogs={dashboard.refreshLogs}
             dashboardClearLogs={dashboard.clearLogs}
             dashboardPending={dashboard.pending}
             dashboardFormatTime={dashboard.formatTime}

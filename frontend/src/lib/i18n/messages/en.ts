@@ -22,6 +22,7 @@ export const enMessages = {
   "nav.overview": "Overview",
   "nav.movie": "Movie",
   "nav.tv": "TV",
+  "nav.settings": "Settings",
   "nav.logs": "Logs",
 
   "sidebar.tagline": "Simple, efficient subtitle operations.",
@@ -32,6 +33,14 @@ export const enMessages = {
   "sidebar.refreshingTab": "Refreshing {tab}",
   "sidebar.collapse": "Collapse sidebar",
   "sidebar.expand": "Expand sidebar",
+
+  "settings.title": "Settings",
+  "settings.appearance": "Appearance",
+  "settings.subtitleConversion": "Subtitle Conversion",
+  "settings.mediaLibrary": "Media Library",
+  "settings.operationLogs": "Operation Logs",
+  "settings.viewOperationLogs": "View operation logs",
+  "settings.refreshUnavailable": "Settings does not need refresh",
 
   "theme.system": "System",
   "theme.light": "Light",

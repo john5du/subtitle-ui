@@ -84,7 +84,8 @@ function createDefaultLoadedTabs(): Record<ActiveTab, boolean> {
   return {
     dashboard: false,
     movie: false,
-    tv: false
+    tv: false,
+    settings: false
   };
 }
 

@@ -144,7 +144,7 @@ export function useSubtitleManagerEffects({
   useEffect(() => {
     void (async () => {
       try {
-        await Promise.all([controller.loadScanStatus(), controller.loadDirectoryScanResult(), controller.loadLogs()]);
+        await Promise.all([controller.loadScanStatus(), controller.loadDirectoryScanResult()]);
         setLoadedTabs((prev) => ({ ...prev, dashboard: true }));
       } finally {
         controller.finishBootstrapping();

@@ -24,6 +24,7 @@ export const zhCNMessages: MessageDictionary = {
   "nav.overview": "总览",
   "nav.movie": "电影",
   "nav.tv": "剧集",
+  "nav.settings": "配置",
   "nav.logs": "日志",
 
   "sidebar.tagline": "简洁高效的字幕管理界面。",
@@ -34,6 +35,14 @@ export const zhCNMessages: MessageDictionary = {
   "sidebar.refreshingTab": "正在刷新{tab}",
   "sidebar.collapse": "折叠侧边栏",
   "sidebar.expand": "展开侧边栏",
+
+  "settings.title": "配置",
+  "settings.appearance": "外观",
+  "settings.subtitleConversion": "字幕转换",
+  "settings.mediaLibrary": "媒体库",
+  "settings.operationLogs": "操作日志",
+  "settings.viewOperationLogs": "查看操作日志",
+  "settings.refreshUnavailable": "配置页无需刷新",
 
   "theme.system": "跟随系统",
   "theme.light": "浅色",

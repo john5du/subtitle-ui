@@ -130,6 +130,7 @@ export interface SubtitleManagerDashboardDomain {
   logs: OperationLog[];
   logsPager: Pager;
   setLogsPage: (nextPage: number) => void;
+  refreshLogs: (page?: number) => Promise<void>;
   clearLogs: () => Promise<boolean>;
 }
 

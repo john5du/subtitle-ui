@@ -41,6 +41,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
   const setMoviePage = useCallback((nextPage: number) => controllerRef.current.setMoviePage(nextPage), []);
   const setTvPage = useCallback((nextPage: number) => controllerRef.current.setTvPage(nextPage), []);
   const setLogsPage = useCallback((nextPage: number) => controllerRef.current.setLogsPage(nextPage), []);
+  const refreshLogs = useCallback((page = 1) => controllerRef.current.loadLogs({ page }), []);
   const toggleMovieYearSort = useCallback(() => controllerRef.current.toggleMovieYearSort(), []);
   const toggleTvSeriesYearSort = useCallback(() => controllerRef.current.toggleTvSeriesYearSort(), []);
   const loadMovieWorkspace = useCallback(() => controllerRef.current.loadMovieWorkspace(), []);
@@ -75,6 +76,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
       logs: state.logs,
       logsPager: state.logsPager,
       setLogsPage,
+      refreshLogs,
       clearLogs
     },
     movie: {

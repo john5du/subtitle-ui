@@ -456,8 +456,13 @@ export function createSubtitleManagerController({
     setters.setActiveTab(tab);
 
     try {
+      if (tab === "settings") {
+        setters.setLoadedTabs((prev) => ({ ...prev, settings: true }));
+        return;
+      }
+
       if (tab === "dashboard") {
-        await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadLogs()]);
+        await Promise.all([loadScanStatus(), loadDirectoryScanResult()]);
         setters.setLoadedTabs((prev) => ({ ...prev, dashboard: true }));
         return;
       }
@@ -558,10 +563,14 @@ export function createSubtitleManagerController({
   }
 
   async function refreshActiveTab() {
+    if (state.activeTab === "settings") {
+      return;
+    }
+
     setters.setPending((prev) => ({ ...prev, refreshTab: state.activeTab }));
     try {
       if (state.activeTab === "dashboard") {
-        await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadLogs()]);
+        await Promise.all([loadScanStatus(), loadDirectoryScanResult()]);
         setTranslatedMessage("status.dashboardRefreshed");
         notifySuccess(t("toast.dashboardRefreshedTitle"), t("toast.dashboardRefreshedMessage"));
         return;

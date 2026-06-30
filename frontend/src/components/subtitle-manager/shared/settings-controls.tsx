@@ -17,15 +17,21 @@ import { SpinnerIcon } from "./pending-state";
 const SOURCE_ENCODING_OPTIONS: SubtitleSourceEncoding[] = ["auto", "utf-8", "utf-16le", "utf-16be", "gb18030", "big5"];
 const DIALOGUES_PLACEHOLDER = "{{DIALOGUES}}";
 
-export function LocaleSelect() {
+export function LocaleSelect({
+  triggerClassName = "h-10 w-10",
+  menuDirection = "up"
+}: {
+  triggerClassName?: string;
+  menuDirection?: "up" | "down";
+} = {}) {
   const { locale, setLocale, t } = useI18n();
 
   return (
     <RowActionsMenu
       label={`${t("locale.label")}: ${locale === "en" ? t("locale.english") : t("locale.zh-CN")}`}
       triggerIcon={<Languages className="h-5 w-5" />}
-      triggerClassName="h-10 w-10"
-      menuDirection="up"
+      triggerClassName={triggerClassName}
+      menuDirection={menuDirection}
       items={[
         { label: t("locale.english"), onSelect: () => setLocale("en"), disabled: locale === "en" },
         { label: t("locale.zh-CN"), onSelect: () => setLocale("zh-CN"), disabled: locale === "zh-CN" }
