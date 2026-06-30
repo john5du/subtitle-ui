@@ -3,7 +3,7 @@ import { memo, useCallback } from "react";
 import Image from "next/image";
 import { PanelLeftClose, PanelLeftOpen, RefreshCw, Search } from "lucide-react";
 
-import { APP_VERSION } from "@/lib/app-version";
+import { APP_REPOSITORY_URL, APP_VERSION } from "@/lib/app-version";
 import { useI18n } from "@/lib/i18n";
 import type { TvSeriesSummary } from "@/lib/types";
 import { emitToast } from "@/lib/toast";
@@ -485,15 +485,19 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   {shell.refreshPending ? <SpinnerIcon className="h-5 w-5" /> : <RefreshCw className="h-5 w-5" />}
                 </Button>
               </div>
-              <p
+              <a
+                href={APP_REPOSITORY_URL}
+                target="_blank"
+                rel="noreferrer"
                 className={cn(
-                  "text-display w-full text-center text-[10px] uppercase tracking-[0.12em] text-foreground-muted",
+                  "text-display surface-transition w-full text-center text-[10px] uppercase tracking-[0.12em] text-foreground-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   !sidebarCollapsed && "text-xs"
                 )}
-                title={`Subtitle UI v${APP_VERSION}`}
+                title={APP_REPOSITORY_URL}
+                aria-label={`Open GitHub repository for Subtitle UI v${APP_VERSION}`}
               >
                 {sidebarCollapsed ? `v${APP_VERSION}` : `Subtitle UI v${APP_VERSION}`}
-              </p>
+              </a>
             </div>
           </CardContent>
         </Card>
