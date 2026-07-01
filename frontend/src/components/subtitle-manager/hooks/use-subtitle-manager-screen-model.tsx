@@ -28,11 +28,9 @@ export function useSubtitleManagerScreenModel() {
 
   const {
     activeTab,
-    loading,
     pending,
     uploading,
     uploadingMessage,
-    message,
     formatTime
   } = core;
   const { logs, logsPager, scanStatus, directoryScan } = dashboard;
@@ -84,7 +82,6 @@ export function useSubtitleManagerScreenModel() {
     ],
     [t]
   );
-  const activeTabLabel = useMemo(() => navItems.find((item) => item.key === activeTab)?.label || activeTab, [activeTab, navItems]);
   const selectedMovie = movie.selectedVideo;
   const selectedTvVideo = tv.selectedVideo;
   const showTvScanPrompt = tv.showScanPrompt;
@@ -102,32 +99,6 @@ export function useSubtitleManagerScreenModel() {
   tvSelectVideoRef.current = tv.selectVideo;
   tvSelectSeriesRef.current = tv.selectSeries;
   tvLoadWorkspaceRef.current = tv.loadWorkspace;
-
-  const statusBadgeClass = useMemo(() => {
-    if (scanPending) {
-      return "border-border bg-surface-subtle text-foreground-muted";
-    }
-    if (refreshPending) {
-      return "border-border bg-surface-subtle text-foreground-muted";
-    }
-    if (uploading) {
-      return "border-border bg-surface-subtle text-foreground-muted";
-    }
-    if (pending.tabSwitch || pending.bootstrapping || loading) {
-      return "border-border bg-surface-subtle text-foreground-muted";
-    }
-    return "border-border bg-surface-subtle text-muted-foreground";
-  }, [loading, pending.bootstrapping, pending.tabSwitch, refreshPending, scanPending, uploading]);
-
-  const statusBadgeText = scanPending
-    ? t("status.scanningLibrary")
-    : refreshPending
-      ? t("status.refreshingTab", { tab: activeTabLabel })
-      : uploading
-        ? uploadingMessage || t("status.uploadingSubtitles")
-        : pending.tabSwitch
-          ? t("status.loadingWorkspace")
-          : message || t("status.ready");
 
   const handleMovieSelect = useCallback((video: Video) => {
     movieSelectVideoRef.current(video);
@@ -235,8 +206,6 @@ export function useSubtitleManagerScreenModel() {
       operationLocked,
       scanPending,
       refreshPending,
-      statusBadgeClass,
-      statusBadgeText,
       switchTab: actions.switchTab,
       triggerScan: actions.triggerScan,
       refreshActiveTab: actions.refreshActiveTab
@@ -250,8 +219,6 @@ export function useSubtitleManagerScreenModel() {
       refreshPending,
       scanPending,
       sidebarCollapsed,
-      statusBadgeClass,
-      statusBadgeText,
       toggleSidebarCollapsed
     ]);
 

@@ -1,14 +1,13 @@
 import { memo, useCallback } from "react";
 
 import Image from "next/image";
-import { PanelLeftClose, PanelLeftOpen, RefreshCw } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import { APP_REPOSITORY_URL, APP_VERSION } from "@/lib/app-version";
 import { useI18n } from "@/lib/i18n";
 import type { TvSeriesSummary } from "@/lib/types";
 import { emitToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogDrawerContent } from "@/components/ui/dialog";
@@ -18,7 +17,6 @@ import { DashboardPanel } from "../dashboard/dashboard-panel";
 import { MovieListPanel } from "../movie/movie-list-panel";
 import { MovieSubtitleDrawer } from "../movie/movie-subtitle-drawer";
 import { SettingsPanel } from "../settings/settings-panel";
-import { SpinnerIcon } from "../shared/pending-state";
 import { UploadBlockingOverlay } from "../shared/upload-blocking-overlay";
 import { TvSubtitleDrawer } from "../tv/tv-subtitle-drawer";
 import { TvSeriesListPanel } from "../tv/tv-series-list-panel";
@@ -26,6 +24,10 @@ import { TvSeriesListPanel } from "../tv/tv-series-list-panel";
 const ActiveWorkspace = memo(function ActiveWorkspace({
   activeTab,
   operationLocked,
+  onRefresh,
+  refreshPending,
+  refreshDisabled,
+  refreshLabel,
   triggerScan,
   formatTime,
   dashboardScanStatus,
@@ -64,6 +66,10 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
 }: {
   activeTab: SubtitleManagerScreenModel["shell"]["activeTab"];
   operationLocked: boolean;
+  onRefresh: SubtitleManagerScreenModel["shell"]["refreshActiveTab"];
+  refreshPending: boolean;
+  refreshDisabled: boolean;
+  refreshLabel: string;
   triggerScan: SubtitleManagerScreenModel["shell"]["triggerScan"];
   formatTime: SubtitleManagerScreenModel["subtitleActions"]["formatTime"];
   dashboardScanStatus: SubtitleManagerScreenModel["dashboard"]["scanStatus"];
@@ -133,6 +139,10 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
             onSetPage={movieSetPage}
             onOpenManager={movieOpenManager}
             operationLocked={operationLocked}
+            onRefresh={onRefresh}
+            refreshing={refreshPending}
+            refreshDisabled={refreshDisabled}
+            refreshLabel={refreshLabel}
             pending={moviePending}
             formatTime={formatTime}
           />
@@ -153,6 +163,10 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
             onViewModeChange={tvSetViewMode}
             onOpenManager={openTvManagerForRow}
             operationLocked={operationLocked}
+            onRefresh={onRefresh}
+            refreshing={refreshPending}
+            refreshDisabled={refreshDisabled}
+            refreshLabel={refreshLabel}
             showScanPrompt={tvShowScanPrompt}
             onTriggerScan={triggerScan}
             loading={tvScanLoading}
@@ -316,18 +330,15 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
   const activeTabLabel = shell.navItems.find((item) => item.key === shell.activeTab)?.label ?? shell.activeTab;
   const sidebarCollapsed = shell.sidebarCollapsed;
   const sidebarToggleLabel = sidebarCollapsed ? t("sidebar.expand") : t("sidebar.collapse");
-  const refreshUnavailable = shell.activeTab === "settings";
-  const refreshDisabled = shell.operationLocked || refreshUnavailable;
-  const refreshLabel = refreshUnavailable
-    ? t("settings.refreshUnavailable")
-    : shell.refreshPending
-      ? t("sidebar.refreshingTab", { tab: activeTabLabel })
-      : t("sidebar.refreshTab", { tab: activeTabLabel });
+  const refreshDisabled = shell.operationLocked;
+  const refreshLabel = shell.refreshPending
+    ? t("sidebar.refreshingTab", { tab: activeTabLabel })
+    : t("sidebar.refreshTab", { tab: activeTabLabel });
 
   return (
     <div className="relative flex h-full min-h-0 w-full min-w-0 flex-col lg:flex-row">
         <div className="surface-panel flex shrink-0 flex-col gap-3 p-3 lg:hidden">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <Image
                 src="/icon.svg"
@@ -337,23 +348,6 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                 height={32}
                 className="h-8 w-8 bg-surface-subtle p-1"
               />
-              <Badge variant="outline" className={cn("surface-transition truncate px-2 py-1 text-[11px]", shell.statusBadgeClass)}>
-                {shell.statusBadgeText}
-              </Badge>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => void shell.refreshActiveTab()}
-                disabled={refreshDisabled}
-                className="h-9 w-9"
-                aria-label={refreshLabel}
-                title={refreshLabel}
-              >
-                {shell.refreshPending ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
-              </Button>
             </div>
           </div>
           <div role="tablist" aria-label={t("sidebar.tagline")} className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-0.5">
@@ -382,11 +376,11 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
         <Card
           className={cn(
             "surface-panel animate-fade-in-up hidden overflow-hidden transition-[width] duration-200 lg:block lg:h-full lg:shrink-0",
-            sidebarCollapsed ? "lg:w-[72px]" : "lg:w-[252px] xl:w-[272px]"
+            sidebarCollapsed ? "lg:w-[72px]" : "lg:w-[189px] xl:w-[204px]"
           )}
         >
           <CardContent className={cn("flex h-full flex-col", sidebarCollapsed ? "items-center gap-4 p-3" : "gap-5 p-5")}>
-            <div className={cn("flex", sidebarCollapsed ? "w-full flex-col items-center gap-3" : "items-start justify-between gap-3")}>
+            <div className={cn("flex", sidebarCollapsed ? "w-full flex-col items-center" : "items-start")}>
               <div className={sidebarCollapsed ? "flex flex-col items-center" : "min-w-0"}>
                 <Image
                   src="/icon.svg"
@@ -396,69 +390,10 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   height={sidebarCollapsed ? 40 : 56}
                   className={cn(
                     "bg-surface-subtle",
-                    sidebarCollapsed ? "h-10 w-10 p-1.5" : "mb-2 h-14 w-14 p-2"
+                    sidebarCollapsed ? "h-10 w-10 p-1.5" : "h-14 w-14 p-2"
                   )}
                 />
-                {!sidebarCollapsed && (
-                  <>
-                    <p className="text-display text-sm font-semibold uppercase tracking-[0.26em] text-foreground-muted">Subtitle UI</p>
-                    <p className="mt-2 max-w-[22ch] text-xs leading-relaxed text-muted-foreground">{t("sidebar.tagline")}</p>
-                  </>
-                )}
               </div>
-              {sidebarCollapsed ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
-                    aria-label={sidebarToggleLabel}
-                    title={sidebarToggleLabel}
-                    onClick={shell.toggleSidebarCollapsed}
-                  >
-                    {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => void shell.refreshActiveTab()}
-                    disabled={refreshDisabled}
-                    className="h-9 w-9 shrink-0"
-                    aria-label={refreshLabel}
-                    title={refreshLabel}
-                  >
-                    {shell.refreshPending ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
-                  </Button>
-                </>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => void shell.refreshActiveTab()}
-                    disabled={refreshDisabled}
-                    className="h-9 w-9 shrink-0"
-                    aria-label={refreshLabel}
-                    title={refreshLabel}
-                  >
-                    {shell.refreshPending ? <SpinnerIcon className="h-5 w-5" /> : <RefreshCw className="h-5 w-5" />}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
-                    aria-label={sidebarToggleLabel}
-                    title={sidebarToggleLabel}
-                    onClick={shell.toggleSidebarCollapsed}
-                  >
-                    {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-                  </Button>
-                </div>
-              )}
             </div>
 
             <div role="tablist" aria-label={t("sidebar.tagline")} className={cn("flex flex-col", sidebarCollapsed ? "w-full gap-2" : "gap-1.5")}>
@@ -496,12 +431,18 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
               ))}
             </div>
 
-            <div className={cn("mt-auto", sidebarCollapsed ? "flex w-full flex-col items-center gap-3" : "space-y-3")}>
-              {!sidebarCollapsed && (
-                <Badge variant="outline" className={cn("surface-transition flex w-full items-center justify-center px-3 py-1.5 text-center text-xs", shell.statusBadgeClass)}>
-                  {shell.statusBadgeText}
-                </Badge>
-              )}
+            <div className={cn("mt-auto flex flex-col gap-3", sidebarCollapsed ? "w-full items-center" : "items-stretch")}>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={cn("h-9 w-9 shrink-0", sidebarCollapsed ? "mx-auto" : "self-end")}
+                aria-label={sidebarToggleLabel}
+                title={sidebarToggleLabel}
+                onClick={shell.toggleSidebarCollapsed}
+              >
+                {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              </Button>
               <a
                 href={APP_REPOSITORY_URL}
                 target="_blank"
@@ -523,6 +464,10 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
           <ActiveWorkspace
             activeTab={shell.activeTab}
             operationLocked={shell.operationLocked}
+            onRefresh={shell.refreshActiveTab}
+            refreshPending={shell.refreshPending}
+            refreshDisabled={refreshDisabled}
+            refreshLabel={refreshLabel}
             triggerScan={shell.triggerScan}
             formatTime={subtitleActions.formatTime}
             dashboardScanStatus={dashboard.scanStatus}
