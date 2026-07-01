@@ -1,4 +1,5 @@
 name: Release Container Image
+run-name: Release Container Image ${{ github.event_name == 'push' && github.ref_name || inputs.version || github.ref_name }}
 
 on:
   workflow_dispatch:
@@ -14,6 +15,7 @@ on:
 permissions:
   contents: write
   packages: write
+  actions: write
 
 jobs:
   release:
@@ -129,6 +131,18 @@ jobs:
           print(f"Release version: {version}")
           print(f"Release tag: {tag_name}")
           PY
+
+      - name: Update run name with resolved version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release.outputs.tag_name }}
+        run: |
+          curl -s -X PATCH \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -d "$(printf '{"name":"Release Container Image %s"}' "$VERSION")"
 
       - name: Verify new tag does not already exist
         if: steps.release.outputs.should_create_tag == 'true'
