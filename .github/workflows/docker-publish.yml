@@ -1,5 +1,5 @@
 name: Release Container Image
-run-name: Release Container Image ${{ github.event_name == 'push' && github.ref_name || inputs.version || 'auto version' }}
+run-name: Release Container Image ${{ github.event_name == 'push' && github.ref_name || inputs.version && (startsWith(inputs.version, 'v') && inputs.version || format('v{0}', inputs.version)) || 'auto version' }}
 
 on:
   workflow_dispatch:
@@ -15,7 +15,6 @@ on:
 permissions:
   contents: write
   packages: write
-  actions: write
 
 jobs:
   release:
@@ -131,18 +130,6 @@ jobs:
           print(f"Release version: {version}")
           print(f"Release tag: {tag_name}")
           PY
-
-      - name: Update run name with resolved version
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ steps.release.outputs.tag_name }}
-        run: |
-          curl -s -X PATCH \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            -d "$(printf '{"name":"Release Container Image %s"}' "${TAG_NAME}")"
 
       - name: Publish resolved release summary
         env:
