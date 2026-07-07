@@ -377,6 +377,46 @@ func (s *Store) insertPrefix() string {
 	return "INSERT"
 }
 
+func (s *Store) videoUpsertSuffix() string {
+	if s.dialect != dialectPostgres {
+		return ""
+	}
+	return ` ON CONFLICT(id) DO UPDATE SET
+  path = excluded.path,
+  directory = excluded.directory,
+  file_name = excluded.file_name,
+  title = excluded.title,
+  original_title = excluded.original_title,
+  year = excluded.year,
+  imdb_id = excluded.imdb_id,
+  tmdb_id = excluded.tmdb_id,
+  media_type = excluded.media_type,
+  metadata_source = excluded.metadata_source,
+  series_title = excluded.series_title,
+  series_original_title = excluded.series_original_title,
+  series_imdb_id = excluded.series_imdb_id,
+  series_tmdb_id = excluded.series_tmdb_id,
+  poster_path = excluded.poster_path,
+  updated_at = excluded.updated_at`
+}
+
+func (s *Store) subtitleUpsertSuffix() string {
+	if s.dialect != dialectPostgres {
+		return ""
+	}
+	return ` ON CONFLICT(id) DO UPDATE SET
+  video_id = excluded.video_id,
+  path = excluded.path,
+  file_name = excluded.file_name,
+  language = excluded.language,
+  format = excluded.format,
+  size = excluded.size,
+  mod_time = excluded.mod_time,
+  updated_at = excluded.updated_at,
+  source = excluded.source,
+  source_detail = excluded.source_detail`
+}
+
 func (s *Store) migrationV1SQL() string {
 	if s.dialect == dialectPostgres {
 		return migrationV1Postgres
@@ -423,7 +463,7 @@ func (s *Store) SaveScanResult(videos []domain.Video, startedAt time.Time, finis
 			_, err = s.execTx(
 				tx,
 				s.insertPrefix()+` INTO videos(id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, updated_at)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.videoUpsertSuffix(),
 				video.ID,
 				video.Path,
 				video.Directory,
@@ -451,7 +491,7 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				_, err = s.execTx(
 					tx,
 					s.insertPrefix()+` INTO subtitles(id, video_id, path, file_name, language, format, size, mod_time, updated_at, source, source_detail)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.subtitleUpsertSuffix(),
 					sub.ID,
 					video.ID,
 					sub.Path,

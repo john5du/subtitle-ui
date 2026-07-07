@@ -562,6 +562,67 @@ func TestPostgresStoreScanSettingsAndLogs(t *testing.T) {
 	}
 }
 
+func TestPostgresSaveScanResultUpsertsDuplicateScanRows(t *testing.T) {
+	dsn := postgresTestDSN(t)
+	st, err := OpenWithOptions(OpenOptions{
+		PostgresURL: dsn,
+		SQLitePath:  filepath.Join(t.TempDir(), "missing.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("open postgres store: %v", err)
+	}
+	defer func() {
+		_ = st.Close()
+	}()
+
+	now := time.Now().UTC()
+	video := domain.Video{
+		ID:             "DUPV1",
+		Path:           "/media/dup/movie.mkv",
+		Directory:      "/media/dup",
+		FileName:       "movie.mkv",
+		Title:          "Duplicate Movie",
+		Year:           "2025",
+		MediaType:      domain.MediaTypeMovie,
+		MetadataSource: "nfo",
+		UpdatedAt:      now,
+		Subtitles: []domain.Subtitle{
+			{
+				ID:       "DUPS1",
+				Path:     "/media/dup/movie.zh.srt",
+				FileName: "movie.zh.srt",
+				Language: "zh",
+				Format:   "srt",
+				Size:     10,
+				ModTime:  now,
+				Source:   domain.SubtitleSourceDirectory,
+			},
+		},
+	}
+	duplicate := video
+	duplicate.MediaType = domain.MediaTypeTV
+	duplicate.Title = "Duplicate Movie TV"
+	duplicate.Subtitles = []domain.Subtitle{video.Subtitles[0]}
+	duplicate.Subtitles[0].Size = 20
+
+	if err := st.SaveScanResult([]domain.Video{video, duplicate}, now, now.Add(time.Second), ""); err != nil {
+		t.Fatalf("save duplicate pg scan result: %v", err)
+	}
+	got, found, err := st.GetVideo(video.ID)
+	if err != nil {
+		t.Fatalf("get duplicate pg video: %v", err)
+	}
+	if !found {
+		t.Fatalf("expected duplicate pg video to exist")
+	}
+	if got.MediaType != domain.MediaTypeTV || got.Title != duplicate.Title {
+		t.Fatalf("expected last duplicate video to win, got %+v", got)
+	}
+	if len(got.Subtitles) != 1 || got.Subtitles[0].Size != 20 {
+		t.Fatalf("expected last duplicate subtitle to win, got %+v", got.Subtitles)
+	}
+}
+
 func TestPostgresMigratesInitialSQLiteDataOnce(t *testing.T) {
 	dsn := postgresTestDSN(t)
 	sqlitePath := filepath.Join(t.TempDir(), "source.sqlite3")
