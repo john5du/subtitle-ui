@@ -325,6 +325,7 @@ export function useSubtitleManagerScreenModel() {
       uploadSubtitle: actions.uploadSubtitle,
       replaceSubtitle: actions.replaceSubtitle,
       convertSubtitleToAss: actions.convertSubtitleToAss,
+      offsetSubtitleTiming: actions.offsetSubtitleTiming,
       removeSubtitle: actions.removeSubtitle,
       previewSubtitle: actions.previewSubtitle,
       uploading,
@@ -335,6 +336,7 @@ export function useSubtitleManagerScreenModel() {
     }), [
       actions.previewSubtitle,
       actions.convertSubtitleToAss,
+      actions.offsetSubtitleTiming,
       actions.removeSubtitle,
       actions.replaceSubtitle,
       actions.uploadSubtitle,

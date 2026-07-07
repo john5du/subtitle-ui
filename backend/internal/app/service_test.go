@@ -564,6 +564,90 @@ func TestConvertExistingSRTSubtitleToASS(t *testing.T) {
 	}
 }
 
+func TestOffsetSubtitleTimingBacksUpRefreshesAndLogs(t *testing.T) {
+	base := t.TempDir()
+	srtContent := "1\n00:00:03,000 --> 00:00:04,000\nexisting\n"
+	svc, video := newMovieServiceFixture(t, base, srtContent)
+	defer func() {
+		_ = svc.Close()
+	}()
+	if len(video.Subtitles) != 1 {
+		t.Fatalf("expected existing subtitle, got %d", len(video.Subtitles))
+	}
+
+	updated, err := svc.OffsetSubtitleTiming(video.ID, video.Subtitles[0].ID, SubtitleTimingOffsetOptions{OffsetMS: -500})
+	if err != nil {
+		t.Fatalf("offset subtitle timing: %v", err)
+	}
+	if updated.ID != video.Subtitles[0].ID {
+		t.Fatalf("expected same subtitle id after offset, got %s want %s", updated.ID, video.Subtitles[0].ID)
+	}
+	if updated.Source != domain.SubtitleSourceDirectory {
+		t.Fatalf("expected subtitle source to be preserved, got %+v", updated)
+	}
+
+	contents, err := os.ReadFile(video.Subtitles[0].Path)
+	if err != nil {
+		t.Fatalf("read shifted subtitle: %v", err)
+	}
+	if !strings.Contains(string(contents), "00:00:02,500 --> 00:00:03,500") {
+		t.Fatalf("expected shifted timing, got %q", string(contents))
+	}
+	backups, err := filepath.Glob(video.Subtitles[0].Path + ".bak.*")
+	if err != nil {
+		t.Fatalf("glob backups: %v", err)
+	}
+	if len(backups) != 1 {
+		t.Fatalf("expected one backup, got %d (%v)", len(backups), backups)
+	}
+	backupBytes, err := os.ReadFile(backups[0])
+	if err != nil {
+		t.Fatalf("read backup: %v", err)
+	}
+	if string(backupBytes) != srtContent {
+		t.Fatalf("expected backup to contain original content, got %q", string(backupBytes))
+	}
+
+	offsetLog, ok := latestLogByAction(svc.ListLogs(20), "offset")
+	if !ok {
+		t.Fatalf("expected offset operation log")
+	}
+	if offsetLog.Status != "ok" || !strings.Contains(offsetLog.Message, "offset_ms=-500") {
+		t.Fatalf("unexpected offset log: %+v", offsetLog)
+	}
+	if offsetLog.BackupPath == "" {
+		t.Fatalf("expected offset log to include backup path")
+	}
+}
+
+func TestOffsetSubtitleTimingRejectsInvalidRequest(t *testing.T) {
+	base := t.TempDir()
+	srtContent := "1\n00:00:01,000 --> 00:00:02,000\nexisting\n"
+	svc, video := newMovieServiceFixture(t, base, srtContent)
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	_, err := svc.OffsetSubtitleTiming(video.ID, video.Subtitles[0].ID, SubtitleTimingOffsetOptions{OffsetMS: -1500})
+	if !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("expected bad request for negative resulting time, got %v", err)
+	}
+	contents, readErr := os.ReadFile(video.Subtitles[0].Path)
+	if readErr != nil {
+		t.Fatalf("read subtitle after failed offset: %v", readErr)
+	}
+	if string(contents) != srtContent {
+		t.Fatalf("failed offset should not rewrite subtitle, got %q", string(contents))
+	}
+	backups, globErr := filepath.Glob(video.Subtitles[0].Path + ".bak.*")
+	if globErr != nil {
+		t.Fatalf("glob backups: %v", globErr)
+	}
+	if len(backups) != 0 {
+		t.Fatalf("failed offset should not create backups, got %v", backups)
+	}
+}
+
 func TestRunFileScanPersistsPosterPaths(t *testing.T) {
 	base := t.TempDir()
 	movieRoot := filepath.Join(base, "movies")

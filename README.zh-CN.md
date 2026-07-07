@@ -15,6 +15,7 @@ English version: [`README.md`](./README.md)
 - **中文字幕工作流** — 内置简体中文界面，并提供常用中文字幕站搜索入口。
 - **一键字幕搜索** — 可从当前影片直接打开字幕库（`zimuku.org`）或 SubHD（`subhd.tv`）搜索。
 - **字幕操作** — 上传、替换（先备份）、删除、在线预览已存字幕内容。
+- **手动时间轴偏移** — 对 SRT、VTT、ASS、SSA 字幕原地平移时间轴，并自动备份。
 - **SRT 转 ASS** — 上传新 SRT 时可同时生成 ASS，也可将已有 SRT 转换为额外的 ASS 文件。
 - **ASS 模板编辑** — 支持编辑全局 ASS 转换模板与默认源编码。
 - **归档上传** — 支持 `.zip`、`.7z`、`.rar`，在前端解压并选择归档内的目标字幕。
@@ -70,6 +71,7 @@ git push origin vX.Y.Z
 - `POST /api/videos/{videoId}/subtitles`（multipart `file`，可选 `label`，可选 `replaceId`；新上传 SRT 时可选 `convertTo=ass`, `sourceEncoding`）
 - `GET /api/videos/{videoId}/subtitles/{subtitleId}/content`（用于预览的字幕原始字节）
 - `POST /api/videos/{videoId}/subtitles/{subtitleId}/convert`（body: `targetFormat=ass`，可选 `sourceEncoding`）
+- `POST /api/videos/{videoId}/subtitles/{subtitleId}/timing/offset`（body: `offsetMs`；支持 SRT/VTT/ASS/SSA）
 - `DELETE /api/videos/{videoId}/subtitles/{subtitleId}`
 - `GET /api/logs`（查询参数：可选 `page`, `pageSize`）
   - 响应：`{ items: OperationLog[], total, page, pageSize, totalPages }`

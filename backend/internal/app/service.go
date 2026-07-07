@@ -61,6 +61,10 @@ type SubtitleConvertOptions struct {
 	SourceEncoding string
 }
 
+type SubtitleTimingOffsetOptions struct {
+	OffsetMS int
+}
+
 type subtitleSourceOverride struct {
 	Source       string
 	SourceDetail string
@@ -724,6 +728,81 @@ func (s *Service) convertSRTPathToASS(sourcePath string, sourceEncoding string) 
 		return "", err
 	}
 	return targetPath, nil
+}
+
+func (s *Service) OffsetSubtitleTiming(videoID string, subtitleID string, options SubtitleTimingOffsetOptions) (domain.Subtitle, error) {
+	offsetMS := options.OffsetMS
+	if offsetMS == 0 {
+		return domain.Subtitle{}, fmt.Errorf("%w: offsetMs must not be zero", ErrBadRequest)
+	}
+	if offsetMS < -subtitle.MaxTimingOffsetMilliseconds || offsetMS > subtitle.MaxTimingOffsetMilliseconds {
+		return domain.Subtitle{}, fmt.Errorf("%w: offsetMs must be between -%d and %d", ErrBadRequest, subtitle.MaxTimingOffsetMilliseconds, subtitle.MaxTimingOffsetMilliseconds)
+	}
+
+	video, ok := s.GetVideo(videoID)
+	if !ok {
+		return domain.Subtitle{}, ErrNotFound
+	}
+	existing, found := findSubtitle(video.Subtitles, subtitleID)
+	if !found {
+		return domain.Subtitle{}, ErrNotFound
+	}
+	if !s.isWithinMediaRoots(existing.Path) {
+		return domain.Subtitle{}, ErrUnsafePath
+	}
+
+	sourceData, err := os.ReadFile(existing.Path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return domain.Subtitle{}, ErrNotFound
+		}
+		return domain.Subtitle{}, err
+	}
+	shiftedData, err := subtitle.OffsetTimingBytes(sourceData, filepath.Ext(existing.Path), offsetMS)
+	if err != nil {
+		_ = s.store.AppendLog(domain.OperationLog{
+			ID:         makeID(fmt.Sprintf("offset-error-%s-%d", existing.Path, time.Now().UnixNano())),
+			Timestamp:  time.Now().UTC(),
+			Action:     "offset",
+			VideoID:    videoID,
+			TargetPath: existing.Path,
+			Status:     "error",
+			Message:    err.Error(),
+		})
+		return domain.Subtitle{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
+	}
+
+	backupPath, err := subtitle.BackupFile(existing.Path)
+	if err != nil {
+		return domain.Subtitle{}, fmt.Errorf("backup before timing offset failed: %w", err)
+	}
+	if err := subtitle.WriteFileBytes(shiftedData, existing.Path); err != nil {
+		return domain.Subtitle{}, err
+	}
+
+	sourceOverrides := map[string]subtitleSourceOverride{
+		subtitleSourceOverrideKey(existing.Path): {
+			Source:       existing.Source,
+			SourceDetail: existing.SourceDetail,
+		},
+	}
+	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, existing.Path, sourceOverrides)
+	if err != nil {
+		return domain.Subtitle{}, err
+	}
+
+	_ = s.store.AppendLog(domain.OperationLog{
+		ID:         makeID(fmt.Sprintf("offset-%s-%d", existing.Path, time.Now().UnixNano())),
+		Timestamp:  time.Now().UTC(),
+		Action:     "offset",
+		VideoID:    updatedVideo.ID,
+		TargetPath: existing.Path,
+		BackupPath: backupPath,
+		Status:     "ok",
+		Message:    fmt.Sprintf("offset_ms=%d", offsetMS),
+	})
+
+	return updatedSub, nil
 }
 
 func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {

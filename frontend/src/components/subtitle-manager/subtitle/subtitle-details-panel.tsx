@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { ArrowLeft, AlertTriangle, ExternalLink, Eye, FileCode2, Pencil, Trash2, UploadCloud } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Clock, ExternalLink, Eye, FileCode2, Pencil, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import type { Subtitle, SubtitleSourceEncoding } from "@/lib/types";
@@ -30,6 +30,7 @@ import { ConvertSubtitleDialog } from "./dialogs/convert-subtitle-dialog";
 import { DeleteSubtitleDialog } from "./dialogs/delete-subtitle-dialog";
 import { ReplaceSubtitleDialog } from "./dialogs/replace-subtitle-dialog";
 import { SubtitlePreviewDialog } from "./dialogs/subtitle-preview-dialog";
+import { TimingOffsetDialog } from "./dialogs/timing-offset-dialog";
 import { UploadSubtitleDialog } from "./dialogs/upload-subtitle-dialog";
 
 function isSRTFileName(fileName: string) {
@@ -38,6 +39,13 @@ function isSRTFileName(fileName: string) {
 
 function isSRTSubtitle(subtitle: Subtitle) {
   return subtitle.format.toLowerCase() === "srt" || isSRTFileName(subtitle.fileName);
+}
+
+function isTimingOffsetSupported(subtitle: Subtitle) {
+  const format = subtitle.format.toLowerCase();
+  const fileName = subtitle.fileName.toLowerCase();
+  return format === "srt" || format === "vtt" || format === "ass" || format === "ssa" ||
+    fileName.endsWith(".srt") || fileName.endsWith(".vtt") || fileName.endsWith(".ass") || fileName.endsWith(".ssa");
 }
 
 export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDetailsPanelProps>(function SubtitleDetailsPanel({
@@ -50,6 +58,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   onUpload,
   onReplace,
   onConvertSubtitle,
+  onOffsetSubtitle,
   onRemove,
   onPreviewSubtitle,
   formatTime,
@@ -71,7 +80,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   const { t } = useI18n();
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const replaceInputRef = useRef<Record<string, HTMLInputElement | null>>({});
-  const subtitleRowActionButtonClassName = "h-8 gap-1 px-2 text-[11px]";
+  const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-[11px]";
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
@@ -90,6 +99,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   const [deleteDialogSubtitleId, setDeleteDialogSubtitleId] = useState<string | null>(null);
   const [pendingConvertSubtitle, setPendingConvertSubtitle] = useState<Subtitle | null>(null);
   const [convertSourceEncoding, setConvertSourceEncoding] = useState<SubtitleSourceEncoding>("auto");
+  const [pendingOffsetSubtitle, setPendingOffsetSubtitle] = useState<Subtitle | null>(null);
+  const [offsetSeconds, setOffsetSeconds] = useState("");
   const [pendingReplace, setPendingReplace] = useState<{ subtitle: Subtitle; file: File } | null>(null);
   const [flashSubtitleList, setFlashSubtitleList] = useState(false);
   const [metaExpanded, setMetaExpanded] = useState(!metaCollapsedByDefault);
@@ -235,6 +246,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
     setDeleteDialogSubtitleId(null);
     setPendingConvertSubtitle(null);
     setConvertSourceEncoding("auto");
+    setPendingOffsetSubtitle(null);
+    setOffsetSeconds("");
     setPendingReplace(null);
     setFlashSubtitleList(false);
   }, [selectedVideo?.id]);
@@ -424,6 +437,18 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
     }
   }
 
+  async function confirmOffsetSubtitle(offsetMs: number) {
+    if (!selectedVideo || !pendingOffsetSubtitle) {
+      return;
+    }
+    const success = await onOffsetSubtitle(selectedVideo, pendingOffsetSubtitle, offsetMs);
+    if (success) {
+      setPendingOffsetSubtitle(null);
+      setOffsetSeconds("");
+      triggerSubtitleListFlash();
+    }
+  }
+
   return (
     <Card className="animate-fade-in-up flex h-full w-full flex-col bg-card">
       <CardHeader className="p-4">
@@ -539,15 +564,16 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       <TableHead className="w-[72px]">{t("batch.format")}</TableHead>
                       <TableHead className="w-[136px]">{t("details.source")}</TableHead>
                       <TableHead className="w-[184px]">{t("details.modified")}</TableHead>
-                      <TableHead className="w-[320px] text-right">{t("common.actions")}</TableHead>
+                      <TableHead className="w-[360px] text-right">{t("common.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {selectedVideo.subtitles.map((subtitle) => {
                       const replacePending = subtitleAction?.kind === "replace" && subtitleAction.subtitleId === subtitle.id;
                       const convertPending = subtitleAction?.kind === "convert" && subtitleAction.subtitleId === subtitle.id;
+                      const offsetPending = subtitleAction?.kind === "offset" && subtitleAction.subtitleId === subtitle.id;
                       const deletePending = subtitleAction?.kind === "delete" && subtitleAction.subtitleId === subtitle.id;
-                      const rowBusy = replacePending || convertPending || deletePending;
+                      const rowBusy = replacePending || convertPending || offsetPending || deletePending;
                       const sourceText = formatSubtitleSourceLabel(subtitle, t);
 
                       return (
@@ -561,8 +587,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                             </div>
                           </TableCell>
                           <TableCell>{formatTime(subtitle.modTime)}</TableCell>
-                          <TableCell className="w-[320px] text-right">
-                            <div className="flex flex-nowrap items-center justify-end gap-1">
+                          <TableCell className="w-[360px] text-right">
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
                               <input
                                 ref={(node) => {
                                   replaceInputRef.current[subtitle.id] = node;
@@ -610,6 +636,22 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                                 >
                                   {convertPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <FileCode2 className="h-3.5 w-3.5" />}
                                   {convertPending ? t("conversion.converting") : t("conversion.convertToAss")}
+                                </Button>
+                              )}
+                              {isTimingOffsetSupported(subtitle) && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className={subtitleRowActionButtonClassName}
+                                  disabled={busy || rowBusy}
+                                  onClick={() => {
+                                    setPendingOffsetSubtitle(subtitle);
+                                    setOffsetSeconds("");
+                                  }}
+                                >
+                                  {offsetPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                                  {offsetPending ? t("timing.offsetting") : t("timing.offset")}
                                 </Button>
                               )}
                               <Button
@@ -734,6 +776,27 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
           subtitleAction?.kind === "convert" && pendingConvertSubtitle && subtitleAction.subtitleId === pendingConvertSubtitle.id
         )}
         onConfirm={() => void confirmConvertSubtitle()}
+      />
+
+      <TimingOffsetDialog
+        open={pendingOffsetSubtitle !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingOffsetSubtitle(null);
+            setOffsetSeconds("");
+            return;
+          }
+          setPendingOffsetSubtitle(pendingOffsetSubtitle);
+        }}
+        subtitle={pendingOffsetSubtitle}
+        offsetSeconds={offsetSeconds}
+        onOffsetSecondsChange={setOffsetSeconds}
+        offsetPending={Boolean(
+          subtitleAction?.kind === "offset" && pendingOffsetSubtitle && subtitleAction.subtitleId === pendingOffsetSubtitle.id
+        )}
+        onConfirm={(offsetMs) => {
+          void confirmOffsetSubtitle(offsetMs);
+        }}
       />
 
       <ArchiveEntryPickerDialog

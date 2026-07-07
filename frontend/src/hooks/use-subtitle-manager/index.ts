@@ -56,6 +56,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
   const uploadSubtitle = useCallback((video: Video, file: File, label: string, options?: SubtitleUploadOptions) => controllerRef.current.uploadSubtitle(video, file, label, options), []);
   const replaceSubtitle = useCallback((video: Video, subtitle: Subtitle, file: File) => controllerRef.current.replaceSubtitle(video, subtitle, file), []);
   const convertSubtitleToAss = useCallback((video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) => controllerRef.current.convertSubtitleToAss(video, subtitle, sourceEncoding), []);
+  const offsetSubtitleTiming = useCallback((video: Video, subtitle: Subtitle, offsetMs: number) => controllerRef.current.offsetSubtitleTiming(video, subtitle, offsetMs), []);
   const removeSubtitle = useCallback((video: Video, subtitle: Subtitle) => controllerRef.current.removeSubtitle(video, subtitle), []);
   const previewSubtitle = useCallback((video: Video, subtitle: Subtitle) => controllerRef.current.previewSubtitle(video, subtitle), []);
   const uploadBatchSubtitles = useCallback((items: BatchSubtitleUploadItem[]) => controllerRef.current.uploadBatchSubtitles(items), []);
@@ -121,6 +122,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
       uploadSubtitle,
       replaceSubtitle,
       convertSubtitleToAss,
+      offsetSubtitleTiming,
       removeSubtitle,
       previewSubtitle,
       uploadBatchSubtitles

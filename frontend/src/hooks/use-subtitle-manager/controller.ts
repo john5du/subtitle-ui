@@ -130,6 +130,14 @@ export function createSubtitleManagerController({
     });
   }
 
+  function formatOffsetMilliseconds(offsetMs: number) {
+    const seconds = offsetMs / 1000;
+    const text = Number.isInteger(seconds)
+      ? seconds.toFixed(0)
+      : seconds.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+    return `${offsetMs > 0 ? "+" : ""}${text}s`;
+  }
+
   async function loadMovieVideos(options: { page?: number; force?: boolean } = {}) {
     const page = options.page || state.paginationByType.movie.page || 1;
     const pageSize = state.paginationByType.movie.pageSize || DEFAULT_PAGE_SIZE;
@@ -798,6 +806,34 @@ export function createSubtitleManagerController({
     }
   }
 
+  async function offsetSubtitleTiming(video: Video, subtitle: Subtitle, offsetMs: number) {
+    setSubtitleActionPending({
+      kind: "offset",
+      videoId: video.id,
+      subtitleId: subtitle.id,
+      subtitleFileName: subtitle.fileName
+    });
+    beginUpload("status.offsettingSubtitle");
+    try {
+      await requestPayload(`/api/videos/${video.id}/subtitles/${subtitle.id}/timing/offset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ offsetMs })
+      });
+      await refreshAfterSubtitleMutation(video);
+      const offsetLabel = formatOffsetMilliseconds(offsetMs);
+      setTranslatedMessage("status.offsetSubtitle", { name: subtitle.fileName, offset: offsetLabel });
+      notifySuccess(t("toast.subtitleOffsetTitle"), subtitle.fileName, offsetLabel);
+      return true;
+    } catch (error) {
+      reportRequestError("error.offsetFailed", error);
+      return false;
+    } finally {
+      endUpload();
+      setSubtitleActionPending(null);
+    }
+  }
+
   async function removeSubtitle(video: Video, subtitle: Subtitle) {
     setSubtitleActionPending({
       kind: "delete",
@@ -960,6 +996,7 @@ export function createSubtitleManagerController({
     uploadSubtitle,
     replaceSubtitle,
     convertSubtitleToAss,
+    offsetSubtitleTiming,
     removeSubtitle,
     previewSubtitle,
     loadTvBatchCandidates,

@@ -62,6 +62,7 @@ export interface SubtitleDetailsPanelProps {
   onUpload: (video: Video, file: File, label: string, options?: SubtitleUploadOptions) => Promise<boolean>;
   onReplace: (video: Video, subtitle: Subtitle, file: File) => Promise<boolean>;
   onConvertSubtitle: (video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) => Promise<boolean>;
+  onOffsetSubtitle: (video: Video, subtitle: Subtitle, offsetMs: number) => Promise<boolean>;
   onRemove: (video: Video, subtitle: Subtitle) => Promise<boolean>;
   onPreviewSubtitle: (video: Video, subtitle: Subtitle) => Promise<ArrayBuffer>;
   formatTime: (value: string | undefined | null) => string;

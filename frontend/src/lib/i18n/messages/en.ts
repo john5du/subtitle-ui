@@ -95,6 +95,8 @@ export const enMessages = {
   "status.uploadingSubtitleFilesProgress": "Uploading subtitle files ({current}/{total})...",
   "status.convertingSubtitle": "Converting subtitle...",
   "status.convertedSubtitle": "Converted subtitle \"{name}\" to ASS.",
+  "status.offsettingSubtitle": "Adjusting subtitle timing...",
+  "status.offsetSubtitle": "Adjusted timing for subtitle \"{name}\" by {offset}.",
 
   "toast.operationFailedDetail": "The operation did not complete successfully.",
   "toast.scanWarningsTitle": "Media scan completed with warnings",
@@ -118,6 +120,7 @@ export const enMessages = {
   "toast.subtitleReplacedTitle": "Subtitle replaced",
   "toast.subtitleDeletedTitle": "Subtitle deleted",
   "toast.subtitleConvertedTitle": "Subtitle converted",
+  "toast.subtitleOffsetTitle": "Subtitle timing adjusted",
   "toast.selectTvSeriesTitle": "Select a TV series first",
   "toast.selectTvSeriesMessage": "Batch upload needs an active series directory before files can be matched.",
   "toast.batchWarningsTitle": "Batch upload completed with warnings",
@@ -149,6 +152,7 @@ export const enMessages = {
   "error.uploadFailed": "Upload failed",
   "error.replaceFailed": "Replace failed",
   "error.convertFailed": "Convert failed",
+  "error.offsetFailed": "Adjust timing failed",
   "error.deleteFailed": "Delete failed",
   "error.previewFailed": "Load subtitle preview failed",
 
@@ -369,6 +373,16 @@ export const enMessages = {
   "details.parseArchiveFailed": "Parse archive failed: {error}",
   "details.unsupportedFileType": "Unsupported file type. Please select subtitle files or archive files (.zip/.7z/.rar).",
   "details.missingReplaceTarget": "Missing target subtitle for replace.",
+
+  "timing.offset": "Offset",
+  "timing.offsetting": "Adjusting",
+  "timing.offsetTitle": "Adjust subtitle timing",
+  "timing.offsetDescription": "Apply a constant timing offset to \"{name}\".",
+  "timing.offsetSecondsLabel": "Offset seconds",
+  "timing.offsetHint": "Positive values show subtitles later; negative values show them earlier.",
+  "timing.offsetBackupNote": "The original file will be backed up as .bak before writing.",
+  "timing.invalidOffset": "Enter a non-zero value within +/- 12 hours.",
+  "timing.applyOffset": "Apply Offset",
 
   "info.title": "Title",
   "info.poster": "Poster",

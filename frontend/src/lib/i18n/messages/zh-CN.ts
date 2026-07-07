@@ -97,6 +97,8 @@ export const zhCNMessages: MessageDictionary = {
   "status.uploadingSubtitleFilesProgress": "正在上传字幕文件（{current}/{total}）...",
   "status.convertingSubtitle": "正在转换字幕...",
   "status.convertedSubtitle": "已将字幕“{name}”转换为 ASS。",
+  "status.offsettingSubtitle": "正在调整字幕时间轴...",
+  "status.offsetSubtitle": "已将字幕“{name}”时间轴调整 {offset}。",
 
   "toast.operationFailedDetail": "该操作未能成功完成。",
   "toast.scanWarningsTitle": "媒体扫描已完成，但有警告",
@@ -120,6 +122,7 @@ export const zhCNMessages: MessageDictionary = {
   "toast.subtitleReplacedTitle": "字幕已替换",
   "toast.subtitleDeletedTitle": "字幕已删除",
   "toast.subtitleConvertedTitle": "字幕已转换",
+  "toast.subtitleOffsetTitle": "字幕时间轴已调整",
   "toast.selectTvSeriesTitle": "请先选择剧集",
   "toast.selectTvSeriesMessage": "批量上传需要先锁定一个剧集目录，才能进行匹配。",
   "toast.batchWarningsTitle": "批量上传完成，但有警告",
@@ -151,6 +154,7 @@ export const zhCNMessages: MessageDictionary = {
   "error.uploadFailed": "上传失败",
   "error.replaceFailed": "替换失败",
   "error.convertFailed": "转换失败",
+  "error.offsetFailed": "调整时间轴失败",
   "error.deleteFailed": "删除失败",
   "error.previewFailed": "加载字幕预览失败",
 
@@ -371,6 +375,16 @@ export const zhCNMessages: MessageDictionary = {
   "details.parseArchiveFailed": "解析压缩包失败：{error}",
   "details.unsupportedFileType": "不支持的文件类型。请选择字幕文件或压缩包文件（.zip/.7z/.rar）。",
   "details.missingReplaceTarget": "替换操作缺少目标字幕。",
+
+  "timing.offset": "校时",
+  "timing.offsetting": "校时中",
+  "timing.offsetTitle": "调整字幕时间轴",
+  "timing.offsetDescription": "对“{name}”应用固定时间偏移。",
+  "timing.offsetSecondsLabel": "偏移秒数",
+  "timing.offsetHint": "正数让字幕更晚出现，负数让字幕更早出现。",
+  "timing.offsetBackupNote": "写入前会将原文件备份为 .bak。",
+  "timing.invalidOffset": "请输入非零且不超过正负 12 小时的数值。",
+  "timing.applyOffset": "应用偏移",
 
   "info.title": "标题",
   "info.poster": "海报",

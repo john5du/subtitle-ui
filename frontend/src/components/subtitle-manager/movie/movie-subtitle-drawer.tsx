@@ -10,7 +10,7 @@ import {
   type ChangeEvent,
   type DragEvent
 } from "react";
-import { ExternalLink, Eye, FileArchive, FileCode2, Languages, Pencil, Trash2, UploadCloud } from "lucide-react";
+import { Clock, ExternalLink, Eye, FileArchive, FileCode2, Languages, Pencil, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import { buildSubtitleSearchLinks } from "@/lib/subtitle-search";
@@ -35,6 +35,7 @@ import { ArchiveEntryPickerDialog } from "../subtitle/dialogs/archive-entry-pick
 import { ConvertSubtitleDialog } from "../subtitle/dialogs/convert-subtitle-dialog";
 import { DeleteSubtitleDialog } from "../subtitle/dialogs/delete-subtitle-dialog";
 import { SubtitlePreviewDialog } from "../subtitle/dialogs/subtitle-preview-dialog";
+import { TimingOffsetDialog } from "../subtitle/dialogs/timing-offset-dialog";
 import { UploadSubtitleDialog } from "../subtitle/dialogs/upload-subtitle-dialog";
 import { decodeSubtitlePreviewContent } from "../subtitle/preview-utils";
 import { SubtitleSourceDetailButton } from "../subtitle/source-detail-button";
@@ -66,9 +67,16 @@ function isSRTSubtitle(subtitle: Subtitle) {
   return subtitle.format.toLowerCase() === "srt" || isSRTFileName(subtitle.fileName);
 }
 
+function isTimingOffsetSupported(subtitle: Subtitle) {
+  const format = subtitle.format.toLowerCase();
+  const fileName = subtitle.fileName.toLowerCase();
+  return format === "srt" || format === "vtt" || format === "ass" || format === "ssa" ||
+    fileName.endsWith(".srt") || fileName.endsWith(".vtt") || fileName.endsWith(".ass") || fileName.endsWith(".ssa");
+}
+
 type MovieSubtitleDrawerProps = Pick<
   SubtitleDetailsPanelProps,
-  "selectedVideo" | "emptyText" | "onUpload" | "onReplace" | "onConvertSubtitle" | "onRemove" | "onPreviewSubtitle" | "formatTime" | "busy" | "uploading" | "uploadingMessage" | "subtitleAction"
+  "selectedVideo" | "emptyText" | "onUpload" | "onReplace" | "onConvertSubtitle" | "onOffsetSubtitle" | "onRemove" | "onPreviewSubtitle" | "formatTime" | "busy" | "uploading" | "uploadingMessage" | "subtitleAction"
 >;
 
 export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieSubtitleDrawerProps>(function MovieSubtitleDrawer(
@@ -78,6 +86,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     onUpload,
     onReplace,
     onConvertSubtitle,
+    onOffsetSubtitle,
     onRemove,
     onPreviewSubtitle,
     formatTime,
@@ -92,7 +101,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const replaceInputRef = useRef<Record<string, HTMLInputElement | null>>({});
   const dragDepthRef = useRef(0);
-  const subtitleRowActionButtonClassName = "h-8 gap-1 px-2 text-[11px]";
+  const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-[11px]";
 
   const [dragActive, setDragActive] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -112,6 +121,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   const [deleteDialogSubtitleId, setDeleteDialogSubtitleId] = useState<string | null>(null);
   const [pendingConvertSubtitle, setPendingConvertSubtitle] = useState<Subtitle | null>(null);
   const [convertSourceEncoding, setConvertSourceEncoding] = useState<SubtitleSourceEncoding>("auto");
+  const [pendingOffsetSubtitle, setPendingOffsetSubtitle] = useState<Subtitle | null>(null);
+  const [offsetSeconds, setOffsetSeconds] = useState("");
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewTitle, setPreviewTitle] = useState("");
   const [previewStatus, setPreviewStatus] = useState<"idle" | "loading" | "success" | "error" | "empty">("idle");
@@ -144,6 +155,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     setDeleteDialogSubtitleId(null);
     setPendingConvertSubtitle(null);
     setConvertSourceEncoding("auto");
+    setPendingOffsetSubtitle(null);
+    setOffsetSeconds("");
     setPreviewDialogOpen(false);
     setPreviewTitle("");
     setPreviewStatus("idle");
@@ -406,6 +419,17 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     }
   }
 
+  async function confirmOffsetSubtitle(offsetMs: number) {
+    if (!selectedVideo || !pendingOffsetSubtitle) {
+      return;
+    }
+    const success = await onOffsetSubtitle(selectedVideo, pendingOffsetSubtitle, offsetMs);
+    if (success) {
+      setPendingOffsetSubtitle(null);
+      setOffsetSeconds("");
+    }
+  }
+
   function handleDropzoneDragEnter(event: DragEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
@@ -559,8 +583,9 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                       selectedVideo.subtitles.map((subtitle) => {
                         const replacePending = subtitleAction?.kind === "replace" && subtitleAction.subtitleId === subtitle.id;
                         const convertPending = subtitleAction?.kind === "convert" && subtitleAction.subtitleId === subtitle.id;
+                        const offsetPending = subtitleAction?.kind === "offset" && subtitleAction.subtitleId === subtitle.id;
                         const deletePending = subtitleAction?.kind === "delete" && subtitleAction.subtitleId === subtitle.id;
-                        const rowBusy = replacePending || convertPending || deletePending;
+                        const rowBusy = replacePending || convertPending || offsetPending || deletePending;
                         const sourceText = formatSubtitleSourceLabel(subtitle, t);
 
                         return (
@@ -658,6 +683,23 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                                 </Button>
                               )}
 
+                              {isTimingOffsetSupported(subtitle) && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className={subtitleRowActionButtonClassName}
+                                  disabled={busy || rowBusy}
+                                  onClick={() => {
+                                    setPendingOffsetSubtitle(subtitle);
+                                    setOffsetSeconds("");
+                                  }}
+                                >
+                                  {offsetPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                                  {offsetPending ? t("timing.offsetting") : t("timing.offset")}
+                                </Button>
+                              )}
+
                               <Button
                                 type="button"
                                 variant="outline"
@@ -742,6 +784,27 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
         )}
         onConfirm={() => {
           void confirmConvertSubtitle();
+        }}
+      />
+
+      <TimingOffsetDialog
+        open={pendingOffsetSubtitle !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingOffsetSubtitle(null);
+            setOffsetSeconds("");
+            return;
+          }
+          setPendingOffsetSubtitle(pendingOffsetSubtitle);
+        }}
+        subtitle={pendingOffsetSubtitle}
+        offsetSeconds={offsetSeconds}
+        onOffsetSecondsChange={setOffsetSeconds}
+        offsetPending={Boolean(
+          subtitleAction?.kind === "offset" && pendingOffsetSubtitle && subtitleAction.subtitleId === pendingOffsetSubtitle.id
+        )}
+        onConfirm={(offsetMs) => {
+          void confirmOffsetSubtitle(offsetMs);
         }}
       />
 

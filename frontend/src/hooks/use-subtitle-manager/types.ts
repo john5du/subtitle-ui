@@ -181,6 +181,7 @@ export interface SubtitleManagerActions {
   uploadSubtitle: (video: Video, file: File, label: string, options?: SubtitleUploadOptions) => Promise<boolean>;
   replaceSubtitle: (video: Video, subtitle: Subtitle, file: File) => Promise<boolean>;
   convertSubtitleToAss: (video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) => Promise<boolean>;
+  offsetSubtitleTiming: (video: Video, subtitle: Subtitle, offsetMs: number) => Promise<boolean>;
   removeSubtitle: (video: Video, subtitle: Subtitle) => Promise<boolean>;
   previewSubtitle: (video: Video, subtitle: Subtitle) => Promise<ArrayBuffer>;
   uploadBatchSubtitles: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;

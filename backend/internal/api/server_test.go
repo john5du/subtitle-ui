@@ -14,6 +14,7 @@ import (
 
 	"subtitle-ui/backend/internal/app"
 	"subtitle-ui/backend/internal/config"
+	"subtitle-ui/backend/internal/domain"
 )
 
 func TestWithErrorLoggingLogsFailedRequests(t *testing.T) {
@@ -203,6 +204,85 @@ func TestHandleLogsPagesAndClears(t *testing.T) {
 	}
 	if page.Total != 0 || len(page.Items) != 0 {
 		t.Fatalf("expected logs to be empty after clear, total=%d len=%d", page.Total, len(page.Items))
+	}
+}
+
+func TestHandleOffsetSubtitleTiming(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	movieDir := filepath.Join(movieRoot, "Movie A")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatalf("mkdir movie dir: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write movie: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.nfo"), []byte("<movie><title>Movie A</title><year>2025</year></movie>"), 0o644); err != nil {
+		t.Fatalf("write nfo: %v", err)
+	}
+	subtitlePath := filepath.Join(movieDir, "movie-a.zh.srt")
+	if err := os.WriteFile(subtitlePath, []byte("1\n00:00:01,000 --> 00:00:02,000\nhello\n"), 0o644); err != nil {
+		t.Fatalf("write subtitle: %v", err)
+	}
+
+	service, err := app.NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = service.Close()
+	}()
+	if status := service.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatalf("run scan: %s", status.Error)
+	}
+	page := service.ListVideosPage("", "movie", "", 1, 20, "", "")
+	if len(page.Items) != 1 || len(page.Items[0].Subtitles) != 1 {
+		t.Fatalf("expected scanned video with subtitle, got %+v", page)
+	}
+
+	server := NewServer(service, "")
+	body := bytes.NewBufferString(`{"offsetMs":1200}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/videos/"+page.Items[0].ID+"/subtitles/"+page.Items[0].Subtitles[0].ID+"/timing/offset", body)
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected offset status 200, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	var response struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode offset response: %v", err)
+	}
+	if response.ID != page.Items[0].Subtitles[0].ID {
+		t.Fatalf("expected response subtitle id %s, got %s", page.Items[0].Subtitles[0].ID, response.ID)
+	}
+	shifted, err := os.ReadFile(subtitlePath)
+	if err != nil {
+		t.Fatalf("read shifted subtitle: %v", err)
+	}
+	if !strings.Contains(string(shifted), "00:00:02,200 --> 00:00:03,200") {
+		t.Fatalf("expected shifted subtitle file, got %q", string(shifted))
+	}
+	logEntry, ok := latestAPILogByAction(service.ListLogs(20), "offset")
+	if !ok || !strings.Contains(logEntry.Message, "offset_ms=1200") {
+		t.Fatalf("expected offset log with message, got ok=%v log=%+v", ok, logEntry)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/videos/"+page.Items[0].ID+"/subtitles/"+page.Items[0].Subtitles[0].ID+"/timing/offset", bytes.NewBufferString(`{"offsetMs":0}`))
+	recorder = httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid offset status 400, got %d", recorder.Code)
 	}
 }
 
@@ -401,4 +481,13 @@ func newPosterTestFixture(t *testing.T) posterTestFixture {
 	}
 
 	return fixture
+}
+
+func latestAPILogByAction(logs []domain.OperationLog, action string) (domain.OperationLog, bool) {
+	for _, item := range logs {
+		if item.Action == action {
+			return item, true
+		}
+	}
+	return domain.OperationLog{}, false
 }

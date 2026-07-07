@@ -37,6 +37,10 @@ type subtitleConvertRequest struct {
 	SourceEncoding string `json:"sourceEncoding"`
 }
 
+type subtitleTimingOffsetRequest struct {
+	OffsetMS int `json:"offsetMs"`
+}
+
 func NewServer(service *app.Service, uiDist string) *Server {
 	return NewServerWithConfig(service, config.Config{UIDist: uiDist})
 }
@@ -210,6 +214,10 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleConvertSubtitle(w, r, videoID, segments[2])
 		return
 
+	case len(segments) == 5 && segments[1] == "subtitles" && segments[3] == "timing" && segments[4] == "offset" && r.Method == http.MethodPost:
+		s.handleOffsetSubtitleTiming(w, r, videoID, segments[2])
+		return
+
 	case len(segments) == 3 && segments[1] == "subtitles" && r.Method == http.MethodDelete:
 		err := s.service.DeleteSubtitle(videoID, segments[2])
 		if err != nil {
@@ -348,6 +356,26 @@ func (s *Server) handleConvertSubtitle(w http.ResponseWriter, r *http.Request, v
 		return
 	}
 	writeJSON(w, http.StatusCreated, subtitle)
+}
+
+func (s *Server) handleOffsetSubtitleTiming(w http.ResponseWriter, r *http.Request, videoID string, subtitleID string) {
+	req := subtitleTimingOffsetRequest{}
+	if r.Body != nil {
+		defer r.Body.Close()
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+
+	subtitle, err := s.service.OffsetSubtitleTiming(videoID, subtitleID, app.SubtitleTimingOffsetOptions{
+		OffsetMS: req.OffsetMS,
+	})
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, subtitle)
 }
 
 func (s *Server) handleSubtitleContent(w http.ResponseWriter, _ *http.Request, videoID string, subtitleID string) {

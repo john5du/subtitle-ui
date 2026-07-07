@@ -28,6 +28,7 @@ interface TvSubtitleManagementPanelProps {
   onUpload: SubtitleDetailsPanelProps["onUpload"];
   onReplace: SubtitleDetailsPanelProps["onReplace"];
   onConvertSubtitle: SubtitleDetailsPanelProps["onConvertSubtitle"];
+  onOffsetSubtitle: SubtitleDetailsPanelProps["onOffsetSubtitle"];
   onRemove: SubtitleDetailsPanelProps["onRemove"];
   onPreviewSubtitle: SubtitleDetailsPanelProps["onPreviewSubtitle"];
   formatTime: SubtitleDetailsPanelProps["formatTime"];
@@ -52,6 +53,7 @@ export function TvSubtitleManagementPanel({
   onUpload,
   onReplace,
   onConvertSubtitle,
+  onOffsetSubtitle,
   onRemove,
   onPreviewSubtitle,
   formatTime,
@@ -164,6 +166,7 @@ export function TvSubtitleManagementPanel({
         onUpload={onUpload}
         onReplace={onReplace}
         onConvertSubtitle={onConvertSubtitle}
+        onOffsetSubtitle={onOffsetSubtitle}
         onRemove={onRemove}
         onPreviewSubtitle={onPreviewSubtitle}
         formatTime={formatTime}

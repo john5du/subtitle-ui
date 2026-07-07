@@ -1,6 +1,6 @@
 ﻿export type MediaType = "movie" | "tv";
 export type ActiveTab = "dashboard" | "movie" | "tv" | "settings";
-export type SubtitleOperationKind = "upload" | "replace" | "delete" | "convert" | "batch";
+export type SubtitleOperationKind = "upload" | "replace" | "delete" | "convert" | "offset" | "batch";
 export type SubtitleSourceEncoding = "auto" | "utf-8" | "utf-16le" | "utf-16be" | "gb18030" | "big5";
 export type SubtitleSource = "directory" | "upload" | "generated";
 

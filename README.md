@@ -15,6 +15,7 @@ A Go + Next.js web application for managing subtitle files alongside a Jellyfin-
 - **Chinese subtitle workflow** — Chinese UI support plus quick links to common Chinese subtitle search sites.
 - **One-click subtitle search** — open Zimuku (`zimuku.org`) or SubHD (`subhd.tv`) searches from the selected title.
 - **Subtitle operations** — upload, replace (backup first), delete, preview stored subtitle content.
+- **Manual timing offset** — shift SRT, VTT, ASS, and SSA subtitle timelines in-place with backup.
 - **SRT to ASS conversion** — generate ASS while uploading a new SRT, or convert an existing SRT into an additional ASS file.
 - **ASS template editing** — edit the global ASS conversion template and default source encoding.
 - **Archive uploads** — accepts `.zip`, `.7z`, `.rar` payloads; entries are parsed client-side and you pick which subtitle inside to install.
@@ -70,6 +71,7 @@ git push origin vX.Y.Z
 - `POST /api/videos/{videoId}/subtitles` (multipart `file`, optional `label`, optional `replaceId`; optional `convertTo=ass`, `sourceEncoding` for new SRT uploads)
 - `GET /api/videos/{videoId}/subtitles/{subtitleId}/content` (subtitle bytes for preview)
 - `POST /api/videos/{videoId}/subtitles/{subtitleId}/convert` (body: `targetFormat=ass`, optional `sourceEncoding`)
+- `POST /api/videos/{videoId}/subtitles/{subtitleId}/timing/offset` (body: `offsetMs`; supports SRT/VTT/ASS/SSA)
 - `DELETE /api/videos/{videoId}/subtitles/{subtitleId}`
 - `GET /api/logs` (query: optional `page`, `pageSize`)
   - response: `{ items: OperationLog[], total, page, pageSize, totalPages }`
