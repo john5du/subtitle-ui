@@ -11,6 +11,7 @@ import type {
   ScanStatus,
   TvSeriesSummary,
   UiPendingState,
+  VersionInfo,
   Video
 } from "@/lib/types";
 import type { LocalizedText } from "@/lib/subtitle-manager/messages";
@@ -113,6 +114,7 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [logsPager, setLogsPager] = useState<Pager>(() => createDefaultPager(DEFAULT_LOG_PAGE_SIZE));
   const [directoryScan, setDirectoryScan] = useState<DirectoryScanResult>(EMPTY_DIRECTORY_SCAN);
+  const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [loadedTabs, setLoadedTabs] = useState<Record<ActiveTab, boolean>>(createDefaultLoadedTabs);
 
   const pendingLoadsRef = useRef(0);
@@ -161,6 +163,7 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
       logs,
       logsPager,
       directoryScan,
+      versionInfo,
       loadedTabs
     },
     setters: {
@@ -187,6 +190,7 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
       setLogs,
       setLogsPager,
       setDirectoryScan,
+      setVersionInfo,
       setLoadedTabs
     },
     refs: {

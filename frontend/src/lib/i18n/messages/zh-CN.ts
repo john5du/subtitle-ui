@@ -37,6 +37,10 @@ export const zhCNMessages: MessageDictionary = {
   "sidebar.expand": "展开侧边栏",
 
   "settings.title": "配置",
+  "settings.system": "系统",
+  "settings.databaseType": "数据库类型",
+  "settings.databaseType.sqlite": "SQLite",
+  "settings.databaseType.postgres": "PostgreSQL",
   "settings.appearance": "外观",
   "settings.subtitleConversion": "字幕转换",
   "settings.mediaLibrary": "媒体库",
@@ -140,6 +144,7 @@ export const zhCNMessages: MessageDictionary = {
   "error.loadTvEpisodes": "加载分集失败",
   "error.loadScanStatus": "加载扫描状态失败",
   "error.loadDirectoryScan": "加载目录扫描结果失败",
+  "error.loadVersionInfo": "加载系统信息失败",
   "error.loadLogs": "加载日志失败",
   "error.clearLogs": "清空日志失败",
   "error.scanFailed": "扫描失败",

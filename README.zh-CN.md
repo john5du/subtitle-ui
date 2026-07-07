@@ -205,10 +205,11 @@ docker run --rm -p 9307:9307 \
   - `MOVIE_MEDIA_ROOT=/data/media/movies`
   - `TV_MEDIA_ROOT=/data/media/tv`
   - `DB_PATH=/data/subtitle_manager.sqlite3`
+  - `DATABASE_URL` 默认不设置，因此使用 SQLite
   - `UI_DIST=/app/frontend/out`
 - 媒体目录挂载必须可写，因为字幕文件会原地创建/替换。
 
-使用 Docker Compose 运行：
+使用 Docker Compose 运行（SQLite）：
 
 ```yaml
 services:
@@ -233,6 +234,43 @@ services:
 docker compose up -d
 ```
 
+PostgreSQL 变体：
+
+```yaml
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: subtitle_ui
+      POSTGRES_USER: subtitle_ui
+      POSTGRES_PASSWORD: change-me
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  subtitle-ui:
+    image: ghcr.io/john5du/subtitle-ui:latest
+    container_name: subtitle-ui
+    depends_on:
+      - postgres
+    ports:
+      - "9307:9307"
+    environment:
+      MOVIE_MEDIA_ROOT: /data/media/movies
+      TV_MEDIA_ROOT: /data/media/tv
+      DB_PATH: /data/subtitle_manager.sqlite3
+      DATABASE_URL: postgres://subtitle_ui:change-me@postgres:5432/subtitle_ui?sslmode=disable
+      UI_DIST: /app/frontend/out
+    volumes:
+      - /path/to/movies:/data/media/movies
+      - /path/to/tv:/data/media/tv
+      - /path/to/data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+```
+
 ## GitHub Actions 镜像发布
 
 - 工作流文件：`.github/workflows/docker-publish.yml`
@@ -251,7 +289,8 @@ docker compose up -d
 - `MOVIE_MEDIA_ROOT` 默认 `./media/movies`
 - `TV_MEDIA_ROOT` 默认 `./media/tv`
 - `MEDIA_ROOT` 旧版兜底（若设置且 `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` 未设置，则两者都使用它）
-- `DB_PATH` 默认 `./tmp/subtitle_manager.sqlite3`
+- `DB_PATH` 默认 `./tmp/subtitle_manager.sqlite3`；SQLite 数据库路径，设置 `DATABASE_URL` 时也作为 SQLite 迁移源
+- `DATABASE_URL` 可选 PostgreSQL DSN；设置后使用 PostgreSQL 而不是 SQLite
 - `UI_DIST` 默认 `./frontend/out`
 - `CORS_ALLOWED_ORIGINS` 逗号分隔的允许来源列表，用于跨来源写入类 API 请求
 - `TRUST_FORWARDED_HEADERS` 设置为 `1`、`true`、`yes` 或 `on` 后，会基于 `X-Forwarded-Proto` / `X-Forwarded-Host` 生成绝对海报 URL
@@ -264,4 +303,5 @@ docker compose up -d
 - 扫描器从视频所在目录读取 `<videoName>.nfo` 和 `movie.nfo`。
 - 海报查找顺序 — 电影：`poster`、`movie`、`folder`、`<base>-poster`、`<base>`、`cover`；电视剧（剧根目录）：`poster`、`folder`、`fanart`。
 - 替换与删除操作会先备份原字幕文件再写入。
+- 首次连接 PostgreSQL 时，会从 `DB_PATH` 指向的 SQLite 数据库导入一次数据。在打开或升级 SQLite 源库前，应用会先在同目录创建 `<db>.backup-<UTC 时间戳>` 形式的备份；如果存在 `-wal`/`-shm` 旁路文件，也会一起复制。如果 PostgreSQL 业务表已有数据且没有导入标记，启动会失败，避免自动合并或覆盖数据。
 - 本项目尚未达到生产级硬化。

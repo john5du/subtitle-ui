@@ -174,6 +174,7 @@ export interface TvSeasonOption {
 
 export interface VersionInfo {
   version: string;
+  databaseType: "sqlite" | "postgres" | string;
 }
 
 export interface PendingSubtitleAction {

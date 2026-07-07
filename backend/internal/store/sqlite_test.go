@@ -2,7 +2,11 @@ package store
 
 import (
 	"database/sql"
+	"fmt"
+	"net/url"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -448,4 +452,345 @@ func TestListVideosSortByYear(t *testing.T) {
 	if asc[0].Year != "2022" || asc[1].Year != "2024" || asc[2].Year != "" {
 		t.Fatalf("unexpected asc order: %q, %q, %q", asc[0].Year, asc[1].Year, asc[2].Year)
 	}
+}
+
+func TestOpenWithOptionsDefaultsToSQLite(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "options.sqlite3")
+	st, err := OpenWithOptions(OpenOptions{SQLitePath: dbPath})
+	if err != nil {
+		t.Fatalf("open sqlite with options: %v", err)
+	}
+	defer func() {
+		_ = st.Close()
+	}()
+
+	if st.dialect != dialectSQLite {
+		t.Fatalf("expected sqlite dialect, got %s", st.dialect)
+	}
+	if st.DatabaseType() != string(dialectSQLite) {
+		t.Fatalf("expected sqlite database type, got %s", st.DatabaseType())
+	}
+}
+
+func TestPostgresStoreScanSettingsAndLogs(t *testing.T) {
+	dsn := postgresTestDSN(t)
+	st, err := OpenWithOptions(OpenOptions{
+		PostgresURL: dsn,
+		SQLitePath:  filepath.Join(t.TempDir(), "missing.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("open postgres store: %v", err)
+	}
+	defer func() {
+		_ = st.Close()
+	}()
+	if st.DatabaseType() != string(dialectPostgres) {
+		t.Fatalf("expected postgres database type, got %s", st.DatabaseType())
+	}
+
+	now := time.Now().UTC()
+	video := domain.Video{
+		ID:             "PGV1",
+		Path:           "/media/pg/movie.mkv",
+		Directory:      "/media/pg",
+		FileName:       "movie.mkv",
+		Title:          "Postgres Movie",
+		OriginalTitle:  "Postgres Original",
+		Year:           "2026",
+		ImdbID:         "tt0000001",
+		TmdbID:         "1001",
+		MediaType:      domain.MediaTypeMovie,
+		MetadataSource: "nfo",
+		PosterPath:     "/media/pg/poster.jpg",
+		UpdatedAt:      now,
+		Subtitles: []domain.Subtitle{
+			{
+				ID:           "PGS1",
+				Path:         "/media/pg/movie.zh.srt",
+				FileName:     "movie.zh.srt",
+				Language:     "zh",
+				Format:       "srt",
+				Size:         42,
+				ModTime:      now,
+				Source:       domain.SubtitleSourceUpload,
+				SourceDetail: "movie.zh.srt",
+			},
+		},
+	}
+
+	if err := st.SaveScanResult([]domain.Video{video}, now, now.Add(time.Second), ""); err != nil {
+		t.Fatalf("save pg scan result: %v", err)
+	}
+	matches, total, err := st.ListVideos("original", domain.MediaTypeMovie, "", 1, 20, "year", "desc")
+	if err != nil {
+		t.Fatalf("list pg videos: %v", err)
+	}
+	if total != 1 || len(matches) != 1 || matches[0].ID != video.ID {
+		t.Fatalf("unexpected pg video results: total=%d rows=%+v", total, matches)
+	}
+	if len(matches[0].Subtitles) != 1 || matches[0].Subtitles[0].Source != domain.SubtitleSourceUpload {
+		t.Fatalf("unexpected pg subtitles: %+v", matches[0].Subtitles)
+	}
+
+	if err := st.SetAppSettings(map[string]string{"subtitle_conversion.source_encoding_default": "gb18030"}, now); err != nil {
+		t.Fatalf("set pg app settings: %v", err)
+	}
+	settings, err := st.GetAppSettings([]string{"subtitle_conversion.source_encoding_default"})
+	if err != nil {
+		t.Fatalf("get pg app settings: %v", err)
+	}
+	if settings["subtitle_conversion.source_encoding_default"].Value != "gb18030" {
+		t.Fatalf("unexpected pg setting: %+v", settings)
+	}
+
+	if err := st.AppendLog(domain.OperationLog{
+		ID:         "PGL1",
+		Timestamp:  now,
+		Action:     "upload",
+		VideoID:    video.ID,
+		TargetPath: "/media/pg/movie.zh.srt",
+		Status:     "ok",
+	}); err != nil {
+		t.Fatalf("append pg log: %v", err)
+	}
+	logs, total, err := st.ListLogs(1, 20)
+	if err != nil {
+		t.Fatalf("list pg logs: %v", err)
+	}
+	if total != 1 || len(logs) != 1 || logs[0].ID != "PGL1" {
+		t.Fatalf("unexpected pg logs: total=%d rows=%+v", total, logs)
+	}
+}
+
+func TestPostgresMigratesInitialSQLiteDataOnce(t *testing.T) {
+	dsn := postgresTestDSN(t)
+	sqlitePath := filepath.Join(t.TempDir(), "source.sqlite3")
+
+	source, err := Open(sqlitePath)
+	if err != nil {
+		t.Fatalf("open sqlite source: %v", err)
+	}
+	now := time.Now().UTC()
+	sourceVideo := domain.Video{
+		ID:             "SRCV1",
+		Path:           "/media/source/movie.mkv",
+		Directory:      "/media/source",
+		FileName:       "movie.mkv",
+		Title:          "Source Movie",
+		Year:           "2025",
+		MediaType:      domain.MediaTypeMovie,
+		MetadataSource: "nfo",
+		UpdatedAt:      now,
+		Subtitles: []domain.Subtitle{
+			{
+				ID:       "SRCS1",
+				Path:     "/media/source/movie.en.srt",
+				FileName: "movie.en.srt",
+				Language: "en",
+				Format:   "srt",
+				Size:     10,
+				ModTime:  now,
+			},
+		},
+	}
+	if err := source.SaveScanResult([]domain.Video{sourceVideo}, now, now.Add(time.Second), ""); err != nil {
+		t.Fatalf("seed sqlite scan result: %v", err)
+	}
+	if err := source.AppendLog(domain.OperationLog{
+		ID:         "SRCL1",
+		Timestamp:  now,
+		Action:     "upload",
+		VideoID:    sourceVideo.ID,
+		TargetPath: "/media/source/movie.en.srt",
+		Status:     "ok",
+	}); err != nil {
+		t.Fatalf("seed sqlite log: %v", err)
+	}
+	if err := source.SetAppSettings(map[string]string{"subtitle_conversion.source_encoding_default": "utf-8"}, now); err != nil {
+		t.Fatalf("seed sqlite setting: %v", err)
+	}
+	if err := source.Close(); err != nil {
+		t.Fatalf("close sqlite source: %v", err)
+	}
+
+	st, err := OpenWithOptions(OpenOptions{PostgresURL: dsn, SQLitePath: sqlitePath})
+	if err != nil {
+		t.Fatalf("open postgres with sqlite migration: %v", err)
+	}
+	video, found, err := st.GetVideo(sourceVideo.ID)
+	if err != nil {
+		t.Fatalf("get migrated video: %v", err)
+	}
+	if !found || video.Title != sourceVideo.Title || len(video.Subtitles) != 1 {
+		t.Fatalf("unexpected migrated video: found=%v video=%+v", found, video)
+	}
+	logs, total, err := st.ListLogs(1, 20)
+	if err != nil {
+		t.Fatalf("list migrated logs: %v", err)
+	}
+	if total != 1 || len(logs) != 1 || logs[0].ID != "SRCL1" {
+		t.Fatalf("unexpected migrated logs: total=%d rows=%+v", total, logs)
+	}
+	settings, err := st.GetAppSettings([]string{"subtitle_conversion.source_encoding_default"})
+	if err != nil {
+		t.Fatalf("get migrated setting: %v", err)
+	}
+	if settings["subtitle_conversion.source_encoding_default"].Value != "utf-8" {
+		t.Fatalf("unexpected migrated setting: %+v", settings)
+	}
+	backups, err := filepath.Glob(sqlitePath + ".backup-*")
+	if err != nil {
+		t.Fatalf("glob sqlite backups: %v", err)
+	}
+	if len(backups) != 1 {
+		t.Fatalf("expected one sqlite backup, got %d: %v", len(backups), backups)
+	}
+	backupDB, err := sql.Open("sqlite", backups[0])
+	if err != nil {
+		t.Fatalf("open sqlite backup: %v", err)
+	}
+	var backupTitle string
+	if err := backupDB.QueryRow(`SELECT title FROM videos WHERE id = ?`, sourceVideo.ID).Scan(&backupTitle); err != nil {
+		_ = backupDB.Close()
+		t.Fatalf("query sqlite backup: %v", err)
+	}
+	if err := backupDB.Close(); err != nil {
+		t.Fatalf("close sqlite backup: %v", err)
+	}
+	if backupTitle != sourceVideo.Title {
+		t.Fatalf("expected backup title %q, got %q", sourceVideo.Title, backupTitle)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatalf("close migrated pg store: %v", err)
+	}
+
+	st, err = OpenWithOptions(OpenOptions{PostgresURL: dsn, SQLitePath: sqlitePath})
+	if err != nil {
+		t.Fatalf("reopen postgres after sqlite migration: %v", err)
+	}
+	defer func() {
+		_ = st.Close()
+	}()
+
+	if err := st.SaveScanResult([]domain.Video{sourceVideo}, now.Add(2*time.Second), now.Add(3*time.Second), ""); err != nil {
+		t.Fatalf("save after migration: %v", err)
+	}
+	row := st.queryRow(`SELECT MAX(id) FROM scan_runs`)
+	var maxID int
+	if err := row.Scan(&maxID); err != nil {
+		t.Fatalf("query scan run max id: %v", err)
+	}
+	if maxID != 2 {
+		t.Fatalf("expected scan_runs identity to continue at 2, got %d", maxID)
+	}
+}
+
+func TestPostgresInitialImportRefusesNonEmptyTargetWithoutMarker(t *testing.T) {
+	dsn := postgresTestDSN(t)
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open raw postgres: %v", err)
+	}
+	prepared := &Store{db: db, dialect: dialectPostgres}
+	if err := prepared.migrate(); err != nil {
+		_ = db.Close()
+		t.Fatalf("prepare pg schema: %v", err)
+	}
+	if _, err := prepared.exec(
+		`INSERT INTO videos(id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, updated_at)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"EXISTING",
+		"/media/existing.mkv",
+		"/media",
+		"existing.mkv",
+		"Existing",
+		"",
+		"2024",
+		"",
+		"",
+		domain.MediaTypeMovie,
+		"nfo",
+		"",
+		"",
+		"",
+		"",
+		"",
+		time.Now().UTC().Format(time.RFC3339Nano),
+	); err != nil {
+		_ = db.Close()
+		t.Fatalf("seed pg target: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close raw postgres: %v", err)
+	}
+
+	_, err = OpenWithOptions(OpenOptions{
+		PostgresURL: dsn,
+		SQLitePath:  filepath.Join(t.TempDir(), "missing.sqlite3"),
+	})
+	if err == nil {
+		t.Fatalf("expected non-empty pg target to reject sqlite import")
+	}
+	if !strings.Contains(err.Error(), "already contains") {
+		t.Fatalf("expected non-empty target error, got %v", err)
+	}
+}
+
+func postgresTestDSN(t *testing.T) string {
+	t.Helper()
+
+	base := strings.TrimSpace(os.Getenv("TEST_POSTGRES_DSN"))
+	if base == "" {
+		t.Skip("TEST_POSTGRES_DSN is not set")
+	}
+
+	schema := fmt.Sprintf("subtitle_ui_test_%s_%d", sanitizePostgresIdentifier(t.Name()), time.Now().UnixNano())
+	admin, err := sql.Open("pgx", base)
+	if err != nil {
+		t.Fatalf("open postgres admin connection: %v", err)
+	}
+	quotedSchema := quotePostgresIdentifier(schema)
+	if _, err := admin.Exec(`CREATE SCHEMA ` + quotedSchema); err != nil {
+		_ = admin.Close()
+		t.Fatalf("create postgres test schema: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = admin.Exec(`DROP SCHEMA IF EXISTS ` + quotedSchema + ` CASCADE`)
+		_ = admin.Close()
+	})
+
+	return withPostgresSearchPath(base, schema)
+}
+
+func withPostgresSearchPath(dsn string, schema string) string {
+	if parsed, err := url.Parse(dsn); err == nil && parsed.Scheme != "" {
+		query := parsed.Query()
+		query.Set("search_path", schema)
+		parsed.RawQuery = query.Encode()
+		return parsed.String()
+	}
+	return strings.TrimSpace(dsn) + " search_path=" + schema
+}
+
+func sanitizePostgresIdentifier(raw string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(raw) {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	out := strings.Trim(b.String(), "_")
+	if out == "" {
+		return "store"
+	}
+	return out
+}
+
+func quotePostgresIdentifier(raw string) string {
+	return `"` + strings.ReplaceAll(raw, `"`, `""`) + `"`
 }

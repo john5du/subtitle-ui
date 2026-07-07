@@ -205,10 +205,11 @@ docker run --rm -p 9307:9307 \
   - `MOVIE_MEDIA_ROOT=/data/media/movies`
   - `TV_MEDIA_ROOT=/data/media/tv`
   - `DB_PATH=/data/subtitle_manager.sqlite3`
+  - `DATABASE_URL` unset by default, so SQLite is used
   - `UI_DIST=/app/frontend/out`
 - Media root mounts must be writable because subtitle files are created/replaced in-place.
 
-Run with Docker Compose:
+Run with Docker Compose using SQLite:
 
 ```yaml
 services:
@@ -233,6 +234,43 @@ services:
 docker compose up -d
 ```
 
+PostgreSQL variant:
+
+```yaml
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: subtitle_ui
+      POSTGRES_USER: subtitle_ui
+      POSTGRES_PASSWORD: change-me
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  subtitle-ui:
+    image: ghcr.io/john5du/subtitle-ui:latest
+    container_name: subtitle-ui
+    depends_on:
+      - postgres
+    ports:
+      - "9307:9307"
+    environment:
+      MOVIE_MEDIA_ROOT: /data/media/movies
+      TV_MEDIA_ROOT: /data/media/tv
+      DB_PATH: /data/subtitle_manager.sqlite3
+      DATABASE_URL: postgres://subtitle_ui:change-me@postgres:5432/subtitle_ui?sslmode=disable
+      UI_DIST: /app/frontend/out
+    volumes:
+      - /path/to/movies:/data/media/movies
+      - /path/to/tv:/data/media/tv
+      - /path/to/data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+```
+
 ## GitHub Actions image publish
 
 - Workflow file: `.github/workflows/docker-publish.yml`
@@ -251,7 +289,8 @@ docker compose up -d
 - `MOVIE_MEDIA_ROOT` default `./media/movies`
 - `TV_MEDIA_ROOT` default `./media/tv`
 - `MEDIA_ROOT` legacy fallback (if set and `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` not set, both use it)
-- `DB_PATH` default `./tmp/subtitle_manager.sqlite3`
+- `DB_PATH` default `./tmp/subtitle_manager.sqlite3`; SQLite database path, and the SQLite import source when `DATABASE_URL` is set
+- `DATABASE_URL` optional PostgreSQL DSN; when set, PostgreSQL is used instead of SQLite
 - `UI_DIST` default `./frontend/out`
 - `CORS_ALLOWED_ORIGINS` comma-separated allowed origins for mutating cross-origin API requests
 - `TRUST_FORWARDED_HEADERS` set to `1`, `true`, `yes`, or `on` to build absolute poster URLs from `X-Forwarded-Proto` / `X-Forwarded-Host`
@@ -264,4 +303,5 @@ docker compose up -d
 - Scanner reads `<videoName>.nfo` and `movie.nfo` from the video's directory.
 - Poster resolution order — movies: `poster`, `movie`, `folder`, `<base>-poster`, `<base>`, `cover`; TV (at series root): `poster`, `folder`, `fanart`.
 - Replace and delete operations back up the existing subtitle file before writing.
+- On the first PostgreSQL connection, existing SQLite data from `DB_PATH` is imported once. Before the SQLite source is opened or upgraded, the app creates a sibling backup named like `<db>.backup-<UTC timestamp>` and also copies `-wal`/`-shm` sidecar files when present. If the PostgreSQL business tables already contain data and no import marker exists, startup fails instead of merging or overwriting data.
 - This project is not production hardened.

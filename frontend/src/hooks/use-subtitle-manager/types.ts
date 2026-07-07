@@ -15,6 +15,7 @@ import type {
   TvSeasonOption,
   TvSeriesSummary,
   UiPendingState,
+  VersionInfo,
   Video
 } from "@/lib/types";
 import type { LocalizedText } from "@/lib/subtitle-manager/messages";
@@ -46,6 +47,7 @@ export interface SubtitleManagerState {
   logs: OperationLog[];
   logsPager: Pager;
   directoryScan: DirectoryScanResult;
+  versionInfo: VersionInfo | null;
   loadedTabs: Record<ActiveTab, boolean>;
 }
 
@@ -91,6 +93,7 @@ export interface SubtitleManagerSetters {
   setLogs: Dispatch<SetStateAction<OperationLog[]>>;
   setLogsPager: Dispatch<SetStateAction<Pager>>;
   setDirectoryScan: Dispatch<SetStateAction<DirectoryScanResult>>;
+  setVersionInfo: Dispatch<SetStateAction<VersionInfo | null>>;
   setLoadedTabs: Dispatch<SetStateAction<Record<ActiveTab, boolean>>>;
 }
 
@@ -129,6 +132,7 @@ export interface SubtitleManagerDashboardDomain {
   directoryScan: DirectoryScanResult;
   logs: OperationLog[];
   logsPager: Pager;
+  versionInfo: VersionInfo | null;
   setLogsPage: (nextPage: number) => void;
   refreshLogs: (page?: number) => Promise<void>;
   clearLogs: () => Promise<boolean>;
@@ -192,6 +196,7 @@ export interface SubtitleManagerResult {
 
 export interface SubtitleManagerController extends SubtitleManagerActions {
   finishBootstrapping: () => void;
+  loadVersionInfo: () => Promise<void>;
   loadScanStatus: () => Promise<void>;
   loadDirectoryScanResult: () => Promise<string>;
   loadLogs: (options?: { page?: number }) => Promise<void>;

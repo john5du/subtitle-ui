@@ -34,6 +34,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   dashboardDirectoryScan,
   dashboardLogs,
   dashboardLogsPager,
+  dashboardVersionInfo,
   dashboardSetLogsPage,
   dashboardRefreshLogs,
   dashboardClearLogs,
@@ -76,6 +77,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   dashboardDirectoryScan: SubtitleManagerScreenModel["dashboard"]["directoryScan"];
   dashboardLogs: SubtitleManagerScreenModel["dashboard"]["logs"];
   dashboardLogsPager: SubtitleManagerScreenModel["dashboard"]["logsPager"];
+  dashboardVersionInfo: SubtitleManagerScreenModel["dashboard"]["versionInfo"];
   dashboardSetLogsPage: SubtitleManagerScreenModel["dashboard"]["setLogsPage"];
   dashboardRefreshLogs: SubtitleManagerScreenModel["dashboard"]["refreshLogs"];
   dashboardClearLogs: SubtitleManagerScreenModel["dashboard"]["clearLogs"];
@@ -183,6 +185,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
           triggerScan={triggerScan}
           logs={dashboardLogs}
           logsPager={dashboardLogsPager}
+          versionInfo={dashboardVersionInfo}
           onSetLogsPage={dashboardSetLogsPage}
           onRefreshLogs={dashboardRefreshLogs}
           onClearLogs={dashboardClearLogs}
@@ -474,6 +477,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             dashboardDirectoryScan={dashboard.directoryScan}
             dashboardLogs={dashboard.logs}
             dashboardLogsPager={dashboard.logsPager}
+            dashboardVersionInfo={dashboard.versionInfo}
             dashboardSetLogsPage={dashboard.setLogsPage}
             dashboardRefreshLogs={dashboard.refreshLogs}
             dashboardClearLogs={dashboard.clearLogs}

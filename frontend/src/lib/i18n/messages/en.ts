@@ -35,6 +35,10 @@ export const enMessages = {
   "sidebar.expand": "Expand sidebar",
 
   "settings.title": "Settings",
+  "settings.system": "System",
+  "settings.databaseType": "Database Type",
+  "settings.databaseType.sqlite": "SQLite",
+  "settings.databaseType.postgres": "PostgreSQL",
   "settings.appearance": "Appearance",
   "settings.subtitleConversion": "Subtitle Conversion",
   "settings.mediaLibrary": "Media Library",
@@ -138,6 +142,7 @@ export const enMessages = {
   "error.loadTvEpisodes": "Load TV episodes failed",
   "error.loadScanStatus": "Load scan status failed",
   "error.loadDirectoryScan": "Load directory scan result failed",
+  "error.loadVersionInfo": "Load system info failed",
   "error.loadLogs": "Load logs failed",
   "error.clearLogs": "Clear logs failed",
   "error.scanFailed": "Scan failed",

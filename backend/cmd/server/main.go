@@ -64,7 +64,13 @@ func main() {
 	log.Printf("version: %s", version.Value)
 	log.Printf("movie media root: %s", cfg.MovieMediaRoot)
 	log.Printf("tv media root: %s", cfg.TVMediaRoot)
-	log.Printf("db path: %s", cfg.DBPath)
+	if cfg.DatabaseURL != "" {
+		log.Printf("database: postgres (%s)", config.RedactDatabaseURL(cfg.DatabaseURL))
+		log.Printf("sqlite migration source: %s", cfg.DBPath)
+	} else {
+		log.Printf("database: sqlite")
+		log.Printf("db path: %s", cfg.DBPath)
+	}
 	log.Printf("ui dist: %s", cfg.UIDist)
 
 	serverErr := make(chan error, 1)

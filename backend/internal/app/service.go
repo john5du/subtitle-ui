@@ -67,7 +67,10 @@ type subtitleSourceOverride struct {
 }
 
 func NewService(cfg config.Config) (*Service, error) {
-	st, err := store.Open(cfg.DBPath)
+	st, err := store.OpenWithOptions(store.OpenOptions{
+		SQLitePath:  cfg.DBPath,
+		PostgresURL: cfg.DatabaseURL,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +423,10 @@ func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortYea
 }
 
 func (s *Service) VersionInfo() domain.VersionInfo {
-	return domain.VersionInfo{Version: version.Value}
+	return domain.VersionInfo{
+		Version:      version.Value,
+		DatabaseType: s.store.DatabaseType(),
+	}
 }
 
 func (s *Service) GetVideo(videoID string) (domain.Video, bool) {

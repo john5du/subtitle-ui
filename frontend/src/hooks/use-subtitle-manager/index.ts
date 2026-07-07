@@ -75,6 +75,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
       directoryScan: state.directoryScan,
       logs: state.logs,
       logsPager: state.logsPager,
+      versionInfo: state.versionInfo,
       setLogsPage,
       refreshLogs,
       clearLogs

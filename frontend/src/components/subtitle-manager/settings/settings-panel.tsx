@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from "react";
 
-import { Search, ScrollText } from "lucide-react";
+import { Database, Search, ScrollText } from "lucide-react";
 
-import { useI18n } from "@/lib/i18n";
-import type { OperationLog, Pager, UiPendingState } from "@/lib/types";
+import { useI18n, type TranslateFn } from "@/lib/i18n";
+import type { OperationLog, Pager, UiPendingState, VersionInfo } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import { LocaleSelect, SubtitleConversionSettingsButton } from "../shared/settings-controls";
@@ -41,12 +42,24 @@ function SettingsActionRow({
   );
 }
 
+function formatDatabaseType(databaseType: VersionInfo["databaseType"] | undefined, t: TranslateFn) {
+  switch (String(databaseType || "").toLowerCase()) {
+    case "postgres":
+      return t("settings.databaseType.postgres");
+    case "sqlite":
+      return t("settings.databaseType.sqlite");
+    default:
+      return "-";
+  }
+}
+
 export function SettingsPanel({
   operationLocked,
   scanPending,
   triggerScan,
   logs,
   logsPager,
+  versionInfo,
   onSetLogsPage,
   onRefreshLogs,
   onClearLogs,
@@ -58,6 +71,7 @@ export function SettingsPanel({
   triggerScan: () => Promise<void>;
   logs: OperationLog[];
   logsPager: Pager;
+  versionInfo: VersionInfo | null;
   onSetLogsPage: (page: number) => void;
   onRefreshLogs: (page?: number) => Promise<void>;
   onClearLogs: () => Promise<boolean>;
@@ -75,6 +89,15 @@ export function SettingsPanel({
         </div>
 
         <div className="grid gap-5 xl:grid-cols-2">
+          <SettingsSection title={t("settings.system")}>
+            <SettingsActionRow label={t("settings.databaseType")}>
+              <Badge variant="secondary" title={t("settings.databaseType")} aria-label={t("settings.databaseType")} className="gap-2 py-2">
+                <Database className="h-3.5 w-3.5" />
+                {formatDatabaseType(versionInfo?.databaseType, t)}
+              </Badge>
+            </SettingsActionRow>
+          </SettingsSection>
+
           <SettingsSection title={t("settings.appearance")}>
             <SettingsActionRow label={t("locale.label")}>
               <LocaleSelect menuDirection="down" />

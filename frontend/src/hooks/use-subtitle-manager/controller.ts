@@ -8,6 +8,7 @@ import type {
   Subtitle,
   SubtitleSourceEncoding,
   SubtitleUploadOptions,
+  VersionInfo,
   Video
 } from "@/lib/types";
 import { requestBinary, requestPayload } from "@/lib/subtitle-manager/api-client";
@@ -192,6 +193,15 @@ export function createSubtitleManagerController({
 
     refs.pendingMovieListRequestRef.current = { signature, promise };
     return promise;
+  }
+
+  async function loadVersionInfo() {
+    try {
+      const payload = await requestPayload<VersionInfo>("/api/version");
+      setters.setVersionInfo(payload);
+    } catch (error) {
+      reportRequestError("error.loadVersionInfo", error);
+    }
   }
 
   async function loadTvSeriesPage(options: { page?: number; force?: boolean } = {}) {
@@ -457,6 +467,9 @@ export function createSubtitleManagerController({
 
     try {
       if (tab === "settings") {
+        if (!state.loadedTabs.settings) {
+          await loadVersionInfo();
+        }
         setters.setLoadedTabs((prev) => ({ ...prev, settings: true }));
         return;
       }
@@ -923,6 +936,7 @@ export function createSubtitleManagerController({
 
   return {
     finishBootstrapping,
+    loadVersionInfo,
     loadScanStatus,
     loadDirectoryScanResult,
     loadLogs,

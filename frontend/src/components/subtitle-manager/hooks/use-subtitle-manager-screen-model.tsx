@@ -33,7 +33,7 @@ export function useSubtitleManagerScreenModel() {
     uploadingMessage,
     formatTime
   } = core;
-  const { logs, logsPager, scanStatus, directoryScan } = dashboard;
+  const { logs, logsPager, scanStatus, directoryScan, versionInfo } = dashboard;
 
   const operationLocked = pending.scan || uploading || Boolean(pending.refreshTab);
   const scanPending = pending.scan;
@@ -227,12 +227,13 @@ export function useSubtitleManagerScreenModel() {
       directoryScan,
       logs,
       logsPager,
+      versionInfo,
       setLogsPage: dashboard.setLogsPage,
       refreshLogs: dashboard.refreshLogs,
       clearLogs: dashboard.clearLogs,
       pending,
       formatTime
-    }), [dashboard.clearLogs, dashboard.refreshLogs, dashboard.setLogsPage, directoryScan, formatTime, logs, logsPager, pending, scanStatus]);
+    }), [dashboard.clearLogs, dashboard.refreshLogs, dashboard.setLogsPage, directoryScan, formatTime, logs, logsPager, pending, scanStatus, versionInfo]);
 
   const movieModel = useMemo(() => ({
       query: movie.query,

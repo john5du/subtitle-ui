@@ -145,5 +145,6 @@ type TVSeriesPage struct {
 }
 
 type VersionInfo struct {
-	Version string `json:"version"`
+	Version      string `json:"version"`
+	DatabaseType string `json:"databaseType"`
 }

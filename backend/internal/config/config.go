@@ -1,6 +1,7 @@
-﻿package config
+package config
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ type Config struct {
 	TVMediaRoot           string
 	UIDist                string
 	DBPath                string
+	DatabaseURL           string
 	CORSAllowedOrigins    []string
 	TrustForwardedHeaders bool
 }
@@ -31,6 +33,7 @@ func Load() Config {
 		TVMediaRoot:           getEnv("TV_MEDIA_ROOT", tvDefault),
 		UIDist:                getEnv("UI_DIST", "./frontend/out"),
 		DBPath:                getEnv("DB_PATH", "./tmp/subtitle_manager.sqlite3"),
+		DatabaseURL:           strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		CORSAllowedOrigins:    splitOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")),
 		TrustForwardedHeaders: parseBool(os.Getenv("TRUST_FORWARDED_HEADERS")),
 	}
@@ -82,4 +85,32 @@ func parseBool(raw string) bool {
 	default:
 		return false
 	}
+}
+
+func RedactDatabaseURL(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err == nil && parsed.Scheme != "" {
+		if parsed.User != nil {
+			username := parsed.User.Username()
+			if _, hasPassword := parsed.User.Password(); hasPassword {
+				parsed.User = url.UserPassword(username, "xxxxx")
+			} else {
+				parsed.User = url.User(username)
+			}
+		}
+		return parsed.String()
+	}
+
+	parts := strings.Fields(trimmed)
+	for i, part := range parts {
+		if strings.HasPrefix(strings.ToLower(part), "password=") {
+			parts[i] = "password=xxxxx"
+		}
+	}
+	return strings.Join(parts, " ")
 }
