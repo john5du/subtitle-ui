@@ -27,7 +27,7 @@ A Go + Next.js web application for managing subtitle files alongside a Jellyfin-
 
 ## Release process
 
-1. Verify code and build before release:
+1. Optional local check before pushing:
 
 ```bash
 go test ./...
@@ -35,17 +35,16 @@ cd frontend
 bun run build
 ```
 
-2. Commit release changes on `main` (Conventional Commit style).
-3. Current source version is `0.7.2`. Create and push the release tag for the version you want to publish:
+2. Commit on `main` (Conventional Commit style) and push:
 
 ```bash
 git push origin main
-git tag vX.Y.Z
-git push origin vX.Y.Z
 ```
 
-4. Tag push (`v*`) triggers `.github/workflows/docker-publish.yml`. You can also run the workflow manually with `workflow_dispatch`; the optional version input accepts `0.7.3` or `v0.7.3`, and if omitted the workflow increments the patch version from the version files.
-5. Confirm release artifacts:
+3. Pushing to `main` triggers `.github/workflows/docker-publish.yml`, which runs unit tests (`go test ./...`), increments the patch version from the version files, creates tag `vX.Y.Z`, builds and pushes the image, and syncs version files back to `main`.
+4. You can also run the workflow manually with `workflow_dispatch`; the optional version input accepts `0.7.3` or `v0.7.3`, and if omitted the workflow increments the patch version from the version files.
+5. Version-sync commits from `github-actions[bot]` (`chore: sync version files…`) do not re-trigger release.
+6. Confirm release artifacts:
 - GitHub Actions workflow succeeded.
 - `ghcr.io/john5du/subtitle-ui` has tags: `vX.Y.Z`, `X.Y.Z`, `latest`, `sha-<short>`.
 - Version file sync commit is pushed back to the default branch.
@@ -276,7 +275,9 @@ volumes:
 ## GitHub Actions image publish
 
 - Workflow file: `.github/workflows/docker-publish.yml`
-- Trigger: push tag matching `v*` (for example `v0.7.2`) or manual `workflow_dispatch`
+- Trigger: push to `main` or manual `workflow_dispatch`
+- Pipeline: unit tests (`go test ./...`) → patch version bump → tag → image build/push → version file sync
+- Bot version-sync commits do not re-trigger release
 - Registry: `ghcr.io/john5du/subtitle-ui`
 - Tags published:
   - semantic tag (`vX.Y.Z`)

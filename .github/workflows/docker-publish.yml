@@ -1,40 +1,45 @@
 name: Release Container Image
-run-name: Release Container Image ${{ github.event_name == 'push' && github.ref_name || inputs.version && (startsWith(inputs.version, 'v') && inputs.version || format('v{0}', inputs.version)) || 'auto version' }}
+run-name: Release Container Image ${{ github.event_name == 'push' && format('main@{0}', github.sha) || inputs.version && (startsWith(inputs.version, 'v') && inputs.version || format('v{0}', inputs.version)) || 'auto version' }}
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version:
         description: Optional release version (accepts 0.2.2 or v0.2.2)
         required: false
         type: string
-  push:
-    tags:
-      - "v*"
 
 permissions:
   contents: write
   packages: write
 
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
 jobs:
   release:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/main' &&
+        github.actor != 'github-actions[bot]' &&
+        !contains(github.event.head_commit.message, 'chore: sync version files')
+      )
     runs-on: ubuntu-latest
     env:
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       REQUESTED_VERSION: ${{ github.event.inputs.version || '' }}
     steps:
-      - name: Checkout tag ref
-        if: github.event_name == 'push'
+      - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - name: Checkout default branch
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.repository.default_branch || github.ref }}
 
       - name: Sync latest default branch commit
         if: github.event_name == 'workflow_dispatch'
@@ -48,12 +53,19 @@ jobs:
           echo "Default branch: ${DEFAULT_BRANCH}"
           echo "Target commit: $(git rev-parse HEAD)"
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run unit tests
+        run: go test ./...
+
       - name: Resolve release context
         id: release
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
 
@@ -76,12 +88,7 @@ jobs:
               normalized = ".".join(str(part) for part in parts)
               return parts, normalized
 
-          event_name = os.environ["EVENT_NAME"]
-          if event_name == "push":
-              _, version = parse_semver(os.environ.get("REF_NAME", ""), "tag")
-              tag_name = f"v{version}"
-              should_create_tag = "false"
-          elif event_name == "workflow_dispatch":
+          def read_source_versions():
               backend_text = open(
                   "backend/internal/version/version.go",
                   encoding="utf-8",
@@ -108,6 +115,18 @@ jobs:
                       "Version mismatch between backend/internal/version/version.go "
                       f"({backend_version}) and frontend/package.json ({frontend_version})."
                   )
+
+              return backend_parts, backend_version
+
+          event_name = os.environ["EVENT_NAME"]
+          if event_name == "push":
+              backend_parts, _ = read_source_versions()
+              major, minor, patch = backend_parts
+              version = f"{major}.{minor}.{patch + 1}"
+              tag_name = f"v{version}"
+              should_create_tag = "true"
+          elif event_name == "workflow_dispatch":
+              backend_parts, _ = read_source_versions()
 
               requested_version = os.environ.get("REQUESTED_VERSION", "").strip()
               if requested_version:

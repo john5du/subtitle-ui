@@ -27,7 +27,7 @@ English version: [`README.md`](./README.md)
 
 ## 发版流程
 
-1. 发版前先验证代码与构建：
+1. 推送前可本地验证（可选）：
 
 ```bash
 go test ./...
@@ -35,17 +35,16 @@ cd frontend
 bun run build
 ```
 
-2. 在 `main` 提交发版改动（遵循 Conventional Commit）。
-3. 当前源码版本为 `0.7.2`。为要发布的版本创建并推送标签：
+2. 在 `main` 提交改动（遵循 Conventional Commit）并推送：
 
 ```bash
 git push origin main
-git tag vX.Y.Z
-git push origin vX.Y.Z
 ```
 
-4. 推送 `v*` 标签后，会触发 `.github/workflows/docker-publish.yml`。也可以通过 `workflow_dispatch` 手动运行工作流；可选版本输入支持 `0.7.3` 或 `v0.7.3`，不填写时会基于版本文件自动递增 patch。
-5. 发版结果核对：
+3. 推送到 `main` 会触发 `.github/workflows/docker-publish.yml`：先跑单元测试（`go test ./...`），再基于版本文件自动递增 patch、创建标签 `vX.Y.Z`、构建并推送镜像，最后把版本文件同步回 `main`。
+4. 也可以通过 `workflow_dispatch` 手动运行工作流；可选版本输入支持 `0.7.3` 或 `v0.7.3`，不填写时会基于版本文件自动递增 patch。
+5. `github-actions[bot]` 的版本同步提交（`chore: sync version files…`）不会再次触发发版。
+6. 发版结果核对：
 - GitHub Actions 工作流执行成功。
 - `ghcr.io/john5du/subtitle-ui` 生成标签：`vX.Y.Z`、`X.Y.Z`、`latest`、`sha-<short>`。
 - 版本文件同步提交已回推到默认分支。
@@ -276,7 +275,9 @@ volumes:
 ## GitHub Actions 镜像发布
 
 - 工作流文件：`.github/workflows/docker-publish.yml`
-- 触发条件：推送匹配 `v*` 的标签（例如 `v0.7.2`）或手动执行 `workflow_dispatch`
+- 触发条件：推送到 `main` 或手动执行 `workflow_dispatch`
+- 流程：单元测试（`go test ./...`）→ 递增 patch 版本 → 打标签 → 构建/推送镜像 → 同步版本文件
+- bot 的版本同步提交不会再次触发发版
 - 镜像仓库：`ghcr.io/john5du/subtitle-ui`
 - 发布标签：
   - 语义版本标签（`vX.Y.Z`）
