@@ -8,7 +8,6 @@ import { toSubtitleFile, type ZipSubtitleEntry } from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -71,41 +70,26 @@ const ROW_SELECT_SKIPPED = "__SKIPPED__";
 
 function WorkspaceSection({ icon, title, description, children, className, aside }: WorkspaceSectionProps) {
   return (
-    <Card className={cn("border border-border/70 bg-card", className)}>
-      <CardHeader className="gap-4 border-b border-border/60 p-5 md:flex-row md:items-start md:justify-between">
-        <div className="min-w-0 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center border border-border/70 bg-surface-subtle text-muted-foreground">
-              {icon}
-            </div>
-            <div className="min-w-0">
-              <CardTitle className="text-lg font-semibold tracking-tight md:text-xl">{title}</CardTitle>
-              {description ? <CardDescription className="mt-1 max-w-3xl text-sm">{description}</CardDescription> : null}
-            </div>
+    <section className={cn("space-y-3", className)}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-foreground-muted">{icon}</span>
+            <h3 className="text-sm font-semibold uppercase tracking-section text-foreground-muted">{title}</h3>
           </div>
+          {description ? <p className="mt-0.5 text-sm text-muted-foreground">{description}</p> : null}
         </div>
         {aside ? <div className="flex shrink-0 flex-wrap items-center gap-2">{aside}</div> : null}
-      </CardHeader>
-      <CardContent className="p-5">{children}</CardContent>
-    </Card>
+      </div>
+      <div>{children}</div>
+    </section>
   );
 }
 
 function MappingStatusBadge({ status, label }: { status: SeasonBatchMappingStatus; label: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "px-3 py-1",
-        status === "unassigned" && "border-input bg-surface-strong text-foreground",
-        status === "manual" && "border-border bg-surface-subtle text-foreground",
-        status === "auto" && "border-border bg-transparent text-muted-foreground",
-        status === "skipped" && "border-border bg-transparent text-foreground-muted"
-      )}
-    >
-      {label}
-    </Badge>
-  );
+  const variant =
+    status === "unassigned" ? "warning" : status === "manual" ? "info" : status === "auto" ? "success" : "secondary";
+  return <Badge variant={variant}>{label}</Badge>;
 }
 
 function MappingRow({
@@ -126,15 +110,7 @@ function MappingRow({
   const selectValue = row.skipped ? ROW_SELECT_SKIPPED : row.selectedVideoId || ROW_SELECT_PENDING;
 
   return (
-    <div
-      className={cn(
-        "border p-4 transition-colors",
-        row.status === "unassigned" && "border-input bg-card",
-        row.status === "manual" && "border-border/80 bg-surface-subtle",
-        row.status === "auto" && "border-border/60 bg-background",
-        row.status === "skipped" && "border-border/60 bg-background/70"
-      )}
-    >
+    <div className={cn("surface-panel p-3 sm:p-4", row.status === "skipped" && "opacity-75")}>
       <div className="flex flex-col gap-3 xl:flex-row xl:gap-0">
         <div className="min-w-0 space-y-3 xl:flex-1 xl:pr-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -145,30 +121,20 @@ function MappingRow({
             <MappingStatusBadge status={row.status} label={t(`batch.status.${row.status}`)} />
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary" className="px-3 py-1 text-foreground">
-              {formatSeasonEpisodeText(row.season, row.episode)}
-            </Badge>
-            <Badge variant="outline" className="px-3 py-1">
-              {formatLanguageTypeLabel(row.languageType, t)}
-            </Badge>
-            {row.format ? (
-              <Badge variant="outline" className="px-3 py-1">
-                {formatSubtitleExtLabel(row.format)}
-              </Badge>
-            ) : null}
-            <Badge variant="outline" className="px-3 py-1">
-              {t("batch.candidates", { count: row.candidateCount })}
-            </Badge>
+          <div className="flex flex-wrap gap-1.5">
+            <Badge variant="secondary">{formatSeasonEpisodeText(row.season, row.episode)}</Badge>
+            <Badge variant="outline">{formatLanguageTypeLabel(row.languageType, t)}</Badge>
+            {row.format ? <Badge variant="outline">{formatSubtitleExtLabel(row.format)}</Badge> : null}
+            <Badge variant="outline">{t("batch.candidates", { count: row.candidateCount })}</Badge>
           </div>
         </div>
 
-        <div className="space-y-2 border-t border-border/60 pt-3 xl:w-[320px] xl:shrink-0 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0">
+        <div className="space-y-2 border-t border-border pt-3 xl:w-[320px] xl:shrink-0 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0">
           <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
             {t("batch.targetEpisode")}
           </p>
           <Select value={selectValue} onValueChange={(value) => onSelectionChange(row.id, value)} disabled={disabled}>
-            <SelectTrigger className="h-10 w-full bg-card">
+            <SelectTrigger className="h-9 w-full">
               <SelectValue placeholder={t("batch.chooseEpisode")} />
             </SelectTrigger>
             <SelectContent className="max-h-72">
@@ -445,7 +411,7 @@ export function TvSeasonBatchUploadWorkspace({
         ) : null}
 
         {batchNotices.length > 0 ? (
-          <div className="border border-border/60 bg-surface-subtle px-4 py-3">
+          <div className="surface-panel px-4 py-3">
             <div className="flex items-start gap-3">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="space-y-2 text-sm text-muted-foreground">
@@ -458,10 +424,10 @@ export function TvSeasonBatchUploadWorkspace({
         ) : null}
 
         {batchBlockingError ? (
-          <div className="border border-input bg-card px-4 py-3">
+          <div className="surface-status-destructive border px-4 py-3">
             <div className="flex items-start gap-3">
-              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-foreground" />
-              <p className="text-sm text-foreground">{batchBlockingError}</p>
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <p className="text-sm">{batchBlockingError}</p>
             </div>
           </div>
         ) : null}
@@ -507,10 +473,8 @@ export function TvSeasonBatchUploadWorkspace({
                 />
               ))
             ) : (
-              <div className="border border-dashed border-border/70 bg-surface-subtle px-6 py-10 text-center">
-                <p className="text-sm text-muted-foreground">
-                  {batchRows.length === 0 ? t("batch.empty") : t("batch.filterEmpty")}
-                </p>
+              <div className="surface-panel px-6 py-10 text-center text-sm text-muted-foreground">
+                {batchRows.length === 0 ? t("batch.empty") : t("batch.filterEmpty")}
               </div>
             )}
           </div>
@@ -522,7 +486,7 @@ export function TvSeasonBatchUploadWorkspace({
             title={t("batch.resultsTitle")}
           >
             <div className="space-y-4">
-              <div className="border border-border/60 bg-surface-subtle px-4 py-3 text-sm">
+              <div className="surface-panel px-4 py-3 text-sm">
                 {t("batch.result", {
                   success: batchResult.success,
                   total: batchResult.total,
@@ -538,7 +502,7 @@ export function TvSeasonBatchUploadWorkspace({
                   </div>
                   <div className="space-y-2">
                     {batchResult.errors.slice(0, 6).map((item) => (
-                      <div key={item} className="border border-border/60 bg-background px-4 py-3 text-sm break-all">
+                      <div key={item} className="surface-panel px-4 py-3 text-sm break-all">
                         {item}
                       </div>
                     ))}
@@ -574,7 +538,7 @@ export function TvSeasonBatchUploadWorkspace({
             </div>
 
             {showBatchLanguageSelector ? (
-              <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border/60 lg:pl-3">
+              <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border lg:pl-3">
                 <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
                   {t("batch.languageType")}
                 </p>
@@ -583,7 +547,7 @@ export function TvSeasonBatchUploadWorkspace({
                   onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
                   disabled={busy || batchPreparing || batchRawEntries.length === 0}
                 >
-                  <SelectTrigger className="h-10 w-full bg-card">
+                  <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder={t("batch.languageTypePlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -598,7 +562,7 @@ export function TvSeasonBatchUploadWorkspace({
             ) : null}
 
             {showBatchFormatSelector ? (
-              <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border/60 lg:pl-3">
+              <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border lg:pl-3">
                 <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
                   {t("batch.format")}
                 </p>
@@ -607,7 +571,7 @@ export function TvSeasonBatchUploadWorkspace({
                   onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
                   disabled={busy || batchPreparing || batchRawEntries.length === 0}
                 >
-                  <SelectTrigger className="h-10 w-full bg-card">
+                  <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder={t("batch.format")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -621,7 +585,7 @@ export function TvSeasonBatchUploadWorkspace({
               </div>
             ) : null}
 
-            <div className="space-y-2 lg:w-[180px] lg:border-l lg:border-border/60 lg:pl-3">
+            <div className="space-y-2 lg:w-[180px] lg:border-l lg:border-border lg:pl-3">
               <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
                 {t("batch.label")}
               </p>
@@ -629,7 +593,7 @@ export function TvSeasonBatchUploadWorkspace({
                 value={batchLabel}
                 maxLength={32}
                 placeholder="zh"
-                className="h-10 w-full bg-card"
+                className="h-9 w-full"
                 disabled={busy || batchPreparing}
                 onChange={(event) => setBatchLabel(event.target.value)}
               />

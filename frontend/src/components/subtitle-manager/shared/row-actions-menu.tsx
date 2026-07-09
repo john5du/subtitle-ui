@@ -170,7 +170,7 @@ export function RowActionsMenu({
         disabled={item.disabled}
         className={cn(
           "surface-transition flex w-full items-center justify-between px-3 py-2.5 text-left text-[13px] font-medium text-popover-foreground hover:bg-surface-hover hover:text-popover-foreground disabled:cursor-not-allowed disabled:text-foreground-subtle disabled:opacity-60",
-          showDivider && "mt-1 border-t border-border/80 pt-3"
+          showDivider && "mt-1 border-t border-border pt-3"
         )}
         onClick={() => {
           if (item.disabled) {

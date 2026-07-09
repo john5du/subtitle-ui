@@ -52,7 +52,7 @@ export function SubtitleSourceDetailButton({ subtitle, sourceLabel, className }:
           <p className="text-xs font-semibold text-muted-foreground">
             {t("details.sourceDetail")}
           </p>
-          <p className="break-all border border-border bg-surface-subtle p-3 text-sm text-foreground">
+          <p className="surface-panel break-all p-3 text-sm text-foreground">
             {detail}
           </p>
         </div>

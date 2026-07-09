@@ -20,18 +20,18 @@ export function MediaExternalLinks({ imdbId, tmdbId, mediaType }: MediaExternalL
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-2">
       {imdbUrl ? (
-        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" asChild>
+        <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 px-2 text-xs" asChild>
           <a href={imdbUrl} target="_blank" rel="noreferrer" aria-label="Open IMDb record">
             <span>IMDb</span>
-            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
           </a>
         </Button>
       ) : null}
       {tmdbUrl ? (
-        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" asChild>
+        <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 px-2 text-xs" asChild>
           <a href={tmdbUrl} target="_blank" rel="noreferrer" aria-label="Open TMDb record">
             <span>TMDb</span>
-            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
           </a>
         </Button>
       ) : null}

@@ -73,7 +73,7 @@ export function OperationLogsDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="h-[min(760px,88vh)] max-h-[88vh] max-w-4xl gap-0 overflow-hidden p-0 sm:max-w-4xl">
-          <DialogHeader className="border-b border-border/60 p-5 pr-14">
+          <DialogHeader className="border-b border-border p-5 pr-14">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <DialogTitle>{t("logs.title")}</DialogTitle>

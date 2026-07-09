@@ -52,7 +52,7 @@ export function PagerView({
 
   return (
     <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 flex justify-center sm:inset-x-4 sm:bottom-4">
-      <div className="pointer-events-auto flex w-full max-w-[720px] flex-col gap-2 border border-border/70 bg-card/90 px-3 py-2.5 shadow-lg backdrop-blur sm:w-auto sm:min-w-[520px] sm:flex-row sm:items-center sm:justify-between">
+      <div className="pointer-events-auto flex w-full max-w-[720px] flex-col gap-2 border border-border bg-card/90 px-3 py-2.5 shadow-lg backdrop-blur sm:w-auto sm:min-w-[520px] sm:flex-row sm:items-center sm:justify-between">
         <Button type="button" variant="outline" size="sm" className="sm:min-w-[92px]" disabled={disabled || pager.page <= 1} onClick={() => onSetPage(pager.page - 1)}>
           {t("pager.prev")}
         </Button>

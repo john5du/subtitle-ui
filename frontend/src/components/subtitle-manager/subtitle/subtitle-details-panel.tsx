@@ -116,7 +116,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   const showPrimaryUploadButton = showUploadButton;
   const hasActionToolbar = showPrimaryUploadButton || searchActionItems.length > 0 || workflow.zipLoading || Boolean(workflow.zipPickError);
   const detailsInfoGrid = selectedVideo ? (
-    <div className="flex flex-col divide-y divide-border/60 overflow-hidden border border-border/60 text-sm">
+    <div className="flex flex-col divide-y divide-border overflow-hidden border border-border text-sm">
       <InfoItem label={t("info.title")} value={selectedVideo.title || "-"} />
       <InfoItem label={t("info.year")} value={selectedVideo.year || "-"} />
       {showMediaType && <InfoItem label={t("info.mediaType")} value={selectedVideo.mediaType === "movie" ? t("info.movie") : t("info.tv")} />}
@@ -172,10 +172,12 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
       <div className={contentClassName}>
         {!selectedVideo ? (
           <div className={cn(
-            "flex flex-1 items-center justify-center text-center text-sm text-muted-foreground",
-            embedded ? "p-8 text-muted-foreground" : "bg-surface-subtle p-10"
+            "flex flex-1 items-center justify-center p-6",
+            !embedded && "px-4"
           )}>
-            {emptyText}
+            <div className="surface-panel w-full px-6 py-12 text-center text-sm text-muted-foreground">
+              {emptyText}
+            </div>
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
@@ -210,7 +212,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
             {hasActionToolbar && (
               <div className={cn(
                 "shrink-0",
-                embedded ? "border-b border-border px-4 py-3" : "mb-4 flex flex-col gap-3 bg-surface-subtle p-3"
+                embedded ? "border-b border-border px-4 py-3" : "mb-4 flex flex-col gap-3 surface-subtle p-3"
               )}>
                 <div className="flex flex-wrap items-center gap-2">
                   {showPrimaryUploadButton && (

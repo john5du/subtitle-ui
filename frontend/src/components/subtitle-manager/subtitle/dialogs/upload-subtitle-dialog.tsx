@@ -59,7 +59,7 @@ export function UploadSubtitleDialog({
           onChange={(event) => onUploadLabelChange(event.target.value)}
         />
 
-        <div className="space-y-3 border border-border bg-surface-subtle p-3">
+        <div className="surface-panel space-y-3 p-3">
           <label className="flex items-center gap-3 text-sm font-medium">
             <input
               type="checkbox"
@@ -72,7 +72,7 @@ export function UploadSubtitleDialog({
 
           {convertToAss && (
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("conversion.sourceEncoding")}</p>
+              <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("conversion.sourceEncoding")}</p>
               <Select value={sourceEncoding} onValueChange={(value) => onSourceEncodingChange(value as SubtitleSourceEncoding)} disabled={busy}>
                 <SelectTrigger className="h-9">
                   <SelectValue />

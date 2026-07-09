@@ -40,7 +40,7 @@ export function ConvertSubtitleDialog({
         </DialogHeader>
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("conversion.sourceEncoding")}</p>
+          <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("conversion.sourceEncoding")}</p>
           <Select
             value={sourceEncoding}
             onValueChange={(value) => onSourceEncodingChange(value as SubtitleSourceEncoding)}

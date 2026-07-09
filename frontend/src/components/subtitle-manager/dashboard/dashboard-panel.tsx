@@ -43,7 +43,7 @@ function SettingsActionRow({
   children: ReactNode;
 }) {
   return (
-    <div className="surface-subtle flex min-h-[64px] items-center justify-between gap-3 p-3">
+    <div className="surface-panel flex min-h-[64px] items-center justify-between gap-3 p-3">
       <p className="min-w-0 text-sm font-semibold text-foreground">{label}</p>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>

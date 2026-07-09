@@ -126,7 +126,7 @@ export const MovieListPanel = memo(function MovieListPanel({
   const showPager = Math.max(1, pager.totalPages) > 1 || pager.total > 0;
 
   return (
-    <Card className="animate-fade-in-up flex h-full flex-col bg-card">
+    <Card className="surface-panel animate-fade-in-up flex h-full flex-col">
       <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <Button
