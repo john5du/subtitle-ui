@@ -10,11 +10,11 @@ type ToastItem = AppToastEventDetail;
 function toneClass(level: ToastItem["level"]) {
   switch (level) {
     case "success":
-      return "border-input bg-popover text-popover-foreground";
+      return "border-success-border bg-success-soft text-success-muted";
     case "info":
-      return "border-input bg-popover text-popover-foreground";
+      return "border-info-border bg-info-soft text-info-muted";
     default:
-      return "border-red-500/50 bg-red-50 text-red-950 dark:bg-red-950 dark:text-red-50";
+      return "border-destructive-border bg-destructive-soft text-destructive-muted";
   }
 }
 
@@ -57,7 +57,7 @@ export function ToastViewport() {
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
-              {toast.title && <p className="font-mono text-xs uppercase tracking-[0.0625em]">{toast.title}</p>}
+              {toast.title && <p className="font-mono text-xs uppercase tracking-label">{toast.title}</p>}
               <p className={cn("break-words", toast.title ? "text-sm" : "font-medium")}>{toast.message}</p>
               {toast.detail && <p className="break-words text-xs opacity-80">{toast.detail}</p>}
             </div>

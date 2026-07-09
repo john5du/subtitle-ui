@@ -59,7 +59,7 @@ export function SubtitlePreviewDialog({
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 {previewEncoding && (
-                  <Badge variant="secondary" className="text-[11px] uppercase">
+                  <Badge variant="secondary">
                     {previewEncoding}
                   </Badge>
                 )}

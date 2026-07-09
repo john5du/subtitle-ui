@@ -21,7 +21,7 @@ function SettingsSection({
 }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-display text-xs font-semibold uppercase tracking-[0.14em] text-foreground-muted">{title}</h2>
+      <h2 className="text-display text-xs font-semibold uppercase tracking-section text-foreground-muted">{title}</h2>
       <div className="space-y-2">{children}</div>
     </section>
   );
@@ -92,7 +92,7 @@ export function SettingsPanel({
     <div className="min-h-0 flex-1 p-3 sm:p-4 lg:h-full">
       <div className="surface-panel animate-fade-in-up flex min-h-0 flex-col gap-6 overflow-auto p-4 sm:p-5">
         <div className="space-y-1">
-          <h1 className="text-display text-lg font-semibold uppercase tracking-[0.14em] text-foreground">{t("settings.title")}</h1>
+          <h1 className="text-display text-lg font-semibold uppercase tracking-section text-foreground">{t("settings.title")}</h1>
         </div>
 
         <div className="grid gap-5 xl:grid-cols-2">

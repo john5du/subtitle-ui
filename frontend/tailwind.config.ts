@@ -18,6 +18,7 @@ const config: Config = {
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
+        "ring-soft": "var(--ring-soft)",
         background: "var(--background)",
         foreground: "var(--foreground)",
         primary: {
@@ -38,19 +39,31 @@ const config: Config = {
         },
         destructive: {
           DEFAULT: "var(--destructive)",
-          foreground: "var(--destructive-foreground)"
+          foreground: "var(--destructive-foreground)",
+          soft: "var(--destructive-soft)",
+          border: "var(--destructive-border)",
+          muted: "var(--destructive-muted)"
         },
         success: {
           DEFAULT: "var(--success)",
-          foreground: "var(--success-foreground)"
+          foreground: "var(--success-foreground)",
+          soft: "var(--success-soft)",
+          border: "var(--success-border)",
+          muted: "var(--success-muted)"
         },
         warning: {
           DEFAULT: "var(--warning)",
-          foreground: "var(--warning-foreground)"
+          foreground: "var(--warning-foreground)",
+          soft: "var(--warning-soft)",
+          border: "var(--warning-border)",
+          muted: "var(--warning-muted)"
         },
         info: {
           DEFAULT: "var(--info)",
-          foreground: "var(--info-foreground)"
+          foreground: "var(--info-foreground)",
+          soft: "var(--info-soft)",
+          border: "var(--info-border)",
+          muted: "var(--info-muted)"
         },
         card: {
           DEFAULT: "var(--card)",
@@ -65,7 +78,11 @@ const config: Config = {
         "surface-hover": "var(--surface-hover)",
         "foreground-muted": "var(--foreground-muted)",
         "foreground-subtle": "var(--foreground-subtle)",
-        "ring-offset": "var(--ring-offset)"
+        "ring-offset": "var(--ring-offset)",
+        overlay: {
+          DEFAULT: "var(--overlay)",
+          strong: "var(--overlay-strong)"
+        }
       }
     }
   },

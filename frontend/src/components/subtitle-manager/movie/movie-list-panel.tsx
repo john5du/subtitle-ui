@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import type { LibraryViewMode } from "../types";
+import { LibraryPosterCard } from "../shared/library-poster-card";
 import { LibraryViewToggle } from "../shared/library-view-toggle";
 import { InlinePending, PanelLoadingOverlay, SpinnerIcon } from "../shared/pending-state";
 import { PagerView } from "../shared/pager-view";
@@ -36,59 +37,6 @@ interface MovieListPanelProps {
   pending: boolean;
   formatTime: (value: string | undefined | null) => string;
 }
-
-const rowFocusClass = "surface-transition cursor-pointer outline-none hover:bg-accent focus-visible:bg-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-input";
-
-const MoviePosterCard = memo(function MoviePosterCard({
-  video,
-  onOpenManager,
-  operationLocked
-}: {
-  video: Video;
-  onOpenManager: (video: Video) => void;
-  operationLocked: boolean;
-}) {
-  const { t } = useI18n();
-
-  return (
-    <div className="flex w-full min-w-0 self-start flex-col">
-      <button
-        type="button"
-        className="surface-transition flex w-full min-w-0 flex-col text-left hover:bg-surface-subtle focus-visible:bg-surface-subtle focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-65"
-        aria-label={video.title || video.fileName || t("info.movie")}
-        disabled={operationLocked}
-        onClick={() => onOpenManager(video)}
-      >
-        <div className="p-2 pb-0">
-          <div className="relative">
-            <PosterThumbnail
-              src={video.posterUrl}
-              className="aspect-[2/3] w-full"
-              imageClassName="h-full w-full"
-              sizes="(max-width: 420px) 100vw, (max-width: 768px) 50vw, 220px"
-            />
-            <span
-              className="absolute bottom-2 right-2 min-w-7 border border-white/20 bg-black/70 px-2 py-1 text-center text-xs font-semibold leading-none text-white backdrop-blur"
-              aria-hidden
-            >
-              {video.subtitles.length}
-            </span>
-          </div>
-        </div>
-        <div className="flex flex-col gap-0.5 p-2">
-          <p className="line-clamp-2 min-w-0 text-base font-semibold leading-6 text-foreground">
-            {video.title || video.fileName || "-"}
-          </p>
-          {video.year ? (
-            <span className="text-xs font-medium text-muted-foreground">{video.year}</span>
-          ) : null}
-        </div>
-      </button>
-    </div>
-  );
-});
-
-MoviePosterCard.displayName = "MoviePosterCard";
 
 function SkeletonRows({ rows = 4 }: { rows?: number }) {
   return (
@@ -179,7 +127,7 @@ export const MovieListPanel = memo(function MovieListPanel({
 
   return (
     <Card className="animate-fade-in-up flex h-full flex-col bg-card">
-      <CardHeader className="space-y-3 p-4">
+      <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <Button
             type="button"
@@ -225,7 +173,7 @@ export const MovieListPanel = memo(function MovieListPanel({
                   onClick={onToggleYearSort}
                 >
                   {t("info.year")}
-                  <span className="text-[10px]" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+                  <span className="text-micro" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
                 </Button>
               )}
               <LibraryViewToggle value={viewMode} onChange={onViewModeChange} />
@@ -252,7 +200,7 @@ export const MovieListPanel = memo(function MovieListPanel({
                         onClick={onToggleYearSort}
                       >
                         {t("info.year")}
-                        <span className="text-[10px]" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+                        <span className="text-micro" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
                       </button>
                     </TableHead>
                     <TableHead className="hidden w-[156px] md:table-cell">{t("movie.updatedTime")}</TableHead>
@@ -270,7 +218,7 @@ export const MovieListPanel = memo(function MovieListPanel({
                       tabIndex={operationLocked ? -1 : 0}
                       aria-label={video.title || video.fileName || t("info.movie")}
                       className={cn(
-                        rowFocusClass,
+                        "row-focus",
                         operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
                       )}
                       onClick={() => {
@@ -305,20 +253,27 @@ export const MovieListPanel = memo(function MovieListPanel({
                 </TableBody>
               </Table>
             ) : videos.length === 0 ? (
-              <div className="flex min-h-[320px] items-center justify-center p-6 text-center text-sm text-muted-foreground">
+              <div className="flex min-h-[var(--panel-min-h)] items-center justify-center p-6 text-center text-sm text-muted-foreground">
                 {pending ? t("movie.updatingResults") : t("movie.empty")}
               </div>
             ) : (
               <div className="px-2 pb-2 pt-1 sm:px-3">
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-3">
-                  {videos.map((video) => (
-                    <MoviePosterCard
-                      key={video.id}
-                      video={video}
-                      onOpenManager={onOpenManager}
-                      operationLocked={operationLocked}
-                    />
-                  ))}
+                  {videos.map((video) => {
+                    const title = video.title || video.fileName || "-";
+                    return (
+                      <LibraryPosterCard
+                        key={video.id}
+                        title={title}
+                        subtitle={video.year}
+                        posterUrl={video.posterUrl}
+                        badge={video.subtitles.length}
+                        ariaLabel={title || t("info.movie")}
+                        operationLocked={operationLocked}
+                        onOpen={() => onOpenManager(video)}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}
