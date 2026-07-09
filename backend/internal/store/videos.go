@@ -383,6 +383,8 @@ func normalizeSubtitleSourceValue(source string) string {
 		return domain.SubtitleSourceUpload
 	case domain.SubtitleSourceGenerated:
 		return domain.SubtitleSourceGenerated
+	case domain.SubtitleSourceDownload:
+		return domain.SubtitleSourceDownload
 	default:
 		return domain.SubtitleSourceDirectory
 	}

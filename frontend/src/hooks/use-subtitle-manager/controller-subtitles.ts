@@ -1,6 +1,8 @@
 import type {
   BatchSubtitleUploadItem,
   BatchSubtitleUploadResult,
+  SubHDDownloadOptions,
+  SubHDSearchPage,
   Subtitle,
   SubtitleSourceEncoding,
   SubtitleUploadOptions,
@@ -359,6 +361,56 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     };
   }
 
+  async function searchSubHDSubtitles(video: Video, opts: { query?: string; page?: number } = {}) {
+    const params = new URLSearchParams();
+    const query = (opts.query ?? "").trim();
+    if (query) {
+      params.set("q", query);
+    }
+    if (opts.page && opts.page > 1) {
+      params.set("page", String(opts.page));
+    }
+    const qs = params.toString();
+    const path = `/api/videos/${video.id}/subtitles/providers/subhd/search${qs ? `?${qs}` : ""}`;
+    return requestPayload<SubHDSearchPage>(path);
+  }
+
+  async function downloadSubHDSubtitle(video: Video, sid: string, options: SubHDDownloadOptions = {}) {
+    const previousSubtitleCount = video.subtitles.length;
+    setSubtitleActionPending({
+      kind: "download",
+      videoId: video.id
+    });
+    beginUpload("status.downloadingSubtitle");
+    try {
+      const body: Record<string, string> = { sid };
+      if (options.label?.trim()) {
+        body.label = options.label.trim();
+      }
+      if (options.replaceId?.trim()) {
+        body.replaceId = options.replaceId.trim();
+      }
+      if (options.archiveEntry?.trim()) {
+        body.archiveEntry = options.archiveEntry.trim();
+      }
+      await requestPayload(`/api/videos/${video.id}/subtitles/providers/subhd/download`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      await refreshAfterSubtitleMutation(video, previousSubtitleCount);
+      setTranslatedMessage("status.downloadedSubtitleFor", { title: video.title || video.fileName });
+      notifySuccess(runtime.t("toast.subtitleDownloadedTitle"), video.title || video.fileName, sid);
+      return true;
+    } catch (error) {
+      reportRequestError("error.subhdDownloadFailed", error);
+      return false;
+    } finally {
+      endUpload();
+      setSubtitleActionPending(null);
+    }
+  }
+
   return {
     uploadSubtitle,
     replaceSubtitle,
@@ -366,6 +418,8 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     offsetSubtitleTiming,
     removeSubtitle,
     previewSubtitle,
+    searchSubHDSubtitles,
+    downloadSubHDSubtitle,
     loadTvBatchCandidates,
     uploadBatchSubtitles
   };

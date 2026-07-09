@@ -9,6 +9,8 @@ import type {
   OperationLog,
   Pager,
   ScanStatus,
+  SubHDDownloadOptions,
+  SubHDSearchPage,
   Subtitle,
   SubtitleSourceEncoding,
   SubtitleUploadOptions,
@@ -189,6 +191,8 @@ export interface SubtitleManagerActions {
   offsetSubtitleTiming: (video: Video, subtitle: Subtitle, offsetMs: number) => Promise<boolean>;
   removeSubtitle: (video: Video, subtitle: Subtitle) => Promise<boolean>;
   previewSubtitle: (video: Video, subtitle: Subtitle) => Promise<ArrayBuffer>;
+  searchSubHDSubtitles: (video: Video, opts?: { query?: string; page?: number }) => Promise<SubHDSearchPage>;
+  downloadSubHDSubtitle: (video: Video, sid: string, options?: SubHDDownloadOptions) => Promise<boolean>;
   uploadBatchSubtitles: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;
 }
 

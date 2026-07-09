@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, AlertTriangle, Clock, ExternalLink, Eye, FileCode2, Pencil, Trash2, UploadCloud } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Clock, Download, ExternalLink, Eye, FileCode2, Pencil, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import { buildSubtitleSearchLinks, buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
@@ -22,6 +22,7 @@ import { ArchiveEntryPickerDialog } from "./dialogs/archive-entry-picker-dialog"
 import { ConvertSubtitleDialog } from "./dialogs/convert-subtitle-dialog";
 import { DeleteSubtitleDialog } from "./dialogs/delete-subtitle-dialog";
 import { ReplaceSubtitleDialog } from "./dialogs/replace-subtitle-dialog";
+import { SubHDDownloadDialog } from "./dialogs/subhd-download-dialog";
 import { SubtitlePreviewDialog } from "./dialogs/subtitle-preview-dialog";
 import { TimingOffsetDialog } from "./dialogs/timing-offset-dialog";
 import { UploadSubtitleDialog } from "./dialogs/upload-subtitle-dialog";
@@ -47,6 +48,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
     onOffsetSubtitle,
     onRemove,
     onPreviewSubtitle,
+    onSearchSubHD,
+    onDownloadSubHD,
     formatTime,
     busy,
     uploading,
@@ -70,7 +73,9 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-caption";
   const [flashSubtitleList, setFlashSubtitleList] = useState(false);
   const [metaExpanded, setMetaExpanded] = useState(!metaCollapsedByDefault);
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const showHeader = showPanelTitle || showBack || (Boolean(selectedVideo) && !embedded);
+  const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
 
   function triggerSubtitleListFlash() {
     setFlashSubtitleList(false);
@@ -105,6 +110,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   }, [searchKeyword, selectedVideo]);
 
   const uploadPending = subtitleAction?.kind === "upload" && subtitleAction.videoId === selectedVideo?.id;
+  const downloadPending = subtitleAction?.kind === "download" && subtitleAction.videoId === selectedVideo?.id;
   const searchActionItems =
     showSearchLinks && searchLinks
       ? [
@@ -114,7 +120,12 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
       : [];
   const subtitleActionWidthClass = "w-full sm:w-auto";
   const showPrimaryUploadButton = showUploadButton;
-  const hasActionToolbar = showPrimaryUploadButton || searchActionItems.length > 0 || workflow.zipLoading || Boolean(workflow.zipPickError);
+  const hasActionToolbar =
+    showPrimaryUploadButton ||
+    canAutoDownload ||
+    searchActionItems.length > 0 ||
+    workflow.zipLoading ||
+    Boolean(workflow.zipPickError);
   const detailsInfoGrid = selectedVideo ? (
     <div className="flex flex-col divide-y divide-border overflow-hidden border border-border text-sm">
       <InfoItem label={t("info.title")} value={selectedVideo.title || "-"} />
@@ -227,6 +238,19 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       <span>{uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}</span>
                     </Button>
                   )}
+                  {canAutoDownload ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className={cn("h-8 gap-1.5", subtitleActionWidthClass)}
+                      disabled={busy || workflow.zipLoading || !selectedVideo}
+                      onClick={() => setDownloadDialogOpen(true)}
+                    >
+                      {downloadPending ? <SpinnerIcon className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                      <span>{downloadPending ? t("download.downloading") : t("download.action")}</span>
+                    </Button>
+                  ) : null}
                   {workflow.zipLoading && <InlinePending label={t("details.parsingArchive")} />}
                   {selectedVideo && embedded ? (
                     <Badge variant="secondary" className="shrink-0">
@@ -553,6 +577,18 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
         previewEncoding={workflow.previewEncoding}
         previewTruncated={workflow.previewTruncated}
       />
+
+      {canAutoDownload && onSearchSubHD && onDownloadSubHD ? (
+        <SubHDDownloadDialog
+          open={downloadDialogOpen}
+          onOpenChange={setDownloadDialogOpen}
+          video={selectedVideo}
+          busy={busy}
+          downloading={downloadPending}
+          onSearch={onSearchSubHD}
+          onDownload={onDownloadSubHD}
+        />
+      ) : null}
     </div>
   );
 });

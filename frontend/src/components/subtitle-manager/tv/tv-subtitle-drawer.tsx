@@ -27,6 +27,8 @@ interface TvSubtitleDrawerProps {
   onOffsetSubtitle: SubtitleDetailsPanelProps["onOffsetSubtitle"];
   onRemove: SubtitleDetailsPanelProps["onRemove"];
   onPreviewSubtitle: SubtitleDetailsPanelProps["onPreviewSubtitle"];
+  onSearchSubHD?: SubtitleDetailsPanelProps["onSearchSubHD"];
+  onDownloadSubHD?: SubtitleDetailsPanelProps["onDownloadSubHD"];
   formatTime: SubtitleDetailsPanelProps["formatTime"];
   busy: boolean;
   uploading: boolean;
@@ -54,6 +56,8 @@ export function TvSubtitleDrawer({
   onOffsetSubtitle,
   onRemove,
   onPreviewSubtitle,
+  onSearchSubHD,
+  onDownloadSubHD,
   formatTime,
   busy,
   uploading,
@@ -143,6 +147,8 @@ export function TvSubtitleDrawer({
               onOffsetSubtitle={onOffsetSubtitle}
               onRemove={onRemove}
               onPreviewSubtitle={onPreviewSubtitle}
+              onSearchSubHD={onSearchSubHD}
+              onDownloadSubHD={onDownloadSubHD}
               formatTime={formatTime}
               busy={busy}
               uploading={uploading}

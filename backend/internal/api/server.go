@@ -41,6 +41,13 @@ type subtitleTimingOffsetRequest struct {
 	OffsetMS int `json:"offsetMs"`
 }
 
+type subhdDownloadRequest struct {
+	SID          string `json:"sid"`
+	Label        string `json:"label"`
+	ReplaceID    string `json:"replaceId"`
+	ArchiveEntry string `json:"archiveEntry"`
+}
+
 func NewServer(service *app.Service, uiDist string) *Server {
 	return NewServerWithConfig(service, config.Config{UIDist: uiDist})
 }
@@ -61,6 +68,7 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	s.mux.HandleFunc("/api/scan/status", s.handleScanStatus)
 	s.mux.HandleFunc("/api/version", s.handleVersion)
 	s.mux.HandleFunc("/api/config/subtitle-conversion", s.handleSubtitleConversionConfig)
+	s.mux.HandleFunc("/api/config/subhd", s.handleSubHDConfig)
 	s.mux.HandleFunc("/api/videos", s.handleVideos)
 	s.mux.HandleFunc("/api/tv/series", s.handleTVSeries)
 	s.mux.HandleFunc("/api/videos/", s.handleVideoRoute)
@@ -206,6 +214,14 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleUploadSubtitle(w, r, videoID)
 		return
 
+	case len(segments) == 5 && segments[1] == "subtitles" && segments[2] == "providers" && segments[3] == "subhd" && segments[4] == "search" && r.Method == http.MethodGet:
+		s.handleSubHDSearch(w, r, videoID)
+		return
+
+	case len(segments) == 5 && segments[1] == "subtitles" && segments[2] == "providers" && segments[3] == "subhd" && segments[4] == "download" && r.Method == http.MethodPost:
+		s.handleSubHDDownload(w, r, videoID)
+		return
+
 	case len(segments) == 4 && segments[1] == "subtitles" && segments[3] == "content" && r.Method == http.MethodGet:
 		s.handleSubtitleContent(w, r, videoID, segments[2])
 		return
@@ -273,6 +289,41 @@ func (s *Server) handleVideoPoster(w http.ResponseWriter, r *http.Request, video
 	http.ServeContent(w, r, path.Base(posterPath), info.ModTime(), file)
 }
 
+func (s *Server) handleSubHDSearch(w http.ResponseWriter, r *http.Request, videoID string) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	page := parsePositiveIntOrDefault(r.URL.Query().Get("page"), 1)
+	result, err := s.service.SearchSubHD(r.Context(), videoID, app.SubHDSearchOptions{
+		Query: query,
+		Page:  page,
+	})
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleSubHDDownload(w http.ResponseWriter, r *http.Request, videoID string) {
+	var req subhdDownloadRequest
+	if r.Body != nil {
+		defer r.Body.Close()
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	subtitle, err := s.service.InstallFromSubHD(r.Context(), videoID, req.SID, app.SubHDInstallOptions{
+		Label:        strings.TrimSpace(req.Label),
+		ReplaceID:    strings.TrimSpace(req.ReplaceID),
+		ArchiveEntry: strings.TrimSpace(req.ArchiveEntry),
+	})
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, subtitle)
+}
+
 func (s *Server) handleUploadSubtitle(w http.ResponseWriter, r *http.Request, videoID string) {
 	if err := r.ParseMultipartForm(64 << 20); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid multipart body")
@@ -321,6 +372,35 @@ func (s *Server) handleSubtitleConversionConfig(w http.ResponseWriter, r *http.R
 			return
 		}
 		cfg, err := s.service.UpdateSubtitleConversionConfig(req)
+		if err != nil {
+			s.writeAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func (s *Server) handleSubHDConfig(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		cfg, err := s.service.GetSubHDConfig()
+		if err != nil {
+			s.writeAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	case http.MethodPut:
+		var req appdomain.SubHDConfigUpdate
+		if r.Body != nil {
+			defer r.Body.Close()
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json body")
+			return
+		}
+		cfg, err := s.service.UpdateSubHDConfig(req)
 		if err != nil {
 			s.writeAppError(w, err)
 			return
@@ -448,6 +528,8 @@ func (s *Server) writeAppError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, app.ErrNotFound):
 		writeError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, app.ErrProviderDisabled):
+		writeError(w, http.StatusServiceUnavailable, err.Error())
 	case errors.Is(err, app.ErrBadRequest), errors.Is(err, app.ErrInvalidFileType):
 		writeError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, app.ErrUnsafePath):

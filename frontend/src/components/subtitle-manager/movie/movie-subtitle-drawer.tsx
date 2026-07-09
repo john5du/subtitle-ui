@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { Clock, ExternalLink, Eye, FileArchive, FileCode2, Languages, Pencil, Trash2, UploadCloud } from "lucide-react";
+import { Clock, Download, ExternalLink, Eye, FileArchive, FileCode2, Languages, Pencil, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import { buildSubtitleSearchLinks } from "@/lib/subtitle-search";
@@ -16,6 +16,7 @@ import { InlinePending, SpinnerIcon } from "../shared/pending-state";
 import { ArchiveEntryPickerDialog } from "../subtitle/dialogs/archive-entry-picker-dialog";
 import { ConvertSubtitleDialog } from "../subtitle/dialogs/convert-subtitle-dialog";
 import { DeleteSubtitleDialog } from "../subtitle/dialogs/delete-subtitle-dialog";
+import { SubHDDownloadDialog } from "../subtitle/dialogs/subhd-download-dialog";
 import { SubtitlePreviewDialog } from "../subtitle/dialogs/subtitle-preview-dialog";
 import { TimingOffsetDialog } from "../subtitle/dialogs/timing-offset-dialog";
 import { UploadSubtitleDialog } from "../subtitle/dialogs/upload-subtitle-dialog";
@@ -40,6 +41,8 @@ type MovieSubtitleDrawerProps = Pick<
   | "onOffsetSubtitle"
   | "onRemove"
   | "onPreviewSubtitle"
+  | "onSearchSubHD"
+  | "onDownloadSubHD"
   | "formatTime"
   | "busy"
   | "uploading"
@@ -57,6 +60,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     onOffsetSubtitle,
     onRemove,
     onPreviewSubtitle,
+    onSearchSubHD,
+    onDownloadSubHD,
     formatTime,
     busy,
     uploading,
@@ -69,6 +74,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   const dragDepthRef = useRef(0);
   const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-caption";
   const [dragActive, setDragActive] = useState(false);
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
 
   const workflow = useSubtitleFileWorkflow({
     selectedVideo,
@@ -85,6 +92,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
   const searchLinks = useMemo(() => (selectedVideo ? buildSubtitleSearchLinks(selectedVideo) : null), [selectedVideo]);
   const uploadPending = subtitleAction?.kind === "upload" && subtitleAction.videoId === selectedVideo?.id;
+  const downloadPending = subtitleAction?.kind === "download" && subtitleAction.videoId === selectedVideo?.id;
   const selectedMovieTitle = selectedVideo?.title || selectedVideo?.fileName || t("details.movieManagementTitle");
 
   useEffect(() => {
@@ -150,22 +158,36 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                 <MediaExternalLinks imdbId={selectedVideo.imdbId} tmdbId={selectedVideo.tmdbId} mediaType="movie" />
               ) : null}
             </div>
-            {searchLinks ? (
-              <div className="flex flex-wrap gap-1.5">
-                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
-                  <a href={searchLinks.subhd} target="_blank" rel="noreferrer">
-                    <span>SubHD</span>
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                  </a>
+            <div className="flex flex-wrap gap-1.5">
+              {canAutoDownload ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  disabled={busy || !selectedVideo}
+                  onClick={() => setDownloadDialogOpen(true)}
+                >
+                  {downloadPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
+                  <span>{downloadPending ? t("download.downloading") : t("download.action")}</span>
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
-                  <a href={searchLinks.zimuku} target="_blank" rel="noreferrer">
-                    <span>Zimuku</span>
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                  </a>
-                </Button>
-              </div>
-            ) : null}
+              ) : null}
+              {searchLinks ? (
+                <>
+                  <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                    <a href={searchLinks.subhd} target="_blank" rel="noreferrer">
+                      <span>SubHD</span>
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                    </a>
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                    <a href={searchLinks.zimuku} target="_blank" rel="noreferrer">
+                      <span>Zimuku</span>
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                    </a>
+                  </Button>
+                </>
+              ) : null}
+            </div>
           </div>
           {selectedVideo ? (
             <Badge variant="secondary" className="shrink-0">
@@ -508,6 +530,18 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
         previewEncoding={workflow.previewEncoding}
         previewTruncated={workflow.previewTruncated}
       />
+
+      {canAutoDownload && onSearchSubHD && onDownloadSubHD ? (
+        <SubHDDownloadDialog
+          open={downloadDialogOpen}
+          onOpenChange={setDownloadDialogOpen}
+          video={selectedVideo}
+          busy={busy}
+          downloading={downloadPending}
+          onSearch={onSearchSubHD}
+          onDownload={onDownloadSubHD}
+        />
+      ) : null}
     </div>
   );
 });

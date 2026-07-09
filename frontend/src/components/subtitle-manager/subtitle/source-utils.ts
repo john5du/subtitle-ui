@@ -7,6 +7,8 @@ export function formatSubtitleSourceLabel(subtitle: Subtitle, t: TranslateFn) {
       return t("details.source.upload");
     case "generated":
       return t("details.source.generated");
+    case "download":
+      return t("details.source.download");
     case "directory":
       return t("details.source.directory");
     default:

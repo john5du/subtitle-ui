@@ -1,4 +1,11 @@
-import type { PendingSubtitleAction, Subtitle, SubtitleSourceEncoding, SubtitleUploadOptions, Video } from "@/lib/types";
+import type {
+  PendingSubtitleAction,
+  SubHDSearchPage,
+  Subtitle,
+  SubtitleSourceEncoding,
+  SubtitleUploadOptions,
+  Video
+} from "@/lib/types";
 import type { ZipSubtitleEntry } from "@/lib/subtitle-zip";
 
 export interface SeasonEpisodeInfo {
@@ -65,6 +72,8 @@ export interface SubtitleDetailsPanelProps {
   onOffsetSubtitle: (video: Video, subtitle: Subtitle, offsetMs: number) => Promise<boolean>;
   onRemove: (video: Video, subtitle: Subtitle) => Promise<boolean>;
   onPreviewSubtitle: (video: Video, subtitle: Subtitle) => Promise<ArrayBuffer>;
+  onSearchSubHD?: (video: Video, opts?: { query?: string; page?: number }) => Promise<SubHDSearchPage>;
+  onDownloadSubHD?: (video: Video, sid: string) => Promise<boolean>;
   formatTime: (value: string | undefined | null) => string;
   busy: boolean;
   uploading: boolean;
