@@ -9,7 +9,7 @@ import { emitToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -61,7 +61,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
     metaCollapsedByDefault = false,
     showMetaSection = true,
     showPanelTitle = true,
-    showSubtitleListCaption = true
+    showSubtitleListCaption = true,
+    embedded = false
   }: SubtitleDetailsPanelProps,
   ref
 ) {
@@ -69,6 +70,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-caption";
   const [flashSubtitleList, setFlashSubtitleList] = useState(false);
   const [metaExpanded, setMetaExpanded] = useState(!metaCollapsedByDefault);
+  const showHeader = showPanelTitle || showBack || (Boolean(selectedVideo) && !embedded);
 
   function triggerSubtitleListFlash() {
     setFlashSubtitleList(false);
@@ -131,54 +133,71 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
     setMetaExpanded(!metaCollapsedByDefault);
   }, [metaCollapsedByDefault, selectedVideo?.id]);
 
-  return (
-    <Card className="animate-fade-in-up flex h-full w-full flex-col bg-card">
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 space-y-2">
-            {showPanelTitle && panelTitle ? <CardTitle>{panelTitle}</CardTitle> : null}
-            {selectedVideo ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">
-                  {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  {t("info.updated")}: {formatTime(selectedVideo.updatedAt)}
-                </span>
-              </div>
-            ) : null}
-          </div>
-          {showBack && (
-            <Button type="button" variant="outline" size="sm" className="gap-1" onClick={onBack} disabled={busy}>
-              <ArrowLeft className="h-4 w-4" />
-              {t("details.backToList")}
-            </Button>
-          )}
-        </div>
-      </CardHeader>
+  const rootClassName = cn(
+    "flex h-full w-full min-h-0 flex-col",
+    embedded ? "bg-transparent" : "animate-fade-in-up rounded-lg bg-card text-card-foreground"
+  );
+  const contentClassName = cn("flex min-h-0 flex-1 flex-col", embedded ? "gap-0" : "gap-4 p-4 pt-0");
 
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
-        {!selectedVideo ? (
-          <div className="flex flex-1 items-center justify-center bg-surface-subtle p-10 text-center text-sm text-muted-foreground">{emptyText}</div>
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col gap-4">
-            {showMetaSection ? (
-              compactMeta ? (
-                <div className="surface-subtle space-y-3 p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="max-w-full truncate text-sm font-semibold sm:max-w-[60%]">{selectedVideo.title || selectedVideo.fileName || "-"}</p>
-                    <Badge variant="secondary">
-                      {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
-                    </Badge>
-                  </div>
-                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setMetaExpanded((prev) => !prev)}>
-                    {metaExpanded ? t("details.lessInfo") : t("details.moreInfo")}
-                  </Button>
-                  {metaExpanded && detailsInfoGrid}
+  return (
+    <div className={rootClassName}>
+      {showHeader ? (
+        <div className={cn("shrink-0", embedded ? "border-b border-border px-4 py-3" : "flex flex-col space-y-1.5 p-4")}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 space-y-2">
+              {showPanelTitle && panelTitle ? (
+                embedded ? <h3 className="text-lg font-normal leading-none tracking-tight">{panelTitle}</h3> : <CardTitle>{panelTitle}</CardTitle>
+              ) : null}
+              {selectedVideo && !embedded ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">
+                    {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {t("info.updated")}: {formatTime(selectedVideo.updatedAt)}
+                  </span>
                 </div>
-              ) : (
-                detailsInfoGrid
-              )
+              ) : null}
+            </div>
+            {showBack && (
+              <Button type="button" variant="outline" size="sm" className="gap-1" onClick={onBack} disabled={busy}>
+                <ArrowLeft className="h-4 w-4" />
+                {t("details.backToList")}
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      <div className={contentClassName}>
+        {!selectedVideo ? (
+          <div className={cn(
+            "flex flex-1 items-center justify-center text-center text-sm text-muted-foreground",
+            embedded ? "p-8 text-muted-foreground" : "bg-surface-subtle p-10"
+          )}>
+            {emptyText}
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col">
+            {showMetaSection ? (
+              <div className={cn(embedded ? "border-b border-border px-4 py-3" : "mb-4")}>
+                {compactMeta ? (
+                  <div className="surface-subtle space-y-3 rounded-[var(--radius)] p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="max-w-full truncate text-sm font-semibold sm:max-w-[60%]">{selectedVideo.title || selectedVideo.fileName || "-"}</p>
+                      <Badge variant="secondary">
+                        {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
+                      </Badge>
+                    </div>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setMetaExpanded((prev) => !prev)}>
+                      {metaExpanded ? t("details.lessInfo") : t("details.moreInfo")}
+                    </Button>
+                    {metaExpanded && detailsInfoGrid}
+                  </div>
+                ) : (
+                  detailsInfoGrid
+                )}
+              </div>
             ) : null}
 
             <input
@@ -189,13 +208,16 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
               onChange={workflow.onUploadFileChange}
             />
             {hasActionToolbar && (
-              <div className="flex flex-col gap-3 bg-surface-subtle p-3">
+              <div className={cn(
+                "shrink-0",
+                embedded ? "border-b border-border px-4 py-3" : "mb-4 flex flex-col gap-3 bg-surface-subtle p-3"
+              )}>
                 <div className="flex flex-wrap items-center gap-2">
                   {showPrimaryUploadButton && (
                     <Button
                       type="button"
                       size="sm"
-                      className={cn("gap-1.5", subtitleActionWidthClass)}
+                      className={cn("h-8 gap-1.5", subtitleActionWidthClass)}
                       disabled={busy || workflow.zipLoading}
                       onClick={workflow.openUploadPicker}
                     >
@@ -204,10 +226,15 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                     </Button>
                   )}
                   {workflow.zipLoading && <InlinePending label={t("details.parsingArchive")} />}
+                  {selectedVideo && embedded ? (
+                    <Badge variant="secondary" className="shrink-0">
+                      {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
+                    </Badge>
+                  ) : null}
                   {searchActionItems.length > 0 && (
-                    <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                    <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
                       {searchActionItems.map((item) => (
-                        <Button key={item.label} type="button" variant="outline" size="sm" className={subtitleActionWidthClass} asChild>
+                        <Button key={item.label} type="button" variant="outline" size="sm" className={cn("h-8", subtitleActionWidthClass)} asChild>
                           <a href={item.href} target="_blank" rel="noreferrer">
                             <span>{item.label}</span>
                             <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
@@ -218,7 +245,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                   )}
                 </div>
                 {workflow.zipPickError && (
-                  <div className="surface-status-destructive flex items-start gap-2 border p-2 text-sm">
+                  <div className="surface-status-destructive mt-2 flex items-start gap-2 border p-2 text-sm">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <span className="min-w-0 break-words">{workflow.zipPickError}</span>
                   </div>
@@ -226,156 +253,158 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
               </div>
             )}
 
-            <div className={cn("surface-subtle min-h-0 flex-1", flashSubtitleList && "animate-highlight-flash")}>
+            <div className={cn("min-h-0 flex-1", !embedded && "surface-subtle", flashSubtitleList && "animate-highlight-flash")}>
               <ScrollArea className="h-full min-h-0">
-                <Table className="table-fixed">
-                  {showSubtitleListCaption ? <TableCaption>{t("details.subtitleListCaption")}</TableCaption> : null}
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[72px]">{t("details.lang")}</TableHead>
-                      <TableHead className="w-[72px]">{t("batch.format")}</TableHead>
-                      <TableHead className="w-[136px]">{t("details.source")}</TableHead>
-                      <TableHead className="w-[184px]">{t("details.modified")}</TableHead>
-                      <TableHead className="w-[var(--table-actions-w)] min-w-[12rem] text-right">{t("common.actions")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedVideo.subtitles.map((subtitle) => {
-                      const replacePending = subtitleAction?.kind === "replace" && subtitleAction.subtitleId === subtitle.id;
-                      const convertPending = subtitleAction?.kind === "convert" && subtitleAction.subtitleId === subtitle.id;
-                      const offsetPending = subtitleAction?.kind === "offset" && subtitleAction.subtitleId === subtitle.id;
-                      const deletePending = subtitleAction?.kind === "delete" && subtitleAction.subtitleId === subtitle.id;
-                      const rowBusy = replacePending || convertPending || offsetPending || deletePending;
-                      const sourceText = formatSubtitleSourceLabel(subtitle, t);
+                <div className={cn(embedded && "px-2")}>
+                  <Table>
+                    {showSubtitleListCaption ? <TableCaption>{t("details.subtitleListCaption")}</TableCaption> : null}
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[4.5rem]">{t("details.lang")}</TableHead>
+                        <TableHead className="w-[4.5rem]">{t("batch.format")}</TableHead>
+                        <TableHead className="min-w-[7rem]">{t("details.source")}</TableHead>
+                        <TableHead className="hidden w-[9rem] xl:table-cell">{t("details.modified")}</TableHead>
+                        <TableHead className="min-w-[10rem] text-right">{t("common.actions")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedVideo.subtitles.map((subtitle) => {
+                        const replacePending = subtitleAction?.kind === "replace" && subtitleAction.subtitleId === subtitle.id;
+                        const convertPending = subtitleAction?.kind === "convert" && subtitleAction.subtitleId === subtitle.id;
+                        const offsetPending = subtitleAction?.kind === "offset" && subtitleAction.subtitleId === subtitle.id;
+                        const deletePending = subtitleAction?.kind === "delete" && subtitleAction.subtitleId === subtitle.id;
+                        const rowBusy = replacePending || convertPending || offsetPending || deletePending;
+                        const sourceText = formatSubtitleSourceLabel(subtitle, t);
 
-                      return (
-                        <TableRow key={subtitle.id} className={cn(rowBusy && "animate-pulse-soft bg-muted/40")}>
-                          <TableCell title={subtitle.fileName || undefined}>{subtitle.language || "-"}</TableCell>
-                          <TableCell>{subtitle.format || "-"}</TableCell>
-                          <TableCell>
-                            <div className="flex min-w-0 items-center gap-1">
-                              <span className="min-w-0 truncate" title={sourceText}>
-                                {sourceText}
-                              </span>
-                              <SubtitleSourceDetailButton subtitle={subtitle} sourceLabel={sourceText} />
-                            </div>
-                          </TableCell>
-                          <TableCell>{formatTime(subtitle.modTime)}</TableCell>
-                          <TableCell className="w-[var(--table-actions-w)] min-w-[12rem] text-right">
-                            <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5">
-                              <input
-                                ref={(node) => workflow.setReplaceInputNode(subtitle.id, node)}
-                                type="file"
-                                accept={ACCEPTED_SUBTITLE_UPLOAD_TYPES}
-                                className="hidden"
-                                onChange={(event) => {
-                                  void workflow.onReplaceFilePicked(subtitle, event);
-                                }}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className={subtitleRowActionButtonClassName}
-                                disabled={busy || rowBusy}
-                                onClick={() => void workflow.openStoredSubtitlePreview(subtitle)}
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                                {t("common.preview")}
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className={subtitleRowActionButtonClassName}
-                                disabled={busy || rowBusy}
-                                onClick={() => workflow.replaceInputRef.current[subtitle.id]?.click()}
-                              >
-                                {replacePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-                                {replacePending ? t("common.replacing") : t("common.replace")}
-                              </Button>
-                              {isSRTSubtitle(subtitle) && (
+                        return (
+                          <TableRow key={subtitle.id} className={cn(rowBusy && "animate-pulse-soft bg-muted/40")}>
+                            <TableCell title={subtitle.fileName || undefined}>{subtitle.language || "-"}</TableCell>
+                            <TableCell>{subtitle.format || "-"}</TableCell>
+                            <TableCell>
+                              <div className="flex min-w-0 items-center gap-1">
+                                <span className="min-w-0 truncate" title={sourceText}>
+                                  {sourceText}
+                                </span>
+                                <SubtitleSourceDetailButton subtitle={subtitle} sourceLabel={sourceText} />
+                              </div>
+                            </TableCell>
+                            <TableCell className="hidden xl:table-cell">{formatTime(subtitle.modTime)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex max-w-full flex-wrap items-center justify-end gap-1">
+                                <input
+                                  ref={(node) => workflow.setReplaceInputNode(subtitle.id, node)}
+                                  type="file"
+                                  accept={ACCEPTED_SUBTITLE_UPLOAD_TYPES}
+                                  className="hidden"
+                                  onChange={(event) => {
+                                    void workflow.onReplaceFilePicked(subtitle, event);
+                                  }}
+                                />
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
                                   className={subtitleRowActionButtonClassName}
                                   disabled={busy || rowBusy}
-                                  onClick={() => {
-                                    workflow.setPendingConvertSubtitle(subtitle);
-                                    workflow.setConvertSourceEncoding("auto");
-                                  }}
+                                  onClick={() => void workflow.openStoredSubtitlePreview(subtitle)}
                                 >
-                                  {convertPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <FileCode2 className="h-3.5 w-3.5" />}
-                                  {convertPending ? t("conversion.converting") : t("conversion.convertToAss")}
+                                  <Eye className="h-3.5 w-3.5" />
+                                  {t("common.preview")}
                                 </Button>
-                              )}
-                              {isTimingOffsetSupported(subtitle) && (
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
                                   className={subtitleRowActionButtonClassName}
                                   disabled={busy || rowBusy}
-                                  onClick={() => {
-                                    workflow.setPendingOffsetSubtitle(subtitle);
-                                    workflow.setOffsetSeconds("");
-                                  }}
+                                  onClick={() => workflow.replaceInputRef.current[subtitle.id]?.click()}
                                 >
-                                  {offsetPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
-                                  {offsetPending ? t("timing.offsetting") : t("timing.offset")}
+                                  {replacePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+                                  {replacePending ? t("common.replacing") : t("common.replace")}
                                 </Button>
-                              )}
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className={cn(
-                                  subtitleRowActionButtonClassName,
-                                  "border-destructive-border text-destructive-muted hover:bg-destructive-soft hover:text-destructive-muted"
+                                {isSRTSubtitle(subtitle) && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className={subtitleRowActionButtonClassName}
+                                    disabled={busy || rowBusy}
+                                    onClick={() => {
+                                      workflow.setPendingConvertSubtitle(subtitle);
+                                      workflow.setConvertSourceEncoding("auto");
+                                    }}
+                                  >
+                                    {convertPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <FileCode2 className="h-3.5 w-3.5" />}
+                                    {convertPending ? t("conversion.converting") : t("conversion.convertToAss")}
+                                  </Button>
                                 )}
-                                disabled={busy || rowBusy}
-                                onClick={() => workflow.setDeleteDialogSubtitleId(subtitle.id)}
-                              >
-                                {deletePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
-                                {deletePending ? t("common.deleting") : t("common.delete")}
-                              </Button>
+                                {isTimingOffsetSupported(subtitle) && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className={subtitleRowActionButtonClassName}
+                                    disabled={busy || rowBusy}
+                                    onClick={() => {
+                                      workflow.setPendingOffsetSubtitle(subtitle);
+                                      workflow.setOffsetSeconds("");
+                                    }}
+                                  >
+                                    {offsetPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                                    {offsetPending ? t("timing.offsetting") : t("timing.offset")}
+                                  </Button>
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className={cn(
+                                    subtitleRowActionButtonClassName,
+                                    "border-destructive-border text-destructive-muted hover:bg-destructive-soft hover:text-destructive-muted"
+                                  )}
+                                  disabled={busy || rowBusy}
+                                  onClick={() => workflow.setDeleteDialogSubtitleId(subtitle.id)}
+                                >
+                                  {deletePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                  {deletePending ? t("common.deleting") : t("common.delete")}
+                                </Button>
 
-                              <DeleteSubtitleDialog
-                                open={workflow.deleteDialogSubtitleId === subtitle.id}
-                                onOpenChange={(open) => {
-                                  if (!open) {
-                                    workflow.setDeleteDialogSubtitleId((current) => (current === subtitle.id ? null : current));
-                                    return;
-                                  }
-                                  workflow.setDeleteDialogSubtitleId(subtitle.id);
-                                }}
-                                subtitle={subtitle}
-                                deletePending={deletePending}
-                                onConfirm={() => {
-                                  void workflow.confirmDeleteSubtitle(subtitle);
-                                }}
-                              />
-                            </div>
+                                <DeleteSubtitleDialog
+                                  open={workflow.deleteDialogSubtitleId === subtitle.id}
+                                  onOpenChange={(open) => {
+                                    if (!open) {
+                                      workflow.setDeleteDialogSubtitleId((current) => (current === subtitle.id ? null : current));
+                                      return;
+                                    }
+                                    workflow.setDeleteDialogSubtitleId(subtitle.id);
+                                  }}
+                                  subtitle={subtitle}
+                                  deletePending={deletePending}
+                                  onConfirm={() => {
+                                    void workflow.confirmDeleteSubtitle(subtitle);
+                                  }}
+                                />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+
+                      {selectedVideo.subtitles.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                            {t("details.noSubtitles")}
                           </TableCell>
                         </TableRow>
-                      );
-                    })}
-
-                    {selectedVideo.subtitles.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
-                          {t("details.noSubtitles")}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </ScrollArea>
             </div>
           </div>
         )}
-      </CardContent>
+      </div>
 
       <ReplaceSubtitleDialog
         open={workflow.pendingReplace !== null}
@@ -522,7 +551,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
         previewEncoding={workflow.previewEncoding}
         previewTruncated={workflow.previewTruncated}
       />
-    </Card>
+    </div>
   );
 });
 

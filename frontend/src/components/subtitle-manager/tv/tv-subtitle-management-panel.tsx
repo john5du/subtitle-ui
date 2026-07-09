@@ -6,7 +6,6 @@ import { useI18n } from "@/lib/i18n";
 import { tvSeriesSearchTitle } from "@/lib/subtitle-manager/media-metadata";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -92,29 +91,27 @@ export function TvSubtitleManagementPanel({
   }
 
   const episodesPane = (
-    <Card className="animate-fade-in-up flex h-full min-h-0 flex-col bg-card">
-      <CardHeader className="space-y-3">
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tv.seasonLabel")}</p>
-          <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder={t("tv.selectSeason")} />
-            </SelectTrigger>
-            <SelectContent>
-              {seasonOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 space-y-2 border-b border-border px-3 py-3">
+        <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("tv.seasonLabel")}</p>
+        <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
+          <SelectTrigger className="h-9">
+            <SelectValue placeholder={t("tv.selectSeason")} />
+          </SelectTrigger>
+          <SelectContent>
+            {seasonOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {episodesPending && <InlinePending label={t("tv.loadingEpisodes")} />}
-      </CardHeader>
+      </div>
 
-      <CardContent className="relative min-h-0 flex-1">
-        <ScrollArea className={cn("h-full bg-background", episodesPending && "animate-pulse-soft")}>
-          <ul className="space-y-2 p-2">
+      <div className="relative min-h-0 flex-1">
+        <ScrollArea className={cn("h-full", episodesPending && "animate-pulse-soft")}>
+          <ul className="space-y-0.5 p-2">
             {videos.map((video) => {
               const active = selectedVideoId === video.id;
               const itemBusy = subtitleAction?.videoId === video.id;
@@ -127,10 +124,10 @@ export function TvSubtitleManagementPanel({
                     onClick={() => handleEpisodeSelect(video)}
                     disabled={busy || episodesPending}
                     className={cn(
-                      "surface-transition w-full px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                      "surface-transition w-full rounded-[var(--radius)] px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
                       active
                         ? "bg-surface-strong shadow-[inset_3px_0_0_0_var(--input)]"
-                        : "bg-transparent hover:bg-surface-strong",
+                        : "bg-transparent hover:bg-surface-subtle",
                       itemBusy && "animate-pulse-soft"
                     )}
                     aria-pressed={active}
@@ -144,15 +141,15 @@ export function TvSubtitleManagementPanel({
             })}
 
             {videos.length === 0 && (
-              <li className="bg-surface-subtle p-6 text-center text-sm text-muted-foreground">
+              <li className="surface-panel m-1 p-6 text-center text-sm text-muted-foreground">
                 {t("tv.noEpisodesInSeason", { season: selectedSeasonLabel })}
               </li>
             )}
           </ul>
         </ScrollArea>
         {episodesPending && <PanelLoadingOverlay label={t("tv.refreshingEpisodes")} />}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 
   const subtitlesPane = (
@@ -181,6 +178,7 @@ export function TvSubtitleManagementPanel({
         showMetaSection={false}
         showPanelTitle={false}
         showSubtitleListCaption={false}
+        embedded
       />
     </div>
   );
@@ -189,35 +187,35 @@ export function TvSubtitleManagementPanel({
     return (
       <div className={cn("flex h-full w-full min-h-0 flex-col", className)}>
         <div className="hidden min-h-0 flex-1 lg:flex">
-          <div className="min-h-0 w-[320px] shrink-0 border-r border-border/60">{episodesPane}</div>
+          <div className="min-h-0 w-[280px] shrink-0 border-r border-border xl:w-[300px]">{episodesPane}</div>
           <div className="min-h-0 min-w-0 flex-1">{subtitlesPane}</div>
         </div>
 
-        <div className="min-h-0 flex-1 lg:hidden">
+        <div className="flex min-h-0 flex-1 flex-col lg:hidden">
           <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col">
-            <TabsList className="h-9 w-full">
-              <TabsTrigger value="episodes" className="h-full flex-1" disabled={activeStep === "episodes"}>
-                {t("tv.stepEpisodes")}
-              </TabsTrigger>
-              <TabsTrigger value="subtitles" className="h-full flex-1" disabled={activeStep === "subtitles"}>
-                {t("tv.stepSubtitles")}
-              </TabsTrigger>
-            </TabsList>
+            <div className="shrink-0 border-b border-border px-4 py-2">
+              <TabsList className="h-9 w-full">
+                <TabsTrigger value="episodes" className="h-full flex-1">
+                  {t("tv.stepEpisodes")}
+                </TabsTrigger>
+                <TabsTrigger value="subtitles" className="h-full flex-1">
+                  {t("tv.stepSubtitles")}
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-            <TabsContent value="episodes" className="mt-3 min-h-0 flex-1">
-              <div className="min-h-0 h-full">{episodesPane}</div>
+            <TabsContent value="episodes" className="m-0 min-h-0 flex-1 data-[state=inactive]:hidden">
+              {episodesPane}
             </TabsContent>
 
-            <TabsContent value="subtitles" className="mt-3 min-h-0 flex-1">
-              <div className="flex h-full min-h-0 flex-col gap-3">
-                <div className="flex justify-end">
-                  <Button type="button" variant="outline" className="w-full gap-1 sm:w-auto" onClick={() => setActiveStep("episodes")}>
-                    <ArrowLeft className="h-4 w-4" />
-                    {t("tv.backToEpisodes")}
-                  </Button>
-                </div>
-                {subtitlesPane}
+            <TabsContent value="subtitles" className="m-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+              <div className="shrink-0 border-b border-border px-3 py-2">
+                <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2" onClick={() => setActiveStep("episodes")}>
+                  <ArrowLeft className="h-4 w-4" />
+                  {t("tv.backToEpisodes")}
+                </Button>
               </div>
+              {subtitlesPane}
             </TabsContent>
           </Tabs>
         </div>
@@ -226,31 +224,31 @@ export function TvSubtitleManagementPanel({
   }
 
   return (
-    <div className={cn("flex h-full w-full min-h-0 flex-col gap-3 p-3 md:p-4", className)}>
+    <div className={cn("flex h-full w-full min-h-0 flex-col", className)}>
       <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col">
-        <TabsList className="h-9 w-full sm:max-w-[360px]">
-          <TabsTrigger value="episodes" className="h-full flex-1" disabled={activeStep === "episodes"}>
-            {t("tv.stepEpisodes")}
-          </TabsTrigger>
-          <TabsTrigger value="subtitles" className="h-full flex-1" disabled={activeStep === "subtitles"}>
-            {t("tv.stepSubtitles")}
-          </TabsTrigger>
-        </TabsList>
+        <div className="shrink-0 border-b border-border px-4 py-3">
+          <TabsList className="h-9 w-full sm:max-w-[360px]">
+            <TabsTrigger value="episodes" className="h-full flex-1">
+              {t("tv.stepEpisodes")}
+            </TabsTrigger>
+            <TabsTrigger value="subtitles" className="h-full flex-1">
+              {t("tv.stepSubtitles")}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="episodes" className="mt-3 min-h-0 flex-1">
+        <TabsContent value="episodes" className="m-0 min-h-0 flex-1 data-[state=inactive]:hidden">
           {episodesPane}
         </TabsContent>
 
-        <TabsContent value="subtitles" className="mt-3 min-h-0 flex-1">
-          <div className="flex h-full min-h-0 flex-col gap-3">
-            <div className="flex justify-end">
-              <Button type="button" variant="outline" className="w-full gap-1 sm:w-auto" onClick={() => setActiveStep("episodes")}>
-                <ArrowLeft className="h-4 w-4" />
-                {t("tv.backToEpisodes")}
-              </Button>
-            </div>
-            {subtitlesPane}
+        <TabsContent value="subtitles" className="m-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+          <div className="shrink-0 border-b border-border px-3 py-2">
+            <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2" onClick={() => setActiveStep("episodes")}>
+              <ArrowLeft className="h-4 w-4" />
+              {t("tv.backToEpisodes")}
+            </Button>
           </div>
+          {subtitlesPane}
         </TabsContent>
       </Tabs>
     </div>

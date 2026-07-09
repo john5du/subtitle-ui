@@ -141,24 +141,24 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-card">
-      <div className="border-b border-border/70 bg-card/96 px-5 pb-4 pt-5 sm:px-6">
-        <div className="flex flex-wrap items-start gap-3 pr-10">
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-              <h2 className="min-w-0 max-w-full truncate text-2xl font-semibold tracking-tight sm:text-[2rem]">{selectedMovieTitle}</h2>
+      <div className="shrink-0 border-b border-border px-5 py-4 pr-12 sm:px-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
+              <h2 className="min-w-0 max-w-full truncate text-lg font-semibold tracking-tight sm:text-xl">{selectedMovieTitle}</h2>
               {selectedVideo ? (
                 <MediaExternalLinks imdbId={selectedVideo.imdbId} tmdbId={selectedVideo.tmdbId} mediaType="movie" />
               ) : null}
             </div>
             {searchLinks ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" asChild>
+              <div className="flex flex-wrap gap-1.5">
+                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
                   <a href={searchLinks.subhd} target="_blank" rel="noreferrer">
                     <span>SubHD</span>
                     <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                   </a>
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" asChild>
+                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
                   <a href={searchLinks.zimuku} target="_blank" rel="noreferrer">
                     <span>Zimuku</span>
                     <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
@@ -168,7 +168,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
             ) : null}
           </div>
           {selectedVideo ? (
-            <Badge variant="outline" className="border-input bg-transparent px-3 py-1 tracking-display text-foreground">
+            <Badge variant="secondary" className="shrink-0">
               {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
             </Badge>
           ) : null}
@@ -176,18 +176,18 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
       </div>
 
       {!selectedVideo ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-8">
-          <div className="w-full bg-surface-subtle px-6 py-12 text-center text-sm text-muted-foreground">{emptyText}</div>
+        <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+          <div className="surface-panel w-full px-6 py-12 text-center text-sm text-muted-foreground">{emptyText}</div>
         </div>
       ) : (
         <div className="min-h-0 flex-1">
           <ScrollArea className="h-full">
-            <div className="space-y-5 px-5 py-5 sm:px-6">
+            <div className="space-y-6 px-5 py-5 sm:px-6">
               <section className="space-y-3">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-semibold">{t("movie.drawerUploadTitle")}</h3>
-                    <p className="text-sm text-muted-foreground">{t("movie.drawerUploadDescription")}</p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold uppercase tracking-section text-foreground-muted">{t("movie.drawerUploadTitle")}</h3>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{t("movie.drawerUploadDescription")}</p>
                   </div>
                   {workflow.zipLoading ? (
                     <InlinePending label={t("details.parsingArchive")} />
@@ -208,7 +208,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                   type="button"
                   aria-label={t("movie.drawerDropAria")}
                   className={cn(
-                    "surface-transition flex w-full flex-col items-center justify-center gap-4 border border-dashed border-border px-6 py-8 text-center",
+                    "surface-transition flex w-full items-center gap-4 rounded-[var(--radius)] border border-dashed border-border px-4 py-5 text-left",
                     dragActive ? "bg-surface-strong" : "bg-surface-subtle hover:bg-surface-strong",
                     (busy || workflow.zipLoading) && "cursor-not-allowed opacity-65"
                   )}
@@ -219,12 +219,12 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                   onDragLeave={handleDropzoneDragLeave}
                   onDrop={handleDropzoneDrop}
                 >
-                  <span className="flex h-16 w-16 items-center justify-center bg-surface-strong text-foreground">
-                    {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-7 w-7" /> : <UploadCloud className="h-7 w-7" />}
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius)] bg-surface-strong text-foreground">
+                    {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-5 w-5" /> : <UploadCloud className="h-5 w-5" />}
                   </span>
-                  <div className="space-y-1">
-                    <p className="text-base font-semibold">{dragActive ? t("movie.drawerUploadActive") : t("movie.uploadSubtitleArchive")}</p>
-                    <p className="text-sm text-muted-foreground">{t("movie.drawerUploadHint")}</p>
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-sm font-semibold">{dragActive ? t("movie.drawerUploadActive") : t("movie.uploadSubtitleArchive")}</p>
+                    <p className="text-xs text-muted-foreground">{t("movie.drawerUploadHint")}</p>
                   </div>
                 </button>
 
@@ -233,13 +233,13 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
               <section className="space-y-3">
                 <div>
-                  <h3 className="text-lg font-semibold">{t("movie.drawerRepositoryTitle")}</h3>
-                  <p className="text-sm text-muted-foreground">{t("movie.drawerRepositoryDescription")}</p>
+                  <h3 className="text-sm font-semibold uppercase tracking-section text-foreground-muted">{t("movie.drawerRepositoryTitle")}</h3>
+                  <p className="mt-0.5 text-sm text-muted-foreground">{t("movie.drawerRepositoryDescription")}</p>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {selectedVideo.subtitles.length === 0 ? (
-                    <div className="bg-surface-subtle px-5 py-8 text-center text-sm text-muted-foreground">{t("movie.drawerEmptyRepository")}</div>
+                    <div className="surface-panel px-5 py-8 text-center text-sm text-muted-foreground">{t("movie.drawerEmptyRepository")}</div>
                   ) : (
                     selectedVideo.subtitles.map((subtitle) => {
                       const replacePending = subtitleAction?.kind === "replace" && subtitleAction.subtitleId === subtitle.id;
@@ -250,14 +250,17 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                       const sourceText = formatSubtitleSourceLabel(subtitle, t);
 
                       return (
-                        <article key={subtitle.id} className={cn("bg-surface-subtle p-4", rowBusy && "animate-pulse-soft")}>
-                          <div className="flex flex-wrap items-start gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center bg-surface-strong text-foreground-muted">
-                              <FileArchive className="h-5 w-5" />
+                        <article
+                          key={subtitle.id}
+                          className={cn("surface-panel p-3 sm:p-4", rowBusy && "animate-pulse-soft")}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius)] bg-surface-subtle text-foreground-muted">
+                              <FileArchive className="h-4 w-4" />
                             </div>
 
                             <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
+                              <div className="flex min-w-0 items-center gap-2">
                                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground" title={subtitle.fileName || undefined}>
                                   {subtitle.fileName}
                                 </p>
@@ -266,8 +269,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                                 </Badge>
                               </div>
 
-                              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-border/60 pt-2 text-xs text-muted-foreground">
-                                <div className="flex items-center gap-2">
+                              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1.5">
                                   <Languages className="h-3.5 w-3.5" />
                                   <span>{subtitle.language || "-"}</span>
                                 </div>
@@ -283,7 +286,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                             </div>
                           </div>
 
-                          <div className="mt-4 flex flex-wrap gap-1.5">
+                          <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border pt-3">
                             <input
                               ref={(node) => workflow.setReplaceInputNode(subtitle.id, node)}
                               type="file"

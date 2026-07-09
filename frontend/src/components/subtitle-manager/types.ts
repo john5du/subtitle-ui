@@ -80,6 +80,7 @@ export interface SubtitleDetailsPanelProps {
   showMetaSection?: boolean;
   showPanelTitle?: boolean;
   showSubtitleListCaption?: boolean;
+  embedded?: boolean;
 }
 
 export interface SubtitleDetailsPanelHandle {
