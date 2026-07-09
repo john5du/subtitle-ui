@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { normalizeForCompare } from "@/lib/subtitle-manager/tv-tree";
 
@@ -18,6 +18,9 @@ export function useSubtitleManagerEffects({
   controller
 }: UseSubtitleManagerEffectsParams) {
   const { state, setters, refs } = stateApi;
+  const controllerRef = useRef(controller);
+  controllerRef.current = controller;
+
   const {
     setSelectedTvDirPath,
     setSelectedTvSeason,
@@ -96,19 +99,14 @@ export function useSubtitleManagerEffects({
     });
   }, [selectors.sortedTvVideos, setSelectedVideoIdByType]);
 
-  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     if (refs.skipMovieQueryRef.current) {
       refs.skipMovieQueryRef.current = false;
       return;
     }
 
-    const timer = window.setTimeout(() => {
-      void controller.loadMovieVideos({ page: 1 });
-    }, 350);
-
-    return () => window.clearTimeout(timer);
-  }, [state.queryByType.movie]);
+    void controllerRef.current.loadMovieVideos({ page: 1 });
+  }, [refs.skipMovieQueryRef, state.queryByType.movie]);
 
   useEffect(() => {
     if (refs.skipTvQueryRef.current) {
@@ -116,12 +114,8 @@ export function useSubtitleManagerEffects({
       return;
     }
 
-    const timer = window.setTimeout(() => {
-      void controller.loadTvSeriesPage({ page: 1 });
-    }, 350);
-
-    return () => window.clearTimeout(timer);
-  }, [state.queryByType.tv]);
+    void controllerRef.current.loadTvSeriesPage({ page: 1 });
+  }, [refs.skipTvQueryRef, state.queryByType.tv]);
 
   useEffect(() => {
     if (refs.skipMovieSortRef.current) {
@@ -129,8 +123,8 @@ export function useSubtitleManagerEffects({
       return;
     }
 
-    void controller.loadMovieVideos({ page: 1 });
-  }, [state.movieYearSortOrder]);
+    void controllerRef.current.loadMovieVideos({ page: 1 });
+  }, [refs.skipMovieSortRef, state.movieYearSortOrder]);
 
   useEffect(() => {
     if (refs.skipTvSortRef.current) {
@@ -138,18 +132,17 @@ export function useSubtitleManagerEffects({
       return;
     }
 
-    void controller.loadTvSeriesPage({ page: 1 });
-  }, [state.tvSeriesYearSortOrder]);
+    void controllerRef.current.loadTvSeriesPage({ page: 1 });
+  }, [refs.skipTvSortRef, state.tvSeriesYearSortOrder]);
 
   useEffect(() => {
     void (async () => {
       try {
-        await Promise.all([controller.loadScanStatus(), controller.loadDirectoryScanResult()]);
+        await Promise.all([controllerRef.current.loadScanStatus(), controllerRef.current.loadDirectoryScanResult()]);
         setLoadedTabs((prev) => ({ ...prev, dashboard: true }));
       } finally {
-        controller.finishBootstrapping();
+        controllerRef.current.finishBootstrapping();
       }
     })();
-  }, []);
-  /* eslint-enable react-hooks/exhaustive-deps */
+  }, [setLoadedTabs]);
 }

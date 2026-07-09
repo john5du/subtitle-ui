@@ -1,3 +1,5 @@
+"use client";
+
 import type { MessageKey, TranslateFn, TranslationValues } from "@/lib/i18n";
 import { emitToast } from "@/lib/toast";
 import type { PendingSubtitleAction } from "@/lib/types";
@@ -5,13 +7,15 @@ import type { PendingSubtitleAction } from "@/lib/types";
 import type {
   LoadChannel,
   SubtitleManagerSelectors,
+  SubtitleManagerState,
   SubtitleManagerStateApi
 } from "./types";
 
 export interface ControllerRuntimeParams {
+  getState: () => SubtitleManagerState;
+  getSelectors: () => SubtitleManagerSelectors;
+  getT: () => TranslateFn;
   stateApi: SubtitleManagerStateApi;
-  selectors: SubtitleManagerSelectors;
-  t: TranslateFn;
 }
 
 export function buildRequestSignature(parts: Array<string | number>) {
@@ -26,8 +30,8 @@ export function formatOffsetMilliseconds(offsetMs: number) {
   return `${offsetMs > 0 ? "+" : ""}${text}s`;
 }
 
-export function createControllerRuntime({ stateApi, selectors, t }: ControllerRuntimeParams) {
-  const { state, setters, refs } = stateApi;
+export function createControllerRuntime({ getState, getSelectors, getT, stateApi }: ControllerRuntimeParams) {
+  const { setters, refs } = stateApi;
 
   function beginLoadChannel(channel: LoadChannel) {
     refs.pendingLoadChannelsRef.current[channel] += 1;
@@ -84,14 +88,17 @@ export function createControllerRuntime({ stateApi, selectors, t }: ControllerRu
   }
 
   function reportRequestError(prefix: MessageKey, error: unknown) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return;
+    }
     const errorText = error instanceof Error ? error.message : String(error);
-    const title = t(prefix);
+    const title = getT()(prefix);
     setters.setMessageState({ raw: `${title}: ${errorText}` });
     emitToast({
       level: "error",
       title,
       message: errorText,
-      detail: t("toast.operationFailedDetail")
+      detail: getT()("toast.operationFailedDetail")
     });
   }
 
@@ -114,11 +121,17 @@ export function createControllerRuntime({ stateApi, selectors, t }: ControllerRu
   }
 
   return {
-    state,
+    get state() {
+      return getState();
+    },
+    get selectors() {
+      return getSelectors();
+    },
+    get t() {
+      return getT();
+    },
     setters,
     refs,
-    selectors,
-    t,
     beginLoadChannel,
     endLoadChannel,
     setSubtitleActionPending,

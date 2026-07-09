@@ -9,10 +9,7 @@ import type { LoadActions } from "./controller-load";
 
 export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadActions) {
   const {
-    state,
     setters,
-    selectors,
-    t,
     beginLoadChannel,
     endLoadChannel,
     beginLoading,
@@ -41,12 +38,12 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       setters.setLogs([]);
       setters.setLogsPager({
         page: 1,
-        pageSize: state.logsPager.pageSize || DEFAULT_LOG_PAGE_SIZE,
+        pageSize: runtime.state.logsPager.pageSize || DEFAULT_LOG_PAGE_SIZE,
         total: 0,
         totalPages: 0
       });
       setTranslatedMessage("status.logsCleared");
-      notifySuccess(t("toast.logsClearedTitle"), t("toast.logsClearedMessage"));
+      notifySuccess(runtime.t("toast.logsClearedTitle"), runtime.t("toast.logsClearedMessage"));
       return true;
     } catch (error) {
       reportRequestError("error.clearLogs", error);
@@ -62,7 +59,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
 
     try {
       if (tab === "settings") {
-        if (!state.loadedTabs.settings) {
+        if (!runtime.state.loadedTabs.settings) {
           await loadVersionInfo();
         }
         setters.setLoadedTabs((prev) => ({ ...prev, settings: true }));
@@ -76,16 +73,18 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       }
 
       if (tab === "tv") {
-        if (!state.loadedTabs.tv) {
-          const defaultDir = state.directoryScan.generatedAt ? state.selectedTvDirPath : await loadDirectoryScanResult();
-          const seriesRows = await loadTvSeriesPage({ page: state.tvSeriesPager.page || 1 });
-          const selectedNorm = normalizeForCompare(state.selectedTvDirPath);
+        if (!runtime.state.loadedTabs.tv) {
+          const defaultDir = runtime.state.directoryScan.generatedAt
+            ? runtime.state.selectedTvDirPath
+            : await loadDirectoryScanResult();
+          const seriesRows = await loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1 });
+          const selectedNorm = normalizeForCompare(runtime.state.selectedTvDirPath);
           const targetDir =
             seriesRows.find((item) => normalizeForCompare(item.path) === selectedNorm)?.path ||
             seriesRows.find((item) => item.path)?.path ||
-            state.selectedTvDirPath ||
+            runtime.state.selectedTvDirPath ||
             defaultDir ||
-            state.directoryScan.tvRoot;
+            runtime.state.directoryScan.tvRoot;
 
           if (targetDir) {
             setters.setSelectedTvDirPath(targetDir);
@@ -99,7 +98,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
         return;
       }
 
-      await loadMovieVideos({ page: selectors.moviePager.page || 1 });
+      await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1 });
       setters.setLoadedTabs((prev) => ({ ...prev, movie: true }));
     } finally {
       setters.setPending((prev) => ({ ...prev, tabSwitch: false }));
@@ -137,11 +136,16 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       const normalizedStatus = normalizeScanStatus(statusPayload);
       setters.setScanStatus(normalizedStatus);
 
-      const targetDir = defaultDir || selectors.tvRootPath || discovered.tvRoot || "";
+      const targetDir = defaultDir || runtime.selectors.tvRootPath || discovered.tvRoot || "";
       await Promise.all([
         loadMovieVideos({ page: 1, force: true }),
         loadTvSeriesPage({ page: 1, force: true }),
-        refreshTvVideosForPath(selectors.selectedTvSeries?.path || state.selectedTvDirPath || state.tvEpisodesPath || targetDir),
+        refreshTvVideosForPath(
+          runtime.selectors.selectedTvSeries?.path ||
+            runtime.state.selectedTvDirPath ||
+            runtime.state.tvEpisodesPath ||
+            targetDir
+        ),
         loadLogs({ page: 1 })
       ]);
 
@@ -150,16 +154,16 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       if (warningCount > 0) {
         setTranslatedMessage("status.scanCompletedWithWarnings", { count: videoCount, warnings: warningCount });
         notifyInfo(
-          t("toast.scanWarningsTitle"),
-          t("toast.scanWarningsMessage", { count: videoCount }),
-          t("toast.scanWarningsDetail", { warnings: warningCount })
+          runtime.t("toast.scanWarningsTitle"),
+          runtime.t("toast.scanWarningsMessage", { count: videoCount }),
+          runtime.t("toast.scanWarningsDetail", { warnings: warningCount })
         );
       } else {
         setTranslatedMessage("status.scanCompletedNoWarnings", { count: videoCount });
         notifySuccess(
-          t("toast.scanSuccessTitle"),
-          t("toast.scanSuccessMessage", { count: videoCount }),
-          t("toast.scanSuccessDetail")
+          runtime.t("toast.scanSuccessTitle"),
+          runtime.t("toast.scanSuccessMessage", { count: videoCount }),
+          runtime.t("toast.scanSuccessDetail")
         );
       }
     } catch (error) {
@@ -171,34 +175,42 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
   }
 
   async function refreshActiveTab() {
-    if (state.activeTab === "settings") {
+    if (runtime.state.activeTab === "settings") {
       return;
     }
 
-    setters.setPending((prev) => ({ ...prev, refreshTab: state.activeTab }));
+    setters.setPending((prev) => ({ ...prev, refreshTab: runtime.state.activeTab }));
     try {
-      if (state.activeTab === "dashboard") {
+      if (runtime.state.activeTab === "dashboard") {
         await Promise.all([loadScanStatus(), loadDirectoryScanResult()]);
         setTranslatedMessage("status.dashboardRefreshed");
-        notifySuccess(t("toast.dashboardRefreshedTitle"), t("toast.dashboardRefreshedMessage"));
+        notifySuccess(runtime.t("toast.dashboardRefreshedTitle"), runtime.t("toast.dashboardRefreshedMessage"));
         return;
       }
 
-      if (state.activeTab === "tv") {
-        const targetDir = selectors.selectedTvSeries?.path || state.selectedTvDirPath || selectors.tvRootPath || state.directoryScan.tvRoot || "";
+      if (runtime.state.activeTab === "tv") {
+        const targetDir =
+          runtime.selectors.selectedTvSeries?.path ||
+          runtime.state.selectedTvDirPath ||
+          runtime.selectors.tvRootPath ||
+          runtime.state.directoryScan.tvRoot ||
+          "";
         const reloadEpisodes = shouldRefreshTvVideosForPath(targetDir);
-        await Promise.all([loadTvSeriesPage({ page: state.tvSeriesPager.page || 1, force: true }), refreshTvVideosForPath(targetDir)]);
+        await Promise.all([
+          loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1, force: true }),
+          refreshTvVideosForPath(targetDir)
+        ]);
         setTranslatedMessage("status.tvRefreshed");
         notifySuccess(
-          t("toast.tvRefreshedTitle"),
-          reloadEpisodes ? t("toast.tvRefreshedMessageAll") : t("toast.tvRefreshedMessageList")
+          runtime.t("toast.tvRefreshedTitle"),
+          reloadEpisodes ? runtime.t("toast.tvRefreshedMessageAll") : runtime.t("toast.tvRefreshedMessageList")
         );
         return;
       }
 
-      await loadMovieVideos({ page: selectors.moviePager.page || 1, force: true });
+      await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1, force: true });
       setTranslatedMessage("status.movieRefreshed");
-      notifySuccess(t("toast.movieRefreshedTitle"), t("toast.movieRefreshedMessage"));
+      notifySuccess(runtime.t("toast.movieRefreshedTitle"), runtime.t("toast.movieRefreshedMessage"));
     } finally {
       setters.setPending((prev) => ({ ...prev, refreshTab: null }));
     }
@@ -209,6 +221,8 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
   }
 
   async function loadTvWorkspace(seriesPath = "") {
+    const state = runtime.state;
+    const selectors = runtime.selectors;
     const requestedPath = seriesPath.trim();
     const selectedNorm = normalizeForCompare(requestedPath || selectors.selectedTvSeries?.path || state.selectedTvDirPath);
     const selectedPath = (
@@ -231,27 +245,31 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
   }
 
   function setMoviePage(nextPage: number) {
-    const totalPages = Math.max(1, selectors.moviePager.totalPages || 1);
-    if (nextPage < 1 || nextPage > totalPages || nextPage === selectors.moviePager.page) {
+    const totalPages = Math.max(1, runtime.selectors.moviePager.totalPages || 1);
+    if (nextPage < 1 || nextPage > totalPages || nextPage === runtime.selectors.moviePager.page) {
       return;
     }
     void loadMovieVideos({ page: nextPage });
   }
 
   function setTvPage(nextPage: number) {
-    const totalPages = Math.max(1, selectors.tvPager.totalPages || 1);
-    if (nextPage < 1 || nextPage > totalPages || nextPage === selectors.tvPager.page) {
+    const totalPages = Math.max(1, runtime.selectors.tvPager.totalPages || 1);
+    if (nextPage < 1 || nextPage > totalPages || nextPage === runtime.selectors.tvPager.page) {
       return;
     }
     void loadTvSeriesPage({ page: nextPage });
   }
 
   function setLogsPage(nextPage: number) {
-    const totalPages = Math.max(1, state.logsPager.totalPages || 1);
-    if (nextPage < 1 || nextPage > totalPages || nextPage === state.logsPager.page) {
+    const totalPages = Math.max(1, runtime.state.logsPager.totalPages || 1);
+    if (nextPage < 1 || nextPage > totalPages || nextPage === runtime.state.logsPager.page) {
       return;
     }
     void loadLogs({ page: nextPage });
+  }
+
+  function setLogsDialogOpen(open: boolean) {
+    runtime.refs.logsDialogOpenRef.current = open;
   }
 
   function toggleMovieYearSort() {
@@ -272,7 +290,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
 
   function selectTvDirectory(path: string) {
     const nextNorm = normalizeForCompare(path);
-    const currentNorm = normalizeForCompare(state.selectedTvDirPath);
+    const currentNorm = normalizeForCompare(runtime.state.selectedTvDirPath);
 
     if (nextNorm === currentNorm) {
       return;
@@ -305,6 +323,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     setMoviePage,
     setTvPage,
     setLogsPage,
+    setLogsDialogOpen,
     toggleMovieYearSort,
     toggleTvSeriesYearSort,
     selectMovieVideo,

@@ -1,4 +1,4 @@
-import { memo, useCallback, useDeferredValue, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { RefreshCw, X } from "lucide-react";
 
@@ -132,7 +132,6 @@ export const MovieListPanel = memo(function MovieListPanel({
 }: MovieListPanelProps) {
   const { t } = useI18n();
   const [draftQuery, setDraftQuery] = useState(query);
-  const deferredQuery = useDeferredValue(draftQuery);
   const lastPublishedRef = useRef(query);
   const scrollViewportRef = useRef<HTMLDivElement | null>(null);
 
@@ -146,11 +145,15 @@ export const MovieListPanel = memo(function MovieListPanel({
   }, [query]);
 
   useEffect(() => {
-    if (deferredQuery !== lastPublishedRef.current) {
-      lastPublishedRef.current = deferredQuery;
-      onQueryChange(deferredQuery);
+    if (draftQuery === lastPublishedRef.current) {
+      return;
     }
-  }, [deferredQuery, onQueryChange]);
+    const timer = window.setTimeout(() => {
+      lastPublishedRef.current = draftQuery;
+      onQueryChange(draftQuery);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [draftQuery, onQueryChange]);
 
   useEffect(() => {
     scrollViewportRef.current?.scrollTo({ top: 0, left: 0 });

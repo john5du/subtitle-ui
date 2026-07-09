@@ -7,21 +7,24 @@ import { createWorkspaceActions } from "./controller-workspace";
 import type {
   SubtitleManagerController,
   SubtitleManagerSelectors,
+  SubtitleManagerState,
   SubtitleManagerStateApi
 } from "./types";
 
 interface CreateSubtitleManagerControllerParams {
   stateApi: SubtitleManagerStateApi;
-  selectors: SubtitleManagerSelectors;
-  t: TranslateFn;
+  getState: () => SubtitleManagerState;
+  getSelectors: () => SubtitleManagerSelectors;
+  getT: () => TranslateFn;
 }
 
 export function createSubtitleManagerController({
   stateApi,
-  selectors,
-  t
+  getState,
+  getSelectors,
+  getT
 }: CreateSubtitleManagerControllerParams): SubtitleManagerController {
-  const runtime = createControllerRuntime({ stateApi, selectors, t });
+  const runtime = createControllerRuntime({ stateApi, getState, getSelectors, getT });
   const load = createLoadActions(runtime);
   const workspace = createWorkspaceActions(runtime, load);
   const subtitles = createSubtitleActions(runtime, load);
@@ -47,6 +50,7 @@ export function createSubtitleManagerController({
     setMoviePage: workspace.setMoviePage,
     setTvPage: workspace.setTvPage,
     setLogsPage: workspace.setLogsPage,
+    setLogsDialogOpen: workspace.setLogsDialogOpen,
     toggleMovieYearSort: workspace.toggleMovieYearSort,
     toggleTvSeriesYearSort: workspace.toggleTvSeriesYearSort,
     uploadSubtitle: subtitles.uploadSubtitle,

@@ -10,20 +10,28 @@ import { createSubtitleManagerController } from "./controller";
 import { useSubtitleManagerEffects } from "./effects";
 import { useSubtitleManagerSelectors } from "./selectors";
 import { useSubtitleManagerState } from "./state";
-import type { SubtitleManagerResult } from "./types";
+import type { SubtitleManagerController, SubtitleManagerResult } from "./types";
 
 export function useSubtitleManager(): SubtitleManagerResult {
   const { locale, t } = useI18n();
   const stateApi = useSubtitleManagerState();
-  const { state } = stateApi;
+  const { state, stateRef } = stateApi;
   const selectors = useSubtitleManagerSelectors({ state, t });
-  const controller = createSubtitleManagerController({
-    stateApi,
-    selectors,
-    t
-  });
-  const controllerRef = useRef(controller);
-  controllerRef.current = controller;
+  const selectorsRef = useRef(selectors);
+  selectorsRef.current = selectors;
+  const tRef = useRef(t);
+  tRef.current = t;
+
+  const controllerRef = useRef<SubtitleManagerController | null>(null);
+  if (!controllerRef.current) {
+    controllerRef.current = createSubtitleManagerController({
+      stateApi,
+      getState: () => stateRef.current,
+      getSelectors: () => selectorsRef.current,
+      getT: () => tRef.current
+    });
+  }
+  const controller = controllerRef.current;
 
   useSubtitleManagerEffects({
     stateApi,
@@ -34,32 +42,55 @@ export function useSubtitleManager(): SubtitleManagerResult {
   const uploadingMessage = useMemo(() => resolveLocalizedText(state.uploadingMessageState, t), [state.uploadingMessageState, t]);
   const message = useMemo(() => resolveLocalizedText(state.messageState, t), [state.messageState, t]);
   const formatTime = useCallback((value: string | undefined | null) => formatTimeWithLocale(locale, value), [locale]);
-  const setMovieQuery = useCallback((value: string) => controllerRef.current.setMovieQuery(value), []);
-  const setTvQuery = useCallback((value: string) => controllerRef.current.setTvQuery(value), []);
-  const selectMovieVideo = useCallback((video: Video) => controllerRef.current.selectMovieVideo(video), []);
-  const selectTvVideo = useCallback((video: Video) => controllerRef.current.selectTvVideo(video), []);
-  const setMoviePage = useCallback((nextPage: number) => controllerRef.current.setMoviePage(nextPage), []);
-  const setTvPage = useCallback((nextPage: number) => controllerRef.current.setTvPage(nextPage), []);
-  const setLogsPage = useCallback((nextPage: number) => controllerRef.current.setLogsPage(nextPage), []);
-  const refreshLogs = useCallback((page = 1) => controllerRef.current.loadLogs({ page }), []);
-  const toggleMovieYearSort = useCallback(() => controllerRef.current.toggleMovieYearSort(), []);
-  const toggleTvSeriesYearSort = useCallback(() => controllerRef.current.toggleTvSeriesYearSort(), []);
-  const loadMovieWorkspace = useCallback(() => controllerRef.current.loadMovieWorkspace(), []);
-  const loadTvWorkspace = useCallback((seriesPath?: string) => controllerRef.current.loadTvWorkspace(seriesPath), []);
-  const selectTvDirectory = useCallback((path: string) => controllerRef.current.selectTvDirectory(path), []);
-  const setSelectedTvSeason = useCallback((value: string) => controllerRef.current.setSelectedTvSeason(value), []);
-  const loadTvBatchCandidates = useCallback(() => controllerRef.current.loadTvBatchCandidates(), []);
-  const switchTab = useCallback((tab: ActiveTab) => controllerRef.current.switchTab(tab), []);
-  const triggerScan = useCallback(() => controllerRef.current.triggerScan(), []);
-  const refreshActiveTab = useCallback(() => controllerRef.current.refreshActiveTab(), []);
-  const clearLogs = useCallback(() => controllerRef.current.clearLogs(), []);
-  const uploadSubtitle = useCallback((video: Video, file: File, label: string, options?: SubtitleUploadOptions) => controllerRef.current.uploadSubtitle(video, file, label, options), []);
-  const replaceSubtitle = useCallback((video: Video, subtitle: Subtitle, file: File) => controllerRef.current.replaceSubtitle(video, subtitle, file), []);
-  const convertSubtitleToAss = useCallback((video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) => controllerRef.current.convertSubtitleToAss(video, subtitle, sourceEncoding), []);
-  const offsetSubtitleTiming = useCallback((video: Video, subtitle: Subtitle, offsetMs: number) => controllerRef.current.offsetSubtitleTiming(video, subtitle, offsetMs), []);
-  const removeSubtitle = useCallback((video: Video, subtitle: Subtitle) => controllerRef.current.removeSubtitle(video, subtitle), []);
-  const previewSubtitle = useCallback((video: Video, subtitle: Subtitle) => controllerRef.current.previewSubtitle(video, subtitle), []);
-  const uploadBatchSubtitles = useCallback((items: BatchSubtitleUploadItem[]) => controllerRef.current.uploadBatchSubtitles(items), []);
+  const setMovieQuery = useCallback((value: string) => controller.setMovieQuery(value), [controller]);
+  const setTvQuery = useCallback((value: string) => controller.setTvQuery(value), [controller]);
+  const selectMovieVideo = useCallback((video: Video) => controller.selectMovieVideo(video), [controller]);
+  const selectTvVideo = useCallback((video: Video) => controller.selectTvVideo(video), [controller]);
+  const setMoviePage = useCallback((nextPage: number) => controller.setMoviePage(nextPage), [controller]);
+  const setTvPage = useCallback((nextPage: number) => controller.setTvPage(nextPage), [controller]);
+  const setLogsPage = useCallback((nextPage: number) => controller.setLogsPage(nextPage), [controller]);
+  const setLogsDialogOpen = useCallback((open: boolean) => controller.setLogsDialogOpen(open), [controller]);
+  const refreshLogs = useCallback((page = 1) => controller.loadLogs({ page }), [controller]);
+  const toggleMovieYearSort = useCallback(() => controller.toggleMovieYearSort(), [controller]);
+  const toggleTvSeriesYearSort = useCallback(() => controller.toggleTvSeriesYearSort(), [controller]);
+  const loadMovieWorkspace = useCallback(() => controller.loadMovieWorkspace(), [controller]);
+  const loadTvWorkspace = useCallback((seriesPath?: string) => controller.loadTvWorkspace(seriesPath), [controller]);
+  const selectTvDirectory = useCallback((path: string) => controller.selectTvDirectory(path), [controller]);
+  const setSelectedTvSeason = useCallback((value: string) => controller.setSelectedTvSeason(value), [controller]);
+  const loadTvBatchCandidates = useCallback(() => controller.loadTvBatchCandidates(), [controller]);
+  const switchTab = useCallback((tab: ActiveTab) => controller.switchTab(tab), [controller]);
+  const triggerScan = useCallback(() => controller.triggerScan(), [controller]);
+  const refreshActiveTab = useCallback(() => controller.refreshActiveTab(), [controller]);
+  const clearLogs = useCallback(() => controller.clearLogs(), [controller]);
+  const uploadSubtitle = useCallback(
+    (video: Video, file: File, label: string, options?: SubtitleUploadOptions) => controller.uploadSubtitle(video, file, label, options),
+    [controller]
+  );
+  const replaceSubtitle = useCallback(
+    (video: Video, subtitle: Subtitle, file: File) => controller.replaceSubtitle(video, subtitle, file),
+    [controller]
+  );
+  const convertSubtitleToAss = useCallback(
+    (video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) =>
+      controller.convertSubtitleToAss(video, subtitle, sourceEncoding),
+    [controller]
+  );
+  const offsetSubtitleTiming = useCallback(
+    (video: Video, subtitle: Subtitle, offsetMs: number) => controller.offsetSubtitleTiming(video, subtitle, offsetMs),
+    [controller]
+  );
+  const removeSubtitle = useCallback(
+    (video: Video, subtitle: Subtitle) => controller.removeSubtitle(video, subtitle),
+    [controller]
+  );
+  const previewSubtitle = useCallback(
+    (video: Video, subtitle: Subtitle) => controller.previewSubtitle(video, subtitle),
+    [controller]
+  );
+  const uploadBatchSubtitles = useCallback(
+    (items: BatchSubtitleUploadItem[]) => controller.uploadBatchSubtitles(items),
+    [controller]
+  );
 
   return {
     core: {
@@ -79,7 +110,8 @@ export function useSubtitleManager(): SubtitleManagerResult {
       versionInfo: state.versionInfo,
       setLogsPage,
       refreshLogs,
-      clearLogs
+      clearLogs,
+      setLogsDialogOpen
     },
     movie: {
       query: state.queryByType.movie,

@@ -231,9 +231,10 @@ export function useSubtitleManagerScreenModel() {
       setLogsPage: dashboard.setLogsPage,
       refreshLogs: dashboard.refreshLogs,
       clearLogs: dashboard.clearLogs,
+      setLogsDialogOpen: dashboard.setLogsDialogOpen,
       pending,
       formatTime
-    }), [dashboard.clearLogs, dashboard.refreshLogs, dashboard.setLogsPage, directoryScan, formatTime, logs, logsPager, pending, scanStatus, versionInfo]);
+    }), [dashboard.clearLogs, dashboard.refreshLogs, dashboard.setLogsDialogOpen, dashboard.setLogsPage, directoryScan, formatTime, logs, logsPager, pending, scanStatus, versionInfo]);
 
   const movieModel = useMemo(() => ({
       query: movie.query,

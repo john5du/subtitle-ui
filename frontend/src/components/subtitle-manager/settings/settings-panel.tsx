@@ -63,6 +63,7 @@ export function SettingsPanel({
   onSetLogsPage,
   onRefreshLogs,
   onClearLogs,
+  onLogsDialogOpenChange,
   pending,
   formatTime
 }: {
@@ -75,11 +76,17 @@ export function SettingsPanel({
   onSetLogsPage: (page: number) => void;
   onRefreshLogs: (page?: number) => Promise<void>;
   onClearLogs: () => Promise<boolean>;
+  onLogsDialogOpenChange?: (open: boolean) => void;
   pending: UiPendingState;
   formatTime: (value: string | undefined | null) => string;
 }) {
   const { t } = useI18n();
   const [logsOpen, setLogsOpen] = useState(false);
+
+  function handleLogsOpenChange(open: boolean) {
+    setLogsOpen(open);
+    onLogsDialogOpenChange?.(open);
+  }
 
   return (
     <div className="min-h-0 flex-1 p-3 sm:p-4 lg:h-full">
@@ -135,7 +142,7 @@ export function SettingsPanel({
                 type="button"
                 variant="outline"
                 className="h-10"
-                onClick={() => setLogsOpen(true)}
+                onClick={() => handleLogsOpenChange(true)}
               >
                 <ScrollText className="h-4 w-4" />
                 {t("settings.viewOperationLogs")}
@@ -147,7 +154,7 @@ export function SettingsPanel({
 
       <OperationLogsDialog
         open={logsOpen}
-        onOpenChange={setLogsOpen}
+        onOpenChange={handleLogsOpenChange}
         logs={logs}
         logsPager={logsPager}
         onSetLogsPage={onSetLogsPage}
