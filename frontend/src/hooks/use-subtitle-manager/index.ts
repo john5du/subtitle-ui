@@ -87,6 +87,14 @@ export function useSubtitleManager(): SubtitleManagerResult {
     (video: Video, subtitle: Subtitle) => controller.previewSubtitle(video, subtitle),
     [controller]
   );
+  const searchSubHDSubtitles = useCallback(
+    (video: Video, opts?: { query?: string; page?: number }) => controller.searchSubHDSubtitles(video, opts),
+    [controller]
+  );
+  const downloadSubHDSubtitle = useCallback(
+    (video: Video, sid: string) => controller.downloadSubHDSubtitle(video, sid),
+    [controller]
+  );
   const uploadBatchSubtitles = useCallback(
     (items: BatchSubtitleUploadItem[]) => controller.uploadBatchSubtitles(items),
     [controller]
@@ -157,6 +165,8 @@ export function useSubtitleManager(): SubtitleManagerResult {
       offsetSubtitleTiming,
       removeSubtitle,
       previewSubtitle,
+      searchSubHDSubtitles,
+      downloadSubHDSubtitle,
       uploadBatchSubtitles
     }
   };

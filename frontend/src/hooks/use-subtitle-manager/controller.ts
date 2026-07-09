@@ -59,6 +59,8 @@ export function createSubtitleManagerController({
     offsetSubtitleTiming: subtitles.offsetSubtitleTiming,
     removeSubtitle: subtitles.removeSubtitle,
     previewSubtitle: subtitles.previewSubtitle,
+    searchSubHDSubtitles: subtitles.searchSubHDSubtitles,
+    downloadSubHDSubtitle: subtitles.downloadSubHDSubtitle,
     loadTvBatchCandidates: subtitles.loadTvBatchCandidates,
     uploadBatchSubtitles: subtitles.uploadBatchSubtitles,
     setMovieQuery: workspace.setMovieQuery,

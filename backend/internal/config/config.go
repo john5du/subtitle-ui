@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -16,6 +17,12 @@ type Config struct {
 	DatabaseURL           string
 	CORSAllowedOrigins    []string
 	TrustForwardedHeaders bool
+	SubHDEnabled          bool
+	SubHDBaseURL          string
+	SubHDUserAgent        string
+	SubHDProxyURL         string
+	SubHDMinInterval      time.Duration
+	SubHDSearchMaxPages   int
 }
 
 func Load() Config {
@@ -36,6 +43,12 @@ func Load() Config {
 		DatabaseURL:           strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		CORSAllowedOrigins:    splitOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")),
 		TrustForwardedHeaders: parseBool(os.Getenv("TRUST_FORWARDED_HEADERS")),
+		SubHDEnabled:        parseBoolDefaultTrue(os.Getenv("SUBHD_ENABLED")),
+		SubHDBaseURL:        getEnv("SUBHD_BASE_URL", "https://subhd.tv"),
+		SubHDUserAgent:      getEnv("SUBHD_USER_AGENT", ""),
+		SubHDProxyURL:       strings.TrimSpace(os.Getenv("SUBHD_PROXY")),
+		SubHDMinInterval:    parseDuration(os.Getenv("SUBHD_MIN_INTERVAL"), 3*time.Second),
+		SubHDSearchMaxPages: parsePositiveInt(os.Getenv("SUBHD_SEARCH_MAX_PAGES"), 1),
 	}
 
 	if abs, err := filepath.Abs(cfg.MovieMediaRoot); err == nil {
@@ -85,6 +98,46 @@ func parseBool(raw string) bool {
 	default:
 		return false
 	}
+}
+
+// parseBoolDefaultTrue treats empty as true; only explicit false-like values disable.
+func parseBoolDefaultTrue(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return true
+	}
+}
+
+func parseDuration(raw string, fallback time.Duration) time.Duration {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return fallback
+	}
+	d, err := time.ParseDuration(trimmed)
+	if err != nil || d <= 0 {
+		return fallback
+	}
+	return d
+}
+
+func parsePositiveInt(raw string, fallback int) int {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return fallback
+	}
+	n := 0
+	for _, r := range trimmed {
+		if r < '0' || r > '9' {
+			return fallback
+		}
+		n = n*10 + int(r-'0')
+	}
+	if n <= 0 {
+		return fallback
+	}
+	return n
 }
 
 func RedactDatabaseURL(raw string) string {

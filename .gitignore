@@ -10,6 +10,7 @@ plan/
 .idea/
 .claude/
 .codex/
+.playwright-mcp/
 
 *.log
 *.db

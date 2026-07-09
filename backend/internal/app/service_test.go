@@ -355,6 +355,79 @@ func TestReadSubtitleContentReturnsStoredFileBytes(t *testing.T) {
 	}
 }
 
+func TestSubHDConfigDefaultsAndUpdate(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+		SubHDEnabled:   true,
+		SubHDBaseURL:   "https://subhd.tv",
+		SubHDProxyURL:  "",
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	cfg, err := svc.GetSubHDConfig()
+	if err != nil {
+		t.Fatalf("get default subhd config: %v", err)
+	}
+	if !cfg.Enabled {
+		t.Fatalf("expected subhd enabled by default")
+	}
+	if cfg.BaseURL != "https://subhd.tv" {
+		t.Fatalf("unexpected base url: %q", cfg.BaseURL)
+	}
+	if cfg.Proxy != "" {
+		t.Fatalf("expected empty proxy, got %q", cfg.Proxy)
+	}
+
+	saved, err := svc.UpdateSubHDConfig(domain.SubHDConfigUpdate{
+		Enabled: false,
+		BaseURL: "https://subhd.me",
+		Proxy:   "socks5://127.0.0.1:1080",
+	})
+	if err != nil {
+		t.Fatalf("update subhd config: %v", err)
+	}
+	if saved.Enabled || saved.BaseURL != "https://subhd.me" || saved.Proxy != "socks5://127.0.0.1:1080" {
+		t.Fatalf("unexpected saved config: %+v", saved)
+	}
+	if svc.SubHDEnabled() {
+		t.Fatalf("expected client disabled after update")
+	}
+
+	_, err = svc.UpdateSubHDConfig(domain.SubHDConfigUpdate{
+		Enabled: true,
+		BaseURL: "ftp://bad.example",
+		Proxy:   "",
+	})
+	if !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("expected bad request for invalid base url, got %v", err)
+	}
+
+	after, err := svc.GetSubHDConfig()
+	if err != nil {
+		t.Fatalf("get after invalid update: %v", err)
+	}
+	if after.Enabled || after.BaseURL != "https://subhd.me" {
+		t.Fatalf("invalid update should not overwrite config: %+v", after)
+	}
+}
+
 func TestSubtitleConversionConfigDefaultsAndRejectsInvalidTemplate(t *testing.T) {
 	base := t.TempDir()
 	movieRoot := filepath.Join(base, "movies")

@@ -1,8 +1,8 @@
 ﻿export type MediaType = "movie" | "tv";
 export type ActiveTab = "dashboard" | "movie" | "tv";
-export type SubtitleOperationKind = "upload" | "replace" | "delete" | "convert" | "offset" | "batch";
+export type SubtitleOperationKind = "upload" | "replace" | "delete" | "convert" | "offset" | "batch" | "download";
 export type SubtitleSourceEncoding = "auto" | "utf-8" | "utf-16le" | "utf-16be" | "gb18030" | "big5";
-export type SubtitleSource = "directory" | "upload" | "generated";
+export type SubtitleSource = "directory" | "upload" | "generated" | "download";
 
 export interface Subtitle {
   id: string;
@@ -137,6 +137,14 @@ export interface SubtitleConversionConfig {
   updatedAt: string;
 }
 
+export interface SubHDConfig {
+  enabled: boolean;
+  baseUrl: string;
+  proxy: string;
+  defaultBaseUrl: string;
+  updatedAt?: string;
+}
+
 export interface BatchSubtitleUploadResult {
   total: number;
   success: number;
@@ -175,6 +183,33 @@ export interface TvSeasonOption {
 export interface VersionInfo {
   version: string;
   databaseType: "sqlite" | "postgres" | string;
+}
+
+export interface SubHDSearchResult {
+  sid: string;
+  title: string;
+  version: string;
+  langs?: string[];
+  format?: string;
+  sourceTag?: string;
+  size?: string;
+  downloads?: string;
+  publisher?: string;
+  doubanId?: string;
+  installable: boolean;
+}
+
+export interface SubHDSearchPage {
+  query: string;
+  page: number;
+  total?: string;
+  items: SubHDSearchResult[];
+}
+
+export interface SubHDDownloadOptions {
+  label?: string;
+  replaceId?: string;
+  archiveEntry?: string;
 }
 
 export interface PendingSubtitleAction {

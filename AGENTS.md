@@ -26,6 +26,15 @@ cd frontend && bun run build   # static export → frontend/out
 - Postgres store tests skip unless `TEST_POSTGRES_DSN` is set (creates a per-test schema, then drops it).
 - Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300`. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.
 - Optional FE API override: `NEXT_PUBLIC_API_BASE=http://localhost:9307`.
+- SubHD auto-download (backend, default **on**):
+  - Env bootstrap: `SUBHD_ENABLED=false` to disable; `SUBHD_BASE_URL`; `SUBHD_PROXY=socks5://host:port`
+  - Runtime config (DB overrides env, no restart): `GET/PUT /api/config/subhd` `{ enabled, baseUrl, proxy }`
+  - Settings UI on dashboard config page
+  - `SUBHD_MIN_INTERVAL=3s` (download API throttle)
+  - `SUBHD_SEARCH_MAX_PAGES=1`
+  - `GET /api/videos/{id}/subtitles/providers/subhd/search?q=&page=`
+  - `POST /api/videos/{id}/subtitles/providers/subhd/download` JSON `{ "sid", "label?", "replaceId?", "archiveEntry?" }`
+  - Installs sidecar next to video (`source=download`). Zip only; 7z/rar rejected. Rate-limit / captcha handled server-side.
 
 ## Layout
 
@@ -33,10 +42,11 @@ cd frontend && bun run build   # static export → frontend/out
 |------|------|
 | `backend/cmd/server` | Process entry |
 | `backend/internal/api` | HTTP routes/handlers |
-| `backend/internal/app` | Service / use-cases (scan, upload, convert, offset, logs) |
+| `backend/internal/app` | Service / use-cases (scan, upload, convert, offset, logs, SubHD) |
 | `backend/internal/store` | SQLite + Postgres, migrations, SQLite→PG one-shot import |
 | `backend/internal/scanner` | Disk scan (video + NFO + posters + subtitles) |
 | `backend/internal/subtitle` | Paths, ASS conversion, timing offset |
+| `backend/internal/provider/subhd` | SubHD search/download client (on by default) |
 | `backend/internal/config` | Env config |
 | `backend/internal/version` | `const Value` — release source of truth (with FE package version) |
 | `frontend/src/app` | Next App Router shell |

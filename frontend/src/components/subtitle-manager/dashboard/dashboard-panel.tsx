@@ -14,7 +14,7 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import { LocaleSelect, SubtitleConversionSettingsButton } from "../shared/settings-controls";
+import { LocaleSelect, SubHDSettingsButton, SubtitleConversionSettingsButton } from "../shared/settings-controls";
 import { OperationLogsDialog } from "../shared/operation-logs-dialog";
 import { SpinnerIcon } from "../shared/pending-state";
 import { ThemeToggle } from "../shared/theme-toggle";
@@ -163,6 +163,12 @@ export function DashboardPanel({
             <SettingsSection title={t("settings.subtitleConversion")}>
               <SettingsActionRow label={t("conversion.settings")}>
                 <SubtitleConversionSettingsButton />
+              </SettingsActionRow>
+            </SettingsSection>
+
+            <SettingsSection title={t("settings.subhd")}>
+              <SettingsActionRow label={t("subhd.settings")}>
+                <SubHDSettingsButton />
               </SettingsActionRow>
             </SettingsSection>
 

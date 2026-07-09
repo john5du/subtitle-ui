@@ -11,6 +11,7 @@ const (
 	SubtitleSourceDirectory = "directory"
 	SubtitleSourceUpload    = "upload"
 	SubtitleSourceGenerated = "generated"
+	SubtitleSourceDownload  = "download"
 )
 
 type Video struct {
@@ -90,6 +91,20 @@ type SubtitleConversionConfig struct {
 type SubtitleConversionConfigUpdate struct {
 	ASSTemplate           string `json:"assTemplate"`
 	SourceEncodingDefault string `json:"sourceEncodingDefault"`
+}
+
+type SubHDConfig struct {
+	Enabled        bool      `json:"enabled"`
+	BaseURL        string    `json:"baseUrl"`
+	Proxy          string    `json:"proxy"`
+	DefaultBaseURL string    `json:"defaultBaseUrl"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+}
+
+type SubHDConfigUpdate struct {
+	Enabled bool   `json:"enabled"`
+	BaseURL string `json:"baseUrl"`
+	Proxy   string `json:"proxy"`
 }
 
 type ScanDirectory struct {
