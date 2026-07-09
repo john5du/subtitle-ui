@@ -18,8 +18,8 @@ export function useSubtitleManagerSelectors({
   state,
   t
 }: UseSubtitleManagerSelectorsParams): SubtitleManagerSelectors {
-  const movieVideos = useMemo(() => state.videosByType.movie ?? [], [state.videosByType.movie]);
-  const moviePager = useMemo(() => state.paginationByType.movie, [state.paginationByType.movie]);
+  const movieVideos = useMemo(() => state.movieVideos ?? [], [state.movieVideos]);
+  const moviePager = useMemo(() => state.moviePager, [state.moviePager]);
   const tvPager = useMemo(() => state.tvSeriesPager, [state.tvSeriesPager]);
 
   const tvRootPath = useMemo(() => {

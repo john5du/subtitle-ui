@@ -7,15 +7,29 @@ import type {
   Video
 } from "@/lib/types";
 import { requestBinary, requestPayload } from "@/lib/subtitle-manager/api-client";
+import { normalizeForCompare } from "@/lib/subtitle-manager/tv-tree";
 
 import { formatOffsetMilliseconds, type ControllerRuntime } from "./controller-runtime";
 import type { LoadActions } from "./controller-load";
 
+function adjustSeriesNoSubtitleCount(prev: number, before: number, after: number) {
+  const delta = (before === 0 ? 1 : 0) - (after === 0 ? 1 : 0);
+  return Math.max(0, prev + delta);
+}
+
+function isVideoUnderSeriesPath(videoDirectory: string, seriesPath: string) {
+  const videoNorm = normalizeForCompare(videoDirectory);
+  const seriesNorm = normalizeForCompare(seriesPath);
+  if (!videoNorm || !seriesNorm) {
+    return false;
+  }
+  return videoNorm === seriesNorm || videoNorm.startsWith(`${seriesNorm}/`);
+}
+
 export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActions) {
   const {
-    state,
-    selectors,
-    t,
+    setters,
+    refs,
     setSubtitleActionPending,
     beginLoading,
     endLoading,
@@ -27,32 +41,74 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     notifyInfo,
     reportRequestError
   } = runtime;
-  const {
-    loadMovieVideos,
-    loadTvSeriesPage,
-    refreshTvVideosForPath,
-    requestTvVideosForPath,
-    loadLogs
-  } = load;
+  const { loadTvSeriesPage, refreshTvVideosForPath, requestTvVideosForPath, loadLogs, loadVideoById } = load;
 
-  async function refreshAfterSubtitleMutation(video: Video) {
+  async function applyVideoLocally(video: Video) {
     if (video.mediaType === "tv") {
-      const targetDir =
-        selectors.selectedTvSeries?.path ||
-        state.selectedTvDirPath ||
-        video.directory ||
-        state.tvEpisodesPath ||
-        selectors.tvRootPath ||
-        state.directoryScan.tvRoot;
-      await Promise.all([
-        loadTvSeriesPage({ page: state.tvSeriesPager.page || 1, force: true }),
-        refreshTvVideosForPath(targetDir || ""),
-        loadLogs({ page: 1 })
-      ]);
+      setters.patchTvEpisode(video);
       return;
     }
+    setters.patchMovieVideo(video);
+  }
 
-    await Promise.all([loadMovieVideos({ page: selectors.moviePager.page || 1, force: true }), loadLogs({ page: 1 })]);
+  async function refreshVideoLocally(videoId: string) {
+    const video = await loadVideoById(videoId);
+    await applyVideoLocally(video);
+    return video;
+  }
+
+  async function maybeRefreshLogs() {
+    if (!refs.logsDialogOpenRef.current) {
+      return;
+    }
+    await loadLogs({ page: 1 });
+  }
+
+  async function refreshAfterSubtitleMutation(video: Video, previousSubtitleCount?: number) {
+    try {
+      const refreshed = await refreshVideoLocally(video.id);
+      if (video.mediaType === "tv" && typeof previousSubtitleCount === "number") {
+        const videoDirectory = video.directory || refreshed.directory || "";
+        setters.setTvSeriesRows((rows) =>
+          rows.map((row) => {
+            if (!isVideoUnderSeriesPath(videoDirectory, row.path)) {
+              return row;
+            }
+            return {
+              ...row,
+              noSubtitleCount: adjustSeriesNoSubtitleCount(
+                row.noSubtitleCount,
+                previousSubtitleCount,
+                refreshed.subtitles.length
+              ),
+              updatedAt: refreshed.updatedAt || row.updatedAt
+            };
+          })
+        );
+      }
+    } catch {
+      if (video.mediaType === "tv") {
+        const videoDirectory = video.directory || "";
+        const matchedSeries = runtime.state.tvSeriesRows.find((row) => isVideoUnderSeriesPath(videoDirectory, row.path));
+        const targetDir =
+          matchedSeries?.path ||
+          runtime.selectors.selectedTvSeries?.path ||
+          runtime.state.selectedTvDirPath ||
+          runtime.state.tvEpisodesPath ||
+          runtime.selectors.tvRootPath ||
+          runtime.state.directoryScan.tvRoot;
+        await Promise.all([
+          loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1, force: true }),
+          refreshTvVideosForPath(targetDir || "")
+        ]);
+      } else {
+        // Fall back to reloading the current movie page only if local GET fails.
+        const { loadMovieVideos } = load;
+        await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1, force: true });
+      }
+    }
+
+    await maybeRefreshLogs();
   }
 
   async function uploadSubtitle(video: Video, file: File, label: string, options: SubtitleUploadOptions = {}) {
@@ -64,6 +120,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       body.append("sourceEncoding", options.sourceEncoding || "auto");
     }
 
+    const previousSubtitleCount = video.subtitles.length;
     setSubtitleActionPending({
       kind: "upload",
       videoId: video.id
@@ -71,14 +128,14 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     beginUpload("status.uploadingSubtitleFile");
     try {
       await requestPayload(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
-      await refreshAfterSubtitleMutation(video);
+      await refreshAfterSubtitleMutation(video, previousSubtitleCount);
       setTranslatedMessage("status.uploadedSubtitleFor", { title: video.title || video.fileName });
-      notifySuccess(t("toast.subtitleUploadedTitle"), video.title || video.fileName, file.name);
+      notifySuccess(runtime.t("toast.subtitleUploadedTitle"), video.title || video.fileName, file.name);
       return true;
     } catch (error) {
       if (options.convertToAss) {
         try {
-          await refreshAfterSubtitleMutation(video);
+          await refreshAfterSubtitleMutation(video, previousSubtitleCount);
         } catch {
           // Best-effort refresh: conversion can fail after the original SRT is saved.
         }
@@ -105,9 +162,9 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     beginUpload("status.uploadingSubtitleFile");
     try {
       await requestPayload(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
-      await refreshAfterSubtitleMutation(video);
+      await refreshAfterSubtitleMutation(video, video.subtitles.length);
       setTranslatedMessage("status.replacedSubtitle", { name: subtitle.fileName });
-      notifySuccess(t("toast.subtitleReplacedTitle"), subtitle.fileName, file.name);
+      notifySuccess(runtime.t("toast.subtitleReplacedTitle"), subtitle.fileName, file.name);
       return true;
     } catch (error) {
       reportRequestError("error.replaceFailed", error);
@@ -132,9 +189,9 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetFormat: "ass", sourceEncoding })
       });
-      await refreshAfterSubtitleMutation(video);
+      await refreshAfterSubtitleMutation(video, video.subtitles.length);
       setTranslatedMessage("status.convertedSubtitle", { name: subtitle.fileName });
-      notifySuccess(t("toast.subtitleConvertedTitle"), subtitle.fileName, "ASS");
+      notifySuccess(runtime.t("toast.subtitleConvertedTitle"), subtitle.fileName, "ASS");
       return true;
     } catch (error) {
       reportRequestError("error.convertFailed", error);
@@ -159,10 +216,10 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ offsetMs })
       });
-      await refreshAfterSubtitleMutation(video);
+      await refreshAfterSubtitleMutation(video, video.subtitles.length);
       const offsetLabel = formatOffsetMilliseconds(offsetMs);
       setTranslatedMessage("status.offsetSubtitle", { name: subtitle.fileName, offset: offsetLabel });
-      notifySuccess(t("toast.subtitleOffsetTitle"), subtitle.fileName, offsetLabel);
+      notifySuccess(runtime.t("toast.subtitleOffsetTitle"), subtitle.fileName, offsetLabel);
       return true;
     } catch (error) {
       reportRequestError("error.offsetFailed", error);
@@ -174,6 +231,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
   }
 
   async function removeSubtitle(video: Video, subtitle: Subtitle) {
+    const previousSubtitleCount = video.subtitles.length;
     setSubtitleActionPending({
       kind: "delete",
       videoId: video.id,
@@ -182,9 +240,9 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     });
     try {
       await requestPayload(`/api/videos/${video.id}/subtitles/${subtitle.id}`, { method: "DELETE" });
-      await refreshAfterSubtitleMutation(video);
+      await refreshAfterSubtitleMutation(video, previousSubtitleCount);
       setTranslatedMessage("status.deletedSubtitle", { name: subtitle.fileName });
-      notifySuccess(t("toast.subtitleDeletedTitle"), subtitle.fileName, video.title || video.fileName);
+      notifySuccess(runtime.t("toast.subtitleDeletedTitle"), subtitle.fileName, video.title || video.fileName);
       return true;
     } catch (error) {
       reportRequestError("error.deleteFailed", error);
@@ -204,6 +262,8 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
   }
 
   async function loadTvBatchCandidates() {
+    const state = runtime.state;
+    const selectors = runtime.selectors;
     const targetDir = (
       selectors.selectedTvSeries?.path ||
       state.selectedTvDirPath ||
@@ -215,7 +275,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
 
     if (!targetDir) {
       setTranslatedMessage("status.tvBatchNeedsSeries");
-      notifyInfo(t("toast.selectTvSeriesTitle"), t("toast.selectTvSeriesMessage"));
+      notifyInfo(runtime.t("toast.selectTvSeriesTitle"), runtime.t("toast.selectTvSeriesMessage"));
       return [];
     }
 
@@ -254,6 +314,8 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       }
     } finally {
       try {
+        const state = runtime.state;
+        const selectors = runtime.selectors;
         await Promise.all([
           loadTvSeriesPage({ page: state.tvSeriesPager.page || 1, force: true }),
           refreshTvVideosForPath(
@@ -264,7 +326,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
               state.directoryScan.tvRoot ||
               ""
           ),
-          loadLogs({ page: 1 })
+          maybeRefreshLogs()
         ]);
       } catch (error) {
         const errorText = error instanceof Error ? error.message : String(error);
@@ -279,23 +341,23 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     if (failed > 0) {
       setTranslatedMessage("status.batchFinishedWarnings", { success, total, failed });
       notifyInfo(
-        t("toast.batchWarningsTitle"),
-        t("toast.batchWarningsMessage", { success, total }),
-        t("toast.batchWarningsDetail", { failed })
+        runtime.t("toast.batchWarningsTitle"),
+        runtime.t("toast.batchWarningsMessage", { success, total }),
+        runtime.t("toast.batchWarningsDetail", { failed })
       );
     } else {
       setTranslatedMessage("status.batchFinishedSuccess", { success, total });
-      notifySuccess(t("toast.batchSuccessTitle"), t("toast.batchSuccessMessage", { success, total }));
+      notifySuccess(runtime.t("toast.batchSuccessTitle"), runtime.t("toast.batchSuccessMessage", { success, total }));
     }
     setSubtitleActionPending(null);
 
-  return {
-    total,
-    success,
-    failed,
-    errors
-  };
-}
+    return {
+      total,
+      success,
+      failed,
+      errors
+    };
+  }
 
   return {
     uploadSubtitle,

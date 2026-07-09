@@ -1,17 +1,11 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent } from "react";
+"use client";
+
+import { forwardRef, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, AlertTriangle, Clock, ExternalLink, Eye, FileCode2, Pencil, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
-import type { Subtitle, SubtitleSourceEncoding } from "@/lib/types";
 import { buildSubtitleSearchLinks, buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
 import { emitToast } from "@/lib/toast";
-import {
-  extractSubtitleEntriesFromArchiveFile,
-  isArchiveFileName,
-  isSubtitleFileName,
-  toSubtitleFile,
-  type ZipSubtitleEntry
-} from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +16,6 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import type { SubtitleDetailsPanelHandle, SubtitleDetailsPanelProps } from "../types";
 import { InfoItem } from "../shared/info-item";
 import { InlinePending, SpinnerIcon } from "../shared/pending-state";
-import { decodeSubtitlePreviewContent } from "./preview-utils";
 import { SubtitleSourceDetailButton } from "./source-detail-button";
 import { formatSubtitleSourceLabel } from "./source-utils";
 import { ArchiveEntryPickerDialog } from "./dialogs/archive-entry-picker-dialog";
@@ -32,85 +25,72 @@ import { ReplaceSubtitleDialog } from "./dialogs/replace-subtitle-dialog";
 import { SubtitlePreviewDialog } from "./dialogs/subtitle-preview-dialog";
 import { TimingOffsetDialog } from "./dialogs/timing-offset-dialog";
 import { UploadSubtitleDialog } from "./dialogs/upload-subtitle-dialog";
+import {
+  ACCEPTED_SUBTITLE_UPLOAD_TYPES,
+  isSRTFileName,
+  isSRTSubtitle,
+  isTimingOffsetSupported,
+  useSubtitleFileWorkflow
+} from "./use-subtitle-file-workflow";
 
-function isSRTFileName(fileName: string) {
-  return fileName.toLowerCase().endsWith(".srt");
-}
-
-function isSRTSubtitle(subtitle: Subtitle) {
-  return subtitle.format.toLowerCase() === "srt" || isSRTFileName(subtitle.fileName);
-}
-
-function isTimingOffsetSupported(subtitle: Subtitle) {
-  const format = subtitle.format.toLowerCase();
-  const fileName = subtitle.fileName.toLowerCase();
-  return format === "srt" || format === "vtt" || format === "ass" || format === "ssa" ||
-    fileName.endsWith(".srt") || fileName.endsWith(".vtt") || fileName.endsWith(".ass") || fileName.endsWith(".ssa");
-}
-
-export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDetailsPanelProps>(function SubtitleDetailsPanel({
-  panelTitle,
-  selectedVideo,
-  emptyText,
-  showBack,
-  onBack,
-  infoRows,
-  onUpload,
-  onReplace,
-  onConvertSubtitle,
-  onOffsetSubtitle,
-  onRemove,
-  onPreviewSubtitle,
-  formatTime,
-  busy,
-  uploading,
-  uploadingMessage,
-  subtitleAction,
-  showSearchLinks,
-  searchKeyword,
-  showMediaType = true,
-  showMetadata = true,
-  showUploadButton = true,
-  compactMeta = false,
-  metaCollapsedByDefault = false,
-  showMetaSection = true,
-  showPanelTitle = true,
-  showSubtitleListCaption = true
-}: SubtitleDetailsPanelProps, ref) {
+export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, SubtitleDetailsPanelProps>(function SubtitleDetailsPanel(
+  {
+    panelTitle,
+    selectedVideo,
+    emptyText,
+    showBack,
+    onBack,
+    infoRows,
+    onUpload,
+    onReplace,
+    onConvertSubtitle,
+    onOffsetSubtitle,
+    onRemove,
+    onPreviewSubtitle,
+    formatTime,
+    busy,
+    uploading,
+    uploadingMessage,
+    subtitleAction,
+    showSearchLinks,
+    searchKeyword,
+    showMediaType = true,
+    showMetadata = true,
+    showUploadButton = true,
+    compactMeta = false,
+    metaCollapsedByDefault = false,
+    showMetaSection = true,
+    showPanelTitle = true,
+    showSubtitleListCaption = true
+  }: SubtitleDetailsPanelProps,
+  ref
+) {
   const { t } = useI18n();
-  const uploadInputRef = useRef<HTMLInputElement | null>(null);
-  const replaceInputRef = useRef<Record<string, HTMLInputElement | null>>({});
   const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-[11px]";
-
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
-  const [uploadLabel, setUploadLabel] = useState("zh");
-  const [uploadConvertToAss, setUploadConvertToAss] = useState(false);
-  const [uploadSourceEncoding, setUploadSourceEncoding] = useState<SubtitleSourceEncoding>("auto");
-  const [zipPickDialogOpen, setZipPickDialogOpen] = useState(false);
-  const [zipPickMode, setZipPickMode] = useState<"upload" | "replace">("upload");
-  const [zipPickFileName, setZipPickFileName] = useState("");
-  const [zipPickEntries, setZipPickEntries] = useState<ZipSubtitleEntry[]>([]);
-  const [zipPickTargetSubtitle, setZipPickTargetSubtitle] = useState<Subtitle | null>(null);
-  const [zipUploadLabel, setZipUploadLabel] = useState("zh");
-  const [selectedZipEntryId, setSelectedZipEntryId] = useState("");
-  const [zipPickError, setZipPickError] = useState("");
-  const [zipLoading, setZipLoading] = useState(false);
-  const [deleteDialogSubtitleId, setDeleteDialogSubtitleId] = useState<string | null>(null);
-  const [pendingConvertSubtitle, setPendingConvertSubtitle] = useState<Subtitle | null>(null);
-  const [convertSourceEncoding, setConvertSourceEncoding] = useState<SubtitleSourceEncoding>("auto");
-  const [pendingOffsetSubtitle, setPendingOffsetSubtitle] = useState<Subtitle | null>(null);
-  const [offsetSeconds, setOffsetSeconds] = useState("");
-  const [pendingReplace, setPendingReplace] = useState<{ subtitle: Subtitle; file: File } | null>(null);
   const [flashSubtitleList, setFlashSubtitleList] = useState(false);
   const [metaExpanded, setMetaExpanded] = useState(!metaCollapsedByDefault);
-  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
-  const [previewTitle, setPreviewTitle] = useState("");
-  const [previewStatus, setPreviewStatus] = useState<"idle" | "loading" | "success" | "error" | "empty">("idle");
-  const [previewError, setPreviewError] = useState("");
-  const [previewContent, setPreviewContent] = useState("");
-  const [previewEncoding, setPreviewEncoding] = useState("");
-  const [previewTruncated, setPreviewTruncated] = useState(false);
+
+  function triggerSubtitleListFlash() {
+    setFlashSubtitleList(false);
+    window.requestAnimationFrame(() => {
+      setFlashSubtitleList(true);
+      window.setTimeout(() => setFlashSubtitleList(false), 900);
+    });
+  }
+
+  const workflow = useSubtitleFileWorkflow({
+    selectedVideo,
+    busy,
+    onUpload,
+    onReplace,
+    onConvertSubtitle,
+    onOffsetSubtitle,
+    onRemove,
+    onPreviewSubtitle,
+    handleRef: ref,
+    confirmReplace: true,
+    onMutationSuccess: triggerSubtitleListFlash
+  });
 
   const searchLinks = useMemo(() => {
     if (searchKeyword && searchKeyword.trim()) {
@@ -121,16 +101,18 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
     }
     return buildSubtitleSearchLinks(selectedVideo);
   }, [searchKeyword, selectedVideo]);
+
   const uploadPending = subtitleAction?.kind === "upload" && subtitleAction.videoId === selectedVideo?.id;
-  const searchActionItems = showSearchLinks && searchLinks
-    ? [
-        { label: "SubHD", href: searchLinks.subhd },
-        { label: "Zimuku", href: searchLinks.zimuku }
-      ]
-    : [];
+  const searchActionItems =
+    showSearchLinks && searchLinks
+      ? [
+          { label: "SubHD", href: searchLinks.subhd },
+          { label: "Zimuku", href: searchLinks.zimuku }
+        ]
+      : [];
   const subtitleActionWidthClass = "w-full sm:w-auto";
   const showPrimaryUploadButton = showUploadButton;
-  const hasActionToolbar = showPrimaryUploadButton || searchActionItems.length > 0 || zipLoading || Boolean(zipPickError);
+  const hasActionToolbar = showPrimaryUploadButton || searchActionItems.length > 0 || workflow.zipLoading || Boolean(workflow.zipPickError);
   const detailsInfoGrid = selectedVideo ? (
     <div className="flex flex-col divide-y divide-border/60 overflow-hidden border border-border/60 text-sm">
       <InfoItem label={t("info.title")} value={selectedVideo.title || "-"} />
@@ -145,309 +127,9 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
     </div>
   ) : null;
 
-  function triggerSubtitleListFlash() {
-    setFlashSubtitleList(false);
-    window.requestAnimationFrame(() => {
-      setFlashSubtitleList(true);
-      window.setTimeout(() => setFlashSubtitleList(false), 900);
-    });
-  }
-
-  function resetZipPickState() {
-    setZipPickDialogOpen(false);
-    setZipPickMode("upload");
-    setZipPickFileName("");
-    setZipPickEntries([]);
-    setZipPickTargetSubtitle(null);
-    setZipUploadLabel("zh");
-    setSelectedZipEntryId("");
-    setZipPickError("");
-    setZipLoading(false);
-  }
-
-  function resetUploadState() {
-    setUploadDialogOpen(false);
-    setPendingUploadFile(null);
-    setUploadLabel("zh");
-    setUploadConvertToAss(false);
-    setUploadSourceEncoding("auto");
-  }
-
-  function resetPreviewState() {
-    setPreviewDialogOpen(false);
-    setPreviewTitle("");
-    setPreviewStatus("idle");
-    setPreviewError("");
-    setPreviewContent("");
-    setPreviewEncoding("");
-    setPreviewTruncated(false);
-  }
-
-  function openPreviewFromBuffer(name: string, buffer: ArrayBuffer) {
-    setPreviewDialogOpen(true);
-    setPreviewTitle(name || "-");
-    try {
-      const decoded = decodeSubtitlePreviewContent(buffer);
-      if (!decoded.text.trim()) {
-        setPreviewStatus("empty");
-        setPreviewError("");
-        setPreviewContent("");
-        setPreviewEncoding(decoded.encoding);
-        setPreviewTruncated(false);
-        return;
-      }
-
-      setPreviewStatus("success");
-      setPreviewError("");
-      setPreviewContent(decoded.text);
-      setPreviewEncoding(decoded.encoding);
-      setPreviewTruncated(decoded.truncated);
-    } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setPreviewStatus("error");
-      setPreviewError(errText);
-      setPreviewContent("");
-      setPreviewEncoding("");
-      setPreviewTruncated(false);
-    }
-  }
-
-  async function openStoredSubtitlePreview(subtitle: Subtitle) {
-    if (!selectedVideo) {
-      return;
-    }
-
-    setPreviewDialogOpen(true);
-    setPreviewTitle(subtitle.fileName || "-");
-    setPreviewStatus("loading");
-    setPreviewError("");
-    setPreviewContent("");
-    setPreviewEncoding("");
-    setPreviewTruncated(false);
-
-    try {
-      const data = await onPreviewSubtitle(selectedVideo, subtitle);
-      openPreviewFromBuffer(subtitle.fileName, data);
-    } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setPreviewStatus("error");
-      setPreviewError(errText);
-    }
-  }
-
-  function openArchiveSubtitlePreview(entry: ZipSubtitleEntry) {
-    openPreviewFromBuffer(entry.fileName || entry.path || "-", entry.data);
-  }
-
-  useEffect(() => {
-    resetUploadState();
-    resetZipPickState();
-    resetPreviewState();
-    setDeleteDialogSubtitleId(null);
-    setPendingConvertSubtitle(null);
-    setConvertSourceEncoding("auto");
-    setPendingOffsetSubtitle(null);
-    setOffsetSeconds("");
-    setPendingReplace(null);
-    setFlashSubtitleList(false);
-  }, [selectedVideo?.id]);
-
   useEffect(() => {
     setMetaExpanded(!metaCollapsedByDefault);
   }, [metaCollapsedByDefault, selectedVideo?.id]);
-
-  function openUploadPicker() {
-    if (busy || zipLoading) {
-      return;
-    }
-    uploadInputRef.current?.click();
-  }
-
-  useImperativeHandle(ref, () => ({
-    openUploadPicker
-  }));
-
-  async function openZipPicker(file: File, mode: "upload" | "replace", targetSubtitle: Subtitle | null) {
-    setZipLoading(true);
-    setZipPickError("");
-
-    try {
-      const entries = await extractSubtitleEntriesFromArchiveFile(file);
-      if (entries.length === 0) {
-        setZipPickError(t("details.noSubtitleFilesInArchive"));
-        emitToast({
-          level: "error",
-          title: t("toast.archiveParsingFailedTitle"),
-          message: t("toast.archiveParsingNoSubtitleMessage")
-        });
-        return;
-      }
-      setZipPickMode(mode);
-      setZipPickTargetSubtitle(targetSubtitle);
-      if (mode === "upload") {
-        setZipUploadLabel(uploadLabel.trim() || "zh");
-      }
-      setZipPickFileName(file.name);
-      setZipPickEntries(entries);
-      setSelectedZipEntryId("");
-      setZipPickDialogOpen(true);
-      emitToast({
-        level: "info",
-        title: t("toast.archiveParsedTitle"),
-        message: t("toast.archiveParsedMessage", { count: entries.length }),
-        detail: file.name
-      });
-    } catch (error) {
-      const errText = error instanceof Error ? error.message : String(error);
-      setZipPickError(t("details.parseArchiveFailed", { error: errText }));
-      emitToast({
-        level: "error",
-        title: t("toast.archiveParsingFailedTitle"),
-        message: errText,
-        detail: file.name
-      });
-    } finally {
-      setZipLoading(false);
-    }
-  }
-
-  function onUploadFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
-    event.target.value = "";
-    if (!file) return;
-    if (isArchiveFileName(file.name)) {
-      void openZipPicker(file, "upload", null);
-      return;
-    }
-    if (!isSubtitleFileName(file.name)) {
-      setZipPickError(t("details.unsupportedFileType"));
-      emitToast({
-        level: "error",
-        title: t("toast.unsupportedFileTitle"),
-        message: file.name,
-        detail: t("toast.unsupportedFileDetail")
-      });
-      return;
-    }
-    setPendingUploadFile(file);
-    setUploadConvertToAss(false);
-    setUploadSourceEncoding("auto");
-    setUploadDialogOpen(true);
-  }
-
-  async function confirmUpload() {
-    if (!selectedVideo || !pendingUploadFile) return;
-    const success = await onUpload(selectedVideo, pendingUploadFile, uploadLabel.trim(), {
-      convertToAss: uploadConvertToAss && isSRTFileName(pendingUploadFile.name),
-      sourceEncoding: uploadSourceEncoding
-    });
-    if (success) {
-      resetUploadState();
-      triggerSubtitleListFlash();
-    }
-  }
-
-  async function onReplaceFilePicked(subtitle: Subtitle, event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
-    event.target.value = "";
-    if (!file || !selectedVideo) return;
-    if (isArchiveFileName(file.name)) {
-      await openZipPicker(file, "replace", subtitle);
-      return;
-    }
-    if (!isSubtitleFileName(file.name)) {
-      setZipPickError(t("details.unsupportedFileType"));
-      emitToast({
-        level: "error",
-        title: t("toast.unsupportedFileTitle"),
-        message: file.name,
-        detail: t("toast.unsupportedFileDetail")
-      });
-      return;
-    }
-    setPendingReplace({ subtitle, file });
-  }
-
-  async function confirmReplaceSubtitle() {
-    if (!pendingReplace || !selectedVideo) return;
-    const { subtitle, file } = pendingReplace;
-    const success = await onReplace(selectedVideo, subtitle, file);
-    if (success) {
-      setPendingReplace(null);
-      triggerSubtitleListFlash();
-    }
-  }
-
-  async function onZipEntryPicked(entry: ZipSubtitleEntry) {
-    if (!selectedVideo) {
-      return;
-    }
-
-    const selectedFile = toSubtitleFile(entry);
-    if (zipPickMode === "upload") {
-      const success = await onUpload(selectedVideo, selectedFile, zipUploadLabel.trim());
-      if (success) {
-        resetZipPickState();
-        triggerSubtitleListFlash();
-      }
-      return;
-    }
-
-    if (!zipPickTargetSubtitle) {
-      setZipPickError(t("details.missingReplaceTarget"));
-      return;
-    }
-
-    const success = await onReplace(selectedVideo, zipPickTargetSubtitle, selectedFile);
-    if (success) {
-      resetZipPickState();
-      triggerSubtitleListFlash();
-    }
-  }
-
-  async function confirmZipEntrySelection() {
-    const entry = zipPickEntries.find((item) => item.id === selectedZipEntryId);
-    if (!entry) {
-      setZipPickError(t("details.selectArchiveEntryFirst"));
-      return;
-    }
-    await onZipEntryPicked(entry);
-  }
-
-  async function confirmDeleteSubtitle(subtitle: Subtitle) {
-    if (!selectedVideo) {
-      return;
-    }
-    const success = await onRemove(selectedVideo, subtitle);
-    if (success) {
-      setDeleteDialogSubtitleId(null);
-      triggerSubtitleListFlash();
-    }
-  }
-
-  async function confirmConvertSubtitle() {
-    if (!selectedVideo || !pendingConvertSubtitle) {
-      return;
-    }
-    const success = await onConvertSubtitle(selectedVideo, pendingConvertSubtitle, convertSourceEncoding);
-    if (success) {
-      setPendingConvertSubtitle(null);
-      setConvertSourceEncoding("auto");
-      triggerSubtitleListFlash();
-    }
-  }
-
-  async function confirmOffsetSubtitle(offsetMs: number) {
-    if (!selectedVideo || !pendingOffsetSubtitle) {
-      return;
-    }
-    const success = await onOffsetSubtitle(selectedVideo, pendingOffsetSubtitle, offsetMs);
-    if (success) {
-      setPendingOffsetSubtitle(null);
-      setOffsetSeconds("");
-      triggerSubtitleListFlash();
-    }
-  }
 
   return (
     <Card className="animate-fade-in-up flex h-full w-full flex-col bg-card">
@@ -477,44 +159,34 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-0">
         {!selectedVideo ? (
-          <div className="flex flex-1 items-center justify-center bg-surface-subtle p-10 text-center text-sm text-muted-foreground">
-            {emptyText}
-          </div>
+          <div className="flex flex-1 items-center justify-center bg-surface-subtle p-10 text-center text-sm text-muted-foreground">{emptyText}</div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
-            {showMetaSection
-              ? compactMeta
-                ? (
-                    <div className="surface-subtle space-y-3 p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="max-w-full truncate text-sm font-semibold sm:max-w-[60%]">
-                          {selectedVideo.title || selectedVideo.fileName || "-"}
-                        </p>
-                        <Badge variant="secondary" className="text-[11px]">
-                          {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
-                        </Badge>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2 text-xs"
-                        onClick={() => setMetaExpanded((prev) => !prev)}
-                      >
-                        {metaExpanded ? t("details.lessInfo") : t("details.moreInfo")}
-                      </Button>
-                      {metaExpanded && detailsInfoGrid}
-                    </div>
-                  )
-                : detailsInfoGrid
-              : null}
+            {showMetaSection ? (
+              compactMeta ? (
+                <div className="surface-subtle space-y-3 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="max-w-full truncate text-sm font-semibold sm:max-w-[60%]">{selectedVideo.title || selectedVideo.fileName || "-"}</p>
+                    <Badge variant="secondary" className="text-[11px]">
+                      {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
+                    </Badge>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setMetaExpanded((prev) => !prev)}>
+                    {metaExpanded ? t("details.lessInfo") : t("details.moreInfo")}
+                  </Button>
+                  {metaExpanded && detailsInfoGrid}
+                </div>
+              ) : (
+                detailsInfoGrid
+              )
+            ) : null}
 
             <input
-              ref={uploadInputRef}
+              ref={workflow.uploadInputRef}
               type="file"
-              accept=".srt,.ass,.ssa,.vtt,.sub,.zip,.7z,.rar"
+              accept={ACCEPTED_SUBTITLE_UPLOAD_TYPES}
               className="hidden"
-              onChange={onUploadFileChange}
+              onChange={workflow.onUploadFileChange}
             />
             {hasActionToolbar && (
               <div className="flex flex-col gap-3 bg-surface-subtle p-3">
@@ -524,14 +196,14 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       type="button"
                       size="sm"
                       className={cn("gap-1.5", subtitleActionWidthClass)}
-                      disabled={busy || zipLoading}
-                      onClick={openUploadPicker}
+                      disabled={busy || workflow.zipLoading}
+                      onClick={workflow.openUploadPicker}
                     >
-                      {uploadPending || zipLoading ? <SpinnerIcon className="h-4 w-4" /> : <UploadCloud className="h-4 w-4" />}
+                      {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-4 w-4" /> : <UploadCloud className="h-4 w-4" />}
                       <span>{uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}</span>
                     </Button>
                   )}
-                  {zipLoading && <InlinePending label={t("details.parsingArchive")} />}
+                  {workflow.zipLoading && <InlinePending label={t("details.parsingArchive")} />}
                   {searchActionItems.length > 0 && (
                     <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                       {searchActionItems.map((item) => (
@@ -545,10 +217,10 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                     </div>
                   )}
                 </div>
-                {zipPickError && (
+                {workflow.zipPickError && (
                   <div className="flex items-start gap-2 bg-red-500/10 p-2 text-sm text-red-300">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                    <span className="min-w-0 break-words">{zipPickError}</span>
+                    <span className="min-w-0 break-words">{workflow.zipPickError}</span>
                   </div>
                 )}
               </div>
@@ -582,7 +254,9 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                           <TableCell>{subtitle.format || "-"}</TableCell>
                           <TableCell>
                             <div className="flex min-w-0 items-center gap-1">
-                              <span className="min-w-0 truncate" title={sourceText}>{sourceText}</span>
+                              <span className="min-w-0 truncate" title={sourceText}>
+                                {sourceText}
+                              </span>
                               <SubtitleSourceDetailButton subtitle={subtitle} sourceLabel={sourceText} />
                             </div>
                           </TableCell>
@@ -590,14 +264,12 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                           <TableCell className="w-[360px] text-right">
                             <div className="flex flex-wrap items-center justify-end gap-1.5">
                               <input
-                                ref={(node) => {
-                                  replaceInputRef.current[subtitle.id] = node;
-                                }}
+                                ref={(node) => workflow.setReplaceInputNode(subtitle.id, node)}
                                 type="file"
-                                accept=".srt,.ass,.ssa,.vtt,.sub,.zip,.7z,.rar"
+                                accept={ACCEPTED_SUBTITLE_UPLOAD_TYPES}
                                 className="hidden"
                                 onChange={(event) => {
-                                  void onReplaceFilePicked(subtitle, event);
+                                  void workflow.onReplaceFilePicked(subtitle, event);
                                 }}
                               />
                               <Button
@@ -606,7 +278,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                                 size="sm"
                                 className={subtitleRowActionButtonClassName}
                                 disabled={busy || rowBusy}
-                                onClick={() => void openStoredSubtitlePreview(subtitle)}
+                                onClick={() => void workflow.openStoredSubtitlePreview(subtitle)}
                               >
                                 <Eye className="h-3.5 w-3.5" />
                                 {t("common.preview")}
@@ -617,7 +289,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                                 size="sm"
                                 className={subtitleRowActionButtonClassName}
                                 disabled={busy || rowBusy}
-                                onClick={() => replaceInputRef.current[subtitle.id]?.click()}
+                                onClick={() => workflow.replaceInputRef.current[subtitle.id]?.click()}
                               >
                                 {replacePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
                                 {replacePending ? t("common.replacing") : t("common.replace")}
@@ -630,8 +302,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                                   className={subtitleRowActionButtonClassName}
                                   disabled={busy || rowBusy}
                                   onClick={() => {
-                                    setPendingConvertSubtitle(subtitle);
-                                    setConvertSourceEncoding("auto");
+                                    workflow.setPendingConvertSubtitle(subtitle);
+                                    workflow.setConvertSourceEncoding("auto");
                                   }}
                                 >
                                   {convertPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <FileCode2 className="h-3.5 w-3.5" />}
@@ -646,8 +318,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                                   className={subtitleRowActionButtonClassName}
                                   disabled={busy || rowBusy}
                                   onClick={() => {
-                                    setPendingOffsetSubtitle(subtitle);
-                                    setOffsetSeconds("");
+                                    workflow.setPendingOffsetSubtitle(subtitle);
+                                    workflow.setOffsetSeconds("");
                                   }}
                                 >
                                   {offsetPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
@@ -663,25 +335,25 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                                   "border-red-500/25 text-red-400 hover:bg-red-500/10 hover:text-red-400"
                                 )}
                                 disabled={busy || rowBusy}
-                                onClick={() => setDeleteDialogSubtitleId(subtitle.id)}
+                                onClick={() => workflow.setDeleteDialogSubtitleId(subtitle.id)}
                               >
                                 {deletePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                                 {deletePending ? t("common.deleting") : t("common.delete")}
                               </Button>
 
                               <DeleteSubtitleDialog
-                                open={deleteDialogSubtitleId === subtitle.id}
+                                open={workflow.deleteDialogSubtitleId === subtitle.id}
                                 onOpenChange={(open) => {
                                   if (!open) {
-                                    setDeleteDialogSubtitleId((current) => (current === subtitle.id ? null : current));
+                                    workflow.setDeleteDialogSubtitleId((current) => (current === subtitle.id ? null : current));
                                     return;
                                   }
-                                  setDeleteDialogSubtitleId(subtitle.id);
+                                  workflow.setDeleteDialogSubtitleId(subtitle.id);
                                 }}
                                 subtitle={subtitle}
                                 deletePending={deletePending}
                                 onConfirm={() => {
-                                  void confirmDeleteSubtitle(subtitle);
+                                  void workflow.confirmDeleteSubtitle(subtitle);
                                 }}
                               />
                             </div>
@@ -706,10 +378,11 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
       </CardContent>
 
       <ReplaceSubtitleDialog
-        open={pendingReplace !== null}
+        open={workflow.pendingReplace !== null}
         onOpenChange={(open) => {
           if (!open) {
-            const isReplacing = subtitleAction?.kind === "replace" && pendingReplace?.subtitle.id === subtitleAction.subtitleId;
+            const isReplacing =
+              subtitleAction?.kind === "replace" && workflow.pendingReplace?.subtitle.id === subtitleAction.subtitleId;
             if (isReplacing) {
               emitToast({
                 level: "info",
@@ -718,21 +391,23 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
               });
               return;
             }
-            setPendingReplace(null);
+            workflow.setPendingReplace(null);
           }
         }}
-        subtitle={pendingReplace?.subtitle ?? null}
-        newFileName={pendingReplace?.file.name ?? ""}
+        subtitle={workflow.pendingReplace?.subtitle ?? null}
+        newFileName={workflow.pendingReplace?.file.name ?? ""}
         replacePending={Boolean(
-          subtitleAction?.kind === "replace" && pendingReplace && subtitleAction.subtitleId === pendingReplace.subtitle.id
+          subtitleAction?.kind === "replace" &&
+            workflow.pendingReplace &&
+            subtitleAction.subtitleId === workflow.pendingReplace.subtitle.id
         )}
         onConfirm={() => {
-          void confirmReplaceSubtitle();
+          void workflow.confirmReplaceSubtitle();
         }}
       />
 
       <UploadSubtitleDialog
-        open={uploadDialogOpen}
+        open={workflow.uploadDialogOpen}
         onOpenChange={(open) => {
           if (!open && uploading) {
             emitToast({
@@ -743,64 +418,68 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
             return;
           }
           if (!open) {
-            resetUploadState();
+            workflow.resetUploadState();
             return;
           }
-          setUploadDialogOpen(open);
+          workflow.setUploadDialogOpen(open);
         }}
-        pendingUploadFile={pendingUploadFile}
-        uploadLabel={uploadLabel}
-        onUploadLabelChange={setUploadLabel}
-        canConvertToAss={Boolean(pendingUploadFile && isSRTFileName(pendingUploadFile.name))}
-        convertToAss={uploadConvertToAss}
-        onConvertToAssChange={setUploadConvertToAss}
-        sourceEncoding={uploadSourceEncoding}
-        onSourceEncodingChange={setUploadSourceEncoding}
-        onConfirm={() => void confirmUpload()}
+        pendingUploadFile={workflow.pendingUploadFile}
+        uploadLabel={workflow.uploadLabel}
+        onUploadLabelChange={workflow.setUploadLabel}
+        canConvertToAss={Boolean(workflow.pendingUploadFile && isSRTFileName(workflow.pendingUploadFile.name))}
+        convertToAss={workflow.uploadConvertToAss}
+        onConvertToAssChange={workflow.setUploadConvertToAss}
+        sourceEncoding={workflow.uploadSourceEncoding}
+        onSourceEncodingChange={workflow.setUploadSourceEncoding}
+        onConfirm={() => void workflow.confirmUpload()}
         busy={busy || !selectedVideo}
         uploadPending={uploadPending}
       />
 
       <ConvertSubtitleDialog
-        open={pendingConvertSubtitle !== null}
+        open={workflow.pendingConvertSubtitle !== null}
         onOpenChange={(open) => {
           if (!open) {
-            setPendingConvertSubtitle(null);
-            setConvertSourceEncoding("auto");
+            workflow.setPendingConvertSubtitle(null);
+            workflow.setConvertSourceEncoding("auto");
           }
         }}
-        subtitle={pendingConvertSubtitle}
-        sourceEncoding={convertSourceEncoding}
-        onSourceEncodingChange={setConvertSourceEncoding}
+        subtitle={workflow.pendingConvertSubtitle}
+        sourceEncoding={workflow.convertSourceEncoding}
+        onSourceEncodingChange={workflow.setConvertSourceEncoding}
         convertPending={Boolean(
-          subtitleAction?.kind === "convert" && pendingConvertSubtitle && subtitleAction.subtitleId === pendingConvertSubtitle.id
+          subtitleAction?.kind === "convert" &&
+            workflow.pendingConvertSubtitle &&
+            subtitleAction.subtitleId === workflow.pendingConvertSubtitle.id
         )}
-        onConfirm={() => void confirmConvertSubtitle()}
+        onConfirm={() => void workflow.confirmConvertSubtitle()}
       />
 
       <TimingOffsetDialog
-        open={pendingOffsetSubtitle !== null}
+        open={workflow.pendingOffsetSubtitle !== null}
         onOpenChange={(open) => {
           if (!open) {
-            setPendingOffsetSubtitle(null);
-            setOffsetSeconds("");
+            workflow.setPendingOffsetSubtitle(null);
+            workflow.setOffsetSeconds("");
             return;
           }
-          setPendingOffsetSubtitle(pendingOffsetSubtitle);
+          workflow.setPendingOffsetSubtitle(workflow.pendingOffsetSubtitle);
         }}
-        subtitle={pendingOffsetSubtitle}
-        offsetSeconds={offsetSeconds}
-        onOffsetSecondsChange={setOffsetSeconds}
+        subtitle={workflow.pendingOffsetSubtitle}
+        offsetSeconds={workflow.offsetSeconds}
+        onOffsetSecondsChange={workflow.setOffsetSeconds}
         offsetPending={Boolean(
-          subtitleAction?.kind === "offset" && pendingOffsetSubtitle && subtitleAction.subtitleId === pendingOffsetSubtitle.id
+          subtitleAction?.kind === "offset" &&
+            workflow.pendingOffsetSubtitle &&
+            subtitleAction.subtitleId === workflow.pendingOffsetSubtitle.id
         )}
         onConfirm={(offsetMs) => {
-          void confirmOffsetSubtitle(offsetMs);
+          void workflow.confirmOffsetSubtitle(offsetMs);
         }}
       />
 
       <ArchiveEntryPickerDialog
-        open={zipPickDialogOpen}
+        open={workflow.zipPickDialogOpen}
         onOpenChange={(open) => {
           if (!open && uploading) {
             emitToast({
@@ -811,37 +490,37 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
             return;
           }
           if (!open) {
-            resetZipPickState();
+            workflow.resetZipPickState();
             return;
           }
-          setZipPickDialogOpen(true);
+          workflow.setZipPickDialogOpen(true);
         }}
-        mode={zipPickMode}
-        zipPickFileName={zipPickFileName}
-        zipPickEntries={zipPickEntries}
-        zipUploadLabel={zipUploadLabel}
-        onZipUploadLabelChange={setZipUploadLabel}
-        selectedZipEntryId={selectedZipEntryId}
+        mode={workflow.zipPickMode}
+        zipPickFileName={workflow.zipPickFileName}
+        zipPickEntries={workflow.zipPickEntries}
+        zipUploadLabel={workflow.zipUploadLabel}
+        onZipUploadLabelChange={workflow.setZipUploadLabel}
+        selectedZipEntryId={workflow.selectedZipEntryId}
         onSelectZipEntryId={(value) => {
-          setSelectedZipEntryId(value);
-          setZipPickError("");
+          workflow.setSelectedZipEntryId(value);
+          workflow.setZipPickError("");
         }}
-        onPreviewEntry={openArchiveSubtitlePreview}
-        onConfirm={() => void confirmZipEntrySelection()}
+        onPreviewEntry={workflow.openArchiveSubtitlePreview}
+        onConfirm={() => void workflow.confirmZipEntrySelection()}
         busy={busy}
         uploading={uploading}
-        zipLoading={zipLoading}
+        zipLoading={workflow.zipLoading}
       />
 
       <SubtitlePreviewDialog
-        open={previewDialogOpen}
-        onOpenChange={setPreviewDialogOpen}
-        previewTitle={previewTitle}
-        previewStatus={previewStatus}
-        previewError={previewError}
-        previewContent={previewContent}
-        previewEncoding={previewEncoding}
-        previewTruncated={previewTruncated}
+        open={workflow.previewDialogOpen}
+        onOpenChange={workflow.setPreviewDialogOpen}
+        previewTitle={workflow.previewTitle}
+        previewStatus={workflow.previewStatus}
+        previewError={workflow.previewError}
+        previewContent={workflow.previewContent}
+        previewEncoding={workflow.previewEncoding}
+        previewTruncated={workflow.previewTruncated}
       />
     </Card>
   );

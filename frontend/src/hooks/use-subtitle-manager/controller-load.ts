@@ -12,9 +12,12 @@ import { normalizeForCompare, pickDefaultTvDirectory } from "@/lib/subtitle-mana
 import { DEFAULT_LOG_PAGE_SIZE, DEFAULT_PAGE_SIZE } from "./state";
 import { buildRequestSignature, type ControllerRuntime } from "./controller-runtime";
 
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 export function createLoadActions(runtime: ControllerRuntime) {
   const {
-    state,
     setters,
     refs,
     beginLoadChannel,
@@ -25,8 +28,9 @@ export function createLoadActions(runtime: ControllerRuntime) {
   } = runtime;
 
   async function loadMovieVideos(options: { page?: number; force?: boolean } = {}) {
-    const page = options.page || state.paginationByType.movie.page || 1;
-    const pageSize = state.paginationByType.movie.pageSize || DEFAULT_PAGE_SIZE;
+    const state = runtime.state;
+    const page = options.page || state.moviePager.page || 1;
+    const pageSize = state.moviePager.pageSize || DEFAULT_PAGE_SIZE;
     const query = state.queryByType.movie || "";
     const signature = buildRequestSignature(["movie", page, pageSize, state.movieYearSortOrder, query.trim()]);
 
@@ -39,7 +43,12 @@ export function createLoadActions(runtime: ControllerRuntime) {
       return pendingRequest.promise;
     }
 
+    if (pendingRequest) {
+      pendingRequest.controller.abort();
+    }
+
     refs.requestedMovieListSignatureRef.current = signature;
+    const controller = new AbortController();
 
     const promise = (async () => {
       beginLoadChannel("movieList");
@@ -55,24 +64,24 @@ export function createLoadActions(runtime: ControllerRuntime) {
           params.set("q", query.trim());
         }
 
-        const payload = await requestPayload<unknown>(`/api/videos?${params.toString()}`);
+        const payload = await requestPayload<unknown>(`/api/videos?${params.toString()}`, { signal: controller.signal });
         if (refs.requestedMovieListSignatureRef.current !== signature) {
           return;
         }
 
         const pageData = normalizePagedVideosResponse(payload, page, pageSize);
-        setters.setVideosByType((prev) => ({ ...prev, movie: pageData.items }));
-        setters.setPaginationByType((prev) => ({
-          ...prev,
-          movie: {
-            page: pageData.page,
-            pageSize: pageData.pageSize,
-            total: pageData.total,
-            totalPages: pageData.totalPages
-          }
-        }));
+        setters.setMovieVideos(pageData.items);
+        setters.setMoviePager({
+          page: pageData.page,
+          pageSize: pageData.pageSize,
+          total: pageData.total,
+          totalPages: pageData.totalPages
+        });
         refs.loadedMovieListSignatureRef.current = signature;
       } catch (error) {
+        if (isAbortError(error)) {
+          return;
+        }
         if (refs.requestedMovieListSignatureRef.current === signature) {
           reportRequestError("error.loadMovieVideos", error);
         }
@@ -85,7 +94,7 @@ export function createLoadActions(runtime: ControllerRuntime) {
       }
     })();
 
-    refs.pendingMovieListRequestRef.current = { signature, promise };
+    refs.pendingMovieListRequestRef.current = { signature, promise, controller };
     return promise;
   }
 
@@ -99,6 +108,7 @@ export function createLoadActions(runtime: ControllerRuntime) {
   }
 
   async function loadTvSeriesPage(options: { page?: number; force?: boolean } = {}) {
+    const state = runtime.state;
     const page = options.page || state.tvSeriesPager.page || 1;
     const pageSize = state.tvSeriesPager.pageSize || DEFAULT_PAGE_SIZE;
     const query = state.queryByType.tv || "";
@@ -113,7 +123,12 @@ export function createLoadActions(runtime: ControllerRuntime) {
       return pendingRequest.promise;
     }
 
+    if (pendingRequest) {
+      pendingRequest.controller.abort();
+    }
+
     refs.requestedTvSeriesSignatureRef.current = signature;
+    const controller = new AbortController();
 
     const promise = (async () => {
       beginLoadChannel("tvSeriesList");
@@ -128,7 +143,7 @@ export function createLoadActions(runtime: ControllerRuntime) {
           params.set("q", query.trim());
         }
 
-        const payload = await requestPayload<unknown>(`/api/tv/series?${params.toString()}`);
+        const payload = await requestPayload<unknown>(`/api/tv/series?${params.toString()}`, { signal: controller.signal });
         if (refs.requestedTvSeriesSignatureRef.current !== signature) {
           return [];
         }
@@ -144,6 +159,9 @@ export function createLoadActions(runtime: ControllerRuntime) {
         refs.loadedTvSeriesSignatureRef.current = signature;
         return pageData.items;
       } catch (error) {
+        if (isAbortError(error)) {
+          return [];
+        }
         if (refs.requestedTvSeriesSignatureRef.current === signature) {
           reportRequestError("error.loadTvSeries", error);
         }
@@ -157,11 +175,11 @@ export function createLoadActions(runtime: ControllerRuntime) {
       }
     })();
 
-    refs.pendingTvSeriesRequestRef.current = { signature, promise };
+    refs.pendingTvSeriesRequestRef.current = { signature, promise, controller };
     return promise;
   }
 
-  async function listAllTvVideos(directoryPath = "") {
+  async function listAllTvVideos(directoryPath = "", signal?: AbortSignal) {
     const directory = directoryPath.trim();
     const videos: Video[] = [];
     let page = 1;
@@ -169,6 +187,10 @@ export function createLoadActions(runtime: ControllerRuntime) {
     const pageSize = 200;
 
     while (page <= totalPages) {
+      if (signal?.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+      }
+
       const params = new URLSearchParams();
       params.set("mediaType", "tv");
       params.set("page", String(page));
@@ -177,7 +199,7 @@ export function createLoadActions(runtime: ControllerRuntime) {
         params.set("dir", directory);
       }
 
-      const payload = await requestPayload<unknown>(`/api/videos?${params.toString()}`);
+      const payload = await requestPayload<unknown>(`/api/videos?${params.toString()}`, { signal });
       const pageData = normalizePagedVideosResponse(payload, page, pageSize);
       videos.push(...pageData.items);
       totalPages = Math.max(1, pageData.totalPages || 1);
@@ -187,7 +209,7 @@ export function createLoadActions(runtime: ControllerRuntime) {
     return videos;
   }
 
-  async function loadTvEpisodesForSeries(seriesPath: string) {
+  async function loadTvEpisodesForSeries(seriesPath: string, signal?: AbortSignal) {
     const directory = seriesPath.trim();
     if (!directory) {
       setters.setTvEpisodes([]);
@@ -201,25 +223,21 @@ export function createLoadActions(runtime: ControllerRuntime) {
     beginLoadChannel("tvEpisodes");
     beginLoading();
     try {
-      const videos = await listAllTvVideos(directory);
+      const videos = await listAllTvVideos(directory, signal);
+      if (signal?.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+      }
       setters.setTvEpisodes(videos);
       setters.setTvEpisodesPath(directory);
-      setters.setVideosByType((prev) => ({ ...prev, tv: videos }));
-      setters.setPaginationByType((prev) => ({
-        ...prev,
-        tv: {
-          page: 1,
-          pageSize: videos.length > 0 ? videos.length : DEFAULT_PAGE_SIZE,
-          total: videos.length,
-          totalPages: videos.length > 0 ? 1 : 0
-        }
-      }));
       setters.setSelectedVideoIdByType((prev) => ({
         ...prev,
         tv: videos.some((video) => video.id === prev.tv) ? prev.tv : videos.length > 0 ? videos[0].id : ""
       }));
       return videos;
     } catch (error) {
+      if (isAbortError(error)) {
+        return [];
+      }
       reportRequestError("error.loadTvEpisodes", error);
       return [];
     } finally {
@@ -232,6 +250,7 @@ export function createLoadActions(runtime: ControllerRuntime) {
   }
 
   async function requestTvVideosForPath(seriesPath: string, options: { force?: boolean } = {}) {
+    const state = runtime.state;
     const directory = seriesPath.trim();
     if (!directory) {
       setters.setTvVideosRequestedPath("");
@@ -251,17 +270,23 @@ export function createLoadActions(runtime: ControllerRuntime) {
       return pendingRequest.promise;
     }
 
-    const promise = loadTvEpisodesForSeries(directory).finally(() => {
+    if (pendingRequest) {
+      pendingRequest.controller.abort();
+    }
+
+    const controller = new AbortController();
+    const promise = loadTvEpisodesForSeries(directory, controller.signal).finally(() => {
       const current = refs.pendingTvEpisodesRequestRef.current;
       if (current && normalizeForCompare(current.path) === targetNorm) {
         refs.pendingTvEpisodesRequestRef.current = null;
       }
     });
-    refs.pendingTvEpisodesRequestRef.current = { path: directory, promise };
+    refs.pendingTvEpisodesRequestRef.current = { path: directory, promise, controller };
     return promise;
   }
 
   function shouldRefreshTvVideosForPath(seriesPath: string) {
+    const state = runtime.state;
     const targetNorm = normalizeForCompare(seriesPath);
     if (!targetNorm) {
       return false;
@@ -279,6 +304,10 @@ export function createLoadActions(runtime: ControllerRuntime) {
     }
 
     return requestTvVideosForPath(directory, { force: true });
+  }
+
+  async function loadVideoById(videoId: string) {
+    return requestPayload<Video>(`/api/videos/${encodeURIComponent(videoId)}`);
   }
 
   async function loadScanStatus() {
@@ -308,6 +337,7 @@ export function createLoadActions(runtime: ControllerRuntime) {
   }
 
   async function loadLogs(options: { page?: number } = {}) {
+    const state = runtime.state;
     const page = options.page || state.logsPager.page || 1;
     const pageSize = state.logsPager.pageSize || DEFAULT_LOG_PAGE_SIZE;
 
@@ -342,6 +372,7 @@ export function createLoadActions(runtime: ControllerRuntime) {
     requestTvVideosForPath,
     shouldRefreshTvVideosForPath,
     refreshTvVideosForPath,
+    loadVideoById,
     loadScanStatus,
     loadDirectoryScanResult,
     loadLogs

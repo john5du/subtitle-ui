@@ -25,7 +25,7 @@ export type LoadChannel = "movieList" | "tvSeriesList" | "tvEpisodes" | "logs";
 
 export interface SubtitleManagerState {
   activeTab: ActiveTab;
-  videosByType: Record<MediaType, Video[]>;
+  movieVideos: Video[];
   selectedVideoIdByType: Record<MediaType, string>;
   tvEpisodes: Video[];
   tvEpisodesPath: string;
@@ -35,7 +35,7 @@ export interface SubtitleManagerState {
   tvSeriesRows: TvSeriesSummary[];
   tvSeriesPager: Pager;
   queryByType: Record<MediaType, string>;
-  paginationByType: Record<MediaType, Pager>;
+  moviePager: Pager;
   movieYearSortOrder: SortOrder;
   tvSeriesYearSortOrder: SortOrder;
   loading: boolean;
@@ -57,23 +57,26 @@ export interface SubtitleManagerRefs {
   pendingLoadChannelsRef: MutableRefObject<Record<LoadChannel, number>>;
   loadedMovieListSignatureRef: MutableRefObject<string>;
   requestedMovieListSignatureRef: MutableRefObject<string>;
-  pendingMovieListRequestRef: MutableRefObject<{ signature: string; promise: Promise<void> } | null>;
+  pendingMovieListRequestRef: MutableRefObject<{ signature: string; promise: Promise<void>; controller: AbortController } | null>;
   pendingTvEpisodesPathRef: MutableRefObject<string>;
-  pendingTvEpisodesRequestRef: MutableRefObject<{ path: string; promise: Promise<Video[]> } | null>;
+  pendingTvEpisodesRequestRef: MutableRefObject<{ path: string; promise: Promise<Video[]>; controller: AbortController } | null>;
   loadedTvSeriesSignatureRef: MutableRefObject<string>;
   requestedTvSeriesSignatureRef: MutableRefObject<string>;
-  pendingTvSeriesRequestRef: MutableRefObject<{ signature: string; promise: Promise<TvSeriesSummary[]> } | null>;
+  pendingTvSeriesRequestRef: MutableRefObject<{ signature: string; promise: Promise<TvSeriesSummary[]>; controller: AbortController } | null>;
   skipMovieQueryRef: MutableRefObject<boolean>;
   skipTvQueryRef: MutableRefObject<boolean>;
   skipMovieSortRef: MutableRefObject<boolean>;
   skipTvSortRef: MutableRefObject<boolean>;
+  logsDialogOpenRef: MutableRefObject<boolean>;
 }
 
 export interface SubtitleManagerSetters {
   setActiveTab: Dispatch<SetStateAction<ActiveTab>>;
-  setVideosByType: Dispatch<SetStateAction<Record<MediaType, Video[]>>>;
+  setMovieVideos: Dispatch<SetStateAction<Video[]>>;
+  patchMovieVideo: (video: Video) => void;
   setSelectedVideoIdByType: Dispatch<SetStateAction<Record<MediaType, string>>>;
   setTvEpisodes: Dispatch<SetStateAction<Video[]>>;
+  patchTvEpisode: (video: Video) => void;
   setTvEpisodesPath: Dispatch<SetStateAction<string>>;
   setTvVideosRequestedPath: Dispatch<SetStateAction<string>>;
   setSelectedTvDirPath: Dispatch<SetStateAction<string>>;
@@ -81,7 +84,7 @@ export interface SubtitleManagerSetters {
   setTvSeriesRows: Dispatch<SetStateAction<TvSeriesSummary[]>>;
   setTvSeriesPager: Dispatch<SetStateAction<Pager>>;
   setQueryByType: Dispatch<SetStateAction<Record<MediaType, string>>>;
-  setPaginationByType: Dispatch<SetStateAction<Record<MediaType, Pager>>>;
+  setMoviePager: Dispatch<SetStateAction<Pager>>;
   setMovieYearSortOrder: Dispatch<SetStateAction<SortOrder>>;
   setTvSeriesYearSortOrder: Dispatch<SetStateAction<SortOrder>>;
   setLoading: Dispatch<SetStateAction<boolean>>;
@@ -99,6 +102,7 @@ export interface SubtitleManagerSetters {
 
 export interface SubtitleManagerStateApi {
   state: SubtitleManagerState;
+  stateRef: MutableRefObject<SubtitleManagerState>;
   setters: SubtitleManagerSetters;
   refs: SubtitleManagerRefs;
 }
@@ -136,6 +140,7 @@ export interface SubtitleManagerDashboardDomain {
   setLogsPage: (nextPage: number) => void;
   refreshLogs: (page?: number) => Promise<void>;
   clearLogs: () => Promise<boolean>;
+  setLogsDialogOpen: (open: boolean) => void;
 }
 
 export interface SubtitleManagerMovieDomain {
@@ -213,6 +218,7 @@ export interface SubtitleManagerController extends SubtitleManagerActions {
   setMoviePage: (nextPage: number) => void;
   setTvPage: (nextPage: number) => void;
   setLogsPage: (nextPage: number) => void;
+  setLogsDialogOpen: (open: boolean) => void;
   toggleMovieYearSort: () => void;
   toggleTvSeriesYearSort: () => void;
   loadTvBatchCandidates: () => Promise<Video[]>;

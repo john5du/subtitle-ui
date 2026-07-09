@@ -38,6 +38,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   dashboardSetLogsPage,
   dashboardRefreshLogs,
   dashboardClearLogs,
+  dashboardSetLogsDialogOpen,
   dashboardPending,
   dashboardFormatTime,
   movieQuery,
@@ -81,6 +82,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   dashboardSetLogsPage: SubtitleManagerScreenModel["dashboard"]["setLogsPage"];
   dashboardRefreshLogs: SubtitleManagerScreenModel["dashboard"]["refreshLogs"];
   dashboardClearLogs: SubtitleManagerScreenModel["dashboard"]["clearLogs"];
+  dashboardSetLogsDialogOpen: SubtitleManagerScreenModel["dashboard"]["setLogsDialogOpen"];
   dashboardPending: SubtitleManagerScreenModel["dashboard"]["pending"];
   dashboardFormatTime: SubtitleManagerScreenModel["dashboard"]["formatTime"];
   movieQuery: SubtitleManagerScreenModel["movie"]["query"];
@@ -189,6 +191,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
           onSetLogsPage={dashboardSetLogsPage}
           onRefreshLogs={dashboardRefreshLogs}
           onClearLogs={dashboardClearLogs}
+          onLogsDialogOpenChange={dashboardSetLogsDialogOpen}
           pending={dashboardPending}
           formatTime={dashboardFormatTime}
         />
@@ -483,6 +486,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             dashboardSetLogsPage={dashboard.setLogsPage}
             dashboardRefreshLogs={dashboard.refreshLogs}
             dashboardClearLogs={dashboard.clearLogs}
+            dashboardSetLogsDialogOpen={dashboard.setLogsDialogOpen}
             dashboardPending={dashboard.pending}
             dashboardFormatTime={dashboard.formatTime}
             movieQuery={movie.query}
