@@ -397,7 +397,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
           )}
         >
           <CardContent className="flex h-full flex-col gap-4 p-3">
-            <div className={cn("flex", sidebarCollapsed ? "justify-center" : "justify-start")}>
+            <div className={cn("flex items-center gap-2", sidebarCollapsed ? "justify-center" : "justify-start")}>
               <a
                 href={APP_REPOSITORY_URL}
                 target="_blank"
@@ -415,6 +415,11 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   className="h-full w-full"
                 />
               </a>
+              {!sidebarCollapsed ? (
+                <p className="min-w-0 truncate text-xs text-foreground-muted" title={`Subtitle UI v${APP_VERSION}`}>
+                  {`v${APP_VERSION}`}
+                </p>
+              ) : null}
             </div>
 
             <div role="tablist" aria-label={t("sidebar.tagline")} className="flex w-full flex-col gap-1.5">
