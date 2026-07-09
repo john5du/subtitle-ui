@@ -1,0 +1,71 @@
+# AGENTS.md
+
+Go API + Next.js static UI for subtitle management against a Jellyfin-style media library (`movies/` + `tv/` + sidecar NFO). Production: one Go binary serves API and `frontend/out` on `:9307`.
+
+## Commands
+
+```bash
+# Dev (macOS; needs go, bun, node, lsof, curl)
+./scripts/dev-up.sh          # FE :3300, BE :9307; logs/pids in tmp/
+./scripts/dev-down.sh        # optional: --kill-by-port
+./scripts/dev-restart.sh     # down --kill-by-port then up (refreshes CORS)
+
+# Manual
+go run ./backend/cmd/server
+cd frontend && bun install && bun run dev
+
+# Verify (CI runs only the first)
+go test ./...
+go test ./backend/internal/store -run TestName
+cd frontend && bun run lint
+cd frontend && bun run build   # static export → frontend/out
+```
+
+- Package manager is **bun@1.3.14** (`frontend/package.json` `packageManager`). Use `bun`, not npm/yarn.
+- `bun install` / `predev` / `prebuild` run `prepare:libarchive` (copies libarchive worker assets).
+- Postgres store tests skip unless `TEST_POSTGRES_DSN` is set (creates a per-test schema, then drops it).
+- Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300`. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.
+- Optional FE API override: `NEXT_PUBLIC_API_BASE=http://localhost:9307`.
+
+## Layout
+
+| Path | Role |
+|------|------|
+| `backend/cmd/server` | Process entry |
+| `backend/internal/api` | HTTP routes/handlers |
+| `backend/internal/app` | Service / use-cases (scan, upload, convert, offset, logs) |
+| `backend/internal/store` | SQLite + Postgres, migrations, SQLite→PG one-shot import |
+| `backend/internal/scanner` | Disk scan (video + NFO + posters + subtitles) |
+| `backend/internal/subtitle` | Paths, ASS conversion, timing offset |
+| `backend/internal/config` | Env config |
+| `backend/internal/version` | `const Value` — release source of truth (with FE package version) |
+| `frontend/src/app` | Next App Router shell |
+| `frontend/src/hooks/use-subtitle-manager` | Client state + controllers |
+| `frontend/src/lib` | API client, i18n, archive helpers |
+| `frontend/src/components/subtitle-manager` | UI panels/dialogs |
+| `scripts/dev-*.sh` | Local process orchestration |
+| `media/` | Local media roots (gitignored); defaults `./media/movies`, `./media/tv` |
+| `tmp/` | Local DB default, logs, pids (gitignored) |
+
+`frontend/next.config.mjs`: `output: "export"` (no Next server in prod). Go default `UI_DIST=./frontend/out`.
+
+## Config gotchas
+
+- DB: SQLite default `DB_PATH=./tmp/subtitle_manager.sqlite3`. Set `DATABASE_URL` for Postgres; first connect can import SQLite from `DB_PATH` once (backs up SQLite first; refuses non-empty PG without import marker).
+- Media roots must be **writable** (subtitle write/replace/backup in place).
+- Videos without sidecar NFO (`<title>`/`<year>`) are skipped by the scanner.
+- Subtitle replace/delete/offset backup existing files before mutating.
+
+## Release / version
+
+- Push to `main` triggers `.github/workflows/docker-publish.yml`: `go test ./...` → bump patch → tag → build/push `ghcr.io/john5du/subtitle-ui` → commit version sync.
+- Keep **in sync**: `backend/internal/version/version.go` (`const Value`) and `frontend/package.json` `version`. Mismatch fails the release job.
+- Bot commits `chore: sync version files…` do not re-release.
+- Prefer Conventional Commits. Do not push casual WIP to `main`.
+
+## Agent notes
+
+- No frontend unit test suite; backend tests are the primary safety net.
+- Prefer focused `go test` packages under `backend/internal/...` while iterating.
+- After FE changes that ship in the container, `bun run build` must succeed (static export).
+- Do not commit secrets, `tmp/`, `media/`, or `frontend/out`.
