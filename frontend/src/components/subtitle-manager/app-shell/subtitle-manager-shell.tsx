@@ -16,7 +16,6 @@ import type { SubtitleManagerScreenModel } from "../hooks/use-subtitle-manager-s
 import { DashboardPanel } from "../dashboard/dashboard-panel";
 import { MovieListPanel } from "../movie/movie-list-panel";
 import { MovieSubtitleDrawer } from "../movie/movie-subtitle-drawer";
-import { SettingsPanel } from "../settings/settings-panel";
 import { UploadBlockingOverlay } from "../shared/upload-blocking-overlay";
 import { TvSubtitleDrawer } from "../tv/tv-subtitle-drawer";
 import { TvSeriesListPanel } from "../tv/tv-series-list-panel";
@@ -125,6 +124,17 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
             scanStatus={dashboardScanStatus}
             directoryScan={dashboardDirectoryScan}
             pending={dashboardPending}
+            operationLocked={operationLocked}
+            scanPending={dashboardPending.scan}
+            triggerScan={triggerScan}
+            logs={dashboardLogs}
+            logsPager={dashboardLogsPager}
+            versionInfo={dashboardVersionInfo}
+            onSetLogsPage={dashboardSetLogsPage}
+            onRefreshLogs={dashboardRefreshLogs}
+            onClearLogs={dashboardClearLogs}
+            onLogsDialogOpenChange={dashboardSetLogsDialogOpen}
+            formatTime={dashboardFormatTime}
           />
         </div>
       )}
@@ -180,22 +190,6 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
         </div>
       )}
 
-      {activeTab === "settings" && (
-        <SettingsPanel
-          operationLocked={operationLocked}
-          scanPending={dashboardPending.scan}
-          triggerScan={triggerScan}
-          logs={dashboardLogs}
-          logsPager={dashboardLogsPager}
-          versionInfo={dashboardVersionInfo}
-          onSetLogsPage={dashboardSetLogsPage}
-          onRefreshLogs={dashboardRefreshLogs}
-          onClearLogs={dashboardClearLogs}
-          onLogsDialogOpenChange={dashboardSetLogsDialogOpen}
-          pending={dashboardPending}
-          formatTime={dashboardFormatTime}
-        />
-      )}
     </div>
   );
 });

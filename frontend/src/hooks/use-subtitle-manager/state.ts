@@ -83,8 +83,7 @@ function createInitialState(): SubtitleManagerState {
     loadedTabs: {
       dashboard: false,
       movie: false,
-      tv: false,
-      settings: false
+      tv: false
     }
   };
 }

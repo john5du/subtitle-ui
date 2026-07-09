@@ -58,16 +58,8 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     setters.setActiveTab(tab);
 
     try {
-      if (tab === "settings") {
-        if (!runtime.state.loadedTabs.settings) {
-          await loadVersionInfo();
-        }
-        setters.setLoadedTabs((prev) => ({ ...prev, settings: true }));
-        return;
-      }
-
       if (tab === "dashboard") {
-        await Promise.all([loadScanStatus(), loadDirectoryScanResult()]);
+        await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadVersionInfo()]);
         setters.setLoadedTabs((prev) => ({ ...prev, dashboard: true }));
         return;
       }
@@ -175,14 +167,10 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
   }
 
   async function refreshActiveTab() {
-    if (runtime.state.activeTab === "settings") {
-      return;
-    }
-
     setters.setPending((prev) => ({ ...prev, refreshTab: runtime.state.activeTab }));
     try {
       if (runtime.state.activeTab === "dashboard") {
-        await Promise.all([loadScanStatus(), loadDirectoryScanResult()]);
+        await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadVersionInfo()]);
         setTranslatedMessage("status.dashboardRefreshed");
         notifySuccess(runtime.t("toast.dashboardRefreshedTitle"), runtime.t("toast.dashboardRefreshedMessage"));
         return;
