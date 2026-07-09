@@ -65,7 +65,7 @@
   --poster-badge-border: rgba(255, 255, 255, 0.22);
   --poster-badge-fg: #ffffff;
 
-  --radius: 0px;
+  --radius: 0.25rem;
 
   /* Type scale helpers */
   --tracking-label: 0.0625em;
@@ -323,6 +323,7 @@ body {
   .surface-panel {
     background: var(--card);
     border: 1px solid var(--border);
+    border-radius: var(--radius);
   }
 
   .surface-subtle {
