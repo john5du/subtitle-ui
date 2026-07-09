@@ -164,7 +164,7 @@ function MappingRow({
         </div>
 
         <div className="space-y-2 border-t border-border/60 pt-3 xl:w-[320px] xl:shrink-0 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-foreground-muted">
+          <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
             {t("batch.targetEpisode")}
           </p>
           <Select value={selectValue} onValueChange={(value) => onSelectionChange(row.id, value)} disabled={disabled}>
@@ -482,7 +482,7 @@ export function TvSeasonBatchUploadWorkspace({
                   <Badge
                     variant={batchFilter === item.key ? "secondary" : "outline"}
                     className={cn(
-                      "px-2 py-0 text-[10px]",
+                      "px-2 py-0 text-micro",
                       batchFilter === item.key && "border-transparent bg-primary-foreground/10 text-current"
                     )}
                   >
@@ -559,7 +559,7 @@ export function TvSeasonBatchUploadWorkspace({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
             <div className="space-y-2 lg:shrink-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
+              <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
                 {t("batch.file")}
               </p>
               <Button
@@ -575,7 +575,7 @@ export function TvSeasonBatchUploadWorkspace({
 
             {showBatchLanguageSelector ? (
               <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border/60 lg:pl-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
+                <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
                   {t("batch.languageType")}
                 </p>
                 <Select
@@ -599,7 +599,7 @@ export function TvSeasonBatchUploadWorkspace({
 
             {showBatchFormatSelector ? (
               <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border/60 lg:pl-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
+                <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
                   {t("batch.format")}
                 </p>
                 <Select
@@ -622,7 +622,7 @@ export function TvSeasonBatchUploadWorkspace({
             ) : null}
 
             <div className="space-y-2 lg:w-[180px] lg:border-l lg:border-border/60 lg:pl-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground-muted">
+              <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
                 {t("batch.label")}
               </p>
               <Input

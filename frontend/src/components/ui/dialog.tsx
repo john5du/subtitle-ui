@@ -18,13 +18,16 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-[rgba(0,0,0,0.7)] data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast",
+      "overlay-scrim-strong fixed inset-0 z-50 data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast",
       className
     )}
     {...props}
   />
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
+
+const dialogCloseClassName =
+  "absolute right-4 top-4 bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-foreground focus-ring-inset";
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
@@ -36,16 +39,13 @@ const DialogContent = React.forwardRef<
       ref={ref}
       data-dialog-content="true"
       className={cn(
-        "data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast fixed left-[50%] top-[50%] z-50 flex w-full max-w-lg translate-x-[-50%] translate-y-[-50%] flex-col gap-4 border border-border bg-background p-6 will-change-[opacity]",
+        "data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast fixed left-[50%] top-[50%] z-50 flex w-full max-w-lg translate-x-[-50%] translate-y-[-50%] flex-col gap-4 border border-border bg-background p-6",
         className
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close
-        data-slot="close"
-        className="absolute right-4 top-4 bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]"
-      >
+      <DialogPrimitive.Close data-slot="close" className={dialogCloseClassName}>
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -72,7 +72,7 @@ const DialogDrawerContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         data-slot="close"
-        className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))] bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]"
+        className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))] bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-foreground focus-ring-inset"
       >
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>

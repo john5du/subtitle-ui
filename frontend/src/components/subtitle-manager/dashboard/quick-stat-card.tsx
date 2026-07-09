@@ -13,26 +13,26 @@ interface QuickStatCardProps {
   className?: string;
 }
 
-export function QuickStatCard({ icon, label, value, hint, tone, pending = false, className }: QuickStatCardProps) {
-  const toneClass: Record<QuickStatCardProps["tone"], { iconShell: string; hintText: string }> = {
-    success: {
-      iconShell: "bg-surface-strong",
-      hintText: "text-foreground-muted"
-    },
-    info: {
-      iconShell: "bg-surface-strong",
-      hintText: "text-foreground-muted"
-    },
-    warning: {
-      iconShell: "bg-surface-strong",
-      hintText: "text-foreground-muted"
-    },
-    destructive: {
-      iconShell: "bg-surface-strong",
-      hintText: "text-foreground-muted"
-    }
-  };
+const toneClass: Record<QuickStatCardProps["tone"], { iconShell: string; hintText: string }> = {
+  success: {
+    iconShell: "border border-success-border bg-success-soft text-success-muted",
+    hintText: "text-success-muted"
+  },
+  info: {
+    iconShell: "border border-info-border bg-info-soft text-info-muted",
+    hintText: "text-info-muted"
+  },
+  warning: {
+    iconShell: "border border-warning-border bg-warning-soft text-warning-muted",
+    hintText: "text-warning-muted"
+  },
+  destructive: {
+    iconShell: "border border-destructive-border bg-destructive-soft text-destructive-muted",
+    hintText: "text-destructive-muted"
+  }
+};
 
+export function QuickStatCard({ icon, label, value, hint, tone, pending = false, className }: QuickStatCardProps) {
   const style = toneClass[tone];
 
   return (

@@ -66,7 +66,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   ref
 ) {
   const { t } = useI18n();
-  const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-[11px]";
+  const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-caption";
   const [flashSubtitleList, setFlashSubtitleList] = useState(false);
   const [metaExpanded, setMetaExpanded] = useState(!metaCollapsedByDefault);
 
@@ -133,13 +133,13 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
   return (
     <Card className="animate-fade-in-up flex h-full w-full flex-col bg-card">
-      <CardHeader className="p-4">
+      <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
-            {showPanelTitle && panelTitle ? <CardTitle className="text-lg">{panelTitle}</CardTitle> : null}
+            {showPanelTitle && panelTitle ? <CardTitle>{panelTitle}</CardTitle> : null}
             {selectedVideo ? (
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="text-[11px]">
+                <Badge variant="secondary">
                   {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
@@ -157,7 +157,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
         </div>
       </CardHeader>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-0">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
         {!selectedVideo ? (
           <div className="flex flex-1 items-center justify-center bg-surface-subtle p-10 text-center text-sm text-muted-foreground">{emptyText}</div>
         ) : (
@@ -167,7 +167,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                 <div className="surface-subtle space-y-3 p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="max-w-full truncate text-sm font-semibold sm:max-w-[60%]">{selectedVideo.title || selectedVideo.fileName || "-"}</p>
-                    <Badge variant="secondary" className="text-[11px]">
+                    <Badge variant="secondary">
                       {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
                     </Badge>
                   </div>
@@ -218,7 +218,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                   )}
                 </div>
                 {workflow.zipPickError && (
-                  <div className="flex items-start gap-2 bg-red-500/10 p-2 text-sm text-red-300">
+                  <div className="surface-status-destructive flex items-start gap-2 border p-2 text-sm">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <span className="min-w-0 break-words">{workflow.zipPickError}</span>
                   </div>
@@ -236,7 +236,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       <TableHead className="w-[72px]">{t("batch.format")}</TableHead>
                       <TableHead className="w-[136px]">{t("details.source")}</TableHead>
                       <TableHead className="w-[184px]">{t("details.modified")}</TableHead>
-                      <TableHead className="w-[360px] text-right">{t("common.actions")}</TableHead>
+                      <TableHead className="w-[var(--table-actions-w)] min-w-[12rem] text-right">{t("common.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -261,8 +261,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                             </div>
                           </TableCell>
                           <TableCell>{formatTime(subtitle.modTime)}</TableCell>
-                          <TableCell className="w-[360px] text-right">
-                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <TableCell className="w-[var(--table-actions-w)] min-w-[12rem] text-right">
+                            <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5">
                               <input
                                 ref={(node) => workflow.setReplaceInputNode(subtitle.id, node)}
                                 type="file"
@@ -332,7 +332,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                                 size="sm"
                                 className={cn(
                                   subtitleRowActionButtonClassName,
-                                  "border-red-500/25 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+                                  "border-destructive-border text-destructive-muted hover:bg-destructive-soft hover:text-destructive-muted"
                                 )}
                                 disabled={busy || rowBusy}
                                 onClick={() => workflow.setDeleteDialogSubtitleId(subtitle.id)}

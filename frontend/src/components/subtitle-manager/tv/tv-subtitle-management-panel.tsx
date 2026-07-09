@@ -93,7 +93,7 @@ export function TvSubtitleManagementPanel({
 
   const episodesPane = (
     <Card className="animate-fade-in-up flex h-full min-h-0 flex-col bg-card">
-      <CardHeader className="space-y-3 p-4">
+      <CardHeader className="space-y-3">
         <div className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tv.seasonLabel")}</p>
           <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
@@ -112,7 +112,7 @@ export function TvSubtitleManagementPanel({
         {episodesPending && <InlinePending label={t("tv.loadingEpisodes")} />}
       </CardHeader>
 
-      <CardContent className="relative min-h-0 flex-1 p-4 pt-0">
+      <CardContent className="relative min-h-0 flex-1">
         <ScrollArea className={cn("h-full bg-background", episodesPending && "animate-pulse-soft")}>
           <ul className="space-y-2 p-2">
             {videos.map((video) => {

@@ -155,7 +155,7 @@ export function SubtitleConversionSettingsButton({ triggerClassName = "h-10 w-10
                 <textarea
                   value={draftTemplate}
                   spellCheck={false}
-                  className="min-h-[360px] w-full resize-y border border-input bg-surface-subtle p-3 font-mono text-xs leading-5 text-foreground outline-none focus:ring-2 focus:ring-[rgb(59,130,246)/0.5]"
+                  className="focus-ring min-h-[var(--panel-min-h)] w-full resize-y border border-input bg-surface-subtle p-3 font-mono text-xs leading-5 text-foreground"
                   onChange={(event) => {
                     setDraftTemplate(event.target.value);
                     setError("");

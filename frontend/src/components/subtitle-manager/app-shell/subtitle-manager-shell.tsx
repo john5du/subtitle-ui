@@ -130,7 +130,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
       )}
 
       {activeTab === "movie" && (
-        <div className="min-h-[360px] flex-1 lg:h-full">
+        <div className="min-h-[var(--panel-min-h)] flex-1 lg:h-full">
           <MovieListPanel
             query={movieQuery}
             onQueryChange={movieSetQuery}
@@ -154,7 +154,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
       )}
 
       {activeTab === "tv" && (
-        <div className="min-h-[400px] flex-1 lg:h-full">
+        <div className="min-h-[var(--panel-min-h)] flex-1 lg:h-full">
           <TvSeriesListPanel
             query={tvQuery}
             onQueryChange={tvSetQuery}
@@ -348,14 +348,23 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
         <div className="surface-panel flex shrink-0 flex-col gap-3 p-3 lg:hidden">
           <div className="flex items-center gap-2">
             <div className="flex min-w-0 items-center gap-2">
-              <Image
-                src="/icon.svg"
-                alt=""
-                aria-hidden
-                width={32}
-                height={32}
-                className="h-8 w-8 bg-surface-subtle p-1"
-              />
+              <a
+                href={APP_REPOSITORY_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="surface-transition focus-ring block h-8 w-8 bg-surface-subtle p-1"
+                title={`Subtitle UI v${APP_VERSION}`}
+                aria-label={`Open GitHub repository for Subtitle UI v${APP_VERSION}`}
+              >
+                <Image
+                  src="/icon.svg"
+                  alt=""
+                  aria-hidden
+                  width={32}
+                  height={32}
+                  className="h-full w-full"
+                />
+              </a>
             </div>
           </div>
           <div role="tablist" aria-label={t("sidebar.tagline")} className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-0.5">
@@ -383,28 +392,32 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
 
         <Card
           className={cn(
-            "surface-panel animate-fade-in-up hidden overflow-hidden transition-[width] duration-200 lg:block lg:h-full lg:shrink-0",
-            sidebarCollapsed ? "lg:w-[72px]" : "lg:w-[189px] xl:w-[204px]"
+            "surface-panel hidden overflow-hidden transition-[width] duration-200 ease-out lg:block lg:h-full lg:shrink-0",
+            sidebarCollapsed ? "lg:w-[var(--sidebar-width-collapsed)]" : "lg:w-[var(--sidebar-width)] xl:w-[var(--sidebar-width-xl)]"
           )}
         >
-          <CardContent className={cn("flex h-full flex-col", sidebarCollapsed ? "items-center gap-4 p-3" : "gap-5 p-5")}>
-            <div className={cn("flex", sidebarCollapsed ? "w-full flex-col items-center" : "items-start")}>
-              <div className={sidebarCollapsed ? "flex flex-col items-center" : "min-w-0"}>
+          <CardContent className="flex h-full flex-col gap-4 p-3">
+            <div className={cn("flex", sidebarCollapsed ? "justify-center" : "justify-start")}>
+              <a
+                href={APP_REPOSITORY_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="surface-transition focus-ring block h-10 w-10 shrink-0 bg-surface-subtle p-1.5 text-foreground-muted hover:text-foreground"
+                title={`Subtitle UI v${APP_VERSION}`}
+                aria-label={`Open GitHub repository for Subtitle UI v${APP_VERSION}`}
+              >
                 <Image
                   src="/icon.svg"
                   alt=""
                   aria-hidden
-                  width={sidebarCollapsed ? 40 : 56}
-                  height={sidebarCollapsed ? 40 : 56}
-                  className={cn(
-                    "bg-surface-subtle",
-                    sidebarCollapsed ? "h-10 w-10 p-1.5" : "h-14 w-14 p-2"
-                  )}
+                  width={40}
+                  height={40}
+                  className="h-full w-full"
                 />
-              </div>
+              </a>
             </div>
 
-            <div role="tablist" aria-label={t("sidebar.tagline")} className={cn("flex flex-col", sidebarCollapsed ? "w-full gap-2" : "gap-1.5")}>
+            <div role="tablist" aria-label={t("sidebar.tagline")} className="flex w-full flex-col gap-1.5">
               {shell.navItems.map((item) => (
                 <button
                   key={item.key}
@@ -412,12 +425,10 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   role="tab"
                   aria-selected={shell.activeTab === item.key}
                   aria-label={item.label}
-                  title={sidebarCollapsed ? item.label : undefined}
+                  title={item.label}
                   className={cn(
-                    "group surface-transition flex disabled:cursor-not-allowed disabled:opacity-60",
-                    sidebarCollapsed
-                      ? "h-10 w-full items-center justify-center px-0 py-0"
-                      : "items-center px-3.5 py-2.5 text-left",
+                    "group surface-transition flex h-10 w-full items-center gap-3 overflow-hidden whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60",
+                    sidebarCollapsed ? "justify-center px-0" : "justify-start px-3",
                     shell.activeTab === item.key
                       ? "bg-surface-strong text-foreground"
                       : "text-foreground-muted hover:bg-surface-subtle hover:text-foreground"
@@ -425,45 +436,38 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                   disabled={subtitleActions.uploading || model.dashboard.pending.tabSwitch}
                   onClick={() => void shell.switchTab(item.key)}
                 >
-                  {sidebarCollapsed ? (
-                    <span className={cn("flex h-5 w-5 items-center justify-center text-foreground-subtle group-hover:text-foreground", shell.activeTab === item.key && "text-foreground")}>
-                      {item.icon}
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-3 text-sm font-semibold">
-                      <span className={cn("text-foreground-subtle group-hover:text-foreground", shell.activeTab === item.key && "text-foreground")}>{item.icon}</span>
-                      {item.label}
-                    </span>
-                  )}
+                  <span
+                    className={cn(
+                      "flex h-5 w-5 shrink-0 items-center justify-center text-foreground-subtle group-hover:text-foreground",
+                      shell.activeTab === item.key && "text-foreground"
+                    )}
+                  >
+                    {item.icon}
+                  </span>
+                  <span
+                    className={cn(
+                      "min-w-0 truncate text-sm font-semibold transition-[opacity,max-width] duration-200 ease-out",
+                      sidebarCollapsed ? "max-w-0 opacity-0" : "max-w-[9rem] opacity-100"
+                    )}
+                  >
+                    {item.label}
+                  </span>
                 </button>
               ))}
             </div>
 
-            <div className={cn("mt-auto flex flex-col gap-3", sidebarCollapsed ? "w-full items-center" : "items-stretch")}>
+            <div className={cn("mt-auto flex", sidebarCollapsed ? "justify-center" : "justify-end")}>
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                className={cn("h-9 w-9 shrink-0", sidebarCollapsed ? "mx-auto" : "self-end")}
+                className="h-9 w-9 shrink-0"
                 aria-label={sidebarToggleLabel}
                 title={sidebarToggleLabel}
                 onClick={shell.toggleSidebarCollapsed}
               >
                 {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
               </Button>
-              <a
-                href={APP_REPOSITORY_URL}
-                target="_blank"
-                rel="noreferrer"
-                className={cn(
-                  "text-display surface-transition w-full text-center text-[10px] uppercase tracking-[0.12em] text-foreground-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  !sidebarCollapsed && "text-xs"
-                )}
-                title={APP_REPOSITORY_URL}
-                aria-label={`Open GitHub repository for Subtitle UI v${APP_VERSION}`}
-              >
-                {sidebarCollapsed ? `v${APP_VERSION}` : `Subtitle UI v${APP_VERSION}`}
-              </a>
             </div>
           </CardContent>
         </Card>

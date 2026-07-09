@@ -67,7 +67,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 ) {
   const { t } = useI18n();
   const dragDepthRef = useRef(0);
-  const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-[11px]";
+  const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-caption";
   const [dragActive, setDragActive] = useState(false);
 
   const workflow = useSubtitleFileWorkflow({
@@ -168,7 +168,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
             ) : null}
           </div>
           {selectedVideo ? (
-            <Badge variant="outline" className="border-input bg-transparent px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-foreground">
+            <Badge variant="outline" className="border-input bg-transparent px-3 py-1 tracking-display text-foreground">
               {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
             </Badge>
           ) : null}
@@ -261,7 +261,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground" title={subtitle.fileName || undefined}>
                                   {subtitle.fileName}
                                 </p>
-                                <Badge variant="secondary" className="shrink-0 text-[11px] uppercase">
+                                <Badge variant="secondary" className="shrink-0">
                                   {subtitle.format || "-"}
                                 </Badge>
                               </div>
@@ -358,7 +358,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                               size="sm"
                               className={cn(
                                 subtitleRowActionButtonClassName,
-                                "border-red-500/25 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+                                "border-destructive-border text-destructive-muted hover:bg-destructive-soft hover:text-destructive-muted"
                               )}
                               disabled={busy || rowBusy}
                               onClick={() => workflow.setDeleteDialogSubtitleId(subtitle.id)}

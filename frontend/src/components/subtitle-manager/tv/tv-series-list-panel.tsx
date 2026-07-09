@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import type { LibraryViewMode } from "../types";
+import { LibraryPosterCard } from "../shared/library-poster-card";
 import { LibraryViewToggle } from "../shared/library-view-toggle";
 import { InlinePending, PanelLoadingOverlay, SpinnerIcon } from "../shared/pending-state";
 import { PagerView } from "../shared/pager-view";
@@ -40,61 +41,6 @@ interface TvSeriesListPanelProps {
   pending: boolean;
   formatTime: (value: string | undefined | null) => string;
 }
-
-const rowFocusClass = "surface-transition cursor-pointer outline-none hover:bg-accent focus-visible:bg-accent focus-visible:outline focus-visible:outline-1 focus-visible:outline-input";
-
-const TvSeriesPosterCard = memo(function TvSeriesPosterCard({
-  row,
-  onOpenManager,
-  operationLocked
-}: {
-  row: TvSeriesSummary;
-  onOpenManager: (series: TvSeriesSummary) => void;
-  operationLocked: boolean;
-}) {
-  const { t, locale } = useI18n();
-  const subtitledVideoCount = Math.max(row.videoCount - row.noSubtitleCount, 0);
-  const displayTitle = tvSeriesDisplayTitle(row, locale) || t("nav.tv");
-
-  return (
-    <div className="flex w-full min-w-0 self-start flex-col">
-      <button
-        type="button"
-        className="surface-transition flex w-full min-w-0 flex-col text-left hover:bg-surface-subtle focus-visible:bg-surface-subtle focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-65"
-        aria-label={displayTitle}
-        disabled={operationLocked}
-        onClick={() => onOpenManager(row)}
-      >
-        <div className="p-2 pb-0">
-          <div className="relative">
-            <PosterThumbnail
-              src={row.posterUrl}
-              className="aspect-[2/3] w-full"
-              imageClassName="h-full w-full"
-              sizes="(max-width: 420px) 100vw, (max-width: 768px) 50vw, 220px"
-            />
-            <span
-              className="absolute bottom-2 right-2 min-w-10 border border-white/20 bg-black/70 px-2 py-1 text-center text-xs font-semibold leading-none text-white backdrop-blur"
-              aria-hidden
-            >
-              {subtitledVideoCount}/{row.videoCount}
-            </span>
-          </div>
-        </div>
-        <div className="flex flex-col gap-0.5 p-2">
-          <p className="line-clamp-2 min-w-0 text-base font-semibold leading-6 text-foreground" title={displayTitle}>
-            {displayTitle || "-"}
-          </p>
-          {row.latestEpisodeYear ? (
-            <span className="text-xs font-medium text-muted-foreground">{row.latestEpisodeYear}</span>
-          ) : null}
-        </div>
-      </button>
-    </div>
-  );
-});
-
-TvSeriesPosterCard.displayName = "TvSeriesPosterCard";
 
 function SkeletonRows({ rows = 4 }: { rows?: number }) {
   return (
@@ -195,7 +141,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
 
   return (
     <Card className="animate-fade-in-up flex h-full flex-col bg-card">
-      <CardHeader className="space-y-3 p-4">
+      <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <Button
             type="button"
@@ -241,7 +187,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                   onClick={onToggleYearSort}
                 >
                   {t("tv.latestYear")}
-                  <span className="text-[10px]" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+                  <span className="text-micro" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
                 </Button>
               )}
               <LibraryViewToggle value={viewMode} onChange={onViewModeChange} />
@@ -268,7 +214,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                         onClick={onToggleYearSort}
                       >
                         {t("tv.latestYear")}
-                        <span className="text-[10px]" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
+                        <span className="text-micro" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
                       </button>
                     </TableHead>
                     <TableHead className="hidden w-[156px] md:table-cell">{t("movie.updatedTime")}</TableHead>
@@ -287,10 +233,10 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                         role="button"
                         tabIndex={operationLocked ? -1 : 0}
                         aria-label={displayTitle}
-                        className={cn(
-                          rowFocusClass,
-                          operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
-                        )}
+                      className={cn(
+                        "row-focus",
+                        operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent"
+                      )}
                         onClick={() => {
                           if (!operationLocked) {
                             onOpenManager(row);
@@ -322,20 +268,28 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                 </TableBody>
               </Table>
             ) : rows.length === 0 ? (
-              <div className="flex min-h-[320px] items-center justify-center p-6 text-center text-sm text-muted-foreground">
+              <div className="flex min-h-[var(--panel-min-h)] items-center justify-center p-6 text-center text-sm text-muted-foreground">
                 {pending ? t("tv.updatingResults") : emptyState}
               </div>
             ) : (
               <div className="px-2 pb-2 pt-1 sm:px-3">
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-3">
-                  {rows.map((row) => (
-                    <TvSeriesPosterCard
-                      key={row.key}
-                      row={row}
-                      onOpenManager={onOpenManager}
-                      operationLocked={operationLocked}
-                    />
-                  ))}
+                  {rows.map((row) => {
+                    const displayTitle = tvSeriesDisplayTitle(row, locale) || t("nav.tv");
+                    const subtitledVideoCount = Math.max(row.videoCount - row.noSubtitleCount, 0);
+                    return (
+                      <LibraryPosterCard
+                        key={row.key}
+                        title={displayTitle}
+                        subtitle={row.latestEpisodeYear}
+                        posterUrl={row.posterUrl}
+                        badge={`${subtitledVideoCount}/${row.videoCount}`}
+                        ariaLabel={displayTitle}
+                        operationLocked={operationLocked}
+                        onOpen={() => onOpenManager(row)}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}
