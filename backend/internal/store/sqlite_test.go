@@ -57,7 +57,7 @@ func TestStoreScanAndLogs(t *testing.T) {
 		},
 	}
 
-	if err := st.SaveScanResult([]domain.Video{video}, now, now.Add(time.Second), ""); err != nil {
+	if err := st.SaveScanResult([]domain.Video{video}, now, now.Add(time.Second), "", nil); err != nil {
 		t.Fatalf("save scan result: %v", err)
 	}
 
@@ -120,7 +120,7 @@ func TestStoreScanAndLogs(t *testing.T) {
 	rescanned := video
 	rescanned.Subtitles[0].Source = domain.SubtitleSourceDirectory
 	rescanned.Subtitles[0].SourceDetail = ""
-	if err := st.SaveScanResult([]domain.Video{rescanned}, now.Add(2*time.Second), now.Add(3*time.Second), ""); err != nil {
+	if err := st.SaveScanResult([]domain.Video{rescanned}, now.Add(2*time.Second), now.Add(3*time.Second), "", nil); err != nil {
 		t.Fatalf("save rescan result: %v", err)
 	}
 	afterRescan, found, err := st.GetVideo("V1")
@@ -380,6 +380,120 @@ func TestListLogsPagesAndClear(t *testing.T) {
 	}
 }
 
+func TestSaveScanResultScopedReplaceKeepsOutOfScopeVideos(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "scoped.sqlite3")
+	st, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() {
+		_ = st.Close()
+	}()
+
+	now := time.Now().UTC()
+	movieRoot := filepath.Join(t.TempDir(), "movies")
+	keepDir := filepath.Join(movieRoot, "Keep Movie")
+	replaceDir := filepath.Join(movieRoot, "Replace Movie")
+	keepVideo := domain.Video{
+		ID:             "KEEP",
+		Path:           filepath.Join(keepDir, "keep.mkv"),
+		Directory:      keepDir,
+		FileName:       "keep.mkv",
+		Title:          "Keep Movie",
+		Year:           "2024",
+		MediaType:      domain.MediaTypeMovie,
+		MetadataSource: "nfo",
+		UpdatedAt:      now,
+		Subtitles: []domain.Subtitle{
+			{
+				ID:       "KEEP-S",
+				Path:     filepath.Join(keepDir, "keep.zh.srt"),
+				FileName: "keep.zh.srt",
+				Language: "zh",
+				Format:   "srt",
+				Size:     10,
+				ModTime:  now,
+				Source:   domain.SubtitleSourceDirectory,
+			},
+		},
+	}
+	oldReplace := domain.Video{
+		ID:             "REPLACE-OLD",
+		Path:           filepath.Join(replaceDir, "old.mkv"),
+		Directory:      replaceDir,
+		FileName:       "old.mkv",
+		Title:          "Replace Movie Old",
+		Year:           "2023",
+		MediaType:      domain.MediaTypeMovie,
+		MetadataSource: "nfo",
+		UpdatedAt:      now,
+		Subtitles: []domain.Subtitle{
+			{
+				ID:       "REPLACE-OLD-S",
+				Path:     filepath.Join(replaceDir, "old.zh.srt"),
+				FileName: "old.zh.srt",
+				Language: "zh",
+				Format:   "srt",
+				Size:     11,
+				ModTime:  now,
+				Source:   domain.SubtitleSourceDirectory,
+			},
+		},
+	}
+	if err := st.SaveScanResult([]domain.Video{keepVideo, oldReplace}, now, now.Add(time.Second), "", nil); err != nil {
+		t.Fatalf("seed scan: %v", err)
+	}
+
+	newReplace := domain.Video{
+		ID:             "REPLACE-NEW",
+		Path:           filepath.Join(replaceDir, "new.mkv"),
+		Directory:      replaceDir,
+		FileName:       "new.mkv",
+		Title:          "Replace Movie New",
+		Year:           "2025",
+		MediaType:      domain.MediaTypeMovie,
+		MetadataSource: "nfo",
+		UpdatedAt:      now.Add(2 * time.Second),
+		Subtitles: []domain.Subtitle{
+			{
+				ID:       "REPLACE-NEW-S",
+				Path:     filepath.Join(replaceDir, "new.zh.srt"),
+				FileName: "new.zh.srt",
+				Language: "zh",
+				Format:   "srt",
+				Size:     12,
+				ModTime:  now.Add(2 * time.Second),
+				Source:   domain.SubtitleSourceDirectory,
+			},
+		},
+	}
+	if err := st.SaveScanResult([]domain.Video{newReplace}, now.Add(2*time.Second), now.Add(3*time.Second), "", []string{replaceDir}); err != nil {
+		t.Fatalf("scoped scan: %v", err)
+	}
+
+	videos, total, err := st.ListVideos("", domain.MediaTypeMovie, "", 1, 20, "year", "desc")
+	if err != nil {
+		t.Fatalf("list videos: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected total=2 after scoped replace, got %d", total)
+	}
+	ids := map[string]bool{}
+	for _, video := range videos {
+		ids[video.ID] = true
+	}
+	if !ids["KEEP"] || !ids["REPLACE-NEW"] || ids["REPLACE-OLD"] {
+		t.Fatalf("unexpected video ids after scoped replace: %+v", ids)
+	}
+	kept, found, err := st.GetVideo("KEEP")
+	if err != nil || !found {
+		t.Fatalf("expected keep video to remain: found=%v err=%v", found, err)
+	}
+	if len(kept.Subtitles) != 1 || kept.Subtitles[0].ID != "KEEP-S" {
+		t.Fatalf("expected keep subtitle preserved, got %+v", kept.Subtitles)
+	}
+}
+
 func TestListVideosSortByYear(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "sort.sqlite3")
 	st, err := Open(dbPath)
@@ -427,7 +541,7 @@ func TestListVideosSortByYear(t *testing.T) {
 		},
 	}
 
-	if err := st.SaveScanResult(videos, now, now, ""); err != nil {
+	if err := st.SaveScanResult(videos, now, now, "", nil); err != nil {
 		t.Fatalf("save scan result: %v", err)
 	}
 
@@ -518,7 +632,7 @@ func TestPostgresStoreScanSettingsAndLogs(t *testing.T) {
 		},
 	}
 
-	if err := st.SaveScanResult([]domain.Video{video}, now, now.Add(time.Second), ""); err != nil {
+	if err := st.SaveScanResult([]domain.Video{video}, now, now.Add(time.Second), "", nil); err != nil {
 		t.Fatalf("save pg scan result: %v", err)
 	}
 	matches, total, err := st.ListVideos("original", domain.MediaTypeMovie, "", 1, 20, "year", "desc")
@@ -605,7 +719,7 @@ func TestPostgresSaveScanResultUpsertsDuplicateScanRows(t *testing.T) {
 	duplicate.Subtitles = []domain.Subtitle{video.Subtitles[0]}
 	duplicate.Subtitles[0].Size = 20
 
-	if err := st.SaveScanResult([]domain.Video{video, duplicate}, now, now.Add(time.Second), ""); err != nil {
+	if err := st.SaveScanResult([]domain.Video{video, duplicate}, now, now.Add(time.Second), "", nil); err != nil {
 		t.Fatalf("save duplicate pg scan result: %v", err)
 	}
 	got, found, err := st.GetVideo(video.ID)
@@ -654,7 +768,7 @@ func TestPostgresMigratesInitialSQLiteDataOnce(t *testing.T) {
 			},
 		},
 	}
-	if err := source.SaveScanResult([]domain.Video{sourceVideo}, now, now.Add(time.Second), ""); err != nil {
+	if err := source.SaveScanResult([]domain.Video{sourceVideo}, now, now.Add(time.Second), "", nil); err != nil {
 		t.Fatalf("seed sqlite scan result: %v", err)
 	}
 	if err := source.AppendLog(domain.OperationLog{
@@ -733,7 +847,7 @@ func TestPostgresMigratesInitialSQLiteDataOnce(t *testing.T) {
 		_ = st.Close()
 	}()
 
-	if err := st.SaveScanResult([]domain.Video{sourceVideo}, now.Add(2*time.Second), now.Add(3*time.Second), ""); err != nil {
+	if err := st.SaveScanResult([]domain.Video{sourceVideo}, now.Add(2*time.Second), now.Add(3*time.Second), "", nil); err != nil {
 		t.Fatalf("save after migration: %v", err)
 	}
 	row := st.queryRow(`SELECT MAX(id) FROM scan_runs`)

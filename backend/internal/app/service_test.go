@@ -564,6 +564,121 @@ func TestConvertExistingSRTSubtitleToASS(t *testing.T) {
 	}
 }
 
+func TestDeleteSubtitleBacksUpAndLogs(t *testing.T) {
+	base := t.TempDir()
+	srtContent := "1\n00:00:01,000 --> 00:00:02,000\nexisting\n"
+	svc, video := newMovieServiceFixture(t, base, srtContent)
+	defer func() {
+		_ = svc.Close()
+	}()
+	if len(video.Subtitles) != 1 {
+		t.Fatalf("expected existing subtitle, got %d", len(video.Subtitles))
+	}
+	subtitlePath := video.Subtitles[0].Path
+
+	if err := svc.DeleteSubtitle(video.ID, video.Subtitles[0].ID); err != nil {
+		t.Fatalf("delete subtitle: %v", err)
+	}
+	if _, err := os.Stat(subtitlePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected subtitle file removed, stat err=%v", err)
+	}
+	backups, err := filepath.Glob(subtitlePath + ".bak.*")
+	if err != nil {
+		t.Fatalf("glob backups: %v", err)
+	}
+	if len(backups) != 1 {
+		t.Fatalf("expected one backup, got %d (%v)", len(backups), backups)
+	}
+	backupBytes, err := os.ReadFile(backups[0])
+	if err != nil {
+		t.Fatalf("read backup: %v", err)
+	}
+	if string(backupBytes) != srtContent {
+		t.Fatalf("expected backup to contain original content, got %q", string(backupBytes))
+	}
+
+	deleteLog, ok := latestLogByAction(svc.ListLogs(20), "delete")
+	if !ok {
+		t.Fatalf("expected delete operation log")
+	}
+	if deleteLog.Status != "ok" || deleteLog.BackupPath == "" {
+		t.Fatalf("unexpected delete log: %+v", deleteLog)
+	}
+	updated, found := svc.GetVideo(video.ID)
+	if !found {
+		t.Fatalf("expected video to remain after subtitle delete")
+	}
+	if len(updated.Subtitles) != 0 {
+		t.Fatalf("expected no subtitles after delete, got %+v", updated.Subtitles)
+	}
+}
+
+func TestRunFileScanPartialScopeDoesNotWipeOtherVideos(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	keepDir := filepath.Join(movieRoot, "Keep Movie")
+	replaceDir := filepath.Join(movieRoot, "Replace Movie")
+	for _, dir := range []string{keepDir, replaceDir, tvRoot} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	writeMovie := func(dir, baseName, title string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, baseName+".mkv"), []byte("video"), 0o644); err != nil {
+			t.Fatalf("write video: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, baseName+".nfo"), []byte(sampleNFO(title, "2025")), 0o644); err != nil {
+			t.Fatalf("write nfo: %v", err)
+		}
+	}
+	writeMovie(keepDir, "keep", "Keep Movie")
+	writeMovie(replaceDir, "old", "Replace Movie Old")
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatalf("initial scan: %s", status.Error)
+	}
+	if total := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "").Total; total != 2 {
+		t.Fatalf("expected 2 movies after initial scan, got %d", total)
+	}
+
+	if err := os.Remove(filepath.Join(replaceDir, "old.mkv")); err != nil {
+		t.Fatalf("remove old video: %v", err)
+	}
+	if err := os.Remove(filepath.Join(replaceDir, "old.nfo")); err != nil {
+		t.Fatalf("remove old nfo: %v", err)
+	}
+	writeMovie(replaceDir, "new", "Replace Movie New")
+
+	if status := svc.RunFileScan(context.Background(), []string{replaceDir}, nil); status.Error != "" {
+		t.Fatalf("partial scan: %s", status.Error)
+	}
+	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	if page.Total != 2 {
+		t.Fatalf("expected 2 movies after partial scan, got %d", page.Total)
+	}
+	titles := map[string]bool{}
+	for _, item := range page.Items {
+		titles[item.Title] = true
+	}
+	if !titles["Keep Movie"] || !titles["Replace Movie New"] || titles["Replace Movie Old"] {
+		t.Fatalf("unexpected titles after partial scan: %+v", titles)
+	}
+}
+
 func TestOffsetSubtitleTimingBacksUpRefreshesAndLogs(t *testing.T) {
 	base := t.TempDir()
 	srtContent := "1\n00:00:03,000 --> 00:00:04,000\nexisting\n"
@@ -834,7 +949,7 @@ func TestResolveVideoPosterPathRejectsUnsafeCandidate(t *testing.T) {
 	if err := os.MkdirAll(video.Directory, 0o755); err != nil {
 		t.Fatalf("mkdir video dir: %v", err)
 	}
-	if err := svc.store.SaveScanResult([]domain.Video{video}, now, now, ""); err != nil {
+	if err := svc.store.SaveScanResult([]domain.Video{video}, now, now, "", nil); err != nil {
 		t.Fatalf("save scan result: %v", err)
 	}
 

@@ -424,7 +424,11 @@ func (s *Store) migrationV1SQL() string {
 	return migrationV1
 }
 
-func (s *Store) SaveScanResult(videos []domain.Video, startedAt time.Time, finishedAt time.Time, scanErr string) error {
+// SaveScanResult persists a scan. replaceScopes limits which existing rows are
+// removed: only videos whose path is under one of those directories are deleted
+// before the new scan rows are upserted. An empty replaceScopes list means a
+// full-library replace (delete all videos/subtitles first).
+func (s *Store) SaveScanResult(videos []domain.Video, startedAt time.Time, finishedAt time.Time, scanErr string, replaceScopes []string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -452,10 +456,7 @@ func (s *Store) SaveScanResult(videos []domain.Video, startedAt time.Time, finis
 		if err != nil {
 			return err
 		}
-		if _, err = s.execTx(tx, `DELETE FROM subtitles`); err != nil {
-			return err
-		}
-		if _, err = s.execTx(tx, `DELETE FROM videos`); err != nil {
+		if err = s.deleteVideosForScanScopesTx(tx, replaceScopes); err != nil {
 			return err
 		}
 
@@ -512,6 +513,68 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.subtitleUpsertSuffix(),
 	}
 
 	return tx.Commit()
+}
+
+func (s *Store) deleteVideosForScanScopesTx(tx *sql.Tx, replaceScopes []string) error {
+	if len(replaceScopes) == 0 {
+		if _, err := s.execTx(tx, `DELETE FROM subtitles`); err != nil {
+			return err
+		}
+		if _, err := s.execTx(tx, `DELETE FROM videos`); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	rows, err := s.queryTx(tx, `SELECT id, path FROM videos`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	ids := make([]string, 0, 64)
+	for rows.Next() {
+		var id, path string
+		if err := rows.Scan(&id, &path); err != nil {
+			return err
+		}
+		if pathUnderAnyScope(path, replaceScopes) {
+			ids = append(ids, id)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, id := range ids {
+		if _, err := s.execTx(tx, `DELETE FROM videos WHERE id = ?`, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func pathUnderAnyScope(path string, scopes []string) bool {
+	normalizedPath := normalizeScanPath(path)
+	for _, scope := range scopes {
+		normalizedScope := normalizeScanPath(scope)
+		if normalizedScope == "" {
+			continue
+		}
+		if normalizedPath == normalizedScope {
+			return true
+		}
+		if strings.HasPrefix(normalizedPath, normalizedScope+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeScanPath(path string) string {
+	cleaned := filepath.Clean(strings.TrimSpace(path))
+	cleaned = strings.ReplaceAll(cleaned, "\\", "/")
+	return strings.TrimRight(cleaned, "/")
 }
 
 func (s *Store) ListVideos(query string, mediaType string, directory string, page int, pageSize int, sortBy string, sortOrder string) ([]domain.Video, int, error) {

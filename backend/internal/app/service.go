@@ -136,13 +136,21 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	s.statusMu.Unlock()
 
 	type scanResult struct {
-		videos []domain.Video
-		err    error
+		videos         []domain.Video
+		replaceScopes  []string
+		fullLibrary    bool
+		err            error
 	}
 	done := make(chan scanResult, 1)
 	go func() {
 		movieTargets, movieResolveErr := s.resolveDirectoriesForType(domain.MediaTypeMovie, movieDirs)
 		tvTargets, tvResolveErr := s.resolveDirectoriesForType(domain.MediaTypeTV, tvDirs)
+		fullLibrary := len(movieDirs) == 0 && len(tvDirs) == 0
+		replaceScopes := mergeScanScopes(movieTargets, tvTargets)
+		if fullLibrary {
+			// Empty scopes means full-library replace in the store.
+			replaceScopes = nil
+		}
 
 		result := make([]domain.Video, 0, 256)
 		var movieScanErr error
@@ -162,7 +170,9 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 		result = s.assignPosterPaths(result)
 
 		done <- scanResult{
-			videos: result,
+			videos:        result,
+			replaceScopes: replaceScopes,
+			fullLibrary:   fullLibrary,
 			err: combineErrors(
 				prefixedError("movie directory resolve", movieResolveErr),
 				prefixedError("tv directory resolve", tvResolveErr),
@@ -178,7 +188,9 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 
 	canceled := errors.Is(result.err, context.Canceled) || errors.Is(result.err, context.DeadlineExceeded)
 	wipeGuardTripped := false
-	if !canceled && result.err == nil && len(result.videos) == 0 && len(beforeVideos) > 0 {
+	// Only refuse empty full-library scans. Partial scans may legitimately find
+	// zero videos under the selected directories without wiping the rest of the DB.
+	if !canceled && result.err == nil && result.fullLibrary && len(result.videos) == 0 && len(beforeVideos) > 0 {
 		wipeGuardTripped = true
 		result.err = fmt.Errorf(
 			"scan returned no videos but previous scan had %d; refusing to overwrite database (check media root access)",
@@ -188,7 +200,7 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 
 	var saveErr error
 	if !canceled {
-		saveErr = s.store.SaveScanResult(result.videos, started, finished, errorString(result.err))
+		saveErr = s.store.SaveScanResult(result.videos, started, finished, errorString(result.err), result.replaceScopes)
 		if saveErr != nil {
 			result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
 		}
@@ -818,11 +830,15 @@ func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {
 		return ErrUnsafePath
 	}
 
+	backupPath, err := subtitle.BackupFile(existing.Path)
+	if err != nil {
+		return fmt.Errorf("backup before delete failed: %w", err)
+	}
 	if err := os.Remove(existing.Path); err != nil {
 		return err
 	}
 
-	_, _, err := s.refreshVideoSubtitles(videoID, "", nil)
+	_, _, err = s.refreshVideoSubtitles(videoID, "", nil)
 	if err != nil {
 		return err
 	}
@@ -833,6 +849,7 @@ func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {
 		Action:     "delete",
 		VideoID:    videoID,
 		TargetPath: existing.Path,
+		BackupPath: backupPath,
 		Status:     "ok",
 	})
 	return nil
@@ -1357,6 +1374,26 @@ func (s *Service) isWithinMediaRoots(targetPath string) bool {
 		return true
 	}
 	return subtitle.EnsureWithinRoot(s.cfg.TVMediaRoot, targetPath)
+}
+
+func mergeScanScopes(scopes ...[]string) []string {
+	seen := make(map[string]struct{})
+	out := make([]string, 0)
+	for _, group := range scopes {
+		for _, scope := range group {
+			cleaned := filepath.Clean(strings.TrimSpace(scope))
+			if cleaned == "" || cleaned == "." {
+				continue
+			}
+			key := strings.ToLower(cleaned)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, cleaned)
+		}
+	}
+	return out
 }
 
 func (s *Service) resolveDirectoriesForType(mediaType string, requested []string) ([]string, error) {
