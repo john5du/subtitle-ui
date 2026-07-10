@@ -1,11 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { useI18n } from "@/lib/i18n";
-import { tvSeriesDisplayTitleParts } from "@/lib/subtitle-manager/media-metadata";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { MediaExternalLinks } from "../shared/media-external-links";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import type {
   BatchSubtitleUploadItem,
@@ -21,6 +22,7 @@ import type {
   Video
 } from "@/lib/types";
 import type { SubtitleDetailsPanelProps, TvDrawerMode } from "../types";
+import { tvSeriesDisplayTitleParts } from "@/lib/subtitle-manager/media-metadata";
 import { TvSeasonBatchUploadWorkspace } from "./tv-season-batch-upload-dialog";
 import { TvSubtitleManagementPanel } from "./tv-subtitle-management-panel";
 
@@ -90,6 +92,7 @@ export function TvSubtitleDrawer({
   onInstallSubHDSeason
 }: TvSubtitleDrawerProps) {
   const { t, locale } = useI18n();
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const selectedSeriesTitle = tvSeriesDisplayTitleParts(selectedSeries, locale);
   const selectedSeriesPrimaryTitle = selectedSeriesTitle.title || selectedSeries?.path || "";
   const selectedSeriesFullTitle = selectedSeriesTitle.fullTitle || selectedSeriesPrimaryTitle;
@@ -97,16 +100,29 @@ export function TvSubtitleDrawer({
   const selectedSeriesCoverageLabel = selectedSeries
     ? t("tv.subtitleCoverage", { subtitled: selectedSeriesSubtitledCount, total: selectedSeries.videoCount })
     : "";
+  const seasonLabel = seasonOptions.find((option) => option.value === selectedSeason)?.label || selectedSeason;
 
-  function handleModeChange(value: string) {
-    if (value === "manage" || value === "batch") {
-      onModeChange(value);
+  useEffect(() => {
+    if (drawerMode === "batch" && selectedSeries) {
+      setBatchDialogOpen(true);
+    }
+  }, [drawerMode, selectedSeries]);
+
+  function openSeasonBatch() {
+    setBatchDialogOpen(true);
+    onModeChange("batch");
+  }
+
+  function handleBatchDialogOpenChange(open: boolean) {
+    setBatchDialogOpen(open);
+    if (!open) {
+      onModeChange("manage");
     }
   }
 
   return (
-    <Tabs value={drawerMode} onValueChange={handleModeChange} className="flex h-full min-h-0 w-full flex-col bg-card">
-      <div className="shrink-0 space-y-3 border-b border-border px-5 py-4 pr-14 sm:px-6 sm:pr-16">
+    <div className="flex h-full min-h-0 w-full flex-col bg-card">
+      <div className="shrink-0 space-y-2 border-b border-border px-5 py-4 pr-14 sm:px-6 sm:pr-16">
         <div className="min-w-0 space-y-2">
           {selectedSeriesPrimaryTitle ? (
             <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
@@ -129,14 +145,6 @@ export function TvSubtitleDrawer({
             <MediaExternalLinks imdbId={selectedSeries.imdbId} tmdbId={selectedSeries.tmdbId} mediaType="tv" />
           ) : null}
         </div>
-        <TabsList className="h-9 w-full max-w-[420px]">
-          <TabsTrigger value="manage" className="h-full flex-1" disabled={uploading && drawerMode !== "manage"}>
-            {t("tv.stepSubtitles")}
-          </TabsTrigger>
-          <TabsTrigger value="batch" className="h-full flex-1" disabled={uploading && drawerMode !== "batch"}>
-            {t("tv.seasonBatchUpload")}
-          </TabsTrigger>
-        </TabsList>
       </div>
 
       {!selectedSeries ? (
@@ -147,38 +155,51 @@ export function TvSubtitleDrawer({
         </div>
       ) : (
         <div className="min-h-0 flex-1">
-          <TabsContent value="manage" className="m-0 flex h-full min-h-0 flex-col data-[state=inactive]:hidden">
-            <TvSubtitleManagementPanel
-              className="min-h-0 flex-1"
-              variant="drawer"
-              selectedSeries={selectedSeries}
-              selectedSeason={selectedSeason}
-              seasonOptions={seasonOptions}
-              videos={videos}
-              selectedVideo={selectedVideo}
-              selectedVideoId={selectedVideoId}
-              onSelectVideo={onSelectVideo}
-              onSeasonChange={onSeasonChange}
-              onUpload={onUpload}
-              onReplace={onReplace}
-              onConvertSubtitle={onConvertSubtitle}
-              onOffsetSubtitle={onOffsetSubtitle}
-              onRemove={onRemove}
-              onPreviewSubtitle={onPreviewSubtitle}
-              onSearchSubHD={onSearchSubHD}
-              onDownloadSubHD={onDownloadSubHD}
-              formatTime={formatTime}
-              busy={busy}
-              uploading={uploading}
-              uploadingMessage={uploadingMessage}
-              episodesPending={episodesPending}
-              subtitleAction={subtitleAction}
-            />
-          </TabsContent>
-          <TabsContent value="batch" className="m-0 flex h-full min-h-0 flex-col data-[state=inactive]:hidden">
-            <div className="min-h-0 flex-1 px-5 py-4 sm:px-6">
+          <TvSubtitleManagementPanel
+            className="min-h-0 h-full flex-1"
+            variant="drawer"
+            selectedSeries={selectedSeries}
+            selectedSeason={selectedSeason}
+            seasonOptions={seasonOptions}
+            videos={videos}
+            selectedVideo={selectedVideo}
+            selectedVideoId={selectedVideoId}
+            onSelectVideo={onSelectVideo}
+            onSeasonChange={onSeasonChange}
+            onUpload={onUpload}
+            onReplace={onReplace}
+            onConvertSubtitle={onConvertSubtitle}
+            onOffsetSubtitle={onOffsetSubtitle}
+            onRemove={onRemove}
+            onPreviewSubtitle={onPreviewSubtitle}
+            onSearchSubHD={onSearchSubHD}
+            onDownloadSubHD={onDownloadSubHD}
+            onOpenSeasonBatch={openSeasonBatch}
+            formatTime={formatTime}
+            busy={busy}
+            uploading={uploading}
+            uploadingMessage={uploadingMessage}
+            episodesPending={episodesPending}
+            subtitleAction={subtitleAction}
+          />
+        </div>
+      )}
+
+      <Dialog open={batchDialogOpen} onOpenChange={handleBatchDialogOpenChange}>
+        <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>{t("tv.seasonBatchAction")}</DialogTitle>
+            <DialogDescription>
+              {t("batch.dialogDescriptionShort", {
+                series: selectedSeriesPrimaryTitle || "-",
+                season: seasonLabel || "-"
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className={cn("min-h-0 flex-1 overflow-hidden")}>
+            {batchDialogOpen ? (
               <TvSeasonBatchUploadWorkspace
-                className={cn("min-h-0 h-full flex-1")}
+                className="min-h-0 h-full max-h-[min(72vh,720px)] flex-1"
                 busy={busy}
                 uploading={uploading}
                 uploadingMessage={uploadingMessage}
@@ -191,12 +212,13 @@ export function TvSubtitleDrawer({
                 onSearchSubHDSeasonPacks={onSearchSubHDSeasonPacks}
                 onPrepareSubHDSeason={onPrepareSubHDSeason}
                 onInstallSubHDSeason={onInstallSubHDSeason}
+                autoSearchOnMount
                 showSummary={true}
               />
-            </div>
-          </TabsContent>
-        </div>
-      )}
-    </Tabs>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
