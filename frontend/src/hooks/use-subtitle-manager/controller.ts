@@ -60,6 +60,7 @@ export function createSubtitleManagerController({
     removeSubtitle: subtitles.removeSubtitle,
     previewSubtitle: subtitles.previewSubtitle,
     searchSubHDSubtitles: subtitles.searchSubHDSubtitles,
+    searchSubHDSeasonPacks: subtitles.searchSubHDSeasonPacks,
     downloadSubHDSubtitle: subtitles.downloadSubHDSubtitle,
     prepareSubHDSeasonPack: subtitles.prepareSubHDSeasonPack,
     installSubHDSeasonPack: subtitles.installSubHDSeasonPack,

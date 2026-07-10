@@ -196,7 +196,9 @@ func parseSearchCard(card string) (SearchResult, bool) {
 	}
 
 	doubanID := ""
-	if m := reDouban.FindStringSubmatch(card); len(m) >= 2 {
+	if m := reDoubanDLink.FindStringSubmatch(card); len(m) >= 2 {
+		doubanID = m[1]
+	} else if m := reDouban.FindStringSubmatch(card); len(m) >= 2 {
 		doubanID = m[1]
 	}
 

@@ -13,6 +13,7 @@ import type {
   PendingSubtitleAction,
   SubHDSearchPage,
   SubHDSeasonInstallOptions,
+  SubHDSeasonPacksResult,
   SubHDSeasonPrepareOptions,
   SubHDSeasonPrepareResult,
   TvSeasonOption,
@@ -51,6 +52,7 @@ interface TvSubtitleDrawerProps {
   onLoadBatchCandidates: () => Promise<Video[]>;
   onUploadBatch: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;
   onSearchSubHDForBatch?: (video: Video, opts?: { query?: string; page?: number }) => Promise<SubHDSearchPage>;
+  onSearchSubHDSeasonPacks?: (video: Video, opts?: { query?: string; season?: number }) => Promise<SubHDSeasonPacksResult>;
   onPrepareSubHDSeason?: (options: SubHDSeasonPrepareOptions) => Promise<SubHDSeasonPrepareResult>;
   onInstallSubHDSeason?: (options: SubHDSeasonInstallOptions) => Promise<BatchSubtitleUploadResult>;
 }
@@ -83,6 +85,7 @@ export function TvSubtitleDrawer({
   onLoadBatchCandidates,
   onUploadBatch,
   onSearchSubHDForBatch,
+  onSearchSubHDSeasonPacks,
   onPrepareSubHDSeason,
   onInstallSubHDSeason
 }: TvSubtitleDrawerProps) {
@@ -187,6 +190,7 @@ export function TvSubtitleDrawer({
                 selectedSeason={selectedSeason}
                 seasonVideos={videos}
                 onSearchSubHD={onSearchSubHDForBatch}
+                onSearchSubHDSeasonPacks={onSearchSubHDSeasonPacks}
                 onPrepareSubHDSeason={onPrepareSubHDSeason}
                 onInstallSubHDSeason={onInstallSubHDSeason}
                 showSummary={true}

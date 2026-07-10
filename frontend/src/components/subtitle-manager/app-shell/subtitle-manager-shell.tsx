@@ -322,6 +322,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
             onLoadBatchCandidates={dialogs.loadTvBatchCandidates}
             onUploadBatch={dialogs.uploadBatchSubtitles}
             onSearchSubHDForBatch={dialogs.searchSubHDSubtitles}
+            onSearchSubHDSeasonPacks={dialogs.searchSubHDSeasonPacks}
             onPrepareSubHDSeason={dialogs.prepareSubHDSeasonPack}
             onInstallSubHDSeason={dialogs.installSubHDSeasonPack}
           />

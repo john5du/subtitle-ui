@@ -52,6 +52,18 @@ func TestParseSeasonEpisodeNumbers(t *testing.T) {
 	}
 }
 
+func TestPickDoubanIDFromSearch(t *testing.T) {
+	items := []subhd.SearchResult{
+		{DoubanID: "111", Title: "Other", Version: "S02E01"},
+		{DoubanID: "35908203", Title: "夜魔侠：重生 第一季", Version: "S01E01"},
+		{DoubanID: "35908203", Title: "夜魔侠：重生 第一季", Version: "S01E02"},
+	}
+	id := pickDoubanIDFromSearch(items, "Daredevil S01", 1)
+	if id != "35908203" {
+		t.Fatalf("got %q", id)
+	}
+}
+
 func TestScoreSubHDSeasonPack(t *testing.T) {
 	pack := subhd.SearchResult{
 		Installable: true,
