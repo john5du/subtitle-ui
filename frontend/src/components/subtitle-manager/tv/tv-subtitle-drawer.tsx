@@ -9,6 +9,7 @@ import { MediaExternalLinks } from "../shared/media-external-links";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import type {
+  BatchSubtitleDeleteItem,
   BatchSubtitleUploadItem,
   BatchSubtitleUploadResult,
   PendingSubtitleAction,
@@ -22,6 +23,7 @@ import type {
 } from "@/lib/types";
 import type { SubtitleDetailsPanelProps, TvDrawerMode } from "../types";
 import { tvSeriesDisplayTitleParts } from "@/lib/subtitle-manager/media-metadata";
+import { TvBatchDeleteDialog } from "./tv-batch-delete-dialog";
 import { TvSeasonBatchUploadWorkspace } from "./tv-season-batch-upload-dialog";
 import { TvSubtitleManagementPanel } from "./tv-subtitle-management-panel";
 
@@ -30,6 +32,7 @@ interface TvSubtitleDrawerProps {
   selectedSeason: string;
   seasonOptions: TvSeasonOption[];
   videos: Video[];
+  seriesVideos: Video[];
   selectedVideo: Video | null;
   selectedVideoId: string;
   onSelectVideo: (video: Video) => void;
@@ -52,6 +55,7 @@ interface TvSubtitleDrawerProps {
   onModeChange: (mode: TvDrawerMode) => void;
   onLoadBatchCandidates: () => Promise<Video[]>;
   onUploadBatch: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;
+  onDeleteBatch: (items: BatchSubtitleDeleteItem[]) => Promise<BatchSubtitleUploadResult>;
   onSearchSubHDSeasonPacks?: (video: Video, opts?: { query?: string; season?: number }) => Promise<SubHDSeasonPacksResult>;
   onPrepareSubHDSeason?: (options: SubHDSeasonPrepareOptions) => Promise<SubHDSeasonPrepareResult>;
   onInstallSubHDSeason?: (options: SubHDSeasonInstallOptions) => Promise<BatchSubtitleUploadResult>;
@@ -62,6 +66,7 @@ export function TvSubtitleDrawer({
   selectedSeason,
   seasonOptions,
   videos,
+  seriesVideos,
   selectedVideo,
   selectedVideoId,
   onSelectVideo,
@@ -84,12 +89,14 @@ export function TvSubtitleDrawer({
   onModeChange,
   onLoadBatchCandidates,
   onUploadBatch,
+  onDeleteBatch,
   onSearchSubHDSeasonPacks,
   onPrepareSubHDSeason,
   onInstallSubHDSeason
 }: TvSubtitleDrawerProps) {
   const { t, locale } = useI18n();
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const selectedSeriesTitle = tvSeriesDisplayTitleParts(selectedSeries, locale);
   const selectedSeriesPrimaryTitle = selectedSeriesTitle.title || selectedSeries?.path || "";
   const selectedSeriesFullTitle = selectedSeriesTitle.fullTitle || selectedSeriesPrimaryTitle;
@@ -108,6 +115,10 @@ export function TvSubtitleDrawer({
   function openSeasonBatch() {
     setBatchDialogOpen(true);
     onModeChange("batch");
+  }
+
+  function openBatchDelete() {
+    setBatchDeleteOpen(true);
   }
 
   function handleBatchDialogOpenChange(open: boolean) {
@@ -172,6 +183,7 @@ export function TvSubtitleDrawer({
             onSearchSubHD={onSearchSubHD}
             onDownloadSubHD={onDownloadSubHD}
             onOpenSeasonBatch={openSeasonBatch}
+            onOpenBatchDelete={openBatchDelete}
             formatTime={formatTime}
             busy={busy}
             uploading={uploading}
@@ -208,12 +220,26 @@ export function TvSubtitleDrawer({
                 onSearchSubHDSeasonPacks={onSearchSubHDSeasonPacks}
                 onPrepareSubHDSeason={onPrepareSubHDSeason}
                 onInstallSubHDSeason={onInstallSubHDSeason}
+                onComplete={() => handleBatchDialogOpenChange(false)}
                 autoSearchOnMount
               />
             ) : null}
           </div>
         </DialogContent>
       </Dialog>
+
+      <TvBatchDeleteDialog
+        open={batchDeleteOpen}
+        onOpenChange={setBatchDeleteOpen}
+        seriesTitle={selectedSeriesPrimaryTitle}
+        seriesVideos={seriesVideos}
+        seasonOptions={seasonOptions}
+        initialSeason={selectedSeason}
+        busy={busy}
+        uploading={uploading}
+        uploadingMessage={uploadingMessage}
+        onDeleteBatch={onDeleteBatch}
+      />
     </div>
   );
 }

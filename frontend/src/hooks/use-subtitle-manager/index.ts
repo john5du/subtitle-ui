@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { useI18n } from "@/lib/i18n";
 import type {
   ActiveTab,
+  BatchSubtitleDeleteItem,
   BatchSubtitleUploadItem,
   SubHDDownloadOptions,
   SubHDSeasonInstallOptions,
@@ -95,6 +96,10 @@ export function useSubtitleManager(): SubtitleManagerResult {
     (video: Video, subtitle: Subtitle) => controller.removeSubtitle(video, subtitle),
     [controller]
   );
+  const removeSubtitlesBatch = useCallback(
+    (items: BatchSubtitleDeleteItem[]) => controller.removeSubtitlesBatch(items),
+    [controller]
+  );
   const previewSubtitle = useCallback(
     (video: Video, subtitle: Subtitle) => controller.previewSubtitle(video, subtitle),
     [controller]
@@ -168,6 +173,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
       selectedSeason: state.selectedTvSeason,
       seasonOptions: selectors.tvSeasonOptions,
       videos: selectors.sortedTvVideos,
+      seriesVideos: selectors.selectedTvSeriesVideos,
       selectedVideo: selectors.selectedTvVideo,
       selectedVideoId: state.selectedVideoIdByType.tv,
       showScanPrompt: selectors.showTvScanPrompt,
@@ -188,6 +194,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
       convertSubtitleToAss,
       offsetSubtitleTiming,
       removeSubtitle,
+      removeSubtitlesBatch,
       previewSubtitle,
       searchSubHDSubtitles,
       searchSubHDSeasonPacks,

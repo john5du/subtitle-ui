@@ -64,6 +64,8 @@ interface TvSeasonBatchUploadWorkspaceProps {
   onSearchSubHDSeasonPacks?: (video: Video, opts?: { query?: string; season?: number }) => Promise<SubHDSeasonPacksResult>;
   onPrepareSubHDSeason?: (options: SubHDSeasonPrepareOptions) => Promise<SubHDSeasonPrepareResult>;
   onInstallSubHDSeason?: (options: SubHDSeasonInstallOptions) => Promise<BatchSubtitleUploadResult>;
+  /** Called after mapped install/upload finishes (success or partial failure). */
+  onComplete?: (result: BatchSubtitleUploadResult) => void;
   className?: string;
   /** Start SubHD season-pack search when the workspace mounts. */
   autoSearchOnMount?: boolean;
@@ -251,6 +253,7 @@ export function TvSeasonBatchUploadWorkspace({
   onSearchSubHDSeasonPacks,
   onPrepareSubHDSeason,
   onInstallSubHDSeason,
+  onComplete,
   className,
   autoSearchOnMount = false
 }: TvSeasonBatchUploadWorkspaceProps) {
@@ -727,6 +730,7 @@ export function TvSeasonBatchUploadWorkspace({
       setBatchBlockingError("");
       const result = await onInstallSubHDSeason({ cacheToken: subhdCacheToken, mappings });
       setBatchResult(result);
+      onComplete?.(result);
       return;
     }
 
@@ -767,6 +771,7 @@ export function TvSeasonBatchUploadWorkspace({
     setBatchBlockingError("");
     const result = await onUploadBatch(items);
     setBatchResult(result);
+    onComplete?.(result);
   }
 
   const filterActions: { key: SeasonBatchMappingFilter; label: string; count: number }[] = [

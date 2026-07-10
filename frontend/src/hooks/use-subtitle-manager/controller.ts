@@ -58,6 +58,7 @@ export function createSubtitleManagerController({
     convertSubtitleToAss: subtitles.convertSubtitleToAss,
     offsetSubtitleTiming: subtitles.offsetSubtitleTiming,
     removeSubtitle: subtitles.removeSubtitle,
+    removeSubtitlesBatch: subtitles.removeSubtitlesBatch,
     previewSubtitle: subtitles.previewSubtitle,
     searchSubHDSubtitles: subtitles.searchSubHDSubtitles,
     searchSubHDSeasonPacks: subtitles.searchSubHDSeasonPacks,

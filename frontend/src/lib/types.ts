@@ -126,6 +126,11 @@ export interface BatchSubtitleUploadItem {
   archiveEntry?: string;
 }
 
+export interface BatchSubtitleDeleteItem {
+  video: Video;
+  subtitle: Subtitle;
+}
+
 export interface SubtitleUploadOptions {
   convertToAss?: boolean;
   sourceEncoding?: SubtitleSourceEncoding;

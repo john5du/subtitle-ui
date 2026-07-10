@@ -1,4 +1,5 @@
 import type {
+  BatchSubtitleDeleteItem,
   BatchSubtitleUploadItem,
   BatchSubtitleUploadResult,
   SubHDDownloadOptions,
@@ -276,6 +277,78 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     } finally {
       setSubtitleActionPending(null);
     }
+  }
+
+  async function removeSubtitlesBatch(items: BatchSubtitleDeleteItem[]): Promise<BatchSubtitleUploadResult> {
+    if (items.length === 0) {
+      return { total: 0, success: 0, failed: 0, errors: [] };
+    }
+
+    setSubtitleActionPending({
+      kind: "batch",
+      videoId: items[0]?.video.id || ""
+    });
+    beginLoading();
+    beginUpload("status.deletingSubtitlesProgress", { current: 0, total: items.length });
+    const errors: string[] = [];
+    let success = 0;
+
+    try {
+      let progress = 0;
+      for (const item of items) {
+        progress += 1;
+        updateUploadMessage("status.deletingSubtitlesProgress", { current: progress, total: items.length });
+        try {
+          await requestPayload(`/api/videos/${item.video.id}/subtitles/${item.subtitle.id}`, { method: "DELETE" });
+          success += 1;
+        } catch (error) {
+          const errorText = error instanceof Error ? error.message : String(error);
+          errors.push(`${item.subtitle.fileName} -> ${item.video.fileName}: ${errorText}`);
+        }
+      }
+    } finally {
+      try {
+        const state = runtime.state;
+        const selectors = runtime.selectors;
+        await Promise.all([
+          loadTvSeriesPage({ page: state.tvSeriesPager.page || 1, force: true }),
+          refreshTvVideosForPath(
+            selectors.selectedTvSeries?.path ||
+              state.selectedTvDirPath ||
+              state.tvEpisodesPath ||
+              selectors.tvRootPath ||
+              state.directoryScan.tvRoot ||
+              ""
+          ),
+          maybeRefreshLogs()
+        ]);
+      } catch (error) {
+        const errorText = error instanceof Error ? error.message : String(error);
+        errors.push(`refresh after batch delete failed: ${errorText}`);
+      }
+      endUpload();
+      endLoading();
+      setSubtitleActionPending(null);
+    }
+
+    const total = items.length;
+    const failed = total - success;
+    if (failed > 0) {
+      setTranslatedMessage("status.batchDeleteFinishedWarnings", { success, total, failed });
+      notifyInfo(
+        runtime.t("toast.batchDeleteWarningsTitle"),
+        runtime.t("toast.batchDeleteWarningsMessage", { success, total }),
+        runtime.t("toast.batchDeleteWarningsDetail", { failed })
+      );
+    } else {
+      setTranslatedMessage("status.batchDeleteFinishedSuccess", { success, total });
+      notifySuccess(
+        runtime.t("toast.batchDeleteSuccessTitle"),
+        runtime.t("toast.batchDeleteSuccessMessage", { success, total })
+      );
+    }
+
+    return { total, success, failed, errors };
   }
 
   async function previewSubtitle(video: Video, subtitle: Subtitle) {
@@ -618,6 +691,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     convertSubtitleToAss,
     offsetSubtitleTiming,
     removeSubtitle,
+    removeSubtitlesBatch,
     previewSubtitle,
     searchSubHDSubtitles,
     searchSubHDSeasonPacks,

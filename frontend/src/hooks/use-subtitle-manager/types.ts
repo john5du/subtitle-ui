@@ -2,6 +2,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
 import type {
   ActiveTab,
+  BatchSubtitleDeleteItem,
   BatchSubtitleUploadItem,
   BatchSubtitleUploadResult,
   DirectoryScanResult,
@@ -174,6 +175,7 @@ export interface SubtitleManagerTvDomain {
   selectedSeason: string;
   seasonOptions: TvSeasonOption[];
   videos: Video[];
+  seriesVideos: Video[];
   selectedVideo: Video | null;
   selectedVideoId: string;
   showScanPrompt: boolean;
@@ -200,6 +202,7 @@ export interface SubtitleManagerActions {
   convertSubtitleToAss: (video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) => Promise<boolean>;
   offsetSubtitleTiming: (video: Video, subtitle: Subtitle, offsetMs: number) => Promise<boolean>;
   removeSubtitle: (video: Video, subtitle: Subtitle) => Promise<boolean>;
+  removeSubtitlesBatch: (items: BatchSubtitleDeleteItem[]) => Promise<BatchSubtitleUploadResult>;
   previewSubtitle: (video: Video, subtitle: Subtitle) => Promise<ArrayBuffer>;
   searchSubHDSubtitles: (video: Video, opts?: { query?: string; page?: number }) => Promise<SubHDSearchPage>;
   searchSubHDSeasonPacks: (video: Video, opts?: { query?: string; season?: number }) => Promise<SubHDSeasonPacksResult>;
