@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { CircleAlert, CircleCheck, ExternalLink, Info, TriangleAlert } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import type {
@@ -15,6 +15,7 @@ import type {
   Video
 } from "@/lib/types";
 import { emitToast } from "@/lib/toast";
+import { buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
 import type { ZipSubtitleEntry } from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -255,7 +256,7 @@ export function TvSeasonBatchUploadWorkspace({
 }: TvSeasonBatchUploadWorkspaceProps) {
   const { t } = useI18n();
   const batchInputRef = useRef<HTMLInputElement | null>(null);
-  const [sourceMode, setSourceMode] = useState<BatchSourceMode>("local");
+  const [sourceMode, setSourceMode] = useState<BatchSourceMode>("subhd");
   const [batchPreparing, setBatchPreparing] = useState(false);
   const [batchInputFiles, setBatchInputFiles] = useState<File[]>([]);
   const [batchRawEntries, setBatchRawEntries] = useState<ZipSubtitleEntry[]>([]);
@@ -280,6 +281,16 @@ export function TvSeasonBatchUploadWorkspace({
 
   const subhdEnabled = Boolean((onSearchSubHDSeasonPacks || onSearchSubHD) && onPrepareSubHDSeason && onInstallSubHDSeason);
   const seasonNumber = parseSeasonNumber(selectedSeason);
+  const externalSearchLinks = useMemo(
+    () => buildSubtitleSearchLinksByKeyword(subhdQuery || buildDefaultSeasonQuery(selectedSeries, selectedSeason, seasonVideos)),
+    [selectedSeason, selectedSeries, seasonVideos, subhdQuery]
+  );
+
+  useEffect(() => {
+    if (!subhdEnabled && sourceMode === "subhd") {
+      setSourceMode("local");
+    }
+  }, [sourceMode, subhdEnabled]);
 
   useEffect(() => {
     setSubhdQuery(buildDefaultSeasonQuery(selectedSeries, selectedSeason, seasonVideos));
@@ -822,7 +833,19 @@ export function TvSeasonBatchUploadWorkspace({
                   title: subhdTitlePage.title || "-",
                   id: subhdTitlePage.doubanId
                 })}
-                {subhdTitlePage.url ? ` · ${subhdTitlePage.url}` : null}
+                {subhdTitlePage.url ? (
+                  <>
+                    {" · "}
+                    <a
+                      className="underline underline-offset-2 hover:text-foreground"
+                      href={`https://subhd.tv${subhdTitlePage.url.startsWith("/") ? subhdTitlePage.url : `/${subhdTitlePage.url}`}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {subhdTitlePage.url}
+                    </a>
+                  </>
+                ) : null}
               </p>
             ) : null}
 
@@ -859,6 +882,23 @@ export function TvSeasonBatchUploadWorkspace({
                     </button>
                   );
                 })}
+              </div>
+            ) : null}
+
+            {!subhdSearching && subhdResults.length === 0 && (batchNotices.length > 0 || subhdTitlePage.message) ? (
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                  <a href={externalSearchLinks.subhd} target="_blank" rel="noreferrer">
+                    <span>{t("download.openSubHDSearch")}</span>
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                  </a>
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                  <a href={externalSearchLinks.zimuku} target="_blank" rel="noreferrer">
+                    <span>{t("download.openZimuku")}</span>
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                  </a>
+                </Button>
               </div>
             ) : null}
 

@@ -428,6 +428,11 @@ export const enMessages = {
   "download.langs": "Languages",
   "download.downloads": "Downloads",
   "download.queryUsed": "Query: {query}",
+  "download.fallbackSection": "Other options",
+  "download.uploadLocal": "Upload local file / archive",
+  "download.openSubHDSearch": "Search on SubHD",
+  "download.openZimuku": "Search on Zimuku",
+  "batch.subhd.openExternalHint": "Or search subtitle sites in the browser",
 
   "timing.offset": "Offset",
   "timing.offsetting": "Adjusting",

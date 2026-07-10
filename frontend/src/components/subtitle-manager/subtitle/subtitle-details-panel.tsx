@@ -111,15 +111,16 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
   const uploadPending = subtitleAction?.kind === "upload" && subtitleAction.videoId === selectedVideo?.id;
   const downloadPending = subtitleAction?.kind === "download" && subtitleAction.videoId === selectedVideo?.id;
+  // When SubHD auto-download is available, local upload + site links live inside that dialog as fallbacks.
+  const showPrimaryUploadButton = showUploadButton && !canAutoDownload;
   const searchActionItems =
-    showSearchLinks && searchLinks
+    showSearchLinks && !canAutoDownload && searchLinks
       ? [
-          { label: "SubHD", href: searchLinks.subhd },
-          { label: "Zimuku", href: searchLinks.zimuku }
+          { label: t("download.openSubHDSearch"), href: searchLinks.subhd },
+          { label: t("download.openZimuku"), href: searchLinks.zimuku }
         ]
       : [];
   const subtitleActionWidthClass = "w-full sm:w-auto";
-  const showPrimaryUploadButton = showUploadButton;
   const hasActionToolbar =
     showPrimaryUploadButton ||
     canAutoDownload ||
@@ -226,23 +227,10 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                 embedded ? "border-b border-border px-4 py-3" : "mb-4 flex flex-col gap-3 surface-subtle p-3"
               )}>
                 <div className="flex flex-wrap items-center gap-2">
-                  {showPrimaryUploadButton && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      className={cn("h-8 gap-1.5", subtitleActionWidthClass)}
-                      disabled={busy || workflow.zipLoading}
-                      onClick={workflow.openUploadPicker}
-                    >
-                      {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-4 w-4" /> : <UploadCloud className="h-4 w-4" />}
-                      <span>{uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}</span>
-                    </Button>
-                  )}
                   {canAutoDownload ? (
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
                       className={cn("h-8 gap-1.5", subtitleActionWidthClass)}
                       disabled={busy || workflow.zipLoading || !selectedVideo}
                       onClick={() => setDownloadDialogOpen(true)}
@@ -251,6 +239,19 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       <span>{downloadPending ? t("download.downloading") : t("download.action")}</span>
                     </Button>
                   ) : null}
+                  {showPrimaryUploadButton && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={canAutoDownload ? "outline" : "default"}
+                      className={cn("h-8 gap-1.5", subtitleActionWidthClass)}
+                      disabled={busy || workflow.zipLoading}
+                      onClick={workflow.openUploadPicker}
+                    >
+                      {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-4 w-4" /> : <UploadCloud className="h-4 w-4" />}
+                      <span>{uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}</span>
+                    </Button>
+                  )}
                   {workflow.zipLoading && <InlinePending label={t("details.parsingArchive")} />}
                   {selectedVideo && embedded ? (
                     <Badge variant="secondary" className="shrink-0">
@@ -583,10 +584,13 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
           open={downloadDialogOpen}
           onOpenChange={setDownloadDialogOpen}
           video={selectedVideo}
-          busy={busy}
+          busy={busy || workflow.zipLoading}
           downloading={downloadPending}
           onSearch={onSearchSubHD}
           onDownload={onDownloadSubHD}
+          searchKeyword={searchKeyword}
+          onUploadLocal={showUploadButton ? workflow.openUploadPicker : undefined}
+          uploadLocalPending={uploadPending || workflow.zipLoading}
         />
       ) : null}
     </div>
