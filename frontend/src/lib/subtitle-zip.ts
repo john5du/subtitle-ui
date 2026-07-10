@@ -1,29 +1,25 @@
-import JSZip from "jszip";
+import { requestBinary, requestPayload } from "@/lib/subtitle-manager/api-client";
+import type { ArchiveEntryMeta } from "@/lib/types";
 
 const ALLOWED_SUBTITLE_EXTENSIONS = new Set([".srt", ".ass", ".ssa", ".vtt", ".sub"]);
 const ALLOWED_ARCHIVE_EXTENSIONS = new Set([".zip", ".7z", ".rar"]);
-const ENCRYPTED_ARCHIVE_ERROR = "Encrypted archive is not supported.";
-
-interface ArchiveReaderLike {
-  close: () => Promise<void>;
-  extractFiles: (extractCallback?: (entry: { file?: File; path?: string }) => void) => Promise<unknown>;
-  hasEncryptedData: () => Promise<boolean | null>;
-}
-
-interface ArchiveClassLike {
-  init: (options?: { workerUrl?: string | URL }) => unknown;
-  open: (file: File) => Promise<ArchiveReaderLike>;
-}
-
-let archiveClassPromise: Promise<ArchiveClassLike> | null = null;
 
 export interface ZipSubtitleEntry {
   id: string;
   path: string;
   fileName: string;
   size: number;
-  data: ArrayBuffer;
+  /** Original archive file when entry comes from a server-listed archive. */
+  sourceFile?: File;
+  /** Path inside the archive (server extract/upload key). */
+  archiveEntry?: string;
+  /** Plain subtitle file when not from an archive. */
+  plainFile?: File;
+  /** SubHD season-pack cache token (server-side download cache). */
+  cacheToken?: string;
 }
+
+export type { ArchiveEntryMeta };
 
 function normalizePath(pathValue: string) {
   return pathValue.replace(/\\/g, "/").replace(/^\/+/, "");
@@ -33,55 +29,6 @@ function basenamePath(pathValue: string) {
   const cleaned = normalizePath(pathValue);
   const segments = cleaned.split("/").filter(Boolean);
   return segments.length > 0 ? segments[segments.length - 1] : cleaned;
-}
-
-async function collectSubtitleEntriesFromArchiveTree(
-  node: unknown,
-  currentPath: string,
-  entries: ZipSubtitleEntry[],
-  nextIndex: { value: number }
-): Promise<void> {
-  if (!node || typeof node !== "object") {
-    return;
-  }
-
-  if (node instanceof File) {
-    if (!isSubtitleFileName(currentPath)) {
-      return;
-    }
-
-    const fileName = basenamePath(currentPath);
-    if (!fileName) {
-      return;
-    }
-
-    const data = await node.arrayBuffer();
-    entries.push({
-      id: `${nextIndex.value}-${currentPath.toLowerCase()}`,
-      path: currentPath,
-      fileName,
-      size: data.byteLength,
-      data
-    });
-    nextIndex.value += 1;
-    return;
-  }
-
-  const record = node as Record<string, unknown>;
-  for (const [name, child] of Object.entries(record)) {
-    const childPath = normalizePath(currentPath ? `${currentPath}/${name}` : name);
-    await collectSubtitleEntriesFromArchiveTree(child, childPath, entries, nextIndex);
-  }
-}
-
-export function isSubtitleFileName(fileName: string) {
-  const lower = fileName.toLowerCase();
-  for (const ext of ALLOWED_SUBTITLE_EXTENSIONS) {
-    if (lower.endsWith(ext)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function archiveExtension(fileName: string) {
@@ -94,106 +41,55 @@ function archiveExtension(fileName: string) {
   return "";
 }
 
+export function isSubtitleFileName(fileName: string) {
+  const lower = fileName.toLowerCase();
+  for (const ext of ALLOWED_SUBTITLE_EXTENSIONS) {
+    if (lower.endsWith(ext)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function isArchiveFileName(fileName: string) {
   return archiveExtension(fileName) !== "";
 }
 
-function normalizeArchiveReadError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  const lower = message.toLowerCase();
-  if (lower.includes("encrypted") || lower.includes("passphrase") || lower.includes("password")) {
-    return new Error(ENCRYPTED_ARCHIVE_ERROR);
-  }
-  return new Error(message);
+export async function listArchiveSubtitleEntries(file: File): Promise<ZipSubtitleEntry[]> {
+  const body = new FormData();
+  body.append("file", file);
+  const payload = await requestPayload<{ entries?: ArchiveEntryMeta[] }>("/api/archives/subtitle-entries", {
+    method: "POST",
+    body
+  });
+  const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+  return entries
+    .map((entry, index) => {
+      const pathValue = normalizePath(entry.path || entry.fileName || "");
+      const fileName = entry.fileName || basenamePath(pathValue);
+      return {
+        id: `${index}-${pathValue.toLowerCase()}`,
+        path: pathValue,
+        fileName,
+        size: Number(entry.size) || 0,
+        sourceFile: file,
+        archiveEntry: pathValue
+      } satisfies ZipSubtitleEntry;
+    })
+    .sort((a, b) => a.path.localeCompare(b.path));
 }
 
-async function loadArchiveClass(): Promise<ArchiveClassLike> {
-  if (!archiveClassPromise) {
-    archiveClassPromise = (async () => {
-      const modulePath = "/libarchive/libarchive.js";
-      const mod = (await import(
-        /* webpackIgnore: true */
-        modulePath
-      )) as { Archive?: ArchiveClassLike };
-
-      if (!mod.Archive) {
-        throw new Error("Archive parser is not available.");
-      }
-
-      mod.Archive.init({ workerUrl: "/libarchive/worker-bundle.js" });
-      return mod.Archive;
-    })();
-  }
-  return archiveClassPromise;
+export async function extractArchiveSubtitleEntry(file: File, entryPath: string): Promise<ArrayBuffer> {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("entry", entryPath);
+  return requestBinary("/api/archives/extract", { method: "POST", body });
 }
 
-async function extractSubtitleEntriesFromZip(file: File): Promise<ZipSubtitleEntry[]> {
-  const arrayBuffer = await file.arrayBuffer();
-  const zip = await JSZip.loadAsync(arrayBuffer);
-  const entries: ZipSubtitleEntry[] = [];
-  let index = 0;
-
-  for (const [path, entry] of Object.entries(zip.files)) {
-    if (entry.dir || !isSubtitleFileName(path)) {
-      continue;
-    }
-
-    const cleaned = normalizePath(path);
-    const fileName = basenamePath(cleaned);
-    if (!fileName) {
-      continue;
-    }
-
-    const data = await entry.async("arraybuffer");
-    entries.push({
-      id: `${index}-${cleaned.toLowerCase()}`,
-      path: cleaned,
-      fileName,
-      size: data.byteLength,
-      data
-    });
-    index += 1;
-  }
-
-  entries.sort((a, b) => a.path.localeCompare(b.path));
-  return entries;
-}
-
-async function extractSubtitleEntriesFromArchive(file: File): Promise<ZipSubtitleEntry[]> {
-  const archiveClass = await loadArchiveClass();
-  const archive = await archiveClass.open(file);
-  try {
-    const hasEncryptedData = await archive.hasEncryptedData();
-    if (hasEncryptedData === true) {
-      throw new Error(ENCRYPTED_ARCHIVE_ERROR);
-    }
-
-    const extractedTree = await archive.extractFiles();
-    const entries: ZipSubtitleEntry[] = [];
-    await collectSubtitleEntriesFromArchiveTree(extractedTree, "", entries, { value: 0 });
-    entries.sort((a, b) => a.path.localeCompare(b.path));
-    return entries;
-  } finally {
-    await archive.close();
-  }
-}
-
-export async function extractSubtitleEntriesFromArchiveFile(file: File): Promise<ZipSubtitleEntry[]> {
-  const ext = archiveExtension(file.name);
-  if (!ext) {
-    throw new Error(`Unsupported archive type: ${file.name}`);
-  }
-
-  try {
-    if (ext === ".zip") {
-      return await extractSubtitleEntriesFromZip(file);
-    }
-    return await extractSubtitleEntriesFromArchive(file);
-  } catch (error) {
-    throw normalizeArchiveReadError(error);
-  }
-}
-
+/** @deprecated Prefer upload with archiveEntry; kept for plain-file batch rows. */
 export function toSubtitleFile(entry: ZipSubtitleEntry): File {
-  return new File([entry.data], entry.fileName, { type: "application/octet-stream" });
+  if (entry.plainFile) {
+    return entry.plainFile;
+  }
+  throw new Error("Archive entries must be uploaded via archiveEntry, not toSubtitleFile");
 }

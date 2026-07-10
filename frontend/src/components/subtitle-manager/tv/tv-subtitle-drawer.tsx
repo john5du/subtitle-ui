@@ -7,7 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { MediaExternalLinks } from "../shared/media-external-links";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import type { BatchSubtitleUploadItem, BatchSubtitleUploadResult, PendingSubtitleAction, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
+import type {
+  BatchSubtitleUploadItem,
+  BatchSubtitleUploadResult,
+  PendingSubtitleAction,
+  SubHDSearchPage,
+  SubHDSeasonInstallOptions,
+  SubHDSeasonPrepareOptions,
+  SubHDSeasonPrepareResult,
+  TvSeasonOption,
+  TvSeriesSummary,
+  Video
+} from "@/lib/types";
 import type { SubtitleDetailsPanelProps, TvDrawerMode } from "../types";
 import { TvSeasonBatchUploadWorkspace } from "./tv-season-batch-upload-dialog";
 import { TvSubtitleManagementPanel } from "./tv-subtitle-management-panel";
@@ -39,6 +50,9 @@ interface TvSubtitleDrawerProps {
   onModeChange: (mode: TvDrawerMode) => void;
   onLoadBatchCandidates: () => Promise<Video[]>;
   onUploadBatch: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;
+  onSearchSubHDForBatch?: (video: Video, opts?: { query?: string; page?: number }) => Promise<SubHDSearchPage>;
+  onPrepareSubHDSeason?: (options: SubHDSeasonPrepareOptions) => Promise<SubHDSeasonPrepareResult>;
+  onInstallSubHDSeason?: (options: SubHDSeasonInstallOptions) => Promise<BatchSubtitleUploadResult>;
 }
 
 export function TvSubtitleDrawer({
@@ -67,7 +81,10 @@ export function TvSubtitleDrawer({
   drawerMode,
   onModeChange,
   onLoadBatchCandidates,
-  onUploadBatch
+  onUploadBatch,
+  onSearchSubHDForBatch,
+  onPrepareSubHDSeason,
+  onInstallSubHDSeason
 }: TvSubtitleDrawerProps) {
   const { t, locale } = useI18n();
   const selectedSeriesTitle = tvSeriesDisplayTitleParts(selectedSeries, locale);
@@ -166,6 +183,12 @@ export function TvSubtitleDrawer({
                 uploadingMessage={uploadingMessage}
                 onLoadBatchCandidates={onLoadBatchCandidates}
                 onUploadBatch={onUploadBatch}
+                selectedSeries={selectedSeries}
+                selectedSeason={selectedSeason}
+                seasonVideos={videos}
+                onSearchSubHD={onSearchSubHDForBatch}
+                onPrepareSubHDSeason={onPrepareSubHDSeason}
+                onInstallSubHDSeason={onInstallSubHDSeason}
                 showSummary={true}
               />
             </div>

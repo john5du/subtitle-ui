@@ -48,6 +48,20 @@ type subhdDownloadRequest struct {
 	ArchiveEntry string `json:"archiveEntry"`
 }
 
+type subhdSeasonPrepareRequest struct {
+	SID                string   `json:"sid"`
+	VideoIDs           []string `json:"videoIds"`
+	LanguagePreference string   `json:"languagePreference"`
+	FormatPreference   string   `json:"formatPreference"`
+	SkipExisting       bool     `json:"skipExisting"`
+	Label              string   `json:"label"`
+}
+
+type subhdSeasonInstallRequest struct {
+	CacheToken string                    `json:"cacheToken"`
+	Mappings   []app.ArchiveBatchMapping `json:"mappings"`
+}
+
 func NewServer(service *app.Service, uiDist string) *Server {
 	return NewServerWithConfig(service, config.Config{UIDist: uiDist})
 }
@@ -72,6 +86,11 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	s.mux.HandleFunc("/api/videos", s.handleVideos)
 	s.mux.HandleFunc("/api/tv/series", s.handleTVSeries)
 	s.mux.HandleFunc("/api/videos/", s.handleVideoRoute)
+	s.mux.HandleFunc("/api/archives/subtitle-entries", s.handleArchiveSubtitleEntries)
+	s.mux.HandleFunc("/api/archives/extract", s.handleArchiveExtract)
+	s.mux.HandleFunc("/api/subtitles/batch-from-archive", s.handleBatchFromArchive)
+	s.mux.HandleFunc("/api/subtitles/providers/subhd/season-prepare", s.handleSubHDSeasonPrepare)
+	s.mux.HandleFunc("/api/subtitles/providers/subhd/season-install", s.handleSubHDSeasonInstall)
 	s.mux.HandleFunc("/api/logs", s.handleLogs)
 	s.mux.HandleFunc("/", s.handleUI)
 	return s
@@ -341,16 +360,161 @@ func (s *Server) handleUploadSubtitle(w http.ResponseWriter, r *http.Request, vi
 	replaceID := strings.TrimSpace(r.FormValue("replaceId"))
 	convertTo := strings.TrimSpace(r.FormValue("convertTo"))
 	sourceEncoding := strings.TrimSpace(r.FormValue("sourceEncoding"))
+	archiveEntry := strings.TrimSpace(r.FormValue("archiveEntry"))
 
 	subtitle, err := s.service.UploadSubtitleWithOptions(videoID, file, header, label, replaceID, app.SubtitleUploadOptions{
 		ConvertTo:      convertTo,
 		SourceEncoding: sourceEncoding,
+		ArchiveEntry:   archiveEntry,
 	})
 	if err != nil {
 		s.writeAppError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, subtitle)
+}
+
+func (s *Server) handleArchiveSubtitleEntries(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if err := r.ParseMultipartForm(64 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid multipart body")
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "missing file field")
+		return
+	}
+	defer file.Close()
+
+	entries, err := s.service.ListArchiveSubtitleEntries(file, header)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"entries": entries})
+}
+
+func (s *Server) handleArchiveExtract(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if err := r.ParseMultipartForm(64 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid multipart body")
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "missing file field")
+		return
+	}
+	defer file.Close()
+
+	entry := strings.TrimSpace(r.FormValue("entry"))
+	if entry == "" {
+		entry = strings.TrimSpace(r.FormValue("archiveEntry"))
+	}
+	fileName, data, err := s.service.ExtractArchiveSubtitle(file, header, entry)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+strings.ReplaceAll(fileName, `"`, "")+`"`)
+	w.Header().Set("X-Subtitle-File-Name", fileName)
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func (s *Server) handleBatchFromArchive(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	if err := r.ParseMultipartForm(64 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid multipart body")
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "missing file field")
+		return
+	}
+	defer file.Close()
+
+	rawMappings := strings.TrimSpace(r.FormValue("mappings"))
+	if rawMappings == "" {
+		writeError(w, http.StatusBadRequest, "missing mappings field")
+		return
+	}
+	var mappings []app.ArchiveBatchMapping
+	if err := json.Unmarshal([]byte(rawMappings), &mappings); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid mappings json")
+		return
+	}
+
+	result, err := s.service.BatchUploadFromArchive(file, header, mappings)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleSubHDSeasonPrepare(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req subhdSeasonPrepareRequest
+	if r.Body != nil {
+		defer r.Body.Close()
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	result, err := s.service.PrepareSubHDSeasonPack(r.Context(), app.SubHDSeasonPrepareOptions{
+		SID:                strings.TrimSpace(req.SID),
+		VideoIDs:           req.VideoIDs,
+		LanguagePreference: strings.TrimSpace(req.LanguagePreference),
+		FormatPreference:   strings.TrimSpace(req.FormatPreference),
+		SkipExisting:       req.SkipExisting,
+		Label:              strings.TrimSpace(req.Label),
+	})
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleSubHDSeasonInstall(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req subhdSeasonInstallRequest
+	if r.Body != nil {
+		defer r.Body.Close()
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	result, err := s.service.InstallSubHDSeasonPack(r.Context(), app.SubHDSeasonInstallOptions{
+		CacheToken: strings.TrimSpace(req.CacheToken),
+		Mappings:   req.Mappings,
+	})
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) handleSubtitleConversionConfig(w http.ResponseWriter, r *http.Request) {
@@ -525,6 +689,15 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) writeAppError(w http.ResponseWriter, err error) {
+	var multi *app.ArchiveMultipleEntriesError
+	if errors.As(err, &multi) {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"error":   multi.Error(),
+			"code":    "archive_multiple_entries",
+			"entries": multi.Entries,
+		})
+		return
+	}
 	switch {
 	case errors.Is(err, app.ErrNotFound):
 		writeError(w, http.StatusNotFound, err.Error())

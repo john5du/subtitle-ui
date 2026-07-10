@@ -123,11 +123,17 @@ export interface BatchSubtitleUploadItem {
   file: File;
   label: string;
   sourceName?: string;
+  archiveEntry?: string;
 }
 
 export interface SubtitleUploadOptions {
   convertToAss?: boolean;
   sourceEncoding?: SubtitleSourceEncoding;
+  archiveEntry?: string;
+}
+
+export interface SubtitleReplaceOptions {
+  archiveEntry?: string;
 }
 
 export interface SubtitleConversionConfig {
@@ -150,6 +156,58 @@ export interface BatchSubtitleUploadResult {
   success: number;
   failed: number;
   errors: string[];
+}
+
+export interface ArchiveEntryMeta {
+  path: string;
+  fileName: string;
+  size: number;
+}
+
+export interface SubHDSeasonPrepareOptions {
+  sid: string;
+  videoIds: string[];
+  languagePreference?: string;
+  formatPreference?: string;
+  skipExisting?: boolean;
+  label?: string;
+}
+
+export interface SubHDSeasonSuggestedMapping {
+  videoId: string;
+  archiveEntry: string;
+  label?: string;
+  skipped?: boolean;
+  reason?: string;
+}
+
+export interface SubHDSeasonPrepareResult {
+  cacheToken: string;
+  sid: string;
+  fileName: string;
+  entries: ArchiveEntryMeta[];
+  suggestedMappings: SubHDSeasonSuggestedMapping[];
+  notices?: string[];
+}
+
+export interface SubHDSeasonInstallMapping {
+  videoId: string;
+  archiveEntry: string;
+  label?: string;
+}
+
+export interface SubHDSeasonInstallOptions {
+  cacheToken: string;
+  mappings: SubHDSeasonInstallMapping[];
+}
+
+export interface SubHDSeasonInstallResult {
+  results: Array<{
+    videoId: string;
+    archiveEntry: string;
+    ok: boolean;
+    error?: string;
+  }>;
 }
 
 export interface TvSeriesSummary {

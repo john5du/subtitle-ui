@@ -37,8 +37,9 @@ type Service struct {
 	scanner *scanner.Scanner
 	store   *store.Store
 
-	subhdMu sync.RWMutex
-	subhd   *subhd.Client
+	subhdMu        sync.RWMutex
+	subhd          *subhd.Client
+	subhdPackCache *subhdPackCache
 
 	scanRunMu sync.Mutex
 
@@ -59,9 +60,10 @@ func NewService(cfg config.Config) (*Service, error) {
 		return nil, err
 	}
 	svc := &Service{
-		cfg:     cfg,
-		scanner: scanner.New(),
-		store:   st,
+		cfg:            cfg,
+		scanner:        scanner.New(),
+		store:          st,
+		subhdPackCache: newSubHDPackCache(),
 		subhd: subhd.New(subhd.Options{
 			Enabled:     cfg.SubHDEnabled,
 			BaseURL:     cfg.SubHDBaseURL,

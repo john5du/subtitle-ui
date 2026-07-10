@@ -1,6 +1,12 @@
 package subhd
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"strings"
+
+	"subtitle-ui/backend/internal/archive"
+)
 
 var (
 	ErrDisabled            = errors.New("subhd provider disabled")
@@ -15,6 +21,26 @@ var (
 	ErrEmptyQuery          = errors.New("empty search query")
 	ErrProvider            = errors.New("subhd provider error")
 )
+
+// MultipleEntriesError is returned when a SubHD archive needs an explicit entry pick.
+type MultipleEntriesError struct {
+	Entries []archive.Entry
+}
+
+func (e *MultipleEntriesError) Error() string {
+	if e == nil || len(e.Entries) == 0 {
+		return ErrMultipleEntries.Error()
+	}
+	names := make([]string, 0, len(e.Entries))
+	for _, ent := range e.Entries {
+		names = append(names, ent.Path)
+	}
+	return fmt.Sprintf("%s: %s", ErrMultipleEntries.Error(), strings.Join(names, ", "))
+}
+
+func (e *MultipleEntriesError) Unwrap() error {
+	return ErrMultipleEntries
+}
 
 // SearchResult is one subtitle listing from SubHD search HTML.
 type SearchResult struct {

@@ -3,7 +3,18 @@
 import { useCallback, useMemo, useRef } from "react";
 
 import { useI18n } from "@/lib/i18n";
-import type { ActiveTab, BatchSubtitleUploadItem, Subtitle, SubtitleSourceEncoding, SubtitleUploadOptions, Video } from "@/lib/types";
+import type {
+  ActiveTab,
+  BatchSubtitleUploadItem,
+  SubHDDownloadOptions,
+  SubHDSeasonInstallOptions,
+  SubHDSeasonPrepareOptions,
+  Subtitle,
+  SubtitleReplaceOptions,
+  SubtitleSourceEncoding,
+  SubtitleUploadOptions,
+  Video
+} from "@/lib/types";
 import { formatTimeWithLocale, resolveLocalizedText } from "@/lib/subtitle-manager/messages";
 
 import { createSubtitleManagerController } from "./controller";
@@ -67,7 +78,8 @@ export function useSubtitleManager(): SubtitleManagerResult {
     [controller]
   );
   const replaceSubtitle = useCallback(
-    (video: Video, subtitle: Subtitle, file: File) => controller.replaceSubtitle(video, subtitle, file),
+    (video: Video, subtitle: Subtitle, file: File, options?: SubtitleReplaceOptions) =>
+      controller.replaceSubtitle(video, subtitle, file, options),
     [controller]
   );
   const convertSubtitleToAss = useCallback(
@@ -92,11 +104,19 @@ export function useSubtitleManager(): SubtitleManagerResult {
     [controller]
   );
   const downloadSubHDSubtitle = useCallback(
-    (video: Video, sid: string) => controller.downloadSubHDSubtitle(video, sid),
+    (video: Video, sid: string, options?: SubHDDownloadOptions) => controller.downloadSubHDSubtitle(video, sid, options),
     [controller]
   );
   const uploadBatchSubtitles = useCallback(
     (items: BatchSubtitleUploadItem[]) => controller.uploadBatchSubtitles(items),
+    [controller]
+  );
+  const prepareSubHDSeasonPack = useCallback(
+    (options: SubHDSeasonPrepareOptions) => controller.prepareSubHDSeasonPack(options),
+    [controller]
+  );
+  const installSubHDSeasonPack = useCallback(
+    (options: SubHDSeasonInstallOptions) => controller.installSubHDSeasonPack(options),
     [controller]
   );
 
@@ -167,7 +187,9 @@ export function useSubtitleManager(): SubtitleManagerResult {
       previewSubtitle,
       searchSubHDSubtitles,
       downloadSubHDSubtitle,
-      uploadBatchSubtitles
+      uploadBatchSubtitles,
+      prepareSubHDSeasonPack,
+      installSubHDSeasonPack
     }
   };
 }

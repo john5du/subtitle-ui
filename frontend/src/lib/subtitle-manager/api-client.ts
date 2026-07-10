@@ -1,6 +1,7 @@
 "use client";
 
 import { buildApiURL } from "@/lib/api";
+import type { ArchiveEntryMeta } from "@/lib/subtitle-zip";
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -14,6 +15,28 @@ export function extractErrorMessage(payload: unknown, fallback: string) {
     return payload;
   }
   return fallback;
+}
+
+export class ApiRequestError extends Error {
+  status: number;
+  code?: string;
+  entries?: ArchiveEntryMeta[];
+  payload: unknown;
+
+  constructor(message: string, status: number, payload: unknown) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.payload = payload;
+    if (isRecord(payload)) {
+      if (typeof payload.code === "string") {
+        this.code = payload.code;
+      }
+      if (Array.isArray(payload.entries)) {
+        this.entries = payload.entries as ArchiveEntryMeta[];
+      }
+    }
+  }
 }
 
 async function readPayload(response: Response) {
@@ -38,7 +61,7 @@ export async function requestPayload<T>(path: string, options: RequestInit = {})
   const payload = await readPayload(response);
 
   if (!response.ok) {
-    throw new Error(extractErrorMessage(payload, `request failed: ${response.status}`));
+    throw new ApiRequestError(extractErrorMessage(payload, `request failed: ${response.status}`), response.status, payload);
   }
 
   return payload as T;
@@ -48,7 +71,7 @@ export async function requestBinary(path: string, options: RequestInit = {}) {
   const response = await fetch(buildApiURL(path), options);
   if (!response.ok) {
     const payload = await readPayload(response);
-    throw new Error(extractErrorMessage(payload, `request failed: ${response.status}`));
+    throw new ApiRequestError(extractErrorMessage(payload, `request failed: ${response.status}`), response.status, payload);
   }
 
   return response.arrayBuffer();

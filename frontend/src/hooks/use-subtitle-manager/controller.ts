@@ -61,6 +61,8 @@ export function createSubtitleManagerController({
     previewSubtitle: subtitles.previewSubtitle,
     searchSubHDSubtitles: subtitles.searchSubHDSubtitles,
     downloadSubHDSubtitle: subtitles.downloadSubHDSubtitle,
+    prepareSubHDSeasonPack: subtitles.prepareSubHDSeasonPack,
+    installSubHDSeasonPack: subtitles.installSubHDSeasonPack,
     loadTvBatchCandidates: subtitles.loadTvBatchCandidates,
     uploadBatchSubtitles: subtitles.uploadBatchSubtitles,
     setMovieQuery: workspace.setMovieQuery,

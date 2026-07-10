@@ -11,7 +11,7 @@ import { SpinnerIcon } from "../../shared/pending-state";
 interface ArchiveEntryPickerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  mode: "upload" | "replace";
+  mode: "upload" | "replace" | "pick";
   zipPickFileName: string;
   zipPickEntries: ZipSubtitleEntry[];
   zipUploadLabel: string;
@@ -23,6 +23,7 @@ interface ArchiveEntryPickerDialogProps {
   busy: boolean;
   uploading: boolean;
   zipLoading: boolean;
+  hidePreview?: boolean;
 }
 
 export function ArchiveEntryPickerDialog({
@@ -39,9 +40,16 @@ export function ArchiveEntryPickerDialog({
   onConfirm,
   busy,
   uploading,
-  zipLoading
+  zipLoading,
+  hidePreview = false
 }: ArchiveEntryPickerDialogProps) {
   const { t } = useI18n();
+  const confirmLabel =
+    mode === "upload"
+      ? t("details.confirmUploadFromArchive")
+      : mode === "replace"
+        ? t("details.confirmReplaceFromArchive")
+        : t("common.confirm");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -73,7 +81,7 @@ export function ArchiveEntryPickerDialog({
                 <TableRow>
                   <TableHead>{t("details.filePath")}</TableHead>
                   <TableHead className="w-[100px] text-right">{t("details.size")}</TableHead>
-                  <TableHead className="w-[120px] text-center">{t("common.preview")}</TableHead>
+                  {!hidePreview ? <TableHead className="w-[120px] text-center">{t("common.preview")}</TableHead> : null}
                   <TableHead className="w-[96px] text-center">{t("details.selectFile")}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -93,20 +101,22 @@ export function ArchiveEntryPickerDialog({
                     >
                       <TableCell className="break-all text-xs">{entry.path}</TableCell>
                       <TableCell className="text-right text-xs">{Math.max(1, Math.round(entry.size / 1024))} KB</TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onPreviewEntry(entry);
-                          }}
-                        >
-                          {t("common.preview")}
-                        </Button>
-                      </TableCell>
+                      {!hidePreview ? (
+                        <TableCell className="text-center">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onPreviewEntry(entry);
+                            }}
+                          >
+                            {t("common.preview")}
+                          </Button>
+                        </TableCell>
+                      ) : null}
                       <TableCell className="text-center">
                         <input
                           type="checkbox"
@@ -124,7 +134,7 @@ export function ArchiveEntryPickerDialog({
 
                 {zipPickEntries.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={hidePreview ? 3 : 4} className="py-6 text-center text-sm text-muted-foreground">
                       {t("details.noArchiveEntries")}
                     </TableCell>
                   </TableRow>
@@ -144,7 +154,7 @@ export function ArchiveEntryPickerDialog({
             disabled={busy || uploading || zipLoading || !selectedZipEntryId}
           >
             {uploading ? <SpinnerIcon className="h-4 w-4" /> : null}
-            {mode === "upload" ? t("details.confirmUploadFromArchive") : t("details.confirmReplaceFromArchive")}
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

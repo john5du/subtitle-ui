@@ -4,12 +4,18 @@ import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Cha
 
 import { useI18n } from "@/lib/i18n";
 import { emitToast } from "@/lib/toast";
-import type { Subtitle, SubtitleSourceEncoding, SubtitleUploadOptions, Video } from "@/lib/types";
+import type {
+  Subtitle,
+  SubtitleReplaceOptions,
+  SubtitleSourceEncoding,
+  SubtitleUploadOptions,
+  Video
+} from "@/lib/types";
 import {
-  extractSubtitleEntriesFromArchiveFile,
+  extractArchiveSubtitleEntry,
   isArchiveFileName,
   isSubtitleFileName,
-  toSubtitleFile,
+  listArchiveSubtitleEntries,
   type ZipSubtitleEntry
 } from "@/lib/subtitle-zip";
 
@@ -63,7 +69,7 @@ export interface UseSubtitleFileWorkflowParams {
   selectedVideo: Video | null;
   busy: boolean;
   onUpload: (video: Video, file: File, label: string, options?: SubtitleUploadOptions) => Promise<boolean>;
-  onReplace: (video: Video, subtitle: Subtitle, file: File) => Promise<boolean>;
+  onReplace: (video: Video, subtitle: Subtitle, file: File, options?: SubtitleReplaceOptions) => Promise<boolean>;
   onConvertSubtitle: (video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) => Promise<boolean>;
   onOffsetSubtitle: (video: Video, subtitle: Subtitle, offsetMs: number) => Promise<boolean>;
   onRemove: (video: Video, subtitle: Subtitle) => Promise<boolean>;
@@ -98,6 +104,7 @@ export function useSubtitleFileWorkflow({
   const [zipPickDialogOpen, setZipPickDialogOpen] = useState(false);
   const [zipPickMode, setZipPickMode] = useState<"upload" | "replace">("upload");
   const [zipPickFileName, setZipPickFileName] = useState("");
+  const [zipPickFile, setZipPickFile] = useState<File | null>(null);
   const [zipPickEntries, setZipPickEntries] = useState<ZipSubtitleEntry[]>([]);
   const [zipPickTargetSubtitle, setZipPickTargetSubtitle] = useState<Subtitle | null>(null);
   const [zipUploadLabel, setZipUploadLabel] = useState("zh");
@@ -122,6 +129,7 @@ export function useSubtitleFileWorkflow({
     setZipPickDialogOpen(false);
     setZipPickMode("upload");
     setZipPickFileName("");
+    setZipPickFile(null);
     setZipPickEntries([]);
     setZipPickTargetSubtitle(null);
     setZipUploadLabel("zh");
@@ -224,8 +232,28 @@ export function useSubtitleFileWorkflow({
     }
   }
 
-  function openArchiveSubtitlePreview(entry: ZipSubtitleEntry) {
-    openPreviewFromBuffer(entry.fileName || entry.path || "-", entry.data);
+  async function openArchiveSubtitlePreview(entry: ZipSubtitleEntry) {
+    const source = entry.sourceFile || zipPickFile;
+    const entryPath = entry.archiveEntry || entry.path;
+    if (!source || !entryPath) {
+      setPreviewDialogOpen(true);
+      setPreviewTitle(entry.fileName || entry.path || "-");
+      setPreviewStatus("error");
+      setPreviewError(t("details.parseArchiveFailed", { error: "missing archive entry" }));
+      return;
+    }
+    setPreviewDialogOpen(true);
+    setPreviewTitle(entry.fileName || entry.path || "-");
+    setPreviewStatus("loading");
+    setPreviewError("");
+    try {
+      const buffer = await extractArchiveSubtitleEntry(source, entryPath);
+      openPreviewFromBuffer(entry.fileName || entry.path || "-", buffer);
+    } catch (error) {
+      const errText = error instanceof Error ? error.message : String(error);
+      setPreviewStatus("error");
+      setPreviewError(errText);
+    }
   }
 
   async function openZipPicker(file: File, mode: "upload" | "replace", targetSubtitle: Subtitle | null) {
@@ -233,7 +261,7 @@ export function useSubtitleFileWorkflow({
     setZipPickError("");
 
     try {
-      const entries = await extractSubtitleEntriesFromArchiveFile(file);
+      const entries = await listArchiveSubtitleEntries(file);
       if (entries.length === 0) {
         setZipPickError(t("details.noSubtitleFilesInArchive"));
         emitToast({
@@ -250,6 +278,7 @@ export function useSubtitleFileWorkflow({
         setZipUploadLabel(uploadLabel.trim() || "zh");
       }
       setZipPickFileName(file.name);
+      setZipPickFile(file);
       setZipPickEntries(entries);
       setSelectedZipEntryId("");
       setZipPickDialogOpen(true);
@@ -360,13 +389,13 @@ export function useSubtitleFileWorkflow({
   }
 
   async function onZipEntryPicked(entry: ZipSubtitleEntry) {
-    if (!selectedVideo) {
+    if (!selectedVideo || !zipPickFile) {
       return;
     }
 
-    const selectedFile = toSubtitleFile(entry);
+    const archiveEntry = entry.archiveEntry || entry.path;
     if (zipPickMode === "upload") {
-      const success = await onUpload(selectedVideo, selectedFile, zipUploadLabel.trim());
+      const success = await onUpload(selectedVideo, zipPickFile, zipUploadLabel.trim(), { archiveEntry });
       if (success) {
         resetZipPickState();
         onMutationSuccess?.();
@@ -379,7 +408,7 @@ export function useSubtitleFileWorkflow({
       return;
     }
 
-    const success = await onReplace(selectedVideo, zipPickTargetSubtitle, selectedFile);
+    const success = await onReplace(selectedVideo, zipPickTargetSubtitle, zipPickFile, { archiveEntry });
     if (success) {
       resetZipPickState();
       onMutationSuccess?.();

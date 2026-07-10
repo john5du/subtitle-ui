@@ -3,12 +3,16 @@ import type {
   BatchSubtitleUploadResult,
   SubHDDownloadOptions,
   SubHDSearchPage,
+  SubHDSeasonInstallOptions,
+  SubHDSeasonInstallResult,
+  SubHDSeasonPrepareOptions,
+  SubHDSeasonPrepareResult,
   Subtitle,
   SubtitleSourceEncoding,
   SubtitleUploadOptions,
   Video
 } from "@/lib/types";
-import { requestBinary, requestPayload } from "@/lib/subtitle-manager/api-client";
+import { ApiRequestError, requestBinary, requestPayload } from "@/lib/subtitle-manager/api-client";
 import { normalizeForCompare } from "@/lib/subtitle-manager/tv-tree";
 
 import { formatOffsetMilliseconds, type ControllerRuntime } from "./controller-runtime";
@@ -117,6 +121,9 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     const body = new FormData();
     body.append("file", file);
     body.append("label", label || "");
+    if (options.archiveEntry?.trim()) {
+      body.append("archiveEntry", options.archiveEntry.trim());
+    }
     if (options.convertToAss) {
       body.append("convertTo", "ass");
       body.append("sourceEncoding", options.sourceEncoding || "auto");
@@ -150,10 +157,13 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     }
   }
 
-  async function replaceSubtitle(video: Video, subtitle: Subtitle, file: File) {
+  async function replaceSubtitle(video: Video, subtitle: Subtitle, file: File, options: { archiveEntry?: string } = {}) {
     const body = new FormData();
     body.append("file", file);
     body.append("replaceId", subtitle.id);
+    if (options.archiveEntry?.trim()) {
+      body.append("archiveEntry", options.archiveEntry.trim());
+    }
 
     setSubtitleActionPending({
       kind: "replace",
@@ -299,12 +309,70 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     let success = 0;
 
     try {
-      for (const [index, item] of items.entries()) {
-        updateUploadMessage("status.uploadingSubtitleFilesProgress", { current: index + 1, total: items.length });
+      // Group archive items by File identity for one-shot batch-from-archive.
+      const archiveGroups = new Map<File, BatchSubtitleUploadItem[]>();
+      const plainItems: BatchSubtitleUploadItem[] = [];
+      for (const item of items) {
+        if (item.archiveEntry?.trim()) {
+          const list = archiveGroups.get(item.file) || [];
+          list.push(item);
+          archiveGroups.set(item.file, list);
+        } else {
+          plainItems.push(item);
+        }
+      }
+
+      let progress = 0;
+      const bump = () => {
+        progress += 1;
+        updateUploadMessage("status.uploadingSubtitleFilesProgress", { current: progress, total: items.length });
+      };
+
+      for (const [archiveFile, group] of archiveGroups) {
+        const body = new FormData();
+        body.append("file", archiveFile);
+        body.append(
+          "mappings",
+          JSON.stringify(
+            group.map((item) => ({
+              videoId: item.video.id,
+              archiveEntry: item.archiveEntry,
+              label: item.label || ""
+            }))
+          )
+        );
+        try {
+          const result = await requestPayload<{
+            results?: Array<{ videoId: string; archiveEntry: string; ok: boolean; error?: string }>;
+          }>("/api/subtitles/batch-from-archive", { method: "POST", body });
+          const byKey = new Map(
+            (result.results || []).map((row) => [`${row.videoId}\0${row.archiveEntry}`, row])
+          );
+          for (const item of group) {
+            bump();
+            const row = byKey.get(`${item.video.id}\0${item.archiveEntry}`);
+            if (row?.ok) {
+              success += 1;
+              continue;
+            }
+            const source = item.sourceName || item.file.name;
+            errors.push(`${source} -> ${item.video.fileName}: ${row?.error || "upload failed"}`);
+          }
+        } catch (error) {
+          const errorText = error instanceof Error ? error.message : String(error);
+          for (const item of group) {
+            bump();
+            const source = item.sourceName || item.file.name;
+            errors.push(`${source} -> ${item.video.fileName}: ${errorText}`);
+          }
+        }
+      }
+
+      for (const item of plainItems) {
+        bump();
         const body = new FormData();
         body.append("file", item.file);
         body.append("label", item.label || "");
-
         try {
           await requestPayload(`/api/videos/${item.video.id}/subtitles`, { method: "POST", body });
           success += 1;
@@ -403,12 +471,116 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       notifySuccess(runtime.t("toast.subtitleDownloadedTitle"), video.title || video.fileName, sid);
       return true;
     } catch (error) {
+      // Propagate structured multi-entry errors for UI picker; other errors stay toast-only.
+      if (error instanceof ApiRequestError && error.code === "archive_multiple_entries") {
+        throw error;
+      }
       reportRequestError("error.subhdDownloadFailed", error);
       return false;
     } finally {
       endUpload();
       setSubtitleActionPending(null);
     }
+  }
+
+  async function prepareSubHDSeasonPack(options: SubHDSeasonPrepareOptions) {
+    beginUpload("status.downloadingSubtitle");
+    try {
+      return await requestPayload<SubHDSeasonPrepareResult>("/api/subtitles/providers/subhd/season-prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sid: options.sid,
+          videoIds: options.videoIds,
+          languagePreference: options.languagePreference || "any",
+          formatPreference: options.formatPreference || "any",
+          skipExisting: Boolean(options.skipExisting),
+          label: options.label || "zh"
+        })
+      });
+    } catch (error) {
+      reportRequestError("error.subhdDownloadFailed", error);
+      throw error;
+    } finally {
+      endUpload();
+    }
+  }
+
+  async function installSubHDSeasonPack(options: SubHDSeasonInstallOptions): Promise<BatchSubtitleUploadResult> {
+    const mappings = options.mappings || [];
+    if (mappings.length === 0) {
+      return { total: 0, success: 0, failed: 0, errors: [] };
+    }
+    setSubtitleActionPending({
+      kind: "batch",
+      videoId: mappings[0]?.videoId || ""
+    });
+    beginLoading();
+    beginUpload("status.uploadingSubtitleFilesProgress", { current: 0, total: mappings.length });
+    const errors: string[] = [];
+    let success = 0;
+    try {
+      const result = await requestPayload<SubHDSeasonInstallResult>("/api/subtitles/providers/subhd/season-install", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cacheToken: options.cacheToken,
+          mappings: mappings.map((m) => ({
+            videoId: m.videoId,
+            archiveEntry: m.archiveEntry,
+            label: m.label || ""
+          }))
+        })
+      });
+      for (const row of result.results || []) {
+        if (row.ok) {
+          success += 1;
+        } else {
+          errors.push(`${row.archiveEntry || "?"} -> ${row.videoId}: ${row.error || "install failed"}`);
+        }
+      }
+    } catch (error) {
+      const errorText = error instanceof Error ? error.message : String(error);
+      errors.push(errorText);
+    } finally {
+      try {
+        const state = runtime.state;
+        const selectors = runtime.selectors;
+        await Promise.all([
+          loadTvSeriesPage({ page: state.tvSeriesPager.page || 1, force: true }),
+          refreshTvVideosForPath(
+            selectors.selectedTvSeries?.path ||
+              state.selectedTvDirPath ||
+              state.tvEpisodesPath ||
+              selectors.tvRootPath ||
+              state.directoryScan.tvRoot ||
+              ""
+          ),
+          maybeRefreshLogs()
+        ]);
+      } catch (error) {
+        const errorText = error instanceof Error ? error.message : String(error);
+        errors.push(`refresh after season install failed: ${errorText}`);
+      }
+      endUpload();
+      endLoading();
+      setSubtitleActionPending(null);
+    }
+
+    const total = mappings.length;
+    const failed = Math.max(0, total - success);
+    if (failed > 0 || errors.length > 0) {
+      setTranslatedMessage("status.batchFinishedWarnings", { success, total, failed: failed || errors.length });
+      notifyInfo(
+        runtime.t("toast.batchWarningsTitle"),
+        runtime.t("toast.batchWarningsMessage", { success, total }),
+        runtime.t("toast.batchWarningsDetail", { failed: failed || errors.length })
+      );
+    } else {
+      setTranslatedMessage("status.batchFinishedSuccess", { success, total });
+      notifySuccess(runtime.t("toast.batchSuccessTitle"), runtime.t("toast.batchSuccessMessage", { success, total }));
+    }
+    return { total, success, failed, errors };
   }
 
   return {
@@ -421,7 +593,9 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     searchSubHDSubtitles,
     downloadSubHDSubtitle,
     loadTvBatchCandidates,
-    uploadBatchSubtitles
+    uploadBatchSubtitles,
+    prepareSubHDSeasonPack,
+    installSubHDSeasonPack
   };
 }
 

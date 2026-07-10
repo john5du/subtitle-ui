@@ -6,9 +6,9 @@ import {
   parseVideoSeasonEpisode
 } from "@/lib/subtitle-manager/tv-episode";
 import {
-  extractSubtitleEntriesFromArchiveFile,
   isArchiveFileName,
   isSubtitleFileName,
+  listArchiveSubtitleEntries,
   type ZipSubtitleEntry
 } from "@/lib/subtitle-zip";
 
@@ -418,7 +418,7 @@ export async function collectBatchEntriesFromFiles(files: File[]) {
     if (isArchiveFileName(file.name)) {
       let archiveEntries: ZipSubtitleEntry[] = [];
       try {
-        archiveEntries = await extractSubtitleEntriesFromArchiveFile(file);
+        archiveEntries = await listArchiveSubtitleEntries(file);
       } catch (error) {
         const errText = error instanceof Error ? error.message : String(error);
         archiveErrors.push(`${file.name} (${errText})`);
@@ -436,7 +436,8 @@ export async function collectBatchEntriesFromFiles(files: File[]) {
           path: `${file.name}/${entry.path}`,
           fileName: entry.fileName,
           size: entry.size,
-          data: entry.data
+          sourceFile: file,
+          archiveEntry: entry.archiveEntry || entry.path
         });
         index += 1;
       }
@@ -444,13 +445,12 @@ export async function collectBatchEntriesFromFiles(files: File[]) {
     }
 
     if (isSubtitleFileName(file.name)) {
-      const data = await file.arrayBuffer();
       entries.push({
         id: `batch-${index}-${file.name.toLowerCase()}`,
         path: file.name,
         fileName: file.name,
-        size: data.byteLength,
-        data
+        size: file.size,
+        plainFile: file
       });
       index += 1;
       continue;

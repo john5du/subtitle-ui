@@ -3,6 +3,7 @@ package app
 import (
 	"testing"
 
+	"subtitle-ui/backend/internal/archive"
 	"subtitle-ui/backend/internal/domain"
 	"subtitle-ui/backend/internal/provider/subhd"
 )
@@ -26,6 +27,74 @@ func TestBuildSubHDQuery(t *testing.T) {
 	})
 	if q != "Daredevil S01E05" {
 		t.Fatalf("tv got %q", q)
+	}
+}
+
+func TestBuildSubHDSeasonQuery(t *testing.T) {
+	q := BuildSubHDSeasonQuery(domain.Video{
+		MediaType:           domain.MediaTypeTV,
+		SeriesOriginalTitle: "Daredevil",
+		FileName:            "Show.S01E05.mkv",
+	}, 1)
+	if q != "Daredevil S01" {
+		t.Fatalf("got %q", q)
+	}
+}
+
+func TestParseSeasonEpisodeNumbers(t *testing.T) {
+	se := parseSeasonEpisodeNumbers("Show.S01E05.chs.srt")
+	if se == nil || se.Season != 1 || se.Episode != 5 {
+		t.Fatalf("got %+v", se)
+	}
+	se = parseSeasonEpisodeNumbers("Show.1x02.ass")
+	if se == nil || se.Season != 1 || se.Episode != 2 {
+		t.Fatalf("got %+v", se)
+	}
+}
+
+func TestScoreSubHDSeasonPack(t *testing.T) {
+	pack := subhd.SearchResult{
+		Installable: true,
+		Title:       "Daredevil",
+		Version:     "S01 合集 简体",
+		Langs:       []string{"简体"},
+		Format:      "",
+	}
+	ep := subhd.SearchResult{
+		Installable: true,
+		Title:       "Daredevil",
+		Version:     "S01E05",
+		Langs:       []string{"英语"},
+		Format:      "SRT",
+	}
+	if ScoreSubHDSeasonPack(pack, 1) <= ScoreSubHDSeasonPack(ep, 1) {
+		t.Fatalf("pack should score higher")
+	}
+}
+
+func TestSuggestSeasonPackMappings(t *testing.T) {
+	videos := []domain.Video{
+		{ID: "v1", FileName: "Show.S01E01.mkv", Path: "/a/1.mkv"},
+		{ID: "v2", FileName: "Show.S01E02.mkv", Path: "/a/2.mkv"},
+	}
+	entries := []archive.Entry{
+		{Path: "S01E01.chs.srt", FileName: "S01E01.chs.srt", Size: 10},
+		{Path: "S01E01.eng.srt", FileName: "S01E01.eng.srt", Size: 10},
+		{Path: "S01E02.chs.srt", FileName: "S01E02.chs.srt", Size: 10},
+	}
+	suggested, _ := suggestSeasonPackMappings(videos, entries, "simplified", "any", "zh", false)
+	if len(suggested) != 2 {
+		t.Fatalf("want 2 mappings, got %+v", suggested)
+	}
+	byVideo := map[string]string{}
+	for _, m := range suggested {
+		byVideo[m.VideoID] = m.ArchiveEntry
+	}
+	if byVideo["v1"] != "S01E01.chs.srt" {
+		t.Fatalf("v1 entry %q", byVideo["v1"])
+	}
+	if byVideo["v2"] != "S01E02.chs.srt" {
+		t.Fatalf("v2 entry %q", byVideo["v2"])
 	}
 }
 
