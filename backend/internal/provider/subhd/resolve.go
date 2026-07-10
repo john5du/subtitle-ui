@@ -31,6 +31,7 @@ func ResolveInstallable(dl *DownloadedFile, preferredEntry string) (*ResolvedSub
 			Ext:      strings.ToLower(path.Ext(entryName)),
 			Data:     data,
 			Source:   name,
+			URL:      dl.URL,
 		}, nil
 	}
 
@@ -50,6 +51,7 @@ func ResolveInstallable(dl *DownloadedFile, preferredEntry string) (*ResolvedSub
 		Ext:      ext,
 		Data:     dl.Data,
 		Source:   name,
+		URL:      dl.URL,
 	}, nil
 }
 

@@ -80,4 +80,5 @@ type ResolvedSubtitle struct {
 	Ext      string
 	Data     []byte
 	Source   string // original version/name hint
+	URL      string // CDN download URL at fetch time
 }

@@ -13,6 +13,7 @@ const subhdPackCacheMaxEntries = 8
 type subhdPackCacheEntry struct {
 	SID      string
 	FileName string
+	URL      string
 	Data     []byte
 	ExpireAt time.Time
 }
@@ -26,7 +27,7 @@ func newSubHDPackCache() *subhdPackCache {
 	return &subhdPackCache{entries: make(map[string]subhdPackCacheEntry)}
 }
 
-func (c *subhdPackCache) put(sid, fileName string, data []byte) string {
+func (c *subhdPackCache) put(sid, fileName, downloadURL string, data []byte) string {
 	if c == nil {
 		return ""
 	}
@@ -44,6 +45,7 @@ func (c *subhdPackCache) put(sid, fileName string, data []byte) string {
 	c.entries[token] = subhdPackCacheEntry{
 		SID:      sid,
 		FileName: fileName,
+		URL:      downloadURL,
 		Data:     data,
 		ExpireAt: time.Now().Add(subhdPackCacheTTL),
 	}

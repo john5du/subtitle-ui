@@ -13,7 +13,7 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog";
 
-import { getSubtitleSourceDetail } from "./source-utils";
+import { getSubtitleSourceDetail, parseSourceDetailLines } from "./source-utils";
 
 type SubtitleSourceDetailButtonProps = {
   subtitle: Subtitle;
@@ -24,8 +24,9 @@ type SubtitleSourceDetailButtonProps = {
 export function SubtitleSourceDetailButton({ subtitle, sourceLabel, className }: SubtitleSourceDetailButtonProps) {
   const { t } = useI18n();
   const detail = getSubtitleSourceDetail(subtitle);
+  const lines = parseSourceDetailLines(detail);
 
-  if (!detail) {
+  if (!detail || lines.length === 0) {
     return null;
   }
 
@@ -52,9 +53,23 @@ export function SubtitleSourceDetailButton({ subtitle, sourceLabel, className }:
           <p className="text-xs font-semibold text-muted-foreground">
             {t("details.sourceDetail")}
           </p>
-          <p className="surface-panel break-all p-3 text-sm text-foreground">
-            {detail}
-          </p>
+          <div className="surface-panel space-y-2 break-all p-3 text-sm text-foreground">
+            {lines.map((line, index) =>
+              line.href ? (
+                <a
+                  key={`${index}-${line.text}`}
+                  href={line.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-primary underline-offset-2 hover:underline"
+                >
+                  {line.text}
+                </a>
+              ) : (
+                <p key={`${index}-${line.text}`}>{line.text}</p>
+              )
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

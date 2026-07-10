@@ -161,7 +161,7 @@ func (s *Service) PrepareSubHDSeasonPack(ctx context.Context, opts SubHDSeasonPr
 		return SubHDSeasonPrepareResult{}, fmt.Errorf("%w: not an installable subtitle pack", ErrInvalidFileType)
 	}
 
-	token := s.subhdPackCache.put(sid, fileName, dl.Data)
+	token := s.subhdPackCache.put(sid, fileName, strings.TrimSpace(dl.URL), dl.Data)
 	langPref := strings.TrimSpace(strings.ToLower(opts.LanguagePreference))
 	if langPref == "" {
 		langPref = "any"
@@ -204,6 +204,7 @@ func (s *Service) InstallSubHDSeasonPack(ctx context.Context, opts SubHDSeasonIn
 	payload := cached.Data
 	fileName := cached.FileName
 	sid := cached.SID
+	downloadURL := strings.TrimSpace(cached.URL)
 
 	var extracted map[string][]byte
 	var err error
@@ -266,6 +267,7 @@ func (s *Service) InstallSubHDSeasonPack(ctx context.Context, opts SubHDSeasonIn
 			Ext:      ext,
 			Data:     data,
 			Source:   fileName,
+			URL:      downloadURL,
 		}
 		sub, installErr := s.installResolvedSubHD(item.VideoID, sid, resolved, SubHDInstallOptions{Label: label})
 		if installErr != nil {
@@ -343,10 +345,7 @@ func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *sub
 		}
 	}
 
-	detail := fmt.Sprintf("subhd:%s", sid)
-	if base := filepath.Base(resolved.FileName); base != "" && base != "." {
-		detail = detail + ":" + base
-	}
+	detail := buildSubHDSourceDetail(sid, resolved)
 
 	sourceOverrides := map[string]subtitleSourceOverride{
 		subtitleSourceOverrideKey(targetPath): {
