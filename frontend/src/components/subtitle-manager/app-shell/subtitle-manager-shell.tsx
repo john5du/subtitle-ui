@@ -267,7 +267,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
         open={dialogs.movieManagerOpen}
         onOpenChange={handleMovieManagerOpenChange}
       >
-        <DialogDrawerContent className="p-0 [&_[data-slot=close]]:right-5 [&_[data-slot=close]]:top-5 [&_[data-slot=close]]:z-50">
+        <DialogDrawerContent className="p-0 sm:w-[min(680px,94vw)] xl:w-[min(760px,88vw)] [&_[data-slot=close]]:right-5 [&_[data-slot=close]]:top-5 [&_[data-slot=close]]:z-50">
           <MovieSubtitleDrawer
             ref={dialogs.movieDetailsRef}
             selectedVideo={movie.selectedVideo}
