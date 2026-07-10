@@ -8,9 +8,11 @@ import (
 	"io"
 	"path"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/bodgit/sevenzip"
 	"github.com/nwaples/rardecode/v2"
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 const MaxSubtitleEntryBytes = 32 << 20
@@ -123,6 +125,29 @@ type candidate struct {
 
 func normalizeEntryPath(name string) string {
 	return strings.TrimPrefix(strings.ReplaceAll(name, "\\", "/"), "/")
+}
+
+// decodeZipEntryName converts ZIP local-header names to UTF-8.
+// Chinese subtitle packs often store GBK/GB18030 names without the UTF-8 flag;
+// Go keeps those as raw bytes (invalid UTF-8), which JSON later corrupts to U+FFFD
+// so prepare/list keys no longer match install lookups.
+func decodeZipEntryName(name string, nonUTF8 bool) string {
+	_ = nonUTF8
+	if name == "" {
+		return name
+	}
+	// Valid UTF-8 is kept even when NonUTF8 is set (writers often omit the UTF-8 flag).
+	if utf8.ValidString(name) {
+		return name
+	}
+	raw := []byte(name)
+	if decoded, err := simplifiedchinese.GB18030.NewDecoder().Bytes(raw); err == nil {
+		s := string(decoded)
+		if utf8.ValidString(s) && s != "" {
+			return s
+		}
+	}
+	return strings.ToValidUTF8(name, "\uFFFD")
 }
 
 func entryFileName(name string) string {
@@ -249,7 +274,8 @@ func collectZip(data []byte) ([]candidate, error) {
 			continue
 		}
 		file := f
-		considerSubtitleEntry(file.Name, file.UncompressedSize64, func() (io.ReadCloser, error) {
+		entryName := decodeZipEntryName(file.Name, file.NonUTF8)
+		considerSubtitleEntry(entryName, file.UncompressedSize64, func() (io.ReadCloser, error) {
 			return file.Open()
 		}, &candidates)
 	}
