@@ -106,16 +106,16 @@ func (s *Service) InstallFromSubHD(ctx context.Context, videoID string, sid stri
 	return s.installResolvedSubHD(videoID, sid, resolved, opts)
 }
 
-// buildSubHDSourceDetail records SubHD provenance including the CDN URL used at download time.
-func buildSubHDSourceDetail(sid string, resolved *subhd.ResolvedSubtitle) string {
+// buildSubHDSourceDetail records SubHD provenance including the detail page URL.
+func buildSubHDSourceDetail(sid string, resolved *subhd.ResolvedSubtitle, pageURL string) string {
 	detail := fmt.Sprintf("subhd:%s", strings.TrimSpace(sid))
 	if resolved != nil {
 		if base := filepath.Base(resolved.FileName); base != "" && base != "." {
 			detail = detail + ":" + base
 		}
-		if url := strings.TrimSpace(resolved.URL); url != "" {
-			detail = detail + "\n" + url
-		}
+	}
+	if u := strings.TrimSpace(pageURL); u != "" {
+		detail = detail + "\n" + u
 	}
 	return detail
 }

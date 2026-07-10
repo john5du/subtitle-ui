@@ -167,6 +167,15 @@ func (c *Client) Enabled() bool {
 	return c != nil && c.enabled
 }
 
+// PageURL returns the SubHD detail page URL for a subtitle sid.
+func (c *Client) PageURL(sid string) string {
+	sid = strings.TrimSpace(sid)
+	if c == nil || sid == "" {
+		return ""
+	}
+	return c.absURL("/a/" + sid)
+}
+
 func (c *Client) requireEnabled() error {
 	if c == nil || !c.enabled {
 		return ErrDisabled

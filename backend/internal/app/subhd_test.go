@@ -45,12 +45,12 @@ func TestBuildSubHDSourceDetail(t *testing.T) {
 	detail := buildSubHDSourceDetail("abc123", &subhd.ResolvedSubtitle{
 		FileName: "movie.zh.srt",
 		URL:      "https://cdn.example.com/file.srt?token=1",
-	})
-	want := "subhd:abc123:movie.zh.srt\nhttps://cdn.example.com/file.srt?token=1"
+	}, "https://subhd.tv/a/abc123")
+	want := "subhd:abc123:movie.zh.srt\nhttps://subhd.tv/a/abc123"
 	if detail != want {
 		t.Fatalf("got %q want %q", detail, want)
 	}
-	if got := buildSubHDSourceDetail("sid", &subhd.ResolvedSubtitle{FileName: "a.srt"}); got != "subhd:sid:a.srt" {
+	if got := buildSubHDSourceDetail("sid", &subhd.ResolvedSubtitle{FileName: "a.srt"}, ""); got != "subhd:sid:a.srt" {
 		t.Fatalf("no url: %q", got)
 	}
 }

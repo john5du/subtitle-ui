@@ -345,7 +345,11 @@ func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *sub
 		}
 	}
 
-	detail := buildSubHDSourceDetail(sid, resolved)
+	pageURL := ""
+	if client := s.subhdClient(); client != nil {
+		pageURL = client.PageURL(sid)
+	}
+	detail := buildSubHDSourceDetail(sid, resolved, pageURL)
 
 	sourceOverrides := map[string]subtitleSourceOverride{
 		subtitleSourceOverrideKey(targetPath): {
