@@ -237,7 +237,7 @@ export const enMessages = {
   "tv.noSubtitles": "No Subtitles",
   "tv.actionsFor": "Actions for {name}",
   "tv.seasonBatchUpload": "Season Batch Upload",
-  "tv.seasonBatchAction": "Season download",
+  "tv.seasonBatchAction": "Season search",
   "tv.batchDeleteAction": "Batch delete",
   "tv.batchDeleteTitle": "Batch delete subtitles",
   "tv.batchDeleteDescription": "{series} · {count} subtitles",

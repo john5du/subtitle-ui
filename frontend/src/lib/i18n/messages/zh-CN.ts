@@ -239,7 +239,7 @@ export const zhCNMessages: MessageDictionary = {
   "tv.noSubtitles": "无字幕",
   "tv.actionsFor": "{name} 的操作",
   "tv.seasonBatchUpload": "分季批量上传",
-  "tv.seasonBatchAction": "整季下载",
+  "tv.seasonBatchAction": "整季搜索",
   "tv.batchDeleteAction": "批量删除",
   "tv.batchDeleteTitle": "批量删除字幕",
   "tv.batchDeleteDescription": "{series} · 共 {count} 条字幕",

@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useState } from "react";
-import { Clock, Download, Eye, FileArchive, FileCode2, Languages, Pencil, Trash2, UploadCloud } from "lucide-react";
+import { Clock, Eye, FileArchive, FileCode2, Languages, Pencil, Search, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -129,8 +129,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                     disabled={busy}
                     onClick={() => setDownloadDialogOpen(true)}
                   >
-                    {downloadPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-                    <span>{downloadPending ? t("download.downloading") : t("download.action")}</span>
+                    {downloadPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
+                    <span>{downloadPending ? t("download.downloading") : t("download.search")}</span>
                   </Button>
                 ) : null}
                 <Button

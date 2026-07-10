@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, AlertTriangle, Clock, Download, ExternalLink, Eye, FileCode2, Pencil, Trash2, UploadCloud } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Clock, ExternalLink, Eye, FileCode2, Pencil, Search, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import { buildSubtitleSearchLinks, buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
@@ -235,8 +235,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       disabled={busy || workflow.zipLoading || !selectedVideo}
                       onClick={() => setDownloadDialogOpen(true)}
                     >
-                      {downloadPending ? <SpinnerIcon className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-                      <span>{downloadPending ? t("download.downloading") : t("download.action")}</span>
+                      {downloadPending ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                      <span>{downloadPending ? t("download.downloading") : t("download.search")}</span>
                     </Button>
                   ) : null}
                   {showPrimaryUploadButton && (

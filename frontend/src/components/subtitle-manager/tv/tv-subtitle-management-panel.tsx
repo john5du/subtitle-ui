@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Search, Trash2 } from "lucide-react";
 
 import type { PendingSubtitleAction, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
@@ -139,7 +139,7 @@ export function TvSubtitleManagementPanel({
                 onClick={onOpenSeasonBatch}
                 title={t("tv.seasonBatchAction")}
               >
-                <Download className="h-3.5 w-3.5 shrink-0" />
+                <Search className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">{t("tv.seasonBatchAction")}</span>
               </Button>
             ) : null}
