@@ -59,7 +59,8 @@ export function useSubtitleManagerEffects({
 
     const exists = selectors.tvSeasonOptions.some((item) => item.value === state.selectedTvSeason);
     if (!exists) {
-      setSelectedTvSeason(selectors.tvSeasonOptions[0]?.value || "");
+      const latest = selectors.tvSeasonOptions[selectors.tvSeasonOptions.length - 1];
+      setSelectedTvSeason(latest?.value || "");
     }
   }, [selectors.tvSeasonOptions, setSelectedTvSeason, state.selectedTvSeason]);
 

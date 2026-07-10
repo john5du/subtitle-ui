@@ -64,7 +64,9 @@ export function useSubtitleManagerSelectors({
       return selectedTvSeriesVideos;
     }
 
-    const selectedOption = tvSeasonOptions.find((item) => item.value === state.selectedTvSeason) ?? tvSeasonOptions[0];
+    const selectedOption =
+      tvSeasonOptions.find((item) => item.value === state.selectedTvSeason) ??
+      tvSeasonOptions[tvSeasonOptions.length - 1];
     if (!selectedOption?.season) {
       return selectedTvSeriesVideos;
     }
