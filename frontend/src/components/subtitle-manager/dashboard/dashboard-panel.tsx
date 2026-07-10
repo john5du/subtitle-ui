@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 
-import { Activity, AlertTriangle, Database, FolderTree, Search, ScrollText } from "lucide-react";
+import { Database, Search, ScrollText } from "lucide-react";
 
 import { useI18n, type TranslateFn } from "@/lib/i18n";
 import type {
@@ -13,12 +13,12 @@ import type {
 } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-import { LocaleSelect, SubHDSettingsButton, SubtitleConversionSettingsButton } from "../shared/settings-controls";
+import { LocaleSelect, SubHDSettingsPanel, SubtitleConversionSettingsPanel } from "../shared/settings-controls";
 import { OperationLogsDialog } from "../shared/operation-logs-dialog";
 import { SpinnerIcon } from "../shared/pending-state";
 import { ThemeToggle } from "../shared/theme-toggle";
-import { QuickStatCard } from "./quick-stat-card";
 
 function SettingsSection({
   title,
@@ -43,7 +43,7 @@ function SettingsActionRow({
   children: ReactNode;
 }) {
   return (
-    <div className="surface-panel flex min-h-[64px] items-center justify-between gap-3 p-3">
+    <div className="surface-panel flex min-h-[56px] items-center justify-between gap-3 p-3">
       <p className="min-w-0 text-sm font-semibold text-foreground">{label}</p>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>
@@ -59,6 +59,74 @@ function formatDatabaseType(databaseType: VersionInfo["databaseType"] | undefine
     default:
       return "-";
   }
+}
+
+function StatusSummaryBar({
+  scanStatus,
+  directoryScan,
+  pending,
+  operationLocked,
+  scanPending,
+  triggerScan
+}: {
+  scanStatus: ScanStatus | null;
+  directoryScan: DirectoryScanResult;
+  pending: UiPendingState;
+  operationLocked: boolean;
+  scanPending: boolean;
+  triggerScan: () => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const movieCount = directoryScan.movieCount || 0;
+  const tvSeriesCount = directoryScan.tvSeriesCount || 0;
+  const discoveredDirCount = movieCount + tvSeriesCount;
+  const warningCount = directoryScan.errors.length;
+  const scanning = Boolean(scanStatus?.running || scanPending);
+  const isPending = pending.scan || pending.bootstrapping;
+
+  return (
+    <div
+      className={cn(
+        "surface-panel flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+        isPending && "animate-pulse-soft"
+      )}
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
+        <span className={cn("font-medium", scanning ? "text-info-muted" : "text-success-muted")}>
+          {scanning ? t("dashboard.scanInProgress") : t("dashboard.scannerIdle")}
+        </span>
+        <span className="text-border" aria-hidden>
+          ·
+        </span>
+        <span className="text-muted-foreground">{t("dashboard.statusVideos", { count: scanStatus?.videoCount ?? 0 })}</span>
+        <span className="text-border" aria-hidden>
+          ·
+        </span>
+        <span className="text-muted-foreground">
+          {t("dashboard.statusDirs", { count: discoveredDirCount })}
+          <span className="text-foreground-muted"> ({t("dashboard.movieTvCount", { movie: movieCount, tv: tvSeriesCount })})</span>
+        </span>
+        <span className="text-border" aria-hidden>
+          ·
+        </span>
+        <span className={warningCount > 0 ? "font-medium text-warning-muted" : "text-muted-foreground"}>
+          {t("dashboard.statusWarnings", { count: warningCount })}
+        </span>
+      </div>
+
+      <Button
+        type="button"
+        onClick={() => void triggerScan()}
+        disabled={operationLocked}
+        className="h-9 shrink-0 self-start sm:self-auto"
+        aria-label={scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
+        title={scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
+      >
+        {scanPending ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+        {scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
+      </Button>
+    </div>
+  );
 }
 
 export function DashboardPanel({
@@ -92,9 +160,6 @@ export function DashboardPanel({
   onLogsDialogOpenChange?: (open: boolean) => void;
   formatTime: (value: string | undefined | null) => string;
 }) {
-  const movieCount = directoryScan.movieCount || 0;
-  const tvSeriesCount = directoryScan.tvSeriesCount || 0;
-  const discoveredDirCount = movieCount + tvSeriesCount;
   const { t } = useI18n();
   const [logsOpen, setLogsOpen] = useState(false);
 
@@ -105,43 +170,31 @@ export function DashboardPanel({
 
   return (
     <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-4 lg:h-full">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <QuickStatCard
-            icon={<Activity className="h-5 w-5" />}
-            label={t("dashboard.lastScanVideos")}
-            value={String(scanStatus?.videoCount ?? 0)}
-            hint={scanStatus?.running ? t("dashboard.scanInProgress") : t("dashboard.scannerIdle")}
-            tone="success"
-            pending={pending.scan || pending.bootstrapping}
-            className="animate-fade-in-up w-full"
-          />
-          <QuickStatCard
-            icon={<FolderTree className="h-5 w-5" />}
-            label={t("dashboard.discoveredDirs")}
-            value={String(discoveredDirCount)}
-            hint={t("dashboard.movieTvCount", { movie: movieCount, tv: tvSeriesCount })}
-            tone="info"
-            pending={pending.scan || pending.bootstrapping}
-            className="animate-fade-in-up w-full"
-          />
-          <QuickStatCard
-            icon={<AlertTriangle className="h-5 w-5" />}
-            label={t("dashboard.directoryWarnings")}
-            value={String(directoryScan.errors.length)}
-            hint={directoryScan.errors.length > 0 ? t("dashboard.needsReview") : t("dashboard.allClear")}
-            tone={directoryScan.errors.length > 0 ? "destructive" : "warning"}
-            pending={pending.scan || pending.bootstrapping}
-            className="animate-fade-in-up w-full"
-          />
-        </div>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+        <StatusSummaryBar
+          scanStatus={scanStatus}
+          directoryScan={directoryScan}
+          pending={pending}
+          operationLocked={operationLocked}
+          scanPending={scanPending}
+          triggerScan={triggerScan}
+        />
 
-        <div className="surface-panel animate-fade-in-up flex min-h-0 flex-col gap-6 p-4 sm:p-5">
+        <div className="animate-fade-in-up space-y-6">
           <div className="space-y-1">
             <h1 className="text-display text-lg font-semibold uppercase tracking-section text-foreground">{t("settings.title")}</h1>
           </div>
 
-          <div className="grid gap-5">
+          <div className="grid gap-6">
+            <SettingsSection title={t("settings.appearance")}>
+              <SettingsActionRow label={t("locale.label")}>
+                <LocaleSelect />
+              </SettingsActionRow>
+              <SettingsActionRow label={t("sidebar.changeTheme")}>
+                <ThemeToggle />
+              </SettingsActionRow>
+            </SettingsSection>
+
             <SettingsSection title={t("settings.system")}>
               <SettingsActionRow label={t("settings.databaseType")}>
                 <Badge variant="secondary" title={t("settings.databaseType")} aria-label={t("settings.databaseType")} className="gap-2 py-2">
@@ -151,51 +204,17 @@ export function DashboardPanel({
               </SettingsActionRow>
             </SettingsSection>
 
-            <SettingsSection title={t("settings.appearance")}>
-              <SettingsActionRow label={t("locale.label")}>
-                <LocaleSelect menuDirection="down" />
-              </SettingsActionRow>
-              <SettingsActionRow label={t("sidebar.changeTheme")}>
-                <ThemeToggle menuDirection="down" />
-              </SettingsActionRow>
+            <SettingsSection title={t("settings.subhd")}>
+              <SubHDSettingsPanel />
             </SettingsSection>
 
             <SettingsSection title={t("settings.subtitleConversion")}>
-              <SettingsActionRow label={t("conversion.settings")}>
-                <SubtitleConversionSettingsButton />
-              </SettingsActionRow>
-            </SettingsSection>
-
-            <SettingsSection title={t("settings.subhd")}>
-              <SettingsActionRow label={t("subhd.settings")}>
-                <SubHDSettingsButton />
-              </SettingsActionRow>
-            </SettingsSection>
-
-            <SettingsSection title={t("settings.mediaLibrary")}>
-              <SettingsActionRow label={t("sidebar.scanMediaLibrary")}>
-                <Button
-                  type="button"
-                  onClick={() => void triggerScan()}
-                  disabled={operationLocked}
-                  className="h-10"
-                  aria-label={scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
-                  title={scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
-                >
-                  {scanPending ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-                  {scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
-                </Button>
-              </SettingsActionRow>
+              <SubtitleConversionSettingsPanel />
             </SettingsSection>
 
             <SettingsSection title={t("settings.operationLogs")}>
               <SettingsActionRow label={t("logs.title")}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10"
-                  onClick={() => handleLogsOpenChange(true)}
-                >
+                <Button type="button" variant="outline" className="h-10" onClick={() => handleLogsOpenChange(true)}>
                   <ScrollText className="h-4 w-4" />
                   {t("settings.viewOperationLogs")}
                 </Button>
