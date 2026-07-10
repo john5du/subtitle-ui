@@ -15,6 +15,7 @@ import type {
   Video
 } from "@/lib/types";
 import { emitToast } from "@/lib/toast";
+import { parseVideoSeasonEpisode } from "@/lib/subtitle-manager/tv-episode";
 import { buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
 import type { ZipSubtitleEntry } from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
@@ -88,6 +89,16 @@ function parseSeasonNumber(value: string | undefined) {
     return -1;
   }
   return Number.parseInt(match[1], 10);
+}
+
+function filterVideosForSeason(videos: Video[], season: number) {
+  if (season <= 0) {
+    return videos;
+  }
+  return videos.filter((video) => {
+    const parsed = parseVideoSeasonEpisode(video, season);
+    return parsed?.season === season;
+  });
 }
 
 function buildDefaultSeasonQuery(series: TvSeriesSummary | null | undefined, seasonValue: string | undefined, videos: Video[]) {
@@ -355,7 +366,11 @@ export function TvSeasonBatchUploadWorkspace({
     const effectiveLanguagePreference = showBatchLanguageSelector ? batchLanguagePreference : "any";
     const effectiveFormatPreference = showBatchFormatSelector ? normalizeSubtitleFormat(batchFormatPreference) : "any";
     const preferred = applyBatchEntryPreferences(batchRawEntries, effectiveLanguagePreference, effectiveFormatPreference);
-    let rows = buildSeasonBatchRowViews(buildSeasonBatchRows(batchCandidates, preferred.entries), batchCandidates);
+    const defaultSeason = seasonNumber > 0 ? seasonNumber : 0;
+    let rows = buildSeasonBatchRowViews(
+      buildSeasonBatchRows(batchCandidates, preferred.entries, defaultSeason),
+      batchCandidates
+    );
 
     if (sourceMode === "subhd" && subhdSuggestions.length > 0) {
       const suggestionByEntry = new Map(subhdSuggestions.map((m) => [m.archiveEntry, m]));
@@ -389,7 +404,8 @@ export function TvSeasonBatchUploadWorkspace({
     showBatchLanguageSelector,
     showBatchFormatSelector,
     sourceMode,
-    subhdSuggestions
+    subhdSuggestions,
+    seasonNumber
   ]);
 
   const batchSummary = useMemo(() => summarizeSeasonBatchRows(batchRows), [batchRows]);
@@ -418,7 +434,8 @@ export function TvSeasonBatchUploadWorkspace({
     setBatchFilter("all");
 
     try {
-      const candidates = await onLoadBatchCandidates();
+      const loaded = await onLoadBatchCandidates();
+      const candidates = filterVideosForSeason(loaded, seasonNumber);
       if (candidates.length === 0) {
         setBatchBlockingError(t("batch.noEpisodesAvailable"));
         return;
@@ -546,7 +563,7 @@ export function TvSeasonBatchUploadWorkspace({
     try {
       let candidates = batchCandidates;
       if (candidates.length === 0) {
-        candidates = await onLoadBatchCandidates();
+        candidates = filterVideosForSeason(await onLoadBatchCandidates(), seasonNumber);
         setBatchCandidates(candidates);
       }
       const anchor = candidates[0] || seasonVideos[0];
@@ -646,7 +663,9 @@ export function TvSeasonBatchUploadWorkspace({
     try {
       let candidates = batchCandidates;
       if (candidates.length === 0) {
-        candidates = await onLoadBatchCandidates();
+        candidates = filterVideosForSeason(await onLoadBatchCandidates(), seasonNumber);
+      } else {
+        candidates = filterVideosForSeason(candidates, seasonNumber);
       }
       if (candidates.length === 0) {
         setBatchBlockingError(t("batch.noEpisodesAvailable"));
@@ -657,6 +676,7 @@ export function TvSeasonBatchUploadWorkspace({
       const prepared = await onPrepareSubHDSeason({
         sid,
         videoIds: candidates.map((video) => video.id),
+        season: seasonNumber > 0 ? seasonNumber : undefined,
         languagePreference: batchLanguagePreference,
         formatPreference: batchFormatPreference,
         skipExisting,

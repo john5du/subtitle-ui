@@ -168,11 +168,14 @@ export function formatSeasonEpisodeText(season: number | null, episode: number |
   return `S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}`;
 }
 
-export function buildSeasonBatchRows(videos: Video[], entries: ZipSubtitleEntry[]) {
+export function buildSeasonBatchRows(videos: Video[], entries: ZipSubtitleEntry[], defaultSeason = 0) {
   const byEpisode = new Map<string, Video[]>();
   for (const video of videos) {
-    const parsed = parseVideoSeasonEpisode(video);
+    const parsed = parseVideoSeasonEpisode(video, defaultSeason);
     if (!parsed) {
+      continue;
+    }
+    if (defaultSeason > 0 && parsed.season !== defaultSeason) {
       continue;
     }
     const key = `${parsed.season}-${parsed.episode}`;
@@ -182,9 +185,13 @@ export function buildSeasonBatchRows(videos: Video[], entries: ZipSubtitleEntry[
   }
 
   const rows = entries.map((entry) => {
-    const parsed = parseSeasonEpisode(`${entry.path} ${entry.fileName}`);
-    const season = parsed?.season ?? null;
-    const episode = parsed?.episode ?? null;
+    const parsed = parseSeasonEpisode(`${entry.path} ${entry.fileName}`, defaultSeason);
+    let season = parsed?.season ?? null;
+    let episode = parsed?.episode ?? null;
+    if (defaultSeason > 0 && season !== null && season !== defaultSeason) {
+      season = null;
+      episode = null;
+    }
     let autoVideoId = "";
     if (season !== null && episode !== null) {
       const key = `${season}-${episode}`;

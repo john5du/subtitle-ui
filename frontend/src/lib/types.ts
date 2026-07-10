@@ -167,6 +167,8 @@ export interface ArchiveEntryMeta {
 export interface SubHDSeasonPrepareOptions {
   sid: string;
   videoIds: string[];
+  /** Selected season from UI entry; scopes matching and fills episode-only names. */
+  season?: number;
   languagePreference?: string;
   formatPreference?: string;
   skipExisting?: boolean;

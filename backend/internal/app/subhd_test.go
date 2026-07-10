@@ -50,6 +50,31 @@ func TestParseSeasonEpisodeNumbers(t *testing.T) {
 	if se == nil || se.Season != 1 || se.Episode != 2 {
 		t.Fatalf("got %+v", se)
 	}
+
+	// Episode-only needs default season.
+	if se = parseSeasonEpisodeNumbersWithDefault("01.srt", 1); se == nil || se.Season != 1 || se.Episode != 1 {
+		t.Fatalf("bare 01.srt: got %+v", se)
+	}
+	if se = parseSeasonEpisodeNumbersWithDefault("E02.ass", 2); se == nil || se.Season != 2 || se.Episode != 2 {
+		t.Fatalf("E02: got %+v", se)
+	}
+	if se = parseSeasonEpisodeNumbersWithDefault("第03集.srt", 1); se == nil || se.Season != 1 || se.Episode != 3 {
+		t.Fatalf("chinese ep: got %+v", se)
+	}
+	if se = parseSeasonEpisodeNumbersWithDefault("01.chs.srt", 1); se == nil || se.Season != 1 || se.Episode != 1 {
+		t.Fatalf("01.chs: got %+v", se)
+	}
+	if se = parseSeasonEpisodeNumbersWithDefault("S01/02/xxx.srt", 0); se == nil || se.Season != 1 || se.Episode != 2 {
+		t.Fatalf("path season+bare ep: got %+v", se)
+	}
+	// Explicit other season must not be rewritten by defaultSeason.
+	if se = parseSeasonEpisodeNumbersWithDefault("Show.S02E01.srt", 1); se == nil || se.Season != 2 || se.Episode != 1 {
+		t.Fatalf("explicit S02: got %+v", se)
+	}
+	// Without default season, bare numbers do not match.
+	if se = parseSeasonEpisodeNumbers("01.srt"); se != nil {
+		t.Fatalf("bare without default should be nil, got %+v", se)
+	}
 }
 
 func TestPickDoubanIDFromSearch(t *testing.T) {
@@ -94,7 +119,7 @@ func TestSuggestSeasonPackMappings(t *testing.T) {
 		{Path: "S01E01.eng.srt", FileName: "S01E01.eng.srt", Size: 10},
 		{Path: "S01E02.chs.srt", FileName: "S01E02.chs.srt", Size: 10},
 	}
-	suggested, _ := suggestSeasonPackMappings(videos, entries, "simplified", "any", "zh", false)
+	suggested, _ := suggestSeasonPackMappings(videos, entries, "simplified", "any", "zh", false, 0)
 	if len(suggested) != 2 {
 		t.Fatalf("want 2 mappings, got %+v", suggested)
 	}
@@ -107,6 +132,35 @@ func TestSuggestSeasonPackMappings(t *testing.T) {
 	}
 	if byVideo["v2"] != "S01E02.chs.srt" {
 		t.Fatalf("v2 entry %q", byVideo["v2"])
+	}
+}
+
+func TestSuggestSeasonPackMappingsBareEpisodes(t *testing.T) {
+	videos := []domain.Video{
+		{ID: "v1", FileName: "Show.S01E01.mkv", Path: "/a/1.mkv"},
+		{ID: "v2", FileName: "Show.S01E02.mkv", Path: "/a/2.mkv"},
+		{ID: "v3", FileName: "Show.S01E03.mkv", Path: "/a/3.mkv"},
+		{ID: "v4", FileName: "Show.S02E01.mkv", Path: "/b/1.mkv"},
+	}
+	entries := []archive.Entry{
+		{Path: "01.srt", FileName: "01.srt", Size: 10},
+		{Path: "02.srt", FileName: "02.srt", Size: 10},
+		{Path: "03.srt", FileName: "03.srt", Size: 10},
+		{Path: "S02E01.srt", FileName: "S02E01.srt", Size: 10},
+	}
+	suggested, _ := suggestSeasonPackMappings(videos, entries, "any", "any", "zh", false, 1)
+	if len(suggested) != 3 {
+		t.Fatalf("want 3 S01 mappings, got %+v", suggested)
+	}
+	byVideo := map[string]string{}
+	for _, m := range suggested {
+		byVideo[m.VideoID] = m.ArchiveEntry
+	}
+	if byVideo["v1"] != "01.srt" || byVideo["v2"] != "02.srt" || byVideo["v3"] != "03.srt" {
+		t.Fatalf("unexpected mappings %+v", byVideo)
+	}
+	if _, ok := byVideo["v4"]; ok {
+		t.Fatalf("S02 video should not map when season=1: %+v", byVideo)
 	}
 }
 

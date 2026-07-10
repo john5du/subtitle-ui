@@ -51,6 +51,7 @@ type subhdDownloadRequest struct {
 type subhdSeasonPrepareRequest struct {
 	SID                string   `json:"sid"`
 	VideoIDs           []string `json:"videoIds"`
+	Season             int      `json:"season"`
 	LanguagePreference string   `json:"languagePreference"`
 	FormatPreference   string   `json:"formatPreference"`
 	SkipExisting       bool     `json:"skipExisting"`
@@ -504,6 +505,7 @@ func (s *Server) handleSubHDSeasonPrepare(w http.ResponseWriter, r *http.Request
 	result, err := s.service.PrepareSubHDSeasonPack(r.Context(), app.SubHDSeasonPrepareOptions{
 		SID:                strings.TrimSpace(req.SID),
 		VideoIDs:           req.VideoIDs,
+		Season:             req.Season,
 		LanguagePreference: strings.TrimSpace(req.LanguagePreference),
 		FormatPreference:   strings.TrimSpace(req.FormatPreference),
 		SkipExisting:       req.SkipExisting,

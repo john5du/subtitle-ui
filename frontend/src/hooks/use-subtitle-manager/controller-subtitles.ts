@@ -507,6 +507,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
         body: JSON.stringify({
           sid: options.sid,
           videoIds: options.videoIds,
+          season: options.season && options.season > 0 ? options.season : undefined,
           languagePreference: options.languagePreference || "any",
           formatPreference: options.formatPreference || "any",
           skipExisting: Boolean(options.skipExisting),
