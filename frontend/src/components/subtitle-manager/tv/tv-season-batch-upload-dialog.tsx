@@ -965,7 +965,6 @@ export function TvSeasonBatchUploadWorkspace({
               </div>
             ) : (
               <div className="surface-panel space-y-3 p-4">
-                <p className="text-sm text-muted-foreground">{t("batch.sourceDescription")}</p>
                 <Button
                   type="button"
                   disabled={busy || batchPreparing}
