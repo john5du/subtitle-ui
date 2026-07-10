@@ -106,29 +106,27 @@ export function TvSubtitleDrawer({
 
   return (
     <Tabs value={drawerMode} onValueChange={handleModeChange} className="flex h-full min-h-0 w-full flex-col bg-card">
-      <div className="shrink-0 space-y-3 border-b border-border px-5 py-4 pr-12 sm:px-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            {selectedSeriesPrimaryTitle ? (
-              <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
-                <h2 className="min-w-0 max-w-full truncate text-lg font-semibold tracking-tight sm:text-xl" title={selectedSeriesFullTitle}>
-                  {selectedSeriesPrimaryTitle}
-                  {selectedSeriesTitle.secondaryTitle ? (
-                    <span className="ml-2 align-baseline text-sm font-medium text-muted-foreground sm:text-base">
-                      {selectedSeriesTitle.secondaryTitle}
-                    </span>
-                  ) : null}
-                </h2>
-                {selectedSeries ? (
-                  <MediaExternalLinks imdbId={selectedSeries.imdbId} tmdbId={selectedSeries.tmdbId} mediaType="tv" />
+      <div className="shrink-0 space-y-3 border-b border-border px-5 py-4 pr-14 sm:px-6 sm:pr-16">
+        <div className="min-w-0 space-y-2">
+          {selectedSeriesPrimaryTitle ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
+              <h2 className="min-w-0 max-w-full truncate text-lg font-semibold tracking-tight sm:text-xl" title={selectedSeriesFullTitle}>
+                {selectedSeriesPrimaryTitle}
+                {selectedSeriesTitle.secondaryTitle ? (
+                  <span className="ml-2 align-baseline text-sm font-medium text-muted-foreground sm:text-base">
+                    {selectedSeriesTitle.secondaryTitle}
+                  </span>
                 ) : null}
-              </div>
-            ) : null}
-          </div>
+              </h2>
+              {selectedSeries ? (
+                <Badge variant="secondary" className="shrink-0 whitespace-nowrap" title={selectedSeriesCoverageLabel}>
+                  {selectedSeriesCoverageLabel}
+                </Badge>
+              ) : null}
+            </div>
+          ) : null}
           {selectedSeries ? (
-            <Badge variant="secondary" className="shrink-0 whitespace-nowrap" title={selectedSeriesCoverageLabel}>
-              {selectedSeriesCoverageLabel}
-            </Badge>
+            <MediaExternalLinks imdbId={selectedSeries.imdbId} tmdbId={selectedSeries.tmdbId} mediaType="tv" />
           ) : null}
         </div>
         <TabsList className="h-9 w-full max-w-[420px]">
