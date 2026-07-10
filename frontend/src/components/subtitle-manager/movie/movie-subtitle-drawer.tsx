@@ -93,48 +93,46 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-card">
-      <div className="shrink-0 border-b border-border px-5 py-4 pr-12 sm:px-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
-              <h2 className="min-w-0 max-w-full truncate text-lg font-semibold tracking-tight sm:text-xl">{selectedMovieTitle}</h2>
-              {selectedVideo ? (
-                <MediaExternalLinks imdbId={selectedVideo.imdbId} tmdbId={selectedVideo.tmdbId} mediaType="movie" />
-              ) : null}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {canAutoDownload ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8 gap-1.5"
-                  disabled={busy || !selectedVideo}
-                  onClick={() => setDownloadDialogOpen(true)}
-                >
-                  {downloadPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-                  <span>{downloadPending ? t("download.downloading") : t("download.action")}</span>
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8 gap-1.5"
-                  disabled={busy || workflow.zipLoading || !selectedVideo}
-                  onClick={workflow.openUploadPicker}
-                >
-                  {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-3.5 w-3.5" /> : <UploadCloud className="h-3.5 w-3.5" />}
-                  <span>{uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}</span>
-                </Button>
-              )}
-              {workflow.zipLoading ? <InlinePending label={t("details.parsingArchive")} /> : null}
-              {workflow.zipPickError ? <p className="text-sm text-destructive">{workflow.zipPickError}</p> : null}
-            </div>
+      <div className="shrink-0 border-b border-border px-5 py-4 pr-14 sm:px-6 sm:pr-16">
+        <div className="min-w-0 space-y-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <h2 className="min-w-0 max-w-full truncate text-lg font-semibold tracking-tight sm:text-xl">{selectedMovieTitle}</h2>
+            {selectedVideo ? (
+              <Badge variant="secondary" className="shrink-0">
+                {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
+              </Badge>
+            ) : null}
           </div>
           {selectedVideo ? (
-            <Badge variant="secondary" className="shrink-0">
-              {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
-            </Badge>
+            <MediaExternalLinks imdbId={selectedVideo.imdbId} tmdbId={selectedVideo.tmdbId} mediaType="movie" />
           ) : null}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {canAutoDownload ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 gap-1.5"
+                disabled={busy || !selectedVideo}
+                onClick={() => setDownloadDialogOpen(true)}
+              >
+                {downloadPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
+                <span>{downloadPending ? t("download.downloading") : t("download.action")}</span>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 gap-1.5"
+                disabled={busy || workflow.zipLoading || !selectedVideo}
+                onClick={workflow.openUploadPicker}
+              >
+                {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-3.5 w-3.5" /> : <UploadCloud className="h-3.5 w-3.5" />}
+                <span>{uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}</span>
+              </Button>
+            )}
+            {workflow.zipLoading ? <InlinePending label={t("details.parsingArchive")} /> : null}
+            {workflow.zipPickError ? <p className="text-sm text-destructive">{workflow.zipPickError}</p> : null}
+          </div>
         </div>
       </div>
 
