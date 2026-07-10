@@ -8,10 +8,8 @@ import (
 )
 
 var (
-	reDoubanDLink     = regexp.MustCompile(`(?i)href=['"]/d/(\d+)['"]`)
 	reTitlePageH1     = regexp.MustCompile(`(?is)<h1[^>]*>\s*(?:<a[^>]*>)?\s*([^<]+)`)
 	rePackSectionHead = regexp.MustCompile(`(?is)bg-light[^"']*text-danger[^"']*"[^>]*>\s*合集\s*</div>`)
-	reEpisodeSection  = regexp.MustCompile(`(?is)bg-light[^"']*text-danger[^"']*"[^>]*>\s*第\s*\d+\s*集\s*</div>`)
 	reRelatedSeries   = regexp.MustCompile(`同系列作品`)
 	reTitleRow        = regexp.MustCompile(`(?is)<div class="row pt-2 mb-2">`)
 	reViewTextLink    = regexp.MustCompile(`(?is)class="view-text"[^>]*>\s*<a[^>]*href=['"]/a/([A-Za-z0-9]+)['"][^>]*>([^<]*)</a>`)
@@ -69,12 +67,6 @@ func extractPackSection(html string) string {
 	end := len(rest)
 	if m := reRelatedSeries.FindStringIndex(rest); m != nil && m[0] < end {
 		end = m[0]
-	}
-	// Also stop if another episode header appears after packs (defensive).
-	if m := reEpisodeSection.FindStringIndex(rest); m != nil && m[0] < end {
-		// Only cut if episode header is not before packs content start — packs section
-		// should not contain episode headers after the 合集 label.
-		// If an episode header appears after 合集, ignore (shouldn't happen).
 	}
 	return rest[:end]
 }
@@ -187,15 +179,4 @@ func parseTitlePackCard(card, doubanID string) (SearchResult, bool) {
 		DoubanID:    doubanID,
 		Installable: isInstallableFormat(format),
 	}, true
-}
-
-// ExtractDoubanIDFromHTML returns the first /d/{id} or douban poster id found.
-func ExtractDoubanIDFromHTML(html string) string {
-	if m := reDoubanDLink.FindStringSubmatch(html); len(m) >= 2 {
-		return m[1]
-	}
-	if m := reDouban.FindStringSubmatch(html); len(m) >= 2 {
-		return m[1]
-	}
-	return ""
 }

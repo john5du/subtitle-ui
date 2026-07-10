@@ -87,9 +87,3 @@ func (l *limiter) markSuccess() {
 	l.backoffStep = 30 * time.Second
 	l.backoffUntil = time.Time{}
 }
-
-func (l *limiter) blocked() bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return time.Now().Before(l.backoffUntil)
-}

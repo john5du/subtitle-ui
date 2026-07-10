@@ -285,7 +285,6 @@ export const enMessages = {
   "batch.subhd.skipExisting": "Skip episodes that already have subtitles",
   "batch.subhd.selectResult": "Select a SubHD result first",
   "batch.subhd.prepareFirst": "Prepare a SubHD pack before installing",
-  "batch.subhd.empty": "No SubHD results for this query",
   "batch.subhd.noPacks": "No season packs on the SubHD title page for this show",
   "batch.subhd.packBadge": "Pack",
   "batch.subhd.titlePage": "Title page: {title} (douban {id})",

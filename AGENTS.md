@@ -22,7 +22,6 @@ cd frontend && bun run build   # static export → frontend/out
 ```
 
 - Package manager is **bun@1.3.14** (`frontend/package.json` `packageManager`). Use `bun`, not npm/yarn.
-- `bun install` / `predev` / `prebuild` run `prepare:libarchive` (copies libarchive worker assets).
 - Postgres store tests skip unless `TEST_POSTGRES_DSN` is set (creates a per-test schema, then drops it).
 - Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300`. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.
 - Optional FE API override: `NEXT_PUBLIC_API_BASE=http://localhost:9307`.

@@ -287,7 +287,6 @@ export const zhCNMessages: MessageDictionary = {
   "batch.subhd.skipExisting": "跳过已有字幕的分集",
   "batch.subhd.selectResult": "请先选择一条 SubHD 结果",
   "batch.subhd.prepareFirst": "请先准备 SubHD 整包再安装",
-  "batch.subhd.empty": "该查询没有 SubHD 结果",
   "batch.subhd.noPacks": "该剧 SubHD 详情页没有合集字幕",
   "batch.subhd.packBadge": "合集",
   "batch.subhd.titlePage": "详情页：{title}（豆瓣 {id}）",

@@ -7,7 +7,8 @@ import type { SubHDConfig, SubHDDownloadOptions, SubHDSearchPage, SubHDSearchRes
 import { useI18n } from "@/lib/i18n";
 import { ApiRequestError, requestPayload } from "@/lib/subtitle-manager/api-client";
 import { buildSubtitleSearchLinks, buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
-import type { ArchiveEntryMeta, ZipSubtitleEntry } from "@/lib/subtitle-zip";
+import type { ArchiveEntryMeta } from "@/lib/types";
+import type { ZipSubtitleEntry } from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

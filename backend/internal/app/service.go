@@ -79,13 +79,6 @@ func NewService(cfg config.Config) (*Service, error) {
 	return svc, nil
 }
 
-// SetSubHDClient replaces the SubHD client (tests).
-func (s *Service) SetSubHDClient(client *subhd.Client) {
-	s.subhdMu.Lock()
-	s.subhd = client
-	s.subhdMu.Unlock()
-}
-
 func (s *Service) subhdClient() *subhd.Client {
 	s.subhdMu.RLock()
 	defer s.subhdMu.RUnlock()

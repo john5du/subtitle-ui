@@ -110,9 +110,3 @@ func TestUnsupportedAndNotArchive(t *testing.T) {
 		t.Fatalf("want not archive, got %v", err)
 	}
 }
-
-func TestIsArchiveFileName(t *testing.T) {
-	if !IsArchiveFileName("a.ZIP") || IsArchiveFileName("a.srt") {
-		t.Fatal("IsArchiveFileName mismatch")
-	}
-}

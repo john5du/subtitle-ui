@@ -19,8 +19,6 @@ export interface ZipSubtitleEntry {
   cacheToken?: string;
 }
 
-export type { ArchiveEntryMeta };
-
 function normalizePath(pathValue: string) {
   return pathValue.replace(/\\/g, "/").replace(/^\/+/, "");
 }
@@ -84,12 +82,4 @@ export async function extractArchiveSubtitleEntry(file: File, entryPath: string)
   body.append("file", file);
   body.append("entry", entryPath);
   return requestBinary("/api/archives/extract", { method: "POST", body });
-}
-
-/** @deprecated Prefer upload with archiveEntry; kept for plain-file batch rows. */
-export function toSubtitleFile(entry: ZipSubtitleEntry): File {
-  if (entry.plainFile) {
-    return entry.plainFile;
-  }
-  throw new Error("Archive entries must be uploaded via archiveEntry, not toSubtitleFile");
 }

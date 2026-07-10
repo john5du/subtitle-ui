@@ -63,33 +63,9 @@ func (e *MultipleEntriesError) Unwrap() error {
 	return ErrMultipleEntries
 }
 
-// IsMultipleEntries reports whether err is or wraps a multi-entry archive error.
-func IsMultipleEntries(err error) bool {
-	return errors.Is(err, ErrMultipleEntries)
-}
-
-// EntriesFromError returns entry metadata when err is MultipleEntriesError.
-func EntriesFromError(err error) []Entry {
-	var multi *MultipleEntriesError
-	if errors.As(err, &multi) {
-		return multi.Entries
-	}
-	return nil
-}
-
 func IsAllowedSubtitleExt(ext string) bool {
 	_, ok := allowedSubtitleExts[strings.ToLower(ext)]
 	return ok
-}
-
-func IsArchiveFileName(name string) bool {
-	ext := strings.ToLower(path.Ext(name))
-	switch ext {
-	case ".zip", ".7z", ".rar":
-		return true
-	default:
-		return false
-	}
 }
 
 func IsArchive(data []byte, name string) bool {

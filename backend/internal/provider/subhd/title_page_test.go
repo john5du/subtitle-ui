@@ -60,13 +60,6 @@ func TestParseTitlePageNoPackSection(t *testing.T) {
 	}
 }
 
-func TestExtractDoubanIDFromHTML(t *testing.T) {
-	html := `<a href="/d/35908203"><img src="https://img.subhd.me/poster/douban/35908203_600.webp"></a>`
-	if got := ExtractDoubanIDFromHTML(html); got != "35908203" {
-		t.Fatalf("got %q", got)
-	}
-}
-
 func TestParseSearchCardDoubanFromDLink(t *testing.T) {
 	card := `
 <div class="row">

@@ -18,9 +18,10 @@ var (
 	reLangBold    = regexp.MustCompile(`(?is)class="[^"]*fw-bold[^"]*"[^>]*>\s*(简体|繁体|英语|双语)\s*<`)
 	reFormat      = regexp.MustCompile(`(?is)class="[^"]*text-secondary[^"]*"[^>]*>\s*(ASS|SRT|SUP|SSA|VTT|SUB)\s*<`)
 	reAlignTop    = regexp.MustCompile(`(?is)class="align-text-top me-3"[^>]*>\s*([^<]+?)\s*<`)
-	rePublisher   = regexp.MustCompile(`(?i)href=['"]/u/([^'"]+)['"]`)
-	reDouban    = regexp.MustCompile(`(?i)douban/(\d+)`)
-	reTotalPage = regexp.MustCompile(`共\s*(\d+)\s*条`)
+	rePublisher     = regexp.MustCompile(`(?i)href=['"]/u/([^'"]+)['"]`)
+	reDouban        = regexp.MustCompile(`(?i)douban/(\d+)`)
+	reDoubanDLink   = regexp.MustCompile(`(?i)href=['"]/d/(\d+)['"]`)
+	reTotalPage     = regexp.MustCompile(`共\s*(\d+)\s*条`)
 )
 
 // Search fetches and parses SubHD search results.

@@ -3,7 +3,6 @@ package subtitle
 import (
 	"fmt"
 	"io"
-	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
@@ -159,35 +158,6 @@ func BackupFile(path string) (string, error) {
 	}
 
 	return backupPath, nil
-}
-
-func WriteUploadedFile(file multipart.File, target string) error {
-	dir := filepath.Dir(target)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-
-	tmp, err := os.CreateTemp(dir, ".upload-*"+filepath.Ext(target))
-	if err != nil {
-		return err
-	}
-	tmpName := tmp.Name()
-
-	if _, err := io.Copy(tmp, file); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpName)
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpName)
-		return err
-	}
-
-	if err := os.Rename(tmpName, target); err != nil {
-		_ = os.Remove(tmpName)
-		return err
-	}
-	return nil
 }
 
 func WriteFileBytes(data []byte, target string) error {

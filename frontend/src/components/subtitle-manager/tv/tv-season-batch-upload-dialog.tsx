@@ -21,7 +21,6 @@ import type { ZipSubtitleEntry } from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -53,9 +52,7 @@ import {
 
 type BatchSourceMode = "local" | "subhd";
 
-interface TvSeasonBatchUploadDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+interface TvSeasonBatchUploadWorkspaceProps {
   busy: boolean;
   uploading: boolean;
   uploadingMessage: string;
@@ -64,18 +61,10 @@ interface TvSeasonBatchUploadDialogProps {
   selectedSeries?: TvSeriesSummary | null;
   selectedSeason?: string;
   seasonVideos?: Video[];
-  onSearchSubHD?: (video: Video, opts?: { query?: string; page?: number }) => Promise<unknown>;
   onSearchSubHDSeasonPacks?: (video: Video, opts?: { query?: string; season?: number }) => Promise<SubHDSeasonPacksResult>;
   onPrepareSubHDSeason?: (options: SubHDSeasonPrepareOptions) => Promise<SubHDSeasonPrepareResult>;
   onInstallSubHDSeason?: (options: SubHDSeasonInstallOptions) => Promise<BatchSubtitleUploadResult>;
-}
-
-interface TvSeasonBatchUploadWorkspaceProps
-  extends Omit<TvSeasonBatchUploadDialogProps, "open" | "onOpenChange"> {
   className?: string;
-  onRequestClose?: () => void;
-  showCloseButton?: boolean;
-  showSummary?: boolean;
   /** Start SubHD season-pack search when the workspace mounts. */
   autoSearchOnMount?: boolean;
 }
@@ -259,13 +248,10 @@ export function TvSeasonBatchUploadWorkspace({
   selectedSeries = null,
   selectedSeason = "",
   seasonVideos = [],
-  onSearchSubHD,
   onSearchSubHDSeasonPacks,
   onPrepareSubHDSeason,
   onInstallSubHDSeason,
   className,
-  onRequestClose,
-  showCloseButton = false,
   autoSearchOnMount = false
 }: TvSeasonBatchUploadWorkspaceProps) {
   const { t } = useI18n();
@@ -294,7 +280,7 @@ export function TvSeasonBatchUploadWorkspace({
   const [subhdTitlePage, setSubhdTitlePage] = useState<{ doubanId?: string; title?: string; url?: string; message?: string }>({});
   const [skipExisting, setSkipExisting] = useState(true);
 
-  const subhdEnabled = Boolean((onSearchSubHDSeasonPacks || onSearchSubHD) && onPrepareSubHDSeason && onInstallSubHDSeason);
+  const subhdEnabled = Boolean(onSearchSubHDSeasonPacks && onPrepareSubHDSeason && onInstallSubHDSeason);
   const seasonNumber = parseSeasonNumber(selectedSeason);
   const externalSearchLinks = useMemo(
     () => buildSubtitleSearchLinksByKeyword(subhdQuery || buildDefaultSeasonQuery(selectedSeries, selectedSeason, seasonVideos)),
@@ -554,7 +540,7 @@ export function TvSeasonBatchUploadWorkspace({
   }
 
   async function searchSubHDSeason(queryOverride?: string) {
-    if (!onSearchSubHDSeasonPacks && !onSearchSubHD) {
+    if (!onSearchSubHDSeasonPacks) {
       return;
     }
     setSubhdSearching(true);
@@ -573,50 +559,28 @@ export function TvSeasonBatchUploadWorkspace({
       }
 
       const effectiveQuery = (queryOverride ?? subhdQuery).trim();
-      if (onSearchSubHDSeasonPacks) {
-        const page = await onSearchSubHDSeasonPacks(anchor, {
-          query: effectiveQuery || undefined,
-          season: seasonNumber >= 0 ? seasonNumber : undefined
-        });
-        const items = Array.isArray(page.items) ? [...page.items] : [];
-        items.sort((a, b) => scoreSeasonPackResult(b, seasonNumber) - scoreSeasonPackResult(a, seasonNumber));
-        setSubhdResults(items);
-        const best = items.find((item) => item.installable) || items[0];
-        setSelectedSubhdSid(best?.sid || "");
-        if (page.query) {
-          setSubhdQuery(page.query);
-        }
-        setSubhdTitlePage({
-          doubanId: page.doubanId,
-          title: page.title,
-          url: page.titlePageUrl,
-          message: page.message
-        });
-        if (items.length === 0) {
-          setBatchNotices([page.message?.trim() ? page.message : t("batch.subhd.noPacks")]);
-        } else {
-          // Title page is already shown via subhdTitlePage UI; keep notices empty.
-          setBatchNotices([]);
-        }
-        return;
-      }
-
-      // Legacy fallback (should not be used when season-packs API is wired).
-      const page = (await onSearchSubHD!(anchor, { query: effectiveQuery || undefined })) as {
-        items?: SubHDSearchResult[];
-        query?: string;
-      };
+      const page = await onSearchSubHDSeasonPacks(anchor, {
+        query: effectiveQuery || undefined,
+        season: seasonNumber >= 0 ? seasonNumber : undefined
+      });
       const items = Array.isArray(page.items) ? [...page.items] : [];
       items.sort((a, b) => scoreSeasonPackResult(b, seasonNumber) - scoreSeasonPackResult(a, seasonNumber));
       setSubhdResults(items);
-      const best = items.find((item) => item.installable);
+      const best = items.find((item) => item.installable) || items[0];
       setSelectedSubhdSid(best?.sid || "");
       if (page.query) {
         setSubhdQuery(page.query);
       }
+      setSubhdTitlePage({
+        doubanId: page.doubanId,
+        title: page.title,
+        url: page.titlePageUrl,
+        message: page.message
+      });
       if (items.length === 0) {
-        setBatchNotices([t("batch.subhd.empty")]);
+        setBatchNotices([page.message?.trim() ? page.message : t("batch.subhd.noPacks")]);
       } else {
+        // Title page is already shown via subhdTitlePage UI; keep notices empty.
         setBatchNotices([]);
       }
     } catch (error) {
@@ -1214,11 +1178,6 @@ export function TvSeasonBatchUploadWorkspace({
             </div>
 
             <div className="flex shrink-0 flex-col-reverse gap-2 lg:flex-row lg:justify-end">
-              {showCloseButton && onRequestClose ? (
-                <Button type="button" variant="outline" onClick={onRequestClose}>
-                  {t("common.close")}
-                </Button>
-              ) : null}
               <Button
                 type="button"
                 disabled={
@@ -1236,39 +1195,5 @@ export function TvSeasonBatchUploadWorkspace({
         </div>
       ) : null}
     </div>
-  );
-}
-
-export function TvSeasonBatchUploadDialog({
-  open,
-  onOpenChange,
-  busy,
-  uploading,
-  uploadingMessage,
-  onLoadBatchCandidates,
-  onUploadBatch
-}: TvSeasonBatchUploadDialogProps) {
-  const { t } = useI18n();
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[86vh] flex-col overflow-hidden sm:max-w-5xl">
-        <DialogHeader>
-          <DialogTitle>{t("batch.dialogTitle")}</DialogTitle>
-        </DialogHeader>
-
-        <TvSeasonBatchUploadWorkspace
-          className="min-h-0 flex-1"
-          busy={busy}
-          uploading={uploading}
-          uploadingMessage={uploadingMessage}
-          onLoadBatchCandidates={onLoadBatchCandidates}
-          onUploadBatch={onUploadBatch}
-          onRequestClose={() => onOpenChange(false)}
-          showCloseButton={true}
-          showSummary={true}
-        />
-      </DialogContent>
-    </Dialog>
   );
 }

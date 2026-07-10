@@ -363,7 +363,6 @@ export function useSubtitleManagerScreenModel() {
       loadTvWorkspaceOnDemand: tv.loadWorkspace,
       loadTvBatchCandidates: tv.loadBatchCandidates,
       uploadBatchSubtitles: actions.uploadBatchSubtitles,
-      searchSubHDSubtitles: actions.searchSubHDSubtitles,
       searchSubHDSeasonPacks: actions.searchSubHDSeasonPacks,
       prepareSubHDSeasonPack: actions.prepareSubHDSeasonPack,
       installSubHDSeasonPack: actions.installSubHDSeasonPack
@@ -371,7 +370,6 @@ export function useSubtitleManagerScreenModel() {
       actions.installSubHDSeasonPack,
       actions.prepareSubHDSeasonPack,
       actions.searchSubHDSeasonPacks,
-      actions.searchSubHDSubtitles,
       actions.uploadBatchSubtitles,
       movie.loadWorkspace,
       movieManagerOpen,
