@@ -430,6 +430,11 @@ export const zhCNMessages: MessageDictionary = {
   "download.langs": "语言",
   "download.downloads": "下载量",
   "download.queryUsed": "查询：{query}",
+  "download.fallbackSection": "其他方式",
+  "download.uploadLocal": "上传本地字幕 / 压缩包",
+  "download.openSubHDSearch": "在 SubHD 搜索",
+  "download.openZimuku": "在字幕库搜索",
+  "batch.subhd.openExternalHint": "也可在浏览器中搜索字幕站",
 
   "timing.offset": "校时",
   "timing.offsetting": "校时中",

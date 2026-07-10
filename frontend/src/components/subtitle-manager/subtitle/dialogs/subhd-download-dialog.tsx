@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Download, ExternalLink, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Download, ExternalLink, Search, UploadCloud } from "lucide-react";
 
 import type { SubHDConfig, SubHDDownloadOptions, SubHDSearchPage, SubHDSearchResult, Video } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { ApiRequestError, requestPayload } from "@/lib/subtitle-manager/api-client";
+import { buildSubtitleSearchLinks, buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
 import type { ArchiveEntryMeta, ZipSubtitleEntry } from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,12 @@ interface SubHDDownloadDialogProps {
   downloading: boolean;
   onSearch: (video: Video, opts?: { query?: string; page?: number }) => Promise<SubHDSearchPage>;
   onDownload: (video: Video, sid: string, options?: SubHDDownloadOptions) => Promise<boolean>;
+  /** Optional keyword for external search links (defaults to video title/year). */
+  searchKeyword?: string;
+  /** Open local file picker as fallback (parent owns upload workflow). */
+  onUploadLocal?: () => void;
+  uploadLocalPending?: boolean;
+  showExternalSearchLinks?: boolean;
 }
 
 function toZipEntries(entries: ArchiveEntryMeta[]): ZipSubtitleEntry[] {
@@ -49,7 +56,11 @@ export function SubHDDownloadDialog({
   busy,
   downloading,
   onSearch,
-  onDownload
+  onDownload,
+  searchKeyword,
+  onUploadLocal,
+  uploadLocalPending = false,
+  showExternalSearchLinks = true
 }: SubHDDownloadDialogProps) {
   const { t } = useI18n();
   const [query, setQuery] = useState("");
@@ -63,6 +74,22 @@ export function SubHDDownloadDialog({
   const [entryPickEntries, setEntryPickEntries] = useState<ZipSubtitleEntry[]>([]);
   const [selectedEntryId, setSelectedEntryId] = useState("");
   const [entryPickBusy, setEntryPickBusy] = useState(false);
+
+  const externalLinks = useMemo(() => {
+    if (!showExternalSearchLinks) {
+      return null;
+    }
+    const keyword = (searchKeyword || query || "").trim();
+    if (keyword) {
+      return buildSubtitleSearchLinksByKeyword(keyword);
+    }
+    if (video) {
+      return buildSubtitleSearchLinks(video);
+    }
+    return null;
+  }, [query, searchKeyword, showExternalSearchLinks, video]);
+
+  const showFallback = Boolean(onUploadLocal || externalLinks);
 
   const runSearch = useCallback(
     async (videoTarget: Video, nextQuery: string) => {
@@ -283,6 +310,48 @@ export function SubHDDownloadDialog({
               </ScrollArea>
             )}
           </div>
+
+          {showFallback ? (
+            <div className="space-y-2 border-t border-border pt-3">
+              <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
+                {t("download.fallbackSection")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {onUploadLocal ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    disabled={locked}
+                    onClick={() => {
+                      onOpenChange(false);
+                      onUploadLocal();
+                    }}
+                  >
+                    {uploadLocalPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <UploadCloud className="h-3.5 w-3.5" />}
+                    {t("download.uploadLocal")}
+                  </Button>
+                ) : null}
+                {externalLinks ? (
+                  <>
+                    <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                      <a href={externalLinks.subhd} target="_blank" rel="noreferrer">
+                        <span>{t("download.openSubHDSearch")}</span>
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                      </a>
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                      <a href={externalLinks.zimuku} target="_blank" rel="noreferrer">
+                        <span>{t("download.openZimuku")}</span>
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                      </a>
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

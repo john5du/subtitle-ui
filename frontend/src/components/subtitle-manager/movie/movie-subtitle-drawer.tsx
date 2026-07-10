@@ -1,10 +1,9 @@
 "use client";
 
-import { forwardRef, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { Clock, Download, ExternalLink, Eye, FileArchive, FileCode2, Languages, Pencil, Trash2, UploadCloud } from "lucide-react";
+import { forwardRef, useState } from "react";
+import { Clock, Download, Eye, FileArchive, FileCode2, Languages, Pencil, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
-import { buildSubtitleSearchLinks } from "@/lib/subtitle-search";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,9 +70,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   ref
 ) {
   const { t } = useI18n();
-  const dragDepthRef = useRef(0);
   const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-caption";
-  const [dragActive, setDragActive] = useState(false);
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
 
@@ -90,62 +87,9 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     confirmReplace: false
   });
 
-  const searchLinks = useMemo(() => (selectedVideo ? buildSubtitleSearchLinks(selectedVideo) : null), [selectedVideo]);
   const uploadPending = subtitleAction?.kind === "upload" && subtitleAction.videoId === selectedVideo?.id;
   const downloadPending = subtitleAction?.kind === "download" && subtitleAction.videoId === selectedVideo?.id;
   const selectedMovieTitle = selectedVideo?.title || selectedVideo?.fileName || t("details.movieManagementTitle");
-
-  useEffect(() => {
-    setDragActive(false);
-    dragDepthRef.current = 0;
-  }, [selectedVideo?.id]);
-
-  function handleDropzoneDragEnter(event: DragEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (busy || workflow.zipLoading) {
-      return;
-    }
-    dragDepthRef.current += 1;
-    setDragActive(true);
-  }
-
-  function handleDropzoneDragOver(event: DragEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (busy || workflow.zipLoading) {
-      return;
-    }
-    event.dataTransfer.dropEffect = "copy";
-    setDragActive(true);
-  }
-
-  function handleDropzoneDragLeave(event: DragEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (busy || workflow.zipLoading) {
-      return;
-    }
-    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-    if (dragDepthRef.current === 0) {
-      setDragActive(false);
-    }
-  }
-
-  function handleDropzoneDrop(event: DragEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (busy || workflow.zipLoading) {
-      return;
-    }
-    dragDepthRef.current = 0;
-    setDragActive(false);
-    const file = event.dataTransfer.files?.[0] ?? null;
-    if (!file) {
-      return;
-    }
-    void workflow.handlePickedFile(file, "upload", null);
-  }
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-card">
@@ -158,7 +102,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                 <MediaExternalLinks imdbId={selectedVideo.imdbId} tmdbId={selectedVideo.tmdbId} mediaType="movie" />
               ) : null}
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {canAutoDownload ? (
                 <Button
                   type="button"
@@ -170,23 +114,20 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                   {downloadPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
                   <span>{downloadPending ? t("download.downloading") : t("download.action")}</span>
                 </Button>
-              ) : null}
-              {searchLinks ? (
-                <>
-                  <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
-                    <a href={searchLinks.subhd} target="_blank" rel="noreferrer">
-                      <span>SubHD</span>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                    </a>
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
-                    <a href={searchLinks.zimuku} target="_blank" rel="noreferrer">
-                      <span>Zimuku</span>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                    </a>
-                  </Button>
-                </>
-              ) : null}
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  disabled={busy || workflow.zipLoading || !selectedVideo}
+                  onClick={workflow.openUploadPicker}
+                >
+                  {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-3.5 w-3.5" /> : <UploadCloud className="h-3.5 w-3.5" />}
+                  <span>{uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}</span>
+                </Button>
+              )}
+              {workflow.zipLoading ? <InlinePending label={t("details.parsingArchive")} /> : null}
+              {workflow.zipPickError ? <p className="text-sm text-destructive">{workflow.zipPickError}</p> : null}
             </div>
           </div>
           {selectedVideo ? (
@@ -197,6 +138,14 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
         </div>
       </div>
 
+      <input
+        ref={workflow.uploadInputRef}
+        type="file"
+        accept={ACCEPTED_SUBTITLE_UPLOAD_TYPES}
+        className="hidden"
+        onChange={workflow.onUploadFileChange}
+      />
+
       {!selectedVideo ? (
         <div className="flex min-h-0 flex-1 items-center justify-center p-6">
           <div className="surface-panel w-full px-6 py-12 text-center text-sm text-muted-foreground">{emptyText}</div>
@@ -205,54 +154,6 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
         <div className="min-h-0 flex-1">
           <ScrollArea className="h-full">
             <div className="space-y-6 px-5 py-5 sm:px-6">
-              <section className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-semibold uppercase tracking-section text-foreground-muted">{t("movie.drawerUploadTitle")}</h3>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{t("movie.drawerUploadDescription")}</p>
-                  </div>
-                  {workflow.zipLoading ? (
-                    <InlinePending label={t("details.parsingArchive")} />
-                  ) : uploadPending ? (
-                    <InlinePending label={uploadingMessage || t("details.uploading")} />
-                  ) : null}
-                </div>
-
-                <input
-                  ref={workflow.uploadInputRef}
-                  type="file"
-                  accept={ACCEPTED_SUBTITLE_UPLOAD_TYPES}
-                  className="hidden"
-                  onChange={workflow.onUploadFileChange}
-                />
-
-                <button
-                  type="button"
-                  aria-label={t("movie.drawerDropAria")}
-                  className={cn(
-                    "surface-transition flex w-full items-center gap-4 rounded-[var(--radius)] border border-dashed border-border px-4 py-5 text-left",
-                    dragActive ? "bg-surface-strong" : "bg-surface-subtle hover:bg-surface-strong",
-                    (busy || workflow.zipLoading) && "cursor-not-allowed opacity-65"
-                  )}
-                  disabled={busy || workflow.zipLoading}
-                  onClick={workflow.openUploadPicker}
-                  onDragEnter={handleDropzoneDragEnter}
-                  onDragOver={handleDropzoneDragOver}
-                  onDragLeave={handleDropzoneDragLeave}
-                  onDrop={handleDropzoneDrop}
-                >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius)] bg-surface-strong text-foreground">
-                    {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-5 w-5" /> : <UploadCloud className="h-5 w-5" />}
-                  </span>
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="text-sm font-semibold">{dragActive ? t("movie.drawerUploadActive") : t("movie.uploadSubtitleArchive")}</p>
-                    <p className="text-xs text-muted-foreground">{t("movie.drawerUploadHint")}</p>
-                  </div>
-                </button>
-
-                {workflow.zipPickError ? <p className="text-sm text-destructive">{workflow.zipPickError}</p> : null}
-              </section>
-
               <section className="space-y-3">
                 <div>
                   <h3 className="text-sm font-semibold uppercase tracking-section text-foreground-muted">{t("movie.drawerRepositoryTitle")}</h3>
@@ -536,10 +437,12 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
           open={downloadDialogOpen}
           onOpenChange={setDownloadDialogOpen}
           video={selectedVideo}
-          busy={busy}
+          busy={busy || workflow.zipLoading}
           downloading={downloadPending}
           onSearch={onSearchSubHD}
           onDownload={onDownloadSubHD}
+          onUploadLocal={workflow.openUploadPicker}
+          uploadLocalPending={uploadPending || workflow.zipLoading}
         />
       ) : null}
     </div>
