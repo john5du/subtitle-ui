@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 
 import type { PendingSubtitleAction, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
@@ -32,6 +32,7 @@ interface TvSubtitleManagementPanelProps {
   onPreviewSubtitle: SubtitleDetailsPanelProps["onPreviewSubtitle"];
   onSearchSubHD?: SubtitleDetailsPanelProps["onSearchSubHD"];
   onDownloadSubHD?: SubtitleDetailsPanelProps["onDownloadSubHD"];
+  onOpenSeasonBatch?: () => void;
   formatTime: SubtitleDetailsPanelProps["formatTime"];
   busy: boolean;
   uploading: boolean;
@@ -59,6 +60,7 @@ export function TvSubtitleManagementPanel({
   onPreviewSubtitle,
   onSearchSubHD,
   onDownloadSubHD,
+  onOpenSeasonBatch,
   formatTime,
   busy,
   uploading,
@@ -98,18 +100,33 @@ export function TvSubtitleManagementPanel({
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 space-y-2 border-b border-border px-3 py-3">
         <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("tv.seasonLabel")}</p>
-        <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder={t("tv.selectSeason")} />
-          </SelectTrigger>
-          <SelectContent>
-            {seasonOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
+            <SelectTrigger className="h-9 min-w-0 flex-1">
+              <SelectValue placeholder={t("tv.selectSeason")} />
+            </SelectTrigger>
+            <SelectContent>
+              {seasonOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {onOpenSeasonBatch ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 shrink-0 gap-1.5 px-2.5"
+              disabled={!selectedSeries || busy || episodesPending || uploading}
+              onClick={onOpenSeasonBatch}
+              title={t("tv.seasonBatchAction")}
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t("tv.seasonBatchAction")}</span>
+            </Button>
+          ) : null}
+        </div>
         {episodesPending && <InlinePending label={t("tv.loadingEpisodes")} />}
       </div>
 

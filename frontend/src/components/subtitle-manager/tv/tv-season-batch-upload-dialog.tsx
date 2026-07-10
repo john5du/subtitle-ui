@@ -75,6 +75,8 @@ interface TvSeasonBatchUploadWorkspaceProps
   onRequestClose?: () => void;
   showCloseButton?: boolean;
   showSummary?: boolean;
+  /** Start SubHD season-pack search when the workspace mounts. */
+  autoSearchOnMount?: boolean;
 }
 
 function parseSeasonNumber(value: string | undefined) {
@@ -252,10 +254,12 @@ export function TvSeasonBatchUploadWorkspace({
   onInstallSubHDSeason,
   className,
   onRequestClose,
-  showCloseButton = false
+  showCloseButton = false,
+  autoSearchOnMount = false
 }: TvSeasonBatchUploadWorkspaceProps) {
   const { t } = useI18n();
   const batchInputRef = useRef<HTMLInputElement | null>(null);
+  const autoSearchStartedRef = useRef(false);
   const [sourceMode, setSourceMode] = useState<BatchSourceMode>("subhd");
   const [batchPreparing, setBatchPreparing] = useState(false);
   const [batchInputFiles, setBatchInputFiles] = useState<File[]>([]);
@@ -295,6 +299,10 @@ export function TvSeasonBatchUploadWorkspace({
   useEffect(() => {
     setSubhdQuery(buildDefaultSeasonQuery(selectedSeries, selectedSeason, seasonVideos));
   }, [selectedSeries, selectedSeason, seasonVideos]);
+
+  useEffect(() => {
+    autoSearchStartedRef.current = false;
+  }, [selectedSeries?.key, selectedSeason]);
 
   const batchPreferenceEntries = useMemo(() => {
     const archiveEntries = batchRawEntries.filter((entry) => /\.(zip|7z|rar)\//i.test(entry.path));
@@ -386,6 +394,9 @@ export function TvSeasonBatchUploadWorkspace({
 
   const batchSummary = useMemo(() => summarizeSeasonBatchRows(batchRows), [batchRows]);
   const filteredBatchRows = useMemo(() => filterSeasonBatchRowViews(batchRows, batchFilter), [batchRows, batchFilter]);
+  // SubHD: mapping only after prepare (cache token + entries). Local: after files parsed.
+  const showMappingStep = batchRawEntries.length > 0 && (sourceMode !== "subhd" || Boolean(subhdCacheToken));
+  const showSelectStep = !showMappingStep;
 
   async function onBatchFilesSelected(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -506,6 +517,14 @@ export function TvSeasonBatchUploadWorkspace({
     setSubhdSuggestions([]);
   }
 
+  function backToSelectStep() {
+    resetPreparedState();
+    if (sourceMode === "subhd") {
+      // Keep last search results so user can pick another pack without re-searching.
+      setBatchNotices([]);
+    }
+  }
+
   function switchSourceMode(mode: BatchSourceMode) {
     if (mode === sourceMode) {
       return;
@@ -517,7 +536,7 @@ export function TvSeasonBatchUploadWorkspace({
     setSubhdTitlePage({});
   }
 
-  async function searchSubHDSeason() {
+  async function searchSubHDSeason(queryOverride?: string) {
     if (!onSearchSubHDSeasonPacks && !onSearchSubHD) {
       return;
     }
@@ -536,9 +555,10 @@ export function TvSeasonBatchUploadWorkspace({
         return;
       }
 
+      const effectiveQuery = (queryOverride ?? subhdQuery).trim();
       if (onSearchSubHDSeasonPacks) {
         const page = await onSearchSubHDSeasonPacks(anchor, {
-          query: subhdQuery.trim() || undefined,
+          query: effectiveQuery || undefined,
           season: seasonNumber >= 0 ? seasonNumber : undefined
         });
         const items = Array.isArray(page.items) ? [...page.items] : [];
@@ -558,13 +578,14 @@ export function TvSeasonBatchUploadWorkspace({
         if (items.length === 0) {
           setBatchNotices([page.message?.trim() ? page.message : t("batch.subhd.noPacks")]);
         } else {
-          setBatchNotices(page.title ? [t("batch.subhd.titlePage", { title: page.title, id: page.doubanId || "-" })] : []);
+          // Title page is already shown via subhdTitlePage UI; keep notices empty.
+          setBatchNotices([]);
         }
         return;
       }
 
       // Legacy fallback (should not be used when season-packs API is wired).
-      const page = (await onSearchSubHD!(anchor, { query: subhdQuery.trim() || undefined })) as {
+      const page = (await onSearchSubHD!(anchor, { query: effectiveQuery || undefined })) as {
         items?: SubHDSearchResult[];
         query?: string;
       };
@@ -590,6 +611,19 @@ export function TvSeasonBatchUploadWorkspace({
       setSubhdSearching(false);
     }
   }
+
+  useEffect(() => {
+    if (!autoSearchOnMount || !subhdEnabled || autoSearchStartedRef.current) {
+      return;
+    }
+    autoSearchStartedRef.current = true;
+    const query = buildDefaultSeasonQuery(selectedSeries, selectedSeason, seasonVideos);
+    setSourceMode("subhd");
+    setSubhdQuery(query);
+    void searchSubHDSeason(query);
+    // Intentionally run once per open/season; searchSubHDSeason closes over latest callbacks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSearchOnMount, subhdEnabled, selectedSeries?.key, selectedSeason]);
 
   async function prepareSelectedSubHDPack() {
     if (!onPrepareSubHDSeason) {
@@ -772,170 +806,11 @@ export function TvSeasonBatchUploadWorkspace({
       />
 
       <div className="relative min-h-0 flex-1 space-y-4 overflow-auto pr-1">
-        {subhdEnabled ? (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={sourceMode === "local" ? "default" : "outline"}
-              disabled={busy || batchPreparing || uploading}
-              onClick={() => switchSourceMode("local")}
-            >
-              {t("batch.source.local")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={sourceMode === "subhd" ? "default" : "outline"}
-              disabled={busy || batchPreparing || uploading}
-              onClick={() => switchSourceMode("subhd")}
-            >
-              {t("batch.source.subhd")}
-            </Button>
-          </div>
-        ) : null}
-
-        {sourceMode === "subhd" ? (
-          <div className="surface-panel space-y-3 p-3 sm:p-4">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                value={subhdQuery}
-                onChange={(event) => setSubhdQuery(event.target.value)}
-                placeholder={t("batch.subhd.queryPlaceholder")}
-                disabled={busy || batchPreparing || uploading || subhdSearching}
-                className="h-9"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 shrink-0"
-                disabled={busy || batchPreparing || uploading || subhdSearching}
-                onClick={() => void searchSubHDSeason()}
-              >
-                {subhdSearching ? <SpinnerIcon className="h-4 w-4" /> : null}
-                {t("batch.subhd.search")}
-              </Button>
-            </div>
-
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={skipExisting}
-                disabled={busy || batchPreparing || uploading}
-                onChange={(event) => setSkipExisting(event.target.checked)}
-              />
-              {t("batch.subhd.skipExisting")}
-            </label>
-
-            {subhdTitlePage.doubanId ? (
-              <p className="text-xs text-muted-foreground">
-                {t("batch.subhd.titlePage", {
-                  title: subhdTitlePage.title || "-",
-                  id: subhdTitlePage.doubanId
-                })}
-                {subhdTitlePage.url ? (
-                  <>
-                    {" · "}
-                    <a
-                      className="underline underline-offset-2 hover:text-foreground"
-                      href={`https://subhd.tv${subhdTitlePage.url.startsWith("/") ? subhdTitlePage.url : `/${subhdTitlePage.url}`}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {subhdTitlePage.url}
-                    </a>
-                  </>
-                ) : null}
-              </p>
-            ) : null}
-
-            {subhdResults.length > 0 ? (
-              <div className="max-h-48 space-y-2 overflow-auto">
-                {subhdResults.slice(0, 12).map((item) => {
-                  const selected = selectedSubhdSid === item.sid;
-                  return (
-                    <button
-                      key={item.sid}
-                      type="button"
-                      disabled={!item.installable || busy || batchPreparing || uploading}
-                      onClick={() => setSelectedSubhdSid(item.sid)}
-                      className={cn(
-                        "flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm transition-colors",
-                        selected ? "border-primary bg-primary/5" : "border-border hover:bg-surface-hover",
-                        !item.installable && "opacity-50"
-                      )}
-                    >
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Badge variant="secondary">{t("batch.subhd.packBadge")}</Badge>
-                        <span className="font-semibold">{item.version || item.title || item.sid}</span>
-                        {item.format ? <Badge variant="outline">{item.format}</Badge> : null}
-                        {!item.installable ? <Badge variant="secondary">{t("download.notInstallable")}</Badge> : null}
-                      </div>
-                      {item.langs && item.langs.length > 0 ? (
-                        <span className="text-xs text-muted-foreground">{item.langs.join(" / ")}</span>
-                      ) : null}
-                      {item.downloads ? (
-                        <span className="text-xs text-muted-foreground">
-                          {t("download.downloads")}: {item.downloads}
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {!subhdSearching && subhdResults.length === 0 && (batchNotices.length > 0 || subhdTitlePage.message) ? (
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
-                  <a href={externalSearchLinks.subhd} target="_blank" rel="noreferrer">
-                    <span>{t("download.openSubHDSearch")}</span>
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                  </a>
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
-                  <a href={externalSearchLinks.zimuku} target="_blank" rel="noreferrer">
-                    <span>{t("download.openZimuku")}</span>
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                  </a>
-                </Button>
-              </div>
-            ) : null}
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                disabled={!selectedSubhdSid || busy || batchPreparing || uploading || subhdSearching}
-                onClick={() => void prepareSelectedSubHDPack()}
-              >
-                {batchPreparing ? <SpinnerIcon className="h-4 w-4" /> : null}
-                {t("batch.subhd.prepare")}
-              </Button>
-              {subhdPackName ? (
-                <p className="text-xs text-muted-foreground">{t("batch.subhd.prepared", { name: subhdPackName })}</p>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
         {(batchPreparing || uploading || subhdSearching) ? (
           <div className="flex flex-wrap items-center gap-2">
             {batchPreparing ? <InlinePending label={t("batch.preparing")} /> : null}
             {subhdSearching ? <InlinePending label={t("batch.subhd.searching")} /> : null}
             {uploading ? <InlinePending label={uploadingMessage || t("batch.uploadingMapped")} /> : null}
-          </div>
-        ) : null}
-
-        {batchNotices.length > 0 ? (
-          <div className="surface-panel px-4 py-3">
-            <div className="flex items-start gap-3">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              <div className="space-y-2 text-sm text-muted-foreground">
-                {batchNotices.map((notice) => (
-                  <p key={notice}>{notice}</p>
-                ))}
-              </div>
-            </div>
           </div>
         ) : null}
 
@@ -948,197 +823,398 @@ export function TvSeasonBatchUploadWorkspace({
           </div>
         ) : null}
 
-        <div className="min-h-[320px] space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-2">
-              {filterActions.map((item) => (
+        {showSelectStep ? (
+          <>
+            {subhdEnabled ? (
+              <div className="flex flex-wrap gap-2">
                 <Button
-                  key={item.key}
                   type="button"
                   size="sm"
-                  variant={batchFilter === item.key ? "default" : "outline"}
-                  disabled={batchRows.length === 0}
-                  onClick={() => setBatchFilter(item.key)}
-                >
-                  {item.label}
-                  <Badge
-                    variant={batchFilter === item.key ? "secondary" : "outline"}
-                    className={cn(
-                      "px-2 py-0 text-micro",
-                      batchFilter === item.key && "border-transparent bg-primary-foreground/10 text-current"
-                    )}
-                  >
-                    {item.count}
-                  </Badge>
-                </Button>
-              ))}
-            </div>
-            {batchSummary.total > 0 ? <p className="text-sm text-muted-foreground">{filteredBatchRows.length}/{batchSummary.total}</p> : null}
-          </div>
-
-          <div className={cn("space-y-3", batchPreparing && "animate-pulse-soft")}>
-            {filteredBatchRows.length > 0 ? (
-              filteredBatchRows.map((row) => (
-                <MappingRow
-                  key={row.id}
-                  row={row}
-                  videos={batchCandidates}
+                  variant={sourceMode === "subhd" ? "default" : "outline"}
                   disabled={busy || batchPreparing || uploading}
-                  t={t}
-                  onSelectionChange={updateBatchRowSelection}
-                />
-              ))
+                  onClick={() => switchSourceMode("subhd")}
+                >
+                  {t("batch.source.subhd")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={sourceMode === "local" ? "default" : "outline"}
+                  disabled={busy || batchPreparing || uploading}
+                  onClick={() => switchSourceMode("local")}
+                >
+                  {t("batch.source.localFallback")}
+                </Button>
+              </div>
+            ) : null}
+
+            {sourceMode === "subhd" ? (
+              <div className="surface-panel space-y-3 p-3 sm:p-4">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    value={subhdQuery}
+                    onChange={(event) => setSubhdQuery(event.target.value)}
+                    placeholder={t("batch.subhd.queryPlaceholder")}
+                    disabled={busy || batchPreparing || uploading || subhdSearching}
+                    className="h-9"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 shrink-0"
+                    disabled={busy || batchPreparing || uploading || subhdSearching}
+                    onClick={() => void searchSubHDSeason()}
+                  >
+                    {subhdSearching ? <SpinnerIcon className="h-4 w-4" /> : null}
+                    {t("batch.subhd.search")}
+                  </Button>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={skipExisting}
+                    disabled={busy || batchPreparing || uploading}
+                    onChange={(event) => setSkipExisting(event.target.checked)}
+                  />
+                  {t("batch.subhd.skipExisting")}
+                </label>
+
+                {subhdTitlePage.doubanId ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t("batch.subhd.titlePage", {
+                      title: subhdTitlePage.title || "-",
+                      id: subhdTitlePage.doubanId
+                    })}
+                    {subhdTitlePage.url ? (
+                      <>
+                        {" · "}
+                        <a
+                          className="underline underline-offset-2 hover:text-foreground"
+                          href={`https://subhd.tv${subhdTitlePage.url.startsWith("/") ? subhdTitlePage.url : `/${subhdTitlePage.url}`}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {subhdTitlePage.url}
+                        </a>
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
+
+                {batchNotices.length > 0 ? (
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    {batchNotices.map((notice) => (
+                      <p key={notice}>{notice}</p>
+                    ))}
+                  </div>
+                ) : null}
+
+                {subhdResults.length > 0 ? (
+                  <div className="max-h-[min(50vh,420px)] space-y-2 overflow-auto">
+                    {subhdResults.slice(0, 20).map((item) => {
+                      const selected = selectedSubhdSid === item.sid;
+                      return (
+                        <button
+                          key={item.sid}
+                          type="button"
+                          disabled={!item.installable || busy || batchPreparing || uploading}
+                          onClick={() => setSelectedSubhdSid(item.sid)}
+                          className={cn(
+                            "flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                            selected ? "border-primary bg-primary/5" : "border-border hover:bg-surface-hover",
+                            !item.installable && "opacity-50"
+                          )}
+                        >
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge variant="secondary">{t("batch.subhd.packBadge")}</Badge>
+                            <span className="font-semibold">{item.version || item.title || item.sid}</span>
+                            {item.format ? <Badge variant="outline">{item.format}</Badge> : null}
+                            {!item.installable ? <Badge variant="secondary">{t("download.notInstallable")}</Badge> : null}
+                          </div>
+                          {item.langs && item.langs.length > 0 ? (
+                            <span className="text-xs text-muted-foreground">{item.langs.join(" / ")}</span>
+                          ) : null}
+                          {item.downloads ? (
+                            <span className="text-xs text-muted-foreground">
+                              {t("download.downloads")}: {item.downloads}
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {!subhdSearching && subhdResults.length === 0 && (batchNotices.length > 0 || subhdTitlePage.message) ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                      <a href={externalSearchLinks.subhd} target="_blank" rel="noreferrer">
+                        <span>{t("download.openSubHDSearch")}</span>
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                      </a>
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                      <a href={externalSearchLinks.zimuku} target="_blank" rel="noreferrer">
+                        <span>{t("download.openZimuku")}</span>
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                      </a>
+                    </Button>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                  <Button
+                    type="button"
+                    disabled={!selectedSubhdSid || busy || batchPreparing || uploading || subhdSearching}
+                    onClick={() => void prepareSelectedSubHDPack()}
+                  >
+                    {batchPreparing ? <SpinnerIcon className="h-4 w-4" /> : null}
+                    {t("batch.subhd.prepare")}
+                  </Button>
+                </div>
+              </div>
             ) : (
-              <div className="surface-panel px-6 py-10 text-center text-sm text-muted-foreground">
-                {batchRows.length === 0 ? t("batch.empty") : t("batch.filterEmpty")}
+              <div className="surface-panel space-y-3 p-4">
+                <p className="text-sm text-muted-foreground">{t("batch.sourceDescription")}</p>
+                <Button
+                  type="button"
+                  disabled={busy || batchPreparing}
+                  onClick={() => batchInputRef.current?.click()}
+                >
+                  {t("batch.selectFiles")}
+                </Button>
+                {batchNotices.length > 0 ? (
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    {batchNotices.map((notice) => (
+                      <p key={notice}>{notice}</p>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             )}
-          </div>
-        </div>
+          </>
+        ) : null}
 
-        {batchResult ? (
-          <WorkspaceSection
-            icon={<CircleCheck className="h-4 w-4" />}
-            title={t("batch.resultsTitle")}
-          >
-            <div className="space-y-4">
-              <div className="surface-panel px-4 py-3 text-sm">
-                {t("batch.result", {
-                  success: batchResult.success,
-                  total: batchResult.total,
-                  failed: batchResult.failed
-                })}
+        {showMappingStep ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-sm font-semibold">{t("batch.mappingStepTitle")}</p>
+                {sourceMode === "subhd" && subhdPackName ? (
+                  <p className="text-xs text-muted-foreground">{t("batch.subhd.prepared", { name: subhdPackName })}</p>
+                ) : null}
+                {sourceMode === "local" && batchInputFiles.length > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {summarizeBatchInputs(batchInputFiles, batchRawEntries.length, t)}
+                  </p>
+                ) : null}
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                disabled={busy || batchPreparing || uploading}
+                onClick={backToSelectStep}
+              >
+                {t("batch.backToSelect")}
+              </Button>
+            </div>
 
-              {batchResult.errors.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <CircleAlert className="h-4 w-4" />
-                    {t("batch.resultErrorsTitle")}
-                  </div>
-                  <div className="space-y-2">
-                    {batchResult.errors.slice(0, 6).map((item) => (
-                      <div key={item} className="surface-panel px-4 py-3 text-sm break-all">
-                        {item}
-                      </div>
+            {batchNotices.length > 0 ? (
+              <div className="surface-panel px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    {batchNotices.map((notice) => (
+                      <p key={notice}>{notice}</p>
                     ))}
-                    {batchResult.errors.length > 6 ? (
-                      <p className="text-xs text-muted-foreground">{t("batch.summary.more", { count: batchResult.errors.length - 6 })}</p>
-                    ) : null}
                   </div>
                 </div>
-              ) : null}
+              </div>
+            ) : null}
+
+            <div className="space-y-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap gap-2">
+                  {filterActions.map((item) => (
+                    <Button
+                      key={item.key}
+                      type="button"
+                      size="sm"
+                      variant={batchFilter === item.key ? "default" : "outline"}
+                      disabled={batchRows.length === 0}
+                      onClick={() => setBatchFilter(item.key)}
+                    >
+                      {item.label}
+                      <Badge
+                        variant={batchFilter === item.key ? "secondary" : "outline"}
+                        className={cn(
+                          "px-2 py-0 text-micro",
+                          batchFilter === item.key && "border-transparent bg-primary-foreground/10 text-current"
+                        )}
+                      >
+                        {item.count}
+                      </Badge>
+                    </Button>
+                  ))}
+                </div>
+                {batchSummary.total > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {filteredBatchRows.length}/{batchSummary.total}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className={cn("space-y-3", batchPreparing && "animate-pulse-soft")}>
+                {filteredBatchRows.length > 0 ? (
+                  filteredBatchRows.map((row) => (
+                    <MappingRow
+                      key={row.id}
+                      row={row}
+                      videos={batchCandidates}
+                      disabled={busy || batchPreparing || uploading}
+                      t={t}
+                      onSelectionChange={updateBatchRowSelection}
+                    />
+                  ))
+                ) : (
+                  <div className="surface-panel px-6 py-10 text-center text-sm text-muted-foreground">
+                    {batchRows.length === 0 ? t("batch.empty") : t("batch.filterEmpty")}
+                  </div>
+                )}
+              </div>
             </div>
-          </WorkspaceSection>
+
+            {batchResult ? (
+              <WorkspaceSection icon={<CircleCheck className="h-4 w-4" />} title={t("batch.resultsTitle")}>
+                <div className="space-y-4">
+                  <div className="surface-panel px-4 py-3 text-sm">
+                    {t("batch.result", {
+                      success: batchResult.success,
+                      total: batchResult.total,
+                      failed: batchResult.failed
+                    })}
+                  </div>
+                  {batchResult.errors.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm font-semibold">
+                        <CircleAlert className="h-4 w-4" />
+                        {t("batch.resultErrorsTitle")}
+                      </div>
+                      <div className="space-y-2">
+                        {batchResult.errors.slice(0, 6).map((item) => (
+                          <div key={item} className="surface-panel px-4 py-3 text-sm break-all">
+                            {item}
+                          </div>
+                        ))}
+                        {batchResult.errors.length > 6 ? (
+                          <p className="text-xs text-muted-foreground">
+                            {t("batch.summary.more", { count: batchResult.errors.length - 6 })}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </WorkspaceSection>
+            ) : null}
+          </>
         ) : null}
 
         {batchPreparing ? <PanelLoadingOverlay label={t("batch.preparing")} /> : null}
       </div>
 
-      <div className="mt-4 shrink-0 border-t border-border pt-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-            {sourceMode === "local" ? (
-              <div className="space-y-2 lg:shrink-0">
+      {showMappingStep ? (
+        <div className="mt-4 shrink-0 border-t border-border pt-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+              {showBatchLanguageSelector ? (
+                <div className="space-y-2 lg:w-[220px]">
+                  <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
+                    {t("batch.languageType")}
+                  </p>
+                  <Select
+                    value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
+                    onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
+                    disabled={busy || batchPreparing || batchRawEntries.length === 0}
+                  >
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder={t("batch.languageTypePlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {batchLanguageOptions.map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {formatLanguageTypeLabel(item, t)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+
+              {showBatchFormatSelector ? (
+                <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border lg:pl-3">
+                  <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
+                    {t("batch.format")}
+                  </p>
+                  <Select
+                    value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
+                    onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
+                    disabled={busy || batchPreparing || batchRawEntries.length === 0}
+                  >
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder={t("batch.format")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {batchFormatOptions.map((ext) => (
+                        <SelectItem key={ext} value={ext}>
+                          {formatSubtitleExtLabel(ext)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+
+              <div className="space-y-2 lg:w-[180px] lg:border-l lg:border-border lg:pl-3">
                 <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
-                  {t("batch.file")}
+                  {t("batch.label")}
                 </p>
-                <Button
-                  type="button"
-                  variant={batchInputFiles.length > 0 ? "outline" : "default"}
+                <Input
+                  value={batchLabel}
+                  maxLength={32}
+                  placeholder="zh"
+                  className="h-9 w-full"
                   disabled={busy || batchPreparing}
-                  className="w-full lg:w-auto"
-                  onClick={() => batchInputRef.current?.click()}
-                >
-                  {batchInputFiles.length > 0 ? t("batch.reselectFiles") : t("batch.selectFiles")}
+                  onChange={(event) => setBatchLabel(event.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex shrink-0 flex-col-reverse gap-2 lg:flex-row lg:justify-end">
+              {showCloseButton && onRequestClose ? (
+                <Button type="button" variant="outline" onClick={onRequestClose}>
+                  {t("common.close")}
                 </Button>
-              </div>
-            ) : null}
-
-            {showBatchLanguageSelector ? (
-              <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border lg:pl-3">
-                <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
-                  {t("batch.languageType")}
-                </p>
-                <Select
-                  value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
-                  onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
-                  disabled={busy || batchPreparing || batchRawEntries.length === 0}
-                >
-                  <SelectTrigger className="h-9 w-full">
-                    <SelectValue placeholder={t("batch.languageTypePlaceholder")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {batchLanguageOptions.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {formatLanguageTypeLabel(item, t)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
-
-            {showBatchFormatSelector ? (
-              <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border lg:pl-3">
-                <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
-                  {t("batch.format")}
-                </p>
-                <Select
-                  value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
-                  onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
-                  disabled={busy || batchPreparing || batchRawEntries.length === 0}
-                >
-                  <SelectTrigger className="h-9 w-full">
-                    <SelectValue placeholder={t("batch.format")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {batchFormatOptions.map((ext) => (
-                      <SelectItem key={ext} value={ext}>
-                        {formatSubtitleExtLabel(ext)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
-
-            <div className="space-y-2 lg:w-[180px] lg:border-l lg:border-border lg:pl-3">
-              <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
-                {t("batch.label")}
-              </p>
-              <Input
-                value={batchLabel}
-                maxLength={32}
-                placeholder="zh"
-                className="h-9 w-full"
-                disabled={busy || batchPreparing}
-                onChange={(event) => setBatchLabel(event.target.value)}
-              />
+              ) : null}
+              <Button
+                type="button"
+                disabled={
+                  busy ||
+                  batchPreparing ||
+                  batchSummary.mapped === 0 ||
+                  (sourceMode === "subhd" && !subhdCacheToken)
+                }
+                onClick={() => void submitSeasonBatch()}
+              >
+                {sourceMode === "subhd" ? t("batch.subhd.installMapped") : t("batch.uploadMapped")}
+              </Button>
             </div>
           </div>
-
-          <div className="flex shrink-0 flex-col-reverse gap-2 lg:flex-row lg:justify-end">
-            {showCloseButton && onRequestClose ? (
-              <Button type="button" variant="outline" onClick={onRequestClose}>
-                {t("common.close")}
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              disabled={
-                busy ||
-                batchPreparing ||
-                batchSummary.mapped === 0 ||
-                (sourceMode === "subhd" && !subhdCacheToken)
-              }
-              onClick={() => void submitSeasonBatch()}
-            >
-              {sourceMode === "subhd" ? t("batch.subhd.installMapped") : t("batch.uploadMapped")}
-            </Button>
-          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
