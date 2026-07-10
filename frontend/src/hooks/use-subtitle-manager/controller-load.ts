@@ -5,7 +5,8 @@ import {
   normalizeLogsPage,
   normalizePagedVideosResponse,
   normalizeScanStatus,
-  normalizeTvSeriesPage
+  normalizeTvSeriesPage,
+  normalizeVideo
 } from "@/lib/subtitle-manager/normalizers";
 import { normalizeForCompare, pickDefaultTvDirectory } from "@/lib/subtitle-manager/tv-tree";
 
@@ -306,8 +307,9 @@ export function createLoadActions(runtime: ControllerRuntime) {
     return requestTvVideosForPath(directory, { force: true });
   }
 
-  async function loadVideoById(videoId: string) {
-    return requestPayload<Video>(`/api/videos/${encodeURIComponent(videoId)}`);
+  async function loadVideoById(videoId: string, hint?: Partial<Video>) {
+    const payload = await requestPayload<unknown>(`/api/videos/${encodeURIComponent(videoId)}`);
+    return normalizeVideo(payload, hint);
   }
 
   async function loadScanStatus() {

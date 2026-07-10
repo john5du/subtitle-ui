@@ -50,18 +50,24 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
   } = runtime;
   const { loadTvSeriesPage, refreshTvVideosForPath, requestTvVideosForPath, loadLogs, loadVideoById } = load;
 
-  async function applyVideoLocally(video: Video) {
-    if (video.mediaType === "tv") {
-      setters.patchTvEpisode(video);
-      return;
+  function applyVideoLocally(video: Video) {
+    const state = runtime.state;
+    const inMovie = state.movieVideos.some((item) => item.id === video.id);
+    const inTv = state.tvEpisodes.some((item) => item.id === video.id);
+    // Patch every list that currently holds this video so mediaType mismatches cannot drop updates.
+    if (inMovie) {
+      setters.patchMovieVideo(video);
     }
-    setters.patchMovieVideo(video);
+    if (inTv) {
+      setters.patchTvEpisode(video);
+    }
+    return inMovie || inTv;
   }
 
-  async function refreshVideoLocally(videoId: string) {
-    const video = await loadVideoById(videoId);
-    await applyVideoLocally(video);
-    return video;
+  async function refreshVideoLocally(source: Video) {
+    const video = await loadVideoById(source.id, source);
+    const applied = applyVideoLocally(video);
+    return { video, applied };
   }
 
   async function maybeRefreshLogs() {
@@ -71,10 +77,35 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     await loadLogs({ page: 1 });
   }
 
+  async function fallbackRefreshAfterSubtitleMutation(video: Video) {
+    const mediaType = video.mediaType === "tv" ? "tv" : "movie";
+    if (mediaType === "tv") {
+      const videoDirectory = video.directory || "";
+      const matchedSeries = runtime.state.tvSeriesRows.find((row) => isVideoUnderSeriesPath(videoDirectory, row.path));
+      const targetDir =
+        matchedSeries?.path ||
+        runtime.selectors.selectedTvSeries?.path ||
+        runtime.state.selectedTvDirPath ||
+        runtime.state.tvEpisodesPath ||
+        runtime.selectors.tvRootPath ||
+        runtime.state.directoryScan.tvRoot;
+      await Promise.all([
+        loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1, force: true }),
+        refreshTvVideosForPath(targetDir || "")
+      ]);
+      return;
+    }
+
+    const { loadMovieVideos } = load;
+    await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1, force: true });
+  }
+
   async function refreshAfterSubtitleMutation(video: Video, previousSubtitleCount?: number) {
     try {
-      const refreshed = await refreshVideoLocally(video.id);
-      if (video.mediaType === "tv" && typeof previousSubtitleCount === "number") {
+      const { video: refreshed, applied } = await refreshVideoLocally(video);
+      if (!applied) {
+        await fallbackRefreshAfterSubtitleMutation(refreshed);
+      } else if (refreshed.mediaType === "tv" && typeof previousSubtitleCount === "number") {
         const videoDirectory = video.directory || refreshed.directory || "";
         setters.setTvSeriesRows((rows) =>
           rows.map((row) => {
@@ -94,25 +125,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
         );
       }
     } catch {
-      if (video.mediaType === "tv") {
-        const videoDirectory = video.directory || "";
-        const matchedSeries = runtime.state.tvSeriesRows.find((row) => isVideoUnderSeriesPath(videoDirectory, row.path));
-        const targetDir =
-          matchedSeries?.path ||
-          runtime.selectors.selectedTvSeries?.path ||
-          runtime.state.selectedTvDirPath ||
-          runtime.state.tvEpisodesPath ||
-          runtime.selectors.tvRootPath ||
-          runtime.state.directoryScan.tvRoot;
-        await Promise.all([
-          loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1, force: true }),
-          refreshTvVideosForPath(targetDir || "")
-        ]);
-      } else {
-        // Fall back to reloading the current movie page only if local GET fails.
-        const { loadMovieVideos } = load;
-        await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1, force: true });
-      }
+      await fallbackRefreshAfterSubtitleMutation(video);
     }
 
     await maybeRefreshLogs();
