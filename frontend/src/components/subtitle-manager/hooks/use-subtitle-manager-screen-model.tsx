@@ -75,9 +75,9 @@ export function useSubtitleManagerScreenModel() {
 
   const navItems = useMemo<Array<{ key: ActiveTab; icon: ReactNode; label: string }>>(
     () => [
-      { key: "dashboard", icon: <LayoutDashboard className="h-5 w-5" />, label: t("nav.overview") },
+      { key: "tv", icon: <Tv className="h-5 w-5" />, label: t("nav.tv") },
       { key: "movie", icon: <Film className="h-5 w-5" />, label: t("nav.movie") },
-      { key: "tv", icon: <Tv className="h-5 w-5" />, label: t("nav.tv") }
+      { key: "dashboard", icon: <LayoutDashboard className="h-5 w-5" />, label: t("settings.title") }
     ],
     [t]
   );
