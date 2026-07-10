@@ -56,7 +56,7 @@ function createDefaultPager(pageSize = DEFAULT_PAGE_SIZE): Pager {
 
 function createInitialState(): SubtitleManagerState {
   return {
-    activeTab: "dashboard",
+    activeTab: "tv",
     movieVideos: [],
     selectedVideoIdByType: { movie: "", tv: "" },
     tvEpisodes: [],

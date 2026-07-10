@@ -144,6 +144,8 @@ export function useSubtitleManagerEffects({
           controllerRef.current.loadVersionInfo()
         ]);
         setLoadedTabs((prev) => ({ ...prev, dashboard: true }));
+        await controllerRef.current.loadTvSeriesPage({ page: 1 });
+        setLoadedTabs((prev) => ({ ...prev, tv: true }));
       } finally {
         controllerRef.current.finishBootstrapping();
       }
