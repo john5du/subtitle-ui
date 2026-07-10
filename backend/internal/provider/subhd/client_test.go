@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path"
 	"strings"
 	"testing"
@@ -264,11 +265,102 @@ func TestResolveInstallableZip(t *testing.T) {
 	}
 }
 
+func TestResolveInstallableSevenZip(t *testing.T) {
+	data, err := os.ReadFile("testdata/single.7z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ResolveInstallable(&DownloadedFile{SID: "s1", FileName: "pack.7z", Data: data}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Ext != ".srt" || path.Base(got.FileName) != "movie.zh.srt" {
+		t.Fatalf("got %+v", got)
+	}
+	if !strings.Contains(string(got.Data), "hi") {
+		t.Fatalf("unexpected body %q", got.Data)
+	}
+}
+
+func TestResolveInstallableSevenZipPreferred(t *testing.T) {
+	data, err := os.ReadFile("testdata/multi.7z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ResolveInstallable(&DownloadedFile{FileName: "pack.7z", Data: data}, "movie.eng.srt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path.Base(got.FileName) != "movie.eng.srt" {
+		t.Fatalf("got %+v", got)
+	}
+	if !strings.Contains(string(got.Data), "eng") {
+		t.Fatalf("unexpected body %q", got.Data)
+	}
+}
+
 func TestResolveInstallableRAR(t *testing.T) {
+	data, err := os.ReadFile("testdata/single.rar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ResolveInstallable(&DownloadedFile{SID: "s1", FileName: "pack.rar", Data: data}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Ext != ".srt" || path.Base(got.FileName) != "movie.zh.srt" {
+		t.Fatalf("got %+v", got)
+	}
+	if !strings.Contains(string(got.Data), "hi") {
+		t.Fatalf("unexpected body %q", got.Data)
+	}
+}
+
+func TestResolveInstallableRARPreferred(t *testing.T) {
+	data, err := os.ReadFile("testdata/multi.rar")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ResolveInstallable(&DownloadedFile{FileName: "pack.rar", Data: data}, "movie.eng.srt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path.Base(got.FileName) != "movie.eng.srt" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestResolveInstallableRARInvalid(t *testing.T) {
 	data := []byte("Rar!\x1a\x07\x00fake")
 	_, err := ResolveInstallable(&DownloadedFile{FileName: "a.rar", Data: data}, "")
+	if err == nil {
+		t.Fatal("want error for invalid rar")
+	}
+}
+
+func TestResolveInstallableTarRejected(t *testing.T) {
+	// gzip magic
+	data := []byte{0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00}
+	_, err := ResolveInstallable(&DownloadedFile{FileName: "a.tar.gz", Data: data}, "")
 	if err == nil || !strings.Contains(err.Error(), "unsupported archive") {
 		t.Fatalf("want unsupported archive, got %v", err)
+	}
+}
+
+func TestResolveInstallableMultipleEntries(t *testing.T) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, name := range []string{"a.srt", "b.srt"} {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte("1\n00:00:01,000 --> 00:00:02,000\nx\n"))
+	}
+	_ = zw.Close()
+	_, err := ResolveInstallable(&DownloadedFile{FileName: "pack.zip", Data: buf.Bytes()}, "")
+	if err == nil || !strings.Contains(err.Error(), "multiple subtitle") {
+		t.Fatalf("want multiple entries, got %v", err)
 	}
 }
 

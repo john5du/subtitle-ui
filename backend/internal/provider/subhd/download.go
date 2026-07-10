@@ -71,7 +71,7 @@ func (c *Client) Download(ctx context.Context, sid string) (*DownloadedFile, err
 	}, nil
 }
 
-// ResolveInstallable turns a downloaded payload into one subtitle file (zip-aware).
+// ResolveInstallable turns a downloaded payload into one subtitle file (zip/7z/rar-aware).
 func ResolveInstallable(dl *DownloadedFile, preferredEntry string) (*ResolvedSubtitle, error) {
 	if dl == nil || len(dl.Data) == 0 {
 		return nil, fmt.Errorf("%w: empty download", ErrProvider)
@@ -81,31 +81,44 @@ func ResolveInstallable(dl *DownloadedFile, preferredEntry string) (*ResolvedSub
 		name = "subtitle.bin"
 	}
 	ext := strings.ToLower(path.Ext(name))
-	if isZip(dl.Data, ext) {
-		entryName, data, err := extractZipSubtitle(dl.Data, preferredEntry)
-		if err != nil {
-			return nil, err
+
+	var (
+		entryName string
+		data      []byte
+		err       error
+	)
+	switch {
+	case isZip(dl.Data, ext):
+		entryName, data, err = extractZipSubtitle(dl.Data, preferredEntry)
+	case isSevenZip(dl.Data, ext):
+		entryName, data, err = extractSevenZipSubtitle(dl.Data, preferredEntry)
+	case isRar(dl.Data, ext):
+		entryName, data, err = extractRarSubtitle(dl.Data, preferredEntry)
+	case isUnsupportedArchive(dl.Data, ext):
+		if ext == "" {
+			ext = "archive"
+		}
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedArchive, ext)
+	default:
+		if !isAllowedSubtitleExt(ext) {
+			return nil, fmt.Errorf("%w: %s", ErrNotInstallable, ext)
 		}
 		return &ResolvedSubtitle{
 			SID:      dl.SID,
-			FileName: entryName,
-			Ext:      strings.ToLower(path.Ext(entryName)),
-			Data:     data,
+			FileName: name,
+			Ext:      ext,
+			Data:     dl.Data,
 			Source:   name,
 		}, nil
 	}
-	if isUnsupportedArchive(dl.Data, ext) {
-		return nil, fmt.Errorf("%w: %s (use browser download for 7z/rar)", ErrUnsupportedArchive, ext)
-	}
-	if !isAllowedSubtitleExt(ext) {
-		// try sniff by content? still reject non-text formats like SUP
-		return nil, fmt.Errorf("%w: %s", ErrNotInstallable, ext)
+	if err != nil {
+		return nil, err
 	}
 	return &ResolvedSubtitle{
 		SID:      dl.SID,
-		FileName: name,
-		Ext:      ext,
-		Data:     dl.Data,
+		FileName: entryName,
+		Ext:      strings.ToLower(path.Ext(entryName)),
+		Data:     data,
 		Source:   name,
 	}, nil
 }

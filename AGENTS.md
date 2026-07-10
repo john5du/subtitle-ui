@@ -34,7 +34,7 @@ cd frontend && bun run build   # static export → frontend/out
   - `SUBHD_SEARCH_MAX_PAGES=1`
   - `GET /api/videos/{id}/subtitles/providers/subhd/search?q=&page=`
   - `POST /api/videos/{id}/subtitles/providers/subhd/download` JSON `{ "sid", "label?", "replaceId?", "archiveEntry?" }`
-  - Installs sidecar next to video (`source=download`). Zip only; 7z/rar rejected. Rate-limit / captcha handled server-side.
+  - Installs sidecar next to video (`source=download`). Archives: zip/7z/rar (pure-Go). Rate-limit / captcha handled server-side.
 
 ## Layout
 
