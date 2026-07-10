@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -12,7 +11,6 @@ import (
 
 	"subtitle-ui/backend/internal/domain"
 	"subtitle-ui/backend/internal/provider/subhd"
-	"subtitle-ui/backend/internal/subtitle"
 )
 
 // SubHDSearchOptions controls search query overrides.
@@ -104,85 +102,8 @@ func (s *Service) InstallFromSubHD(ctx context.Context, videoID string, sid stri
 		return domain.Subtitle{}, mapSubHDError(err)
 	}
 
-	ext := strings.ToLower(resolved.Ext)
-	if !subtitle.IsValidExtension(ext) {
-		return domain.Subtitle{}, ErrInvalidFileType
-	}
-
-	label := strings.TrimSpace(opts.Label)
-	if label == "" {
-		label = inferLabelFromSubHD(resolved)
-	}
-
-	var targetPath string
-	var backupPath string
-	action := "download"
-	replaceSourcePath := ""
-
-	if opts.ReplaceID != "" {
-		existing, found := findSubtitle(video.Subtitles, opts.ReplaceID)
-		if !found {
-			return domain.Subtitle{}, ErrNotFound
-		}
-		if !s.isWithinMediaRoots(existing.Path) {
-			return domain.Subtitle{}, ErrUnsafePath
-		}
-		replaceSourcePath = existing.Path
-		backupPath, err = subtitle.BackupFile(existing.Path)
-		if err != nil {
-			return domain.Subtitle{}, fmt.Errorf("backup before replace failed: %w", err)
-		}
-		targetPath = subtitle.BuildReplacementSubtitlePath(existing.Path, ext)
-		if !sameFilePath(targetPath, existing.Path) && subtitle.PathExists(targetPath) {
-			return domain.Subtitle{}, fmt.Errorf("%w: subtitle path conflict: %s", ErrBadRequest, filepath.Base(targetPath))
-		}
-		action = "download_replace"
-	} else {
-		targetPath, err = subtitle.BuildNewSubtitlePath(video.Path, label, ext)
-		if err != nil {
-			return domain.Subtitle{}, err
-		}
-	}
-
-	if !s.isWithinMediaRoots(targetPath) {
-		return domain.Subtitle{}, ErrUnsafePath
-	}
-	if err := subtitle.WriteFileBytes(resolved.Data, targetPath); err != nil {
-		return domain.Subtitle{}, err
-	}
-	if replaceSourcePath != "" && !sameFilePath(targetPath, replaceSourcePath) {
-		if err := os.Remove(replaceSourcePath); err != nil {
-			return domain.Subtitle{}, fmt.Errorf("cleanup replaced subtitle failed: %w", err)
-		}
-	}
-
-	detail := fmt.Sprintf("subhd:%s", sid)
-	if base := filepath.Base(resolved.FileName); base != "" && base != "." {
-		detail = detail + ":" + base
-	}
-
-	sourceOverrides := map[string]subtitleSourceOverride{
-		subtitleSourceOverrideKey(targetPath): {
-			Source:       domain.SubtitleSourceDownload,
-			SourceDetail: detail,
-		},
-	}
-	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, targetPath, sourceOverrides)
-	if err != nil {
-		return domain.Subtitle{}, err
-	}
-
-	_ = s.store.AppendLog(domain.OperationLog{
-		ID:         makeID(fmt.Sprintf("%s-%s-%d", action, targetPath, time.Now().UnixNano())),
-		Timestamp:  time.Now().UTC(),
-		Action:     action,
-		VideoID:    updatedVideo.ID,
-		TargetPath: targetPath,
-		BackupPath: backupPath,
-		Status:     "ok",
-		Message:    detail,
-	})
-	return updatedSub, nil
+	_ = video
+	return s.installResolvedSubHD(videoID, sid, resolved, opts)
 }
 
 func buildSubHDQuery(video domain.Video) string {
@@ -282,6 +203,10 @@ func mapSubHDError(err error) error {
 	case errors.Is(err, subhd.ErrUnsupportedArchive):
 		return fmt.Errorf("%w: %v", ErrBadRequest, err)
 	case errors.Is(err, subhd.ErrMultipleEntries):
+		var multi *subhd.MultipleEntriesError
+		if errors.As(err, &multi) {
+			return &ArchiveMultipleEntriesError{Entries: multi.Entries}
+		}
 		return fmt.Errorf("%w: %v", ErrBadRequest, err)
 	case errors.Is(err, subhd.ErrNoSubtitleInArchive):
 		return fmt.Errorf("%w: %v", ErrBadRequest, err)

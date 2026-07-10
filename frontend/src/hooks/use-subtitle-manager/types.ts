@@ -11,7 +11,11 @@ import type {
   ScanStatus,
   SubHDDownloadOptions,
   SubHDSearchPage,
+  SubHDSeasonInstallOptions,
+  SubHDSeasonPrepareOptions,
+  SubHDSeasonPrepareResult,
   Subtitle,
+  SubtitleReplaceOptions,
   SubtitleSourceEncoding,
   SubtitleUploadOptions,
   TvSeasonOption,
@@ -186,7 +190,12 @@ export interface SubtitleManagerActions {
   triggerScan: () => Promise<void>;
   refreshActiveTab: () => Promise<void>;
   uploadSubtitle: (video: Video, file: File, label: string, options?: SubtitleUploadOptions) => Promise<boolean>;
-  replaceSubtitle: (video: Video, subtitle: Subtitle, file: File) => Promise<boolean>;
+  replaceSubtitle: (
+    video: Video,
+    subtitle: Subtitle,
+    file: File,
+    options?: SubtitleReplaceOptions
+  ) => Promise<boolean>;
   convertSubtitleToAss: (video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) => Promise<boolean>;
   offsetSubtitleTiming: (video: Video, subtitle: Subtitle, offsetMs: number) => Promise<boolean>;
   removeSubtitle: (video: Video, subtitle: Subtitle) => Promise<boolean>;
@@ -194,6 +203,8 @@ export interface SubtitleManagerActions {
   searchSubHDSubtitles: (video: Video, opts?: { query?: string; page?: number }) => Promise<SubHDSearchPage>;
   downloadSubHDSubtitle: (video: Video, sid: string, options?: SubHDDownloadOptions) => Promise<boolean>;
   uploadBatchSubtitles: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;
+  prepareSubHDSeasonPack: (options: SubHDSeasonPrepareOptions) => Promise<SubHDSeasonPrepareResult>;
+  installSubHDSeasonPack: (options: SubHDSeasonInstallOptions) => Promise<BatchSubtitleUploadResult>;
 }
 
 export interface SubtitleManagerResult {

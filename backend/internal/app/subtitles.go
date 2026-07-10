@@ -5,12 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"mime/multipart"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"subtitle-ui/backend/internal/archive"
 	"subtitle-ui/backend/internal/domain"
 	"subtitle-ui/backend/internal/subtitle"
 )
@@ -18,6 +21,30 @@ import (
 type SubtitleUploadOptions struct {
 	ConvertTo      string
 	SourceEncoding string
+	ArchiveEntry   string
+}
+
+// ArchiveBatchMapping installs one archive entry onto a video.
+type ArchiveBatchMapping struct {
+	VideoID        string `json:"videoId"`
+	ArchiveEntry   string `json:"archiveEntry"`
+	Label          string `json:"label,omitempty"`
+	ConvertTo      string `json:"convertTo,omitempty"`
+	SourceEncoding string `json:"sourceEncoding,omitempty"`
+}
+
+// ArchiveBatchItemResult is one item from BatchUploadFromArchive.
+type ArchiveBatchItemResult struct {
+	VideoID      string           `json:"videoId"`
+	ArchiveEntry string           `json:"archiveEntry"`
+	OK           bool             `json:"ok"`
+	Subtitle     *domain.Subtitle `json:"subtitle,omitempty"`
+	Error        string           `json:"error,omitempty"`
+}
+
+// ArchiveBatchResult is the batch install response.
+type ArchiveBatchResult struct {
+	Results []ArchiveBatchItemResult `json:"results"`
 }
 
 type SubtitleConvertOptions struct {
@@ -38,12 +65,198 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 }
 
 func (s *Service) UploadSubtitleWithOptions(videoID string, file multipart.File, header *multipart.FileHeader, label string, replaceID string, options SubtitleUploadOptions) (domain.Subtitle, error) {
+	payload, err := io.ReadAll(io.LimitReader(file, 64<<20+1))
+	if err != nil {
+		return domain.Subtitle{}, err
+	}
+	if len(payload) > 64<<20 {
+		return domain.Subtitle{}, fmt.Errorf("%w: file too large", ErrBadRequest)
+	}
+	uploadName := ""
+	if header != nil {
+		uploadName = header.Filename
+	}
+	return s.installSubtitleBytes(videoID, payload, uploadName, label, replaceID, options)
+}
+
+func (s *Service) ListArchiveSubtitleEntries(file multipart.File, header *multipart.FileHeader) ([]archive.Entry, error) {
+	payload, name, err := readUploadPayload(file, header)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := archive.ListSubtitleEntries(payload, name)
+	if err != nil {
+		return nil, mapArchiveError(err)
+	}
+	return entries, nil
+}
+
+func (s *Service) ExtractArchiveSubtitle(file multipart.File, header *multipart.FileHeader, entryPath string) (fileName string, data []byte, err error) {
+	payload, name, err := readUploadPayload(file, header)
+	if err != nil {
+		return "", nil, err
+	}
+	entryPath = strings.TrimSpace(entryPath)
+	if entryPath == "" {
+		return "", nil, fmt.Errorf("%w: missing archive entry", ErrBadRequest)
+	}
+	fileName, data, err = archive.ExtractSubtitle(payload, name, entryPath)
+	if err != nil {
+		return "", nil, mapArchiveError(err)
+	}
+	return fileName, data, nil
+}
+
+func (s *Service) BatchUploadFromArchive(file multipart.File, header *multipart.FileHeader, mappings []ArchiveBatchMapping) (ArchiveBatchResult, error) {
+	payload, name, err := readUploadPayload(file, header)
+	if err != nil {
+		return ArchiveBatchResult{}, err
+	}
+	if len(mappings) == 0 {
+		return ArchiveBatchResult{}, fmt.Errorf("%w: empty mappings", ErrBadRequest)
+	}
+	extracted, err := archive.ExtractAllSubtitles(payload, name)
+	if err != nil {
+		return ArchiveBatchResult{}, mapArchiveError(err)
+	}
+
+	results := make([]ArchiveBatchItemResult, 0, len(mappings))
+	for _, m := range mappings {
+		item := ArchiveBatchItemResult{
+			VideoID:      strings.TrimSpace(m.VideoID),
+			ArchiveEntry: strings.TrimSpace(m.ArchiveEntry),
+		}
+		if item.VideoID == "" || item.ArchiveEntry == "" {
+			item.Error = "missing videoId or archiveEntry"
+			results = append(results, item)
+			continue
+		}
+		data, ok := lookupExtractedEntry(extracted, item.ArchiveEntry)
+		if !ok {
+			item.Error = fmt.Sprintf("archive entry not found: %s", item.ArchiveEntry)
+			results = append(results, item)
+			continue
+		}
+		entryBase := path.Base(strings.ReplaceAll(item.ArchiveEntry, "\\", "/"))
+		uploadName := name + "/" + entryBase
+		sub, installErr := s.installSubtitleBytes(item.VideoID, data, uploadName, m.Label, "", SubtitleUploadOptions{
+			ConvertTo:      m.ConvertTo,
+			SourceEncoding: m.SourceEncoding,
+		})
+		if installErr != nil {
+			item.Error = installErr.Error()
+			results = append(results, item)
+			continue
+		}
+		item.OK = true
+		item.Subtitle = &sub
+		results = append(results, item)
+	}
+	return ArchiveBatchResult{Results: results}, nil
+}
+
+func readUploadPayload(file multipart.File, header *multipart.FileHeader) ([]byte, string, error) {
+	if file == nil {
+		return nil, "", fmt.Errorf("%w: missing file", ErrBadRequest)
+	}
+	payload, err := io.ReadAll(io.LimitReader(file, 64<<20+1))
+	if err != nil {
+		return nil, "", err
+	}
+	if len(payload) > 64<<20 {
+		return nil, "", fmt.Errorf("%w: file too large", ErrBadRequest)
+	}
+	name := "upload.bin"
+	if header != nil && strings.TrimSpace(header.Filename) != "" {
+		name = header.Filename
+	}
+	return payload, name, nil
+}
+
+func lookupExtractedEntry(extracted map[string][]byte, preferred string) ([]byte, bool) {
+	preferred = strings.TrimSpace(preferred)
+	if preferred == "" {
+		return nil, false
+	}
+	if data, ok := extracted[preferred]; ok {
+		return data, true
+	}
+	normPreferred := strings.TrimPrefix(strings.ReplaceAll(preferred, "\\", "/"), "/")
+	if data, ok := extracted[normPreferred]; ok {
+		return data, true
+	}
+	base := path.Base(normPreferred)
+	for key, data := range extracted {
+		if key == preferred || path.Base(key) == base || key == normPreferred {
+			return data, true
+		}
+	}
+	return nil, false
+}
+
+func mapArchiveError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var multi *archive.MultipleEntriesError
+	if errors.As(err, &multi) {
+		return &ArchiveMultipleEntriesError{Entries: multi.Entries}
+	}
+	switch {
+	case errors.Is(err, archive.ErrNoSubtitle):
+		return fmt.Errorf("%w: %v", ErrBadRequest, err)
+	case errors.Is(err, archive.ErrUnsupported), errors.Is(err, archive.ErrNotArchive), errors.Is(err, archive.ErrEntryNotFound):
+		return fmt.Errorf("%w: %v", ErrBadRequest, err)
+	case errors.Is(err, archive.ErrInvalidArchive), errors.Is(err, archive.ErrReadFailed):
+		return fmt.Errorf("%w: %v", ErrBadRequest, err)
+	default:
+		return err
+	}
+}
+
+// ArchiveMultipleEntriesError is returned when an archive needs an explicit entry pick.
+type ArchiveMultipleEntriesError struct {
+	Entries []archive.Entry
+}
+
+func (e *ArchiveMultipleEntriesError) Error() string {
+	if e == nil || len(e.Entries) == 0 {
+		return archive.ErrMultipleEntries.Error()
+	}
+	names := make([]string, 0, len(e.Entries))
+	for _, ent := range e.Entries {
+		names = append(names, ent.Path)
+	}
+	return fmt.Sprintf("%s: %s", archive.ErrMultipleEntries.Error(), strings.Join(names, ", "))
+}
+
+func (e *ArchiveMultipleEntriesError) Unwrap() error {
+	return ErrBadRequest
+}
+
+func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadName string, label string, replaceID string, options SubtitleUploadOptions) (domain.Subtitle, error) {
 	video, ok := s.GetVideo(videoID)
 	if !ok {
 		return domain.Subtitle{}, ErrNotFound
 	}
 
-	ext := strings.ToLower(filepath.Ext(header.Filename))
+	content := payload
+	sourceName := uploadName
+	archiveEntry := strings.TrimSpace(options.ArchiveEntry)
+	if archive.IsArchive(payload, uploadName) || archiveEntry != "" {
+		if !archive.IsArchive(payload, uploadName) {
+			return domain.Subtitle{}, fmt.Errorf("%w: archiveEntry requires an archive upload", ErrBadRequest)
+		}
+		entryName, data, err := archive.ExtractSubtitle(payload, uploadName, archiveEntry)
+		if err != nil {
+			return domain.Subtitle{}, mapArchiveError(err)
+		}
+		content = data
+		sourceName = uploadName + "/" + entryName
+		uploadName = entryName
+	}
+
+	ext := strings.ToLower(filepath.Ext(uploadName))
 	if !subtitle.IsValidExtension(ext) {
 		return domain.Subtitle{}, ErrInvalidFileType
 	}
@@ -95,7 +308,7 @@ func (s *Service) UploadSubtitleWithOptions(videoID string, file multipart.File,
 	if !s.isWithinMediaRoots(targetPath) {
 		return domain.Subtitle{}, ErrUnsafePath
 	}
-	if err := subtitle.WriteUploadedFile(file, targetPath); err != nil {
+	if err := subtitle.WriteFileBytes(content, targetPath); err != nil {
 		return domain.Subtitle{}, err
 	}
 	if replaceSourcePath != "" && !sameFilePath(targetPath, replaceSourcePath) {
@@ -107,7 +320,7 @@ func (s *Service) UploadSubtitleWithOptions(videoID string, file multipart.File,
 	sourceOverrides := map[string]subtitleSourceOverride{
 		subtitleSourceOverrideKey(targetPath): {
 			Source:       domain.SubtitleSourceUpload,
-			SourceDetail: subtitleSourceDetailFromUpload(header.Filename, targetPath),
+			SourceDetail: subtitleSourceDetailFromUpload(sourceName, targetPath),
 		},
 	}
 	selectedTargetPath := targetPath

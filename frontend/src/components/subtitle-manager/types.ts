@@ -1,7 +1,9 @@
 import type {
   PendingSubtitleAction,
   SubHDSearchPage,
+  SubHDDownloadOptions,
   Subtitle,
+  SubtitleReplaceOptions,
   SubtitleSourceEncoding,
   SubtitleUploadOptions,
   Video
@@ -67,13 +69,13 @@ export interface SubtitleDetailsPanelProps {
   onBack: () => void;
   infoRows: SubtitleDetailsInfoRow[];
   onUpload: (video: Video, file: File, label: string, options?: SubtitleUploadOptions) => Promise<boolean>;
-  onReplace: (video: Video, subtitle: Subtitle, file: File) => Promise<boolean>;
+  onReplace: (video: Video, subtitle: Subtitle, file: File, options?: SubtitleReplaceOptions) => Promise<boolean>;
   onConvertSubtitle: (video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) => Promise<boolean>;
   onOffsetSubtitle: (video: Video, subtitle: Subtitle, offsetMs: number) => Promise<boolean>;
   onRemove: (video: Video, subtitle: Subtitle) => Promise<boolean>;
   onPreviewSubtitle: (video: Video, subtitle: Subtitle) => Promise<ArrayBuffer>;
   onSearchSubHD?: (video: Video, opts?: { query?: string; page?: number }) => Promise<SubHDSearchPage>;
-  onDownloadSubHD?: (video: Video, sid: string) => Promise<boolean>;
+  onDownloadSubHD?: (video: Video, sid: string, options?: SubHDDownloadOptions) => Promise<boolean>;
   formatTime: (value: string | undefined | null) => string;
   busy: boolean;
   uploading: boolean;

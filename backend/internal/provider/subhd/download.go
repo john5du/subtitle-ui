@@ -71,58 +71,6 @@ func (c *Client) Download(ctx context.Context, sid string) (*DownloadedFile, err
 	}, nil
 }
 
-// ResolveInstallable turns a downloaded payload into one subtitle file (zip/7z/rar-aware).
-func ResolveInstallable(dl *DownloadedFile, preferredEntry string) (*ResolvedSubtitle, error) {
-	if dl == nil || len(dl.Data) == 0 {
-		return nil, fmt.Errorf("%w: empty download", ErrProvider)
-	}
-	name := dl.FileName
-	if name == "" {
-		name = "subtitle.bin"
-	}
-	ext := strings.ToLower(path.Ext(name))
-
-	var (
-		entryName string
-		data      []byte
-		err       error
-	)
-	switch {
-	case isZip(dl.Data, ext):
-		entryName, data, err = extractZipSubtitle(dl.Data, preferredEntry)
-	case isSevenZip(dl.Data, ext):
-		entryName, data, err = extractSevenZipSubtitle(dl.Data, preferredEntry)
-	case isRar(dl.Data, ext):
-		entryName, data, err = extractRarSubtitle(dl.Data, preferredEntry)
-	case isUnsupportedArchive(dl.Data, ext):
-		if ext == "" {
-			ext = "archive"
-		}
-		return nil, fmt.Errorf("%w: %s", ErrUnsupportedArchive, ext)
-	default:
-		if !isAllowedSubtitleExt(ext) {
-			return nil, fmt.Errorf("%w: %s", ErrNotInstallable, ext)
-		}
-		return &ResolvedSubtitle{
-			SID:      dl.SID,
-			FileName: name,
-			Ext:      ext,
-			Data:     dl.Data,
-			Source:   name,
-		}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &ResolvedSubtitle{
-		SID:      dl.SID,
-		FileName: entryName,
-		Ext:      strings.ToLower(path.Ext(entryName)),
-		Data:     data,
-		Source:   name,
-	}, nil
-}
-
 func (c *Client) primeToken(ctx context.Context, httpClient *http.Client, detailURL string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, detailURL, nil)
 	if err != nil {
