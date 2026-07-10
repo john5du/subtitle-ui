@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useState, type DragEvent } from "react";
+import { forwardRef, useState } from "react";
 import { Clock, Download, Eye, FileArchive, FileCode2, Languages, Pencil, Trash2, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
@@ -73,7 +73,6 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   const { t } = useI18n();
   const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-caption";
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
-  const [dropActive, setDropActive] = useState(false);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
 
   const workflow = useSubtitleFileWorkflow({
@@ -93,59 +92,6 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   const downloadPending = subtitleAction?.kind === "download" && subtitleAction.videoId === selectedVideo?.id;
   const selectedMovieTitle = selectedVideo?.title || selectedVideo?.fileName || t("details.movieManagementTitle");
   const uploadDisabled = busy || workflow.zipLoading || !selectedVideo;
-  const dropzoneDisabled = uploadDisabled;
-
-  const handleDropZoneDragEnter = useCallback(
-    (event: DragEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (dropzoneDisabled) {
-        return;
-      }
-      setDropActive(true);
-    },
-    [dropzoneDisabled]
-  );
-
-  const handleDropZoneDragOver = useCallback(
-    (event: DragEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (dropzoneDisabled) {
-        return;
-      }
-      event.dataTransfer.dropEffect = "copy";
-      setDropActive(true);
-    },
-    [dropzoneDisabled]
-  );
-
-  const handleDropZoneDragLeave = useCallback((event: DragEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const nextTarget = event.relatedTarget as Node | null;
-    if (nextTarget && event.currentTarget.contains(nextTarget)) {
-      return;
-    }
-    setDropActive(false);
-  }, []);
-
-  const handleDropZoneDrop = useCallback(
-    (event: DragEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      setDropActive(false);
-      if (dropzoneDisabled) {
-        return;
-      }
-      const file = event.dataTransfer.files?.[0];
-      if (!file) {
-        return;
-      }
-      void workflow.handlePickedFile(file, "upload", null);
-    },
-    [dropzoneDisabled, workflow]
-  );
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-card">
@@ -226,41 +172,6 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
         <div className="min-h-0 flex-1">
           <ScrollArea className="h-full">
             <div className="space-y-4 px-5 py-4 sm:px-6">
-              <section className="space-y-2">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-section text-foreground-muted">{t("movie.drawerUploadTitle")}</h3>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{t("movie.drawerUploadDescription")}</p>
-                </div>
-                <button
-                  type="button"
-                  aria-label={t("movie.drawerDropAria")}
-                  disabled={dropzoneDisabled}
-                  onClick={workflow.openUploadPicker}
-                  onDragEnter={handleDropZoneDragEnter}
-                  onDragOver={handleDropZoneDragOver}
-                  onDragLeave={handleDropZoneDragLeave}
-                  onDrop={handleDropZoneDrop}
-                  className={cn(
-                    "surface-subtle flex w-full flex-col items-center justify-center gap-2 rounded-[var(--radius)] border border-dashed border-border px-4 py-6 text-center transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    dropActive && "border-primary bg-primary/5",
-                    dropzoneDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-foreground-muted hover:bg-surface-hover"
-                  )}
-                >
-                  {uploadPending || workflow.zipLoading ? (
-                    <SpinnerIcon className="h-6 w-6 text-foreground-muted" />
-                  ) : (
-                    <UploadCloud className={cn("h-6 w-6", dropActive ? "text-primary" : "text-foreground-muted")} />
-                  )}
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {dropActive ? t("movie.drawerUploadActive") : t("movie.drawerUploadTitle")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{t("movie.drawerUploadHint")}</p>
-                  </div>
-                </button>
-              </section>
-
               <section className="space-y-2.5">
                 <div>
                   <h3 className="text-sm font-semibold uppercase tracking-section text-foreground-muted">{t("movie.drawerRepositoryTitle")}</h3>
