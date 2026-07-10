@@ -119,3 +119,31 @@ func TestMapSubHDError(t *testing.T) {
 		t.Fatal("disabled mapping")
 	}
 }
+
+func TestInferLabelFromSubHD(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+		src  string
+		want string
+	}{
+		{name: "chs only", file: "Show.S01E01.chs.srt", want: "zh"},
+		{name: "eng only", file: "Show.S01E01.eng.srt", want: "en"},
+		{name: "bilingual tokens", file: "Show.S01E01.chs&eng.ass", want: "zh&en"},
+		{name: "chinese chars", file: "官方字幕 简体.srt", want: "zh"},
+		{name: "bilingual chinese", file: "双语 简体 英语.ass", want: "zh&en"},
+		{name: "unknown defaults zh not subhd", file: "pack.srt", src: "archive.zip", want: "zh"},
+		{name: "en not false-positive in episode", file: "Show.S01E01.chs.srt", src: "season.pack", want: "zh"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := inferLabelFromSubHD(&subhd.ResolvedSubtitle{FileName: tt.file, Source: tt.src})
+			if got != tt.want {
+				t.Fatalf("got %q want %q", got, tt.want)
+			}
+		})
+	}
+	if got := inferLabelFromSubHD(nil); got != "zh" {
+		t.Fatalf("nil got %q", got)
+	}
+}

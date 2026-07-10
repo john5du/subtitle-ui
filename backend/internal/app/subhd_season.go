@@ -541,17 +541,7 @@ func suggestSeasonPackMappings(
 }
 
 func inferLabelFromName(name string) string {
-	lang := detectLanguageType(name)
-	switch lang {
-	case "bilingual":
-		return "zh-en"
-	case "simplified", "traditional":
-		return "zh"
-	case "english":
-		return "en"
-	default:
-		return "zh"
-	}
+	return inferSubtitleLanguageLabel(name)
 }
 
 // SubHDSeasonPacksResult is the response for season-pack search (title-page 合集 only).
