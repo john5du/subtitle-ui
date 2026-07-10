@@ -237,6 +237,10 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleSubHDSearch(w, r, videoID)
 		return
 
+	case len(segments) == 5 && segments[1] == "subtitles" && segments[2] == "providers" && segments[3] == "subhd" && segments[4] == "season-packs" && r.Method == http.MethodGet:
+		s.handleSubHDSeasonPacks(w, r, videoID)
+		return
+
 	case len(segments) == 5 && segments[1] == "subtitles" && segments[2] == "providers" && segments[3] == "subhd" && segments[4] == "download" && r.Method == http.MethodPost:
 		s.handleSubHDDownload(w, r, videoID)
 		return
@@ -314,6 +318,25 @@ func (s *Server) handleSubHDSearch(w http.ResponseWriter, r *http.Request, video
 	result, err := s.service.SearchSubHD(r.Context(), videoID, app.SubHDSearchOptions{
 		Query: query,
 		Page:  page,
+	})
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleSubHDSeasonPacks(w http.ResponseWriter, r *http.Request, videoID string) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	season := -1
+	if raw := strings.TrimSpace(r.URL.Query().Get("season")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil {
+			season = n
+		}
+	}
+	result, err := s.service.SearchSubHDSeasonPacks(r.Context(), videoID, app.SubHDSeasonPacksOptions{
+		Query:  query,
+		Season: season,
 	})
 	if err != nil {
 		s.writeAppError(w, err)

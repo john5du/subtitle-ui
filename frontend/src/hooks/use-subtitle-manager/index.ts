@@ -103,6 +103,10 @@ export function useSubtitleManager(): SubtitleManagerResult {
     (video: Video, opts?: { query?: string; page?: number }) => controller.searchSubHDSubtitles(video, opts),
     [controller]
   );
+  const searchSubHDSeasonPacks = useCallback(
+    (video: Video, opts?: { query?: string; season?: number }) => controller.searchSubHDSeasonPacks(video, opts),
+    [controller]
+  );
   const downloadSubHDSubtitle = useCallback(
     (video: Video, sid: string, options?: SubHDDownloadOptions) => controller.downloadSubHDSubtitle(video, sid, options),
     [controller]
@@ -186,6 +190,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
       removeSubtitle,
       previewSubtitle,
       searchSubHDSubtitles,
+      searchSubHDSeasonPacks,
       downloadSubHDSubtitle,
       uploadBatchSubtitles,
       prepareSubHDSeasonPack,

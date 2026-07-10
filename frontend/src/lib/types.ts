@@ -264,6 +264,16 @@ export interface SubHDSearchPage {
   items: SubHDSearchResult[];
 }
 
+export interface SubHDSeasonPacksResult {
+  query: string;
+  season: number;
+  doubanId?: string;
+  titlePageUrl?: string;
+  title?: string;
+  items: SubHDSearchResult[];
+  message?: string;
+}
+
 export interface SubHDDownloadOptions {
   label?: string;
   replaceId?: string;

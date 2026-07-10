@@ -554,6 +554,167 @@ func inferLabelFromName(name string) string {
 	}
 }
 
+// SubHDSeasonPacksResult is the response for season-pack search (title-page 合集 only).
+type SubHDSeasonPacksResult struct {
+	Query        string              `json:"query"`
+	Season       int                 `json:"season"`
+	DoubanID     string              `json:"doubanId,omitempty"`
+	TitlePageURL string              `json:"titlePageUrl,omitempty"`
+	Title        string              `json:"title,omitempty"`
+	Items        []subhd.SearchResult `json:"items"`
+	Message      string              `json:"message,omitempty"`
+}
+
+// SubHDSeasonPacksOptions controls season-pack listing.
+type SubHDSeasonPacksOptions struct {
+	Query  string
+	Season int
+}
+
+// SearchSubHDSeasonPacks resolves the SubHD /d/{douban} title page and returns only 合集 listings.
+func (s *Service) SearchSubHDSeasonPacks(ctx context.Context, videoID string, opts SubHDSeasonPacksOptions) (SubHDSeasonPacksResult, error) {
+	client := s.subhdClient()
+	if client == nil || !client.Enabled() {
+		return SubHDSeasonPacksResult{}, ErrProviderDisabled
+	}
+	video, ok := s.GetVideo(videoID)
+	if !ok {
+		return SubHDSeasonPacksResult{}, ErrNotFound
+	}
+	season := opts.Season
+	if season < 0 {
+		season = -1
+	}
+	query := strings.TrimSpace(opts.Query)
+	if query == "" {
+		query = BuildSubHDSeasonQuery(video, season)
+	}
+	if query == "" {
+		return SubHDSeasonPacksResult{}, fmt.Errorf("%w: empty search query", ErrBadRequest)
+	}
+
+	page, err := client.Search(ctx, query, 1)
+	if err != nil {
+		return SubHDSeasonPacksResult{}, mapSubHDError(err)
+	}
+	doubanID := pickDoubanIDFromSearch(page.Items, query, season)
+	if doubanID == "" {
+		return SubHDSeasonPacksResult{
+			Query:   query,
+			Season:  season,
+			Items:   []subhd.SearchResult{},
+			Message: "cannot resolve SubHD title page (no douban id in search results)",
+		}, nil
+	}
+
+	titlePage, err := client.ListTitlePacks(ctx, doubanID)
+	if err != nil {
+		return SubHDSeasonPacksResult{}, mapSubHDError(err)
+	}
+	items := titlePage.Packs
+	if items == nil {
+		items = []subhd.SearchResult{}
+	}
+	// Prefer packs that look like the requested season when multiple exist.
+	if season >= 0 {
+		items = sortPacksForSeason(items, season)
+	}
+	msg := ""
+	if len(items) == 0 {
+		msg = "no season packs on SubHD title page"
+	}
+	return SubHDSeasonPacksResult{
+		Query:        query,
+		Season:       season,
+		DoubanID:     doubanID,
+		TitlePageURL: "/d/" + doubanID,
+		Title:        titlePage.Title,
+		Items:        items,
+		Message:      msg,
+	}, nil
+}
+
+func pickDoubanIDFromSearch(items []subhd.SearchResult, query string, season int) string {
+	type scored struct {
+		id    string
+		score int
+	}
+	counts := map[string]int{}
+	best := scored{}
+	qLower := strings.ToLower(query)
+	for _, item := range items {
+		id := strings.TrimSpace(item.DoubanID)
+		if id == "" {
+			continue
+		}
+		counts[id]++
+		score := counts[id] * 2
+		text := strings.ToLower(item.Title + " " + item.Version)
+		if season >= 0 {
+			token := fmt.Sprintf("s%02d", season)
+			tokenAlt := fmt.Sprintf("s%d", season)
+			if strings.Contains(text, token) || strings.Contains(text, tokenAlt) {
+				score += 5
+			}
+			// Chinese season markers
+			if strings.Contains(item.Title, fmt.Sprintf("第%d季", season)) ||
+				strings.Contains(item.Title, fmt.Sprintf("第%02d季", season)) ||
+				strings.Contains(item.Title, "第一季") && season == 1 {
+				score += 4
+			}
+		}
+		// Prefer titles overlapping query tokens
+		for _, part := range strings.Fields(qLower) {
+			if len(part) >= 3 && strings.Contains(text, part) {
+				score++
+			}
+		}
+		if score > best.score || (score == best.score && (best.id == "" || id < best.id)) {
+			best = scored{id: id, score: score}
+		}
+	}
+	if best.id != "" {
+		return best.id
+	}
+	// majority vote fallback
+	var majID string
+	majN := 0
+	for id, n := range counts {
+		if n > majN || (n == majN && (majID == "" || id < majID)) {
+			majID = id
+			majN = n
+		}
+	}
+	return majID
+}
+
+func sortPacksForSeason(items []subhd.SearchResult, season int) []subhd.SearchResult {
+	if len(items) <= 1 {
+		return items
+	}
+	type ranked struct {
+		item  subhd.SearchResult
+		score int
+	}
+	rankedItems := make([]ranked, 0, len(items))
+	for _, item := range items {
+		rankedItems = append(rankedItems, ranked{item: item, score: ScoreSubHDSeasonPack(item, season)})
+	}
+	// simple insertion sort by score desc
+	for i := 1; i < len(rankedItems); i++ {
+		j := i
+		for j > 0 && rankedItems[j].score > rankedItems[j-1].score {
+			rankedItems[j], rankedItems[j-1] = rankedItems[j-1], rankedItems[j]
+			j--
+		}
+	}
+	out := make([]subhd.SearchResult, len(rankedItems))
+	for i, r := range rankedItems {
+		out[i] = r.item
+	}
+	return out
+}
+
 // ScoreSubHDSeasonPack ranks a search result as a likely season pack (higher is better).
 func ScoreSubHDSeasonPack(item subhd.SearchResult, season int) int {
 	if !item.Installable {

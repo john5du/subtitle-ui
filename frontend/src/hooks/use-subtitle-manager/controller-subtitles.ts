@@ -5,6 +5,7 @@ import type {
   SubHDSearchPage,
   SubHDSeasonInstallOptions,
   SubHDSeasonInstallResult,
+  SubHDSeasonPacksResult,
   SubHDSeasonPrepareOptions,
   SubHDSeasonPrepareResult,
   Subtitle,
@@ -443,6 +444,20 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     return requestPayload<SubHDSearchPage>(path);
   }
 
+  async function searchSubHDSeasonPacks(video: Video, opts: { query?: string; season?: number } = {}) {
+    const params = new URLSearchParams();
+    const query = (opts.query ?? "").trim();
+    if (query) {
+      params.set("q", query);
+    }
+    if (typeof opts.season === "number" && opts.season >= 0) {
+      params.set("season", String(opts.season));
+    }
+    const qs = params.toString();
+    const path = `/api/videos/${video.id}/subtitles/providers/subhd/season-packs${qs ? `?${qs}` : ""}`;
+    return requestPayload<SubHDSeasonPacksResult>(path);
+  }
+
   async function downloadSubHDSubtitle(video: Video, sid: string, options: SubHDDownloadOptions = {}) {
     const previousSubtitleCount = video.subtitles.length;
     setSubtitleActionPending({
@@ -591,6 +606,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     removeSubtitle,
     previewSubtitle,
     searchSubHDSubtitles,
+    searchSubHDSeasonPacks,
     downloadSubHDSubtitle,
     loadTvBatchCandidates,
     uploadBatchSubtitles,

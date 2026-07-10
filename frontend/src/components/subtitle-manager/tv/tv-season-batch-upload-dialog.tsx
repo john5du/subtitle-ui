@@ -5,9 +5,9 @@ import { useI18n } from "@/lib/i18n";
 import type {
   BatchSubtitleUploadItem,
   BatchSubtitleUploadResult,
-  SubHDSearchPage,
   SubHDSearchResult,
   SubHDSeasonInstallOptions,
+  SubHDSeasonPacksResult,
   SubHDSeasonPrepareOptions,
   SubHDSeasonPrepareResult,
   SubHDSeasonSuggestedMapping,
@@ -62,7 +62,8 @@ interface TvSeasonBatchUploadDialogProps {
   selectedSeries?: TvSeriesSummary | null;
   selectedSeason?: string;
   seasonVideos?: Video[];
-  onSearchSubHD?: (video: Video, opts?: { query?: string; page?: number }) => Promise<SubHDSearchPage>;
+  onSearchSubHD?: (video: Video, opts?: { query?: string; page?: number }) => Promise<unknown>;
+  onSearchSubHDSeasonPacks?: (video: Video, opts?: { query?: string; season?: number }) => Promise<SubHDSeasonPacksResult>;
   onPrepareSubHDSeason?: (options: SubHDSeasonPrepareOptions) => Promise<SubHDSeasonPrepareResult>;
   onInstallSubHDSeason?: (options: SubHDSeasonInstallOptions) => Promise<BatchSubtitleUploadResult>;
 }
@@ -245,6 +246,7 @@ export function TvSeasonBatchUploadWorkspace({
   selectedSeason = "",
   seasonVideos = [],
   onSearchSubHD,
+  onSearchSubHDSeasonPacks,
   onPrepareSubHDSeason,
   onInstallSubHDSeason,
   className,
@@ -273,9 +275,10 @@ export function TvSeasonBatchUploadWorkspace({
   const [subhdCacheToken, setSubhdCacheToken] = useState("");
   const [subhdPackName, setSubhdPackName] = useState("");
   const [subhdSuggestions, setSubhdSuggestions] = useState<SubHDSeasonSuggestedMapping[]>([]);
+  const [subhdTitlePage, setSubhdTitlePage] = useState<{ doubanId?: string; title?: string; url?: string; message?: string }>({});
   const [skipExisting, setSkipExisting] = useState(true);
 
-  const subhdEnabled = Boolean(onSearchSubHD && onPrepareSubHDSeason && onInstallSubHDSeason);
+  const subhdEnabled = Boolean((onSearchSubHDSeasonPacks || onSearchSubHD) && onPrepareSubHDSeason && onInstallSubHDSeason);
   const seasonNumber = parseSeasonNumber(selectedSeason);
 
   useEffect(() => {
@@ -500,14 +503,16 @@ export function TvSeasonBatchUploadWorkspace({
     resetPreparedState();
     setSubhdResults([]);
     setSelectedSubhdSid("");
+    setSubhdTitlePage({});
   }
 
   async function searchSubHDSeason() {
-    if (!onSearchSubHD) {
+    if (!onSearchSubHDSeasonPacks && !onSearchSubHD) {
       return;
     }
     setSubhdSearching(true);
     setBatchBlockingError("");
+    setSubhdTitlePage({});
     try {
       let candidates = batchCandidates;
       if (candidates.length === 0) {
@@ -519,7 +524,39 @@ export function TvSeasonBatchUploadWorkspace({
         setBatchBlockingError(t("batch.noEpisodesAvailable"));
         return;
       }
-      const page = await onSearchSubHD(anchor, { query: subhdQuery.trim() || undefined });
+
+      if (onSearchSubHDSeasonPacks) {
+        const page = await onSearchSubHDSeasonPacks(anchor, {
+          query: subhdQuery.trim() || undefined,
+          season: seasonNumber >= 0 ? seasonNumber : undefined
+        });
+        const items = Array.isArray(page.items) ? [...page.items] : [];
+        items.sort((a, b) => scoreSeasonPackResult(b, seasonNumber) - scoreSeasonPackResult(a, seasonNumber));
+        setSubhdResults(items);
+        const best = items.find((item) => item.installable) || items[0];
+        setSelectedSubhdSid(best?.sid || "");
+        if (page.query) {
+          setSubhdQuery(page.query);
+        }
+        setSubhdTitlePage({
+          doubanId: page.doubanId,
+          title: page.title,
+          url: page.titlePageUrl,
+          message: page.message
+        });
+        if (items.length === 0) {
+          setBatchNotices([page.message?.trim() ? page.message : t("batch.subhd.noPacks")]);
+        } else {
+          setBatchNotices(page.title ? [t("batch.subhd.titlePage", { title: page.title, id: page.doubanId || "-" })] : []);
+        }
+        return;
+      }
+
+      // Legacy fallback (should not be used when season-packs API is wired).
+      const page = (await onSearchSubHD!(anchor, { query: subhdQuery.trim() || undefined })) as {
+        items?: SubHDSearchResult[];
+        query?: string;
+      };
       const items = Array.isArray(page.items) ? [...page.items] : [];
       items.sort((a, b) => scoreSeasonPackResult(b, seasonNumber) - scoreSeasonPackResult(a, seasonNumber));
       setSubhdResults(items);
@@ -779,6 +816,16 @@ export function TvSeasonBatchUploadWorkspace({
               {t("batch.subhd.skipExisting")}
             </label>
 
+            {subhdTitlePage.doubanId ? (
+              <p className="text-xs text-muted-foreground">
+                {t("batch.subhd.titlePage", {
+                  title: subhdTitlePage.title || "-",
+                  id: subhdTitlePage.doubanId
+                })}
+                {subhdTitlePage.url ? ` · ${subhdTitlePage.url}` : null}
+              </p>
+            ) : null}
+
             {subhdResults.length > 0 ? (
               <div className="max-h-48 space-y-2 overflow-auto">
                 {subhdResults.slice(0, 12).map((item) => {
@@ -796,15 +843,18 @@ export function TvSeasonBatchUploadWorkspace({
                       )}
                     >
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="font-semibold">{item.title || item.version || item.sid}</span>
-                        {item.format ? <Badge variant="secondary">{item.format}</Badge> : null}
+                        <Badge variant="secondary">{t("batch.subhd.packBadge")}</Badge>
+                        <span className="font-semibold">{item.version || item.title || item.sid}</span>
+                        {item.format ? <Badge variant="outline">{item.format}</Badge> : null}
                         {!item.installable ? <Badge variant="secondary">{t("download.notInstallable")}</Badge> : null}
                       </div>
-                      {item.version && item.version !== item.title ? (
-                        <span className="line-clamp-2 text-xs text-muted-foreground">{item.version}</span>
-                      ) : null}
                       {item.langs && item.langs.length > 0 ? (
                         <span className="text-xs text-muted-foreground">{item.langs.join(" / ")}</span>
+                      ) : null}
+                      {item.downloads ? (
+                        <span className="text-xs text-muted-foreground">
+                          {t("download.downloads")}: {item.downloads}
+                        </span>
                       ) : null}
                     </button>
                   );

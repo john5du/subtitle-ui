@@ -12,6 +12,7 @@ import type {
   SubHDDownloadOptions,
   SubHDSearchPage,
   SubHDSeasonInstallOptions,
+  SubHDSeasonPacksResult,
   SubHDSeasonPrepareOptions,
   SubHDSeasonPrepareResult,
   Subtitle,
@@ -201,6 +202,7 @@ export interface SubtitleManagerActions {
   removeSubtitle: (video: Video, subtitle: Subtitle) => Promise<boolean>;
   previewSubtitle: (video: Video, subtitle: Subtitle) => Promise<ArrayBuffer>;
   searchSubHDSubtitles: (video: Video, opts?: { query?: string; page?: number }) => Promise<SubHDSearchPage>;
+  searchSubHDSeasonPacks: (video: Video, opts?: { query?: string; season?: number }) => Promise<SubHDSeasonPacksResult>;
   downloadSubHDSubtitle: (video: Video, sid: string, options?: SubHDDownloadOptions) => Promise<boolean>;
   uploadBatchSubtitles: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;
   prepareSubHDSeasonPack: (options: SubHDSeasonPrepareOptions) => Promise<SubHDSeasonPrepareResult>;
