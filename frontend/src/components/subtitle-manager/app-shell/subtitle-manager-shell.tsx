@@ -49,6 +49,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   movieToggleYearSort,
   movieSetViewMode,
   movieSetPage,
+  movieSetPageSize,
   movieOpenManager,
   moviePending,
   tvQuery,
@@ -58,6 +59,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   tvViewMode,
   tvYearSortOrder,
   tvSetPage,
+  tvSetPageSize,
   tvToggleYearSort,
   tvSetViewMode,
   tvOpenManagerForSeries,
@@ -93,6 +95,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   movieToggleYearSort: SubtitleManagerScreenModel["movie"]["toggleYearSort"];
   movieSetViewMode: SubtitleManagerScreenModel["movie"]["setViewMode"];
   movieSetPage: SubtitleManagerScreenModel["movie"]["setPage"];
+  movieSetPageSize: SubtitleManagerScreenModel["movie"]["setPageSize"];
   movieOpenManager: SubtitleManagerScreenModel["movie"]["openManager"];
   moviePending: SubtitleManagerScreenModel["movie"]["pending"];
   tvQuery: SubtitleManagerScreenModel["tv"]["query"];
@@ -102,6 +105,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   tvViewMode: SubtitleManagerScreenModel["tv"]["viewMode"];
   tvYearSortOrder: SubtitleManagerScreenModel["tv"]["yearSortOrder"];
   tvSetPage: SubtitleManagerScreenModel["tv"]["setPage"];
+  tvSetPageSize: SubtitleManagerScreenModel["tv"]["setPageSize"];
   tvToggleYearSort: SubtitleManagerScreenModel["tv"]["toggleYearSort"];
   tvSetViewMode: SubtitleManagerScreenModel["tv"]["setViewMode"];
   tvOpenManagerForSeries: SubtitleManagerScreenModel["tv"]["openManagerForSeries"];
@@ -151,6 +155,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
             onToggleYearSort={movieToggleYearSort}
             onViewModeChange={movieSetViewMode}
             onSetPage={movieSetPage}
+            onPageSizeChange={movieSetPageSize}
             onOpenManager={movieOpenManager}
             operationLocked={operationLocked}
             onRefresh={onRefresh}
@@ -173,6 +178,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
             viewMode={tvViewMode}
             yearSortOrder={tvYearSortOrder}
             onSetPage={tvSetPage}
+            onPageSizeChange={tvSetPageSize}
             onToggleYearSort={tvToggleYearSort}
             onViewModeChange={tvSetViewMode}
             onOpenManager={openTvManagerForRow}
@@ -510,6 +516,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             movieToggleYearSort={movie.toggleYearSort}
             movieSetViewMode={movie.setViewMode}
             movieSetPage={movie.setPage}
+            movieSetPageSize={movie.setPageSize}
             movieOpenManager={movie.openManager}
             moviePending={movie.pending}
             tvQuery={tv.query}
@@ -519,6 +526,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             tvViewMode={tv.viewMode}
             tvYearSortOrder={tv.yearSortOrder}
             tvSetPage={tv.setPage}
+            tvSetPageSize={tv.setPageSize}
             tvToggleYearSort={tv.toggleYearSort}
             tvSetViewMode={tv.setViewMode}
             tvOpenManagerForSeries={tv.openManagerForSeries}

@@ -3,7 +3,7 @@ import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { normalizeDirectoryScanResult, normalizeScanStatus } from "@/lib/subtitle-manager/normalizers";
 import { normalizeForCompare, pickDefaultTvDirectory } from "@/lib/subtitle-manager/tv-tree";
 
-import { DEFAULT_LOG_PAGE_SIZE } from "./state";
+import { DEFAULT_LOG_PAGE_SIZE, DEFAULT_PAGE_SIZE } from "./state";
 import type { ControllerRuntime } from "./controller-runtime";
 import type { LoadActions } from "./controller-load";
 
@@ -240,12 +240,46 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     void loadMovieVideos({ page: nextPage });
   }
 
+  function setMoviePageSize(pageSize: number) {
+    const next = Math.max(1, Math.min(200, Math.floor(pageSize)));
+    if (!Number.isFinite(next)) {
+      return;
+    }
+    const current = runtime.state.moviePager.pageSize || DEFAULT_PAGE_SIZE;
+    if (next === current) {
+      return;
+    }
+    setters.setMoviePager((prev) => ({
+      ...prev,
+      page: 1,
+      pageSize: next
+    }));
+    void loadMovieVideos({ page: 1, pageSize: next, force: true });
+  }
+
   function setTvPage(nextPage: number) {
     const totalPages = Math.max(1, runtime.selectors.tvPager.totalPages || 1);
     if (nextPage < 1 || nextPage > totalPages || nextPage === runtime.selectors.tvPager.page) {
       return;
     }
     void loadTvSeriesPage({ page: nextPage });
+  }
+
+  function setTvPageSize(pageSize: number) {
+    const next = Math.max(1, Math.min(200, Math.floor(pageSize)));
+    if (!Number.isFinite(next)) {
+      return;
+    }
+    const current = runtime.state.tvSeriesPager.pageSize || DEFAULT_PAGE_SIZE;
+    if (next === current) {
+      return;
+    }
+    setters.setTvSeriesPager((prev) => ({
+      ...prev,
+      page: 1,
+      pageSize: next
+    }));
+    void loadTvSeriesPage({ page: 1, pageSize: next, force: true });
   }
 
   function setLogsPage(nextPage: number) {
@@ -309,7 +343,9 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     loadMovieWorkspace,
     loadTvWorkspace,
     setMoviePage,
+    setMoviePageSize,
     setTvPage,
+    setTvPageSize,
     setLogsPage,
     setLogsDialogOpen,
     toggleMovieYearSort,

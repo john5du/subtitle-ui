@@ -161,6 +161,7 @@ export interface SubtitleManagerMovieDomain {
   selectedVideoId: string;
   selectVideo: (video: Video) => void;
   setPage: (nextPage: number) => void;
+  setPageSize: (pageSize: number) => void;
   toggleYearSort: () => void;
   loadWorkspace: () => Promise<void>;
 }
@@ -183,6 +184,7 @@ export interface SubtitleManagerTvDomain {
   selectVideo: (video: Video) => void;
   setSelectedSeason: (value: string) => void;
   setPage: (nextPage: number) => void;
+  setPageSize: (pageSize: number) => void;
   toggleYearSort: () => void;
   loadWorkspace: (seriesPath?: string) => Promise<Video[]>;
   loadBatchCandidates: () => Promise<Video[]>;
@@ -227,8 +229,8 @@ export interface SubtitleManagerController extends SubtitleManagerActions {
   loadDirectoryScanResult: () => Promise<string>;
   loadLogs: (options?: { page?: number }) => Promise<void>;
   clearLogs: () => Promise<boolean>;
-  loadMovieVideos: (options?: { page?: number; force?: boolean }) => Promise<void>;
-  loadTvSeriesPage: (options?: { page?: number; force?: boolean }) => Promise<TvSeriesSummary[]>;
+  loadMovieVideos: (options?: { page?: number; pageSize?: number; force?: boolean }) => Promise<void>;
+  loadTvSeriesPage: (options?: { page?: number; pageSize?: number; force?: boolean }) => Promise<TvSeriesSummary[]>;
   refreshTvVideosForPath: (seriesPath: string) => Promise<Video[]>;
   loadMovieWorkspace: () => Promise<void>;
   loadTvWorkspace: (seriesPath?: string) => Promise<Video[]>;
@@ -236,7 +238,9 @@ export interface SubtitleManagerController extends SubtitleManagerActions {
   selectTvVideo: (video: Video) => void;
   selectTvDirectory: (path: string) => void;
   setMoviePage: (nextPage: number) => void;
+  setMoviePageSize: (pageSize: number) => void;
   setTvPage: (nextPage: number) => void;
+  setTvPageSize: (pageSize: number) => void;
   setLogsPage: (nextPage: number) => void;
   setLogsDialogOpen: (open: boolean) => void;
   toggleMovieYearSort: () => void;

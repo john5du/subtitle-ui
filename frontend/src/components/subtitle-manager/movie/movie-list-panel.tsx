@@ -12,11 +12,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import type { LibraryViewMode } from "../types";
+import { CARD_GRID_CLASS, cardGridPageSize } from "../shared/card-grid";
 import { LibraryPosterCard } from "../shared/library-poster-card";
 import { LibraryViewToggle } from "../shared/library-view-toggle";
 import { InlinePending, PanelLoadingOverlay, SpinnerIcon } from "../shared/pending-state";
 import { PagerView } from "../shared/pager-view";
 import { PosterThumbnail } from "../shared/poster-thumbnail";
+import { useCardGridColumns } from "../shared/use-card-grid-columns";
 
 interface MovieListPanelProps {
   query: string;
@@ -28,6 +30,7 @@ interface MovieListPanelProps {
   onToggleYearSort: () => void;
   onViewModeChange: (value: LibraryViewMode) => void;
   onSetPage: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
   onOpenManager: (video: Video) => void;
   operationLocked: boolean;
   onRefresh: () => void | Promise<void>;
@@ -69,6 +72,7 @@ export const MovieListPanel = memo(function MovieListPanel({
   onToggleYearSort,
   onViewModeChange,
   onSetPage,
+  onPageSizeChange,
   onOpenManager,
   operationLocked,
   onRefresh,
@@ -82,6 +86,14 @@ export const MovieListPanel = memo(function MovieListPanel({
   const [draftQuery, setDraftQuery] = useState(query);
   const lastPublishedRef = useRef(query);
   const scrollViewportRef = useRef<HTMLDivElement | null>(null);
+  const onPageSizeChangeRef = useRef(onPageSizeChange);
+  onPageSizeChangeRef.current = onPageSizeChange;
+
+  const handleCardColumnsChange = useCallback((columns: number) => {
+    onPageSizeChangeRef.current(cardGridPageSize(columns));
+  }, []);
+
+  const { measureRef } = useCardGridColumns(viewMode === "card", handleCardColumnsChange);
 
   useEffect(() => {
     if (query !== draftQuery) {
@@ -252,29 +264,31 @@ export const MovieListPanel = memo(function MovieListPanel({
                   )}
                 </TableBody>
               </Table>
-            ) : videos.length === 0 ? (
-              <div className="flex min-h-[var(--panel-min-h)] items-center justify-center p-6 text-center text-sm text-muted-foreground">
-                {pending ? t("movie.updatingResults") : t("movie.empty")}
-              </div>
             ) : (
-              <div className="px-2 pb-2 pt-1 sm:px-3">
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-3">
-                  {videos.map((video) => {
-                    const title = video.title || video.fileName || "-";
-                    return (
-                      <LibraryPosterCard
-                        key={video.id}
-                        title={title}
-                        subtitle={video.year}
-                        posterUrl={video.posterUrl}
-                        badge={video.subtitles.length}
-                        ariaLabel={title || t("info.movie")}
-                        operationLocked={operationLocked}
-                        onOpen={() => onOpenManager(video)}
-                      />
-                    );
-                  })}
-                </div>
+              <div ref={measureRef} className="px-2 pb-2 pt-1 sm:px-3">
+                {videos.length === 0 ? (
+                  <div className="flex min-h-[var(--panel-min-h)] items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                    {pending ? t("movie.updatingResults") : t("movie.empty")}
+                  </div>
+                ) : (
+                  <div className={CARD_GRID_CLASS}>
+                    {videos.map((video) => {
+                      const title = video.title || video.fileName || "-";
+                      return (
+                        <LibraryPosterCard
+                          key={video.id}
+                          title={title}
+                          subtitle={video.year}
+                          posterUrl={video.posterUrl}
+                          badge={video.subtitles.length}
+                          ariaLabel={title || t("info.movie")}
+                          operationLocked={operationLocked}
+                          onOpen={() => onOpenManager(video)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

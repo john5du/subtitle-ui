@@ -28,10 +28,10 @@ export function createLoadActions(runtime: ControllerRuntime) {
     reportRequestError
   } = runtime;
 
-  async function loadMovieVideos(options: { page?: number; force?: boolean } = {}) {
+  async function loadMovieVideos(options: { page?: number; pageSize?: number; force?: boolean } = {}) {
     const state = runtime.state;
     const page = options.page || state.moviePager.page || 1;
-    const pageSize = state.moviePager.pageSize || DEFAULT_PAGE_SIZE;
+    const pageSize = options.pageSize || state.moviePager.pageSize || DEFAULT_PAGE_SIZE;
     const query = state.queryByType.movie || "";
     const signature = buildRequestSignature(["movie", page, pageSize, state.movieYearSortOrder, query.trim()]);
 
@@ -108,10 +108,10 @@ export function createLoadActions(runtime: ControllerRuntime) {
     }
   }
 
-  async function loadTvSeriesPage(options: { page?: number; force?: boolean } = {}) {
+  async function loadTvSeriesPage(options: { page?: number; pageSize?: number; force?: boolean } = {}) {
     const state = runtime.state;
     const page = options.page || state.tvSeriesPager.page || 1;
-    const pageSize = state.tvSeriesPager.pageSize || DEFAULT_PAGE_SIZE;
+    const pageSize = options.pageSize || state.tvSeriesPager.pageSize || DEFAULT_PAGE_SIZE;
     const query = state.queryByType.tv || "";
     const signature = buildRequestSignature(["tv-series", page, pageSize, state.tvSeriesYearSortOrder, query.trim()]);
 

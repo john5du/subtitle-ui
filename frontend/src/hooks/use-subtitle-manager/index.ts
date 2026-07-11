@@ -59,7 +59,9 @@ export function useSubtitleManager(): SubtitleManagerResult {
   const selectMovieVideo = useCallback((video: Video) => controller.selectMovieVideo(video), [controller]);
   const selectTvVideo = useCallback((video: Video) => controller.selectTvVideo(video), [controller]);
   const setMoviePage = useCallback((nextPage: number) => controller.setMoviePage(nextPage), [controller]);
+  const setMoviePageSize = useCallback((pageSize: number) => controller.setMoviePageSize(pageSize), [controller]);
   const setTvPage = useCallback((nextPage: number) => controller.setTvPage(nextPage), [controller]);
+  const setTvPageSize = useCallback((pageSize: number) => controller.setTvPageSize(pageSize), [controller]);
   const setLogsPage = useCallback((nextPage: number) => controller.setLogsPage(nextPage), [controller]);
   const setLogsDialogOpen = useCallback((open: boolean) => controller.setLogsDialogOpen(open), [controller]);
   const refreshLogs = useCallback((page = 1) => controller.loadLogs({ page }), [controller]);
@@ -160,6 +162,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
       selectedVideoId: state.selectedVideoIdByType.movie,
       selectVideo: selectMovieVideo,
       setPage: setMoviePage,
+      setPageSize: setMoviePageSize,
       toggleYearSort: toggleMovieYearSort,
       loadWorkspace: loadMovieWorkspace
     },
@@ -181,6 +184,7 @@ export function useSubtitleManager(): SubtitleManagerResult {
       selectVideo: selectTvVideo,
       setSelectedSeason: setSelectedTvSeason,
       setPage: setTvPage,
+      setPageSize: setTvPageSize,
       toggleYearSort: toggleTvSeriesYearSort,
       loadWorkspace: loadTvWorkspace,
       loadBatchCandidates: loadTvBatchCandidates

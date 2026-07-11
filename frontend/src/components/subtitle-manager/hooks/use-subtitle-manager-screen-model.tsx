@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Film, LayoutDashboard, Tv } from "lucide-react";
 
 import { useSubtitleManager } from "@/hooks/use-subtitle-manager";
+import { DEFAULT_PAGE_SIZE } from "@/hooks/use-subtitle-manager/state";
 import { useI18n } from "@/lib/i18n";
 import type { ActiveTab, Video } from "@/lib/types";
 
@@ -185,6 +186,17 @@ export function useSubtitleManagerScreenModel() {
     }
   }, [libraryViewMode]);
 
+  const setMoviePageSize = movie.setPageSize;
+  const setTvPageSize = tv.setPageSize;
+
+  useEffect(() => {
+    if (libraryViewMode !== "list") {
+      return;
+    }
+    setMoviePageSize(DEFAULT_PAGE_SIZE);
+    setTvPageSize(DEFAULT_PAGE_SIZE);
+  }, [libraryViewMode, setMoviePageSize, setTvPageSize]);
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -248,6 +260,7 @@ export function useSubtitleManagerScreenModel() {
       selectedVideo: selectedMovie,
       selectVideo: handleMovieSelect,
       setPage: movie.setPage,
+      setPageSize: movie.setPageSize,
       openUploadPicker: openMovieUploadPicker,
       openManager: openMovieManager
     }), [
@@ -255,6 +268,7 @@ export function useSubtitleManagerScreenModel() {
       movie.pager,
       movie.query,
       movie.setPage,
+      movie.setPageSize,
       movie.setQuery,
       movie.toggleYearSort,
       movie.videos,
@@ -279,6 +293,7 @@ export function useSubtitleManagerScreenModel() {
       showScanPrompt: showTvScanPrompt,
       selectSeries: tv.selectSeries,
       setPage: tv.setPage,
+      setPageSize: tv.setPageSize,
       openManagerForSeries: openTvManagerForSeries,
       openBatchForSeries: openTvBatchDialogForSeries,
       selectedSeries: tv.selectedSeries,
@@ -315,6 +330,7 @@ export function useSubtitleManagerScreenModel() {
       tv.selectSeries,
       tv.seriesVideos,
       tv.setPage,
+      tv.setPageSize,
       tv.setQuery,
       tv.setSelectedSeason,
       tv.toggleYearSort,

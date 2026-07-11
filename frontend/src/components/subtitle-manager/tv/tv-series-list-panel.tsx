@@ -13,11 +13,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import type { LibraryViewMode } from "../types";
+import { CARD_GRID_CLASS, cardGridPageSize } from "../shared/card-grid";
 import { LibraryPosterCard } from "../shared/library-poster-card";
 import { LibraryViewToggle } from "../shared/library-view-toggle";
 import { InlinePending, PanelLoadingOverlay, SpinnerIcon } from "../shared/pending-state";
 import { PagerView } from "../shared/pager-view";
 import { PosterThumbnail } from "../shared/poster-thumbnail";
+import { useCardGridColumns } from "../shared/use-card-grid-columns";
 
 interface TvSeriesListPanelProps {
   query: string;
@@ -27,6 +29,7 @@ interface TvSeriesListPanelProps {
   viewMode: LibraryViewMode;
   yearSortOrder: "asc" | "desc";
   onSetPage: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
   onToggleYearSort: () => void;
   onViewModeChange: (value: LibraryViewMode) => void;
   onOpenManager: (series: TvSeriesSummary) => void;
@@ -67,6 +70,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
   viewMode,
   yearSortOrder,
   onSetPage,
+  onPageSizeChange,
   onToggleYearSort,
   onViewModeChange,
   onOpenManager,
@@ -85,6 +89,14 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
   const [draftQuery, setDraftQuery] = useState(query);
   const lastPublishedRef = useRef(query);
   const scrollViewportRef = useRef<HTMLDivElement | null>(null);
+  const onPageSizeChangeRef = useRef(onPageSizeChange);
+  onPageSizeChangeRef.current = onPageSizeChange;
+
+  const handleCardColumnsChange = useCallback((columns: number) => {
+    onPageSizeChangeRef.current(cardGridPageSize(columns));
+  }, []);
+
+  const { measureRef } = useCardGridColumns(viewMode === "card", handleCardColumnsChange);
 
   useEffect(() => {
     if (query !== draftQuery) {
@@ -267,30 +279,32 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                   )}
                 </TableBody>
               </Table>
-            ) : rows.length === 0 ? (
-              <div className="flex min-h-[var(--panel-min-h)] items-center justify-center p-6 text-center text-sm text-muted-foreground">
-                {pending ? t("tv.updatingResults") : emptyState}
-              </div>
             ) : (
-              <div className="px-2 pb-2 pt-1 sm:px-3">
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-3">
-                  {rows.map((row) => {
-                    const displayTitle = tvSeriesDisplayTitle(row, locale) || t("nav.tv");
-                    const subtitledVideoCount = Math.max(row.videoCount - row.noSubtitleCount, 0);
-                    return (
-                      <LibraryPosterCard
-                        key={row.key}
-                        title={displayTitle}
-                        subtitle={row.latestEpisodeYear}
-                        posterUrl={row.posterUrl}
-                        badge={`${subtitledVideoCount}/${row.videoCount}`}
-                        ariaLabel={displayTitle}
-                        operationLocked={operationLocked}
-                        onOpen={() => onOpenManager(row)}
-                      />
-                    );
-                  })}
-                </div>
+              <div ref={measureRef} className="px-2 pb-2 pt-1 sm:px-3">
+                {rows.length === 0 ? (
+                  <div className="flex min-h-[var(--panel-min-h)] items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                    {pending ? t("tv.updatingResults") : emptyState}
+                  </div>
+                ) : (
+                  <div className={CARD_GRID_CLASS}>
+                    {rows.map((row) => {
+                      const displayTitle = tvSeriesDisplayTitle(row, locale) || t("nav.tv");
+                      const subtitledVideoCount = Math.max(row.videoCount - row.noSubtitleCount, 0);
+                      return (
+                        <LibraryPosterCard
+                          key={row.key}
+                          title={displayTitle}
+                          subtitle={row.latestEpisodeYear}
+                          posterUrl={row.posterUrl}
+                          badge={`${subtitledVideoCount}/${row.videoCount}`}
+                          ariaLabel={displayTitle}
+                          operationLocked={operationLocked}
+                          onOpen={() => onOpenManager(row)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
