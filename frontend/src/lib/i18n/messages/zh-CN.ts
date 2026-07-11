@@ -68,6 +68,7 @@ export const zhCNMessages: MessageDictionary = {
   "settings.appearance": "外观",
   "settings.subtitleConversion": "字幕转换",
   "settings.subhd": "SubHD",
+  "settings.sonarr": "Sonarr",
   "settings.viewOperationLogs": "查看操作日志",
 
   "subhd.settingsDescription": "配置 SubHD 站点地址与可选 HTTP/SOCKS 代理。保存后立即生效。",
@@ -85,6 +86,20 @@ export const zhCNMessages: MessageDictionary = {
   "subhd.settingsSavedTitle": "SubHD 配置已保存",
   "subhd.settingsSavedMessage": "配置已更新",
   "subhd.saveSettings": "保存",
+
+  "sonarr.settingsDescription": "配置 Sonarr 以启用剧集完整度对比与缺失集搜索。保存后立即生效。",
+  "sonarr.enabled": "启用",
+  "sonarr.enabledOn": "开",
+  "sonarr.enabledOff": "关",
+  "sonarr.url": "地址",
+  "sonarr.urlPlaceholder": "http://127.0.0.1:8989",
+  "sonarr.apiKey": "API Key",
+  "sonarr.apiKeyPlaceholder": "Sonarr API Key",
+  "sonarr.apiKeyHint": "在 Sonarr → 设置 → 通用 → 安全 中查看。",
+  "sonarr.settingsLoadFailed": "加载 Sonarr 配置失败",
+  "sonarr.settingsSaveFailed": "保存 Sonarr 配置失败",
+  "sonarr.settingsSavedTitle": "Sonarr 配置已保存",
+  "sonarr.saveSettings": "保存",
 
   "theme.system": "跟随系统",
   "theme.light": "浅色",

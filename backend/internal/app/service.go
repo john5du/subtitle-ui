@@ -31,6 +31,9 @@ const (
 	settingSubHDBaseURL    = "subhd.base_url"
 	settingSubHDProxy      = "subhd.proxy"
 	defaultSubHDBaseURL    = "https://subhd.tv"
+	settingSonarrEnabled   = "sonarr.enabled"
+	settingSonarrURL       = "sonarr.url"
+	settingSonarrAPIKey    = "sonarr.api_key"
 )
 
 type Service struct {
@@ -85,7 +88,17 @@ func NewService(cfg config.Config) (*Service, error) {
 		_ = st.Close()
 		return nil, err
 	}
+	if err := svc.applyStoredSonarrConfig(); err != nil {
+		_ = st.Close()
+		return nil, err
+	}
 	return svc, nil
+}
+
+// SonarrEnabled reports whether Sonarr integration is configured on.
+func (s *Service) SonarrEnabled() bool {
+	c := s.sonarrClient()
+	return c != nil && c.Enabled()
 }
 
 func (s *Service) subhdClient() *subhd.Client {

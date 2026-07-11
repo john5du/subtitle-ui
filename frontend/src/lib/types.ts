@@ -156,6 +156,13 @@ export interface SubHDConfig {
   updatedAt?: string;
 }
 
+export interface SonarrConfig {
+  enabled: boolean;
+  url: string;
+  apiKey: string;
+  updatedAt?: string;
+}
+
 export interface BatchSubtitleUploadResult {
   total: number;
   success: number;

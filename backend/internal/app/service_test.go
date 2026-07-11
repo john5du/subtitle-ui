@@ -428,6 +428,106 @@ func TestSubHDConfigDefaultsAndUpdate(t *testing.T) {
 	}
 }
 
+func TestSonarrConfigDefaultsAndUpdate(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+		SonarrEnabled:  true,
+		SonarrURL:      "http://127.0.0.1:8989",
+		SonarrAPIKey:   "env-key",
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	cfg, err := svc.GetSonarrConfig()
+	if err != nil {
+		t.Fatalf("get default sonarr config: %v", err)
+	}
+	if !cfg.Enabled {
+		t.Fatalf("expected sonarr enabled from env")
+	}
+	if cfg.URL != "http://127.0.0.1:8989" {
+		t.Fatalf("unexpected url: %q", cfg.URL)
+	}
+	if cfg.APIKey != "env-key" {
+		t.Fatalf("unexpected api key: %q", cfg.APIKey)
+	}
+	if !svc.SonarrEnabled() {
+		t.Fatalf("expected client enabled from env")
+	}
+
+	saved, err := svc.UpdateSonarrConfig(domain.SonarrConfigUpdate{
+		Enabled: true,
+		URL:     "http://sonarr.local:8989/",
+		APIKey:  "runtime-key",
+	})
+	if err != nil {
+		t.Fatalf("update sonarr config: %v", err)
+	}
+	if !saved.Enabled || saved.URL != "http://sonarr.local:8989" || saved.APIKey != "runtime-key" {
+		t.Fatalf("unexpected saved config: %+v", saved)
+	}
+	if !svc.SonarrEnabled() {
+		t.Fatalf("expected client enabled after update")
+	}
+
+	_, err = svc.UpdateSonarrConfig(domain.SonarrConfigUpdate{
+		Enabled: true,
+		URL:     "ftp://bad.example",
+		APIKey:  "x",
+	})
+	if !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("expected bad request for invalid url, got %v", err)
+	}
+
+	_, err = svc.UpdateSonarrConfig(domain.SonarrConfigUpdate{
+		Enabled: true,
+		URL:     "http://sonarr.local:8989",
+		APIKey:  "",
+	})
+	if !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("expected bad request for missing api key, got %v", err)
+	}
+
+	disabled, err := svc.UpdateSonarrConfig(domain.SonarrConfigUpdate{
+		Enabled: false,
+		URL:     "http://sonarr.local:8989",
+		APIKey:  "runtime-key",
+	})
+	if err != nil {
+		t.Fatalf("disable sonarr: %v", err)
+	}
+	if disabled.Enabled {
+		t.Fatalf("expected disabled config: %+v", disabled)
+	}
+	if svc.SonarrEnabled() {
+		t.Fatalf("expected client disabled after update")
+	}
+
+	after, err := svc.GetSonarrConfig()
+	if err != nil {
+		t.Fatalf("get after disable: %v", err)
+	}
+	if after.Enabled || after.URL != "http://sonarr.local:8989" || after.APIKey != "runtime-key" {
+		t.Fatalf("unexpected config after disable: %+v", after)
+	}
+}
+
 func TestSubtitleConversionConfigDefaultsAndRejectsInvalidTemplate(t *testing.T) {
 	base := t.TempDir()
 	movieRoot := filepath.Join(base, "movies")

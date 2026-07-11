@@ -36,8 +36,10 @@ cd frontend && bun run build   # static export → frontend/out
   - `GET /api/videos/{id}/subtitles/providers/subhd/search?q=&page=`
   - `POST /api/videos/{id}/subtitles/providers/subhd/download` JSON `{ "sid", "label?", "replaceId?", "archiveEntry?" }`
   - Installs sidecar next to video (`source=download`). Archives: zip/7z/rar (pure-Go). Rate-limit / captcha handled server-side.
-- Sonarr TV completeness (optional; env only):
-  - `SONARR_URL` (e.g. `http://127.0.0.1:8989`), `SONARR_API_KEY`, optional `SONARR_ENABLED=false`
+- Sonarr TV completeness (optional):
+  - Env bootstrap: `SONARR_URL` (e.g. `http://127.0.0.1:8989`), `SONARR_API_KEY`, optional `SONARR_ENABLED=false`
+  - Runtime config (DB overrides env, no restart): `GET/PUT /api/config/sonarr` `{ enabled, url, apiKey }`
+  - Settings UI on dashboard config page
   - Enabled when URL+key set (unless explicitly disabled)
   - `GET /api/tv/series/completeness?path=&key=&season=` — local vs Sonarr missing episodes (monitored + aired only)
   - `POST /api/tv/series/sonarr/search` JSON `{ path|key, season, episodes?, allMissing? }` — queues Sonarr `EpisodeSearch`

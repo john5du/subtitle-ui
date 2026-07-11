@@ -66,6 +66,7 @@ export const enMessages = {
   "settings.appearance": "Appearance",
   "settings.subtitleConversion": "Subtitle Conversion",
   "settings.subhd": "SubHD",
+  "settings.sonarr": "Sonarr",
   "settings.viewOperationLogs": "View operation logs",
 
   "subhd.settingsDescription": "Configure SubHD site URL and optional HTTP/SOCKS proxy. Changes apply immediately.",
@@ -83,6 +84,20 @@ export const enMessages = {
   "subhd.settingsSavedTitle": "SubHD config saved",
   "subhd.settingsSavedMessage": "Config updated",
   "subhd.saveSettings": "Save",
+
+  "sonarr.settingsDescription": "Configure Sonarr for TV season completeness and missing-episode search. Changes apply immediately.",
+  "sonarr.enabled": "Enabled",
+  "sonarr.enabledOn": "On",
+  "sonarr.enabledOff": "Off",
+  "sonarr.url": "URL",
+  "sonarr.urlPlaceholder": "http://127.0.0.1:8989",
+  "sonarr.apiKey": "API Key",
+  "sonarr.apiKeyPlaceholder": "Sonarr API key",
+  "sonarr.apiKeyHint": "Find it in Sonarr → Settings → General → Security.",
+  "sonarr.settingsLoadFailed": "Load Sonarr config failed",
+  "sonarr.settingsSaveFailed": "Save Sonarr config failed",
+  "sonarr.settingsSavedTitle": "Sonarr config saved",
+  "sonarr.saveSettings": "Save",
 
   "theme.system": "System",
   "theme.light": "Light",

@@ -107,6 +107,19 @@ type SubHDConfigUpdate struct {
 	Proxy   string `json:"proxy"`
 }
 
+type SonarrConfig struct {
+	Enabled   bool      `json:"enabled"`
+	URL       string    `json:"url"`
+	APIKey    string    `json:"apiKey"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type SonarrConfigUpdate struct {
+	Enabled bool   `json:"enabled"`
+	URL     string `json:"url"`
+	APIKey  string `json:"apiKey"`
+}
+
 type ScanDirectory struct {
 	ID                string `json:"id"`
 	Path              string `json:"path"`

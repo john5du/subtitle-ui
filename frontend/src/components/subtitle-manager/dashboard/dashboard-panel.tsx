@@ -15,7 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { LocaleSelect, SubHDSettingsPanel, SubtitleConversionSettingsPanel } from "../shared/settings-controls";
+import {
+  LocaleSelect,
+  SonarrSettingsPanel,
+  SubHDSettingsPanel,
+  SubtitleConversionSettingsPanel
+} from "../shared/settings-controls";
 import { OperationLogsDialog } from "../shared/operation-logs-dialog";
 import { SpinnerIcon } from "../shared/pending-state";
 import { ThemeToggle } from "../shared/theme-toggle";
@@ -226,6 +231,10 @@ export function DashboardPanel({
 
               <SettingsSection title={t("settings.subhd")}>
                 <SubHDSettingsPanel />
+              </SettingsSection>
+
+              <SettingsSection title={t("settings.sonarr")}>
+                <SonarrSettingsPanel />
               </SettingsSection>
 
               <SettingsSection title={t("settings.subtitleConversion")}>

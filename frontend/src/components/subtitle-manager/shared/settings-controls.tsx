@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useI18n, type Locale, type MessageKey } from "@/lib/i18n";
 import { emitToast } from "@/lib/toast";
-import type { SubHDConfig, SubtitleConversionConfig, SubtitleSourceEncoding } from "@/lib/types";
+import type { SonarrConfig, SubHDConfig, SubtitleConversionConfig, SubtitleSourceEncoding } from "@/lib/types";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -355,6 +355,155 @@ export function SubHDSettingsPanel() {
         <Button type="button" onClick={() => void saveConfig()} disabled={loading || saving}>
           {saving ? <SpinnerIcon className="h-4 w-4" /> : null}
           {saving ? t("common.saving") : t("subhd.saveSettings")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function SonarrSettingsPanel() {
+  const { t } = useI18n();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [draftEnabled, setDraftEnabled] = useState(false);
+  const [draftUrl, setDraftUrl] = useState("");
+  const [draftApiKey, setDraftApiKey] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadConfig() {
+      setLoading(true);
+      setError("");
+      try {
+        const next = await requestPayload<SonarrConfig>("/api/config/sonarr");
+        if (cancelled) {
+          return;
+        }
+        setDraftEnabled(Boolean(next.enabled));
+        setDraftUrl(next.url || "");
+        setDraftApiKey(next.apiKey || "");
+      } catch (loadError) {
+        if (cancelled) {
+          return;
+        }
+        const message = loadError instanceof Error ? loadError.message : String(loadError);
+        setError(message);
+        emitToast({
+          level: "error",
+          message: t("sonarr.settingsLoadFailed"),
+          detail: message
+        });
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
+
+  async function saveConfig() {
+    setSaving(true);
+    setError("");
+    try {
+      const next = await requestPayload<SonarrConfig>("/api/config/sonarr", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: draftEnabled,
+          url: draftUrl.trim(),
+          apiKey: draftApiKey.trim()
+        })
+      });
+      setDraftEnabled(Boolean(next.enabled));
+      setDraftUrl(next.url || "");
+      setDraftApiKey(next.apiKey || "");
+      emitToast({
+        level: "success",
+        message: t("sonarr.settingsSavedTitle")
+      });
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : String(saveError);
+      setError(message);
+      emitToast({
+        level: "error",
+        message: t("sonarr.settingsSaveFailed"),
+        detail: message
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="surface-panel space-y-4 p-3 sm:p-4">
+      <p className="text-sm text-muted-foreground">{t("sonarr.settingsDescription")}</p>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("sonarr.enabled")}</p>
+          <Select
+            value={draftEnabled ? "on" : "off"}
+            onValueChange={(value) => setDraftEnabled(value === "on")}
+            disabled={loading || saving}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="on">{t("sonarr.enabledOn")}</SelectItem>
+              <SelectItem value="off">{t("sonarr.enabledOff")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("sonarr.url")}</p>
+          <Input
+            value={draftUrl}
+            placeholder={t("sonarr.urlPlaceholder")}
+            disabled={loading || saving}
+            onChange={(event) => {
+              setDraftUrl(event.target.value);
+              setError("");
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("sonarr.apiKey")}</p>
+        <Input
+          type="password"
+          autoComplete="off"
+          value={draftApiKey}
+          placeholder={t("sonarr.apiKeyPlaceholder")}
+          disabled={loading || saving}
+          onChange={(event) => {
+            setDraftApiKey(event.target.value);
+            setError("");
+          }}
+        />
+        <p className="text-xs text-muted-foreground">{t("sonarr.apiKeyHint")}</p>
+      </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <SpinnerIcon className="h-4 w-4" />
+        </div>
+      )}
+      {error && <p className="break-words text-sm text-destructive">{error}</p>}
+
+      <div className="flex justify-end">
+        <Button type="button" onClick={() => void saveConfig()} disabled={loading || saving}>
+          {saving ? <SpinnerIcon className="h-4 w-4" /> : null}
+          {saving ? t("common.saving") : t("sonarr.saveSettings")}
         </Button>
       </div>
     </div>

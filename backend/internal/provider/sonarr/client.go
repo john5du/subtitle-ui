@@ -68,9 +68,35 @@ type CommandResult struct {
 	Status string `json:"status"`
 }
 
+// NormalizeBaseURL validates and normalizes a Sonarr base URL.
+func NormalizeBaseURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", fmt.Errorf("empty sonarr url")
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("invalid sonarr url: %w", err)
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http", "https":
+	default:
+		return "", fmt.Errorf("sonarr url must use http or https")
+	}
+	if u.Host == "" {
+		return "", fmt.Errorf("sonarr url missing host")
+	}
+	u.Fragment = ""
+	u.RawQuery = ""
+	return strings.TrimRight(u.String(), "/"), nil
+}
+
 // New creates a Sonarr client. When disabled, methods return ErrDisabled.
 func New(opts Options) *Client {
 	base := strings.TrimRight(strings.TrimSpace(opts.BaseURL), "/")
+	if normalized, err := NormalizeBaseURL(base); err == nil {
+		base = normalized
+	}
 	ttl := opts.CacheTTL
 	if ttl <= 0 {
 		ttl = 10 * time.Minute

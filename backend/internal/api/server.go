@@ -88,6 +88,7 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	s.mux.HandleFunc("/api/version", s.handleVersion)
 	s.mux.HandleFunc("/api/config/subtitle-conversion", s.handleSubtitleConversionConfig)
 	s.mux.HandleFunc("/api/config/subhd", s.handleSubHDConfig)
+	s.mux.HandleFunc("/api/config/sonarr", s.handleSonarrConfig)
 	s.mux.HandleFunc("/api/videos", s.handleVideos)
 	s.mux.HandleFunc("/api/tv/series", s.handleTVSeries)
 	s.mux.HandleFunc("/api/tv/series/completeness", s.handleTVSeriesCompleteness)
@@ -710,6 +711,35 @@ func (s *Server) handleSubHDConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		cfg, err := s.service.UpdateSubHDConfig(req)
+		if err != nil {
+			s.writeAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func (s *Server) handleSonarrConfig(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		cfg, err := s.service.GetSonarrConfig()
+		if err != nil {
+			s.writeAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	case http.MethodPut:
+		var req appdomain.SonarrConfigUpdate
+		if r.Body != nil {
+			defer r.Body.Close()
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json body")
+			return
+		}
+		cfg, err := s.service.UpdateSonarrConfig(req)
 		if err != nil {
 			s.writeAppError(w, err)
 			return
