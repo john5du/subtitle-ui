@@ -177,7 +177,11 @@ function WorkspaceSection({ icon, title, description, children, className, aside
 function MappingStatusBadge({ status, label }: { status: SeasonBatchMappingStatus; label: string }) {
   const variant =
     status === "unassigned" ? "warning" : status === "manual" ? "info" : status === "auto" ? "success" : "secondary";
-  return <Badge variant={variant}>{label}</Badge>;
+  return (
+    <Badge variant={variant} className="shrink-0 whitespace-nowrap">
+      {label}
+    </Badge>
+  );
 }
 
 function formatBatchEpisodeOptionLabel(video: Video) {
@@ -211,8 +215,8 @@ function MappingRow({
     <div className={cn("surface-panel p-3 sm:p-4", row.status === "skipped" && "opacity-75")}>
       <div className="flex flex-col gap-3 xl:flex-row xl:gap-0">
         <div className="min-w-0 space-y-3 xl:flex-1 xl:pr-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <p className="break-all text-sm font-semibold">{fileName}</p>
               <p className="mt-1 break-all text-xs text-muted-foreground">{sourcePath || t("batch.directInput")}</p>
             </div>
