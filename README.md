@@ -41,7 +41,7 @@ bun run build
 git push origin main
 ```
 
-3. Pushing to `main` triggers `.github/workflows/docker-publish.yml`, which runs unit tests (`go test ./...`), increments the patch version from the version files, creates tag `vX.Y.Z`, builds and pushes the image, and syncs version files back to `main`.
+3. Pushing to `main` triggers `.github/workflows/docker-publish.yml`, which runs unit tests (`go test ./...`), resolves the next patch version from the version files, builds and pushes the image, then syncs version files back to `main` and creates tag `vX.Y.Z` on that commit.
 4. You can also run the workflow manually with `workflow_dispatch`; the optional version input accepts `0.7.3` or `v0.7.3`, and if omitted the workflow increments the patch version from the version files.
 5. Version-sync commits from `github-actions[bot]` (`chore: sync version files…`) do not re-trigger release.
 6. Confirm release artifacts:
@@ -276,7 +276,7 @@ volumes:
 
 - Workflow file: `.github/workflows/docker-publish.yml`
 - Trigger: push to `main` or manual `workflow_dispatch`
-- Pipeline: unit tests (`go test ./...`) → patch version bump → tag → image build/push → version file sync
+- Pipeline: unit tests (`go test ./...`) → resolve patch version → image build/push → version file sync → tag
 - Bot version-sync commits do not re-trigger release
 - Registry: `ghcr.io/john5du/subtitle-ui`
 - Tags published:
@@ -284,7 +284,7 @@ volumes:
   - semantic version tag (`X.Y.Z`)
   - moving tag (`latest`)
   - commit SHA tag (`sha-<short>`)
-- The publish workflow syncs version files before image build, and commits those file changes back to the default branch when needed.
+- The publish workflow writes version files into the build context, builds/pushes the image first, then commits those file changes and tags that commit on the default branch when needed.
 
 ## Configuration
 

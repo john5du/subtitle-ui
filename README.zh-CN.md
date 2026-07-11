@@ -41,7 +41,7 @@ bun run build
 git push origin main
 ```
 
-3. 推送到 `main` 会触发 `.github/workflows/docker-publish.yml`：先跑单元测试（`go test ./...`），再基于版本文件自动递增 patch、创建标签 `vX.Y.Z`、构建并推送镜像，最后把版本文件同步回 `main`。
+3. 推送到 `main` 会触发 `.github/workflows/docker-publish.yml`：先跑单元测试（`go test ./...`），再基于版本文件解析下一 patch，构建并推送镜像；成功后再把版本文件同步回 `main`，并在该提交上创建标签 `vX.Y.Z`。
 4. 也可以通过 `workflow_dispatch` 手动运行工作流；可选版本输入支持 `0.7.3` 或 `v0.7.3`，不填写时会基于版本文件自动递增 patch。
 5. `github-actions[bot]` 的版本同步提交（`chore: sync version files…`）不会再次触发发版。
 6. 发版结果核对：
@@ -276,7 +276,7 @@ volumes:
 
 - 工作流文件：`.github/workflows/docker-publish.yml`
 - 触发条件：推送到 `main` 或手动执行 `workflow_dispatch`
-- 流程：单元测试（`go test ./...`）→ 递增 patch 版本 → 打标签 → 构建/推送镜像 → 同步版本文件
+- 流程：单元测试（`go test ./...`）→ 解析 patch 版本 → 构建/推送镜像 → 同步版本文件 → 打标签
 - bot 的版本同步提交不会再次触发发版
 - 镜像仓库：`ghcr.io/john5du/subtitle-ui`
 - 发布标签：
@@ -284,7 +284,7 @@ volumes:
   - 纯语义版本标签（`X.Y.Z`）
   - 滚动标签（`latest`）
   - 提交 SHA 标签（`sha-<short>`）
-- 发布流程会在镜像构建前同步版本文件，并在需要时将版本文件改动提交回默认分支，确保仓库与容器内版本一致。
+- 发布流程会在构建上下文中写入版本文件并先构建/推送镜像；成功后再将版本文件提交回默认分支并在该提交上打标签，确保仓库与容器内版本一致。
 
 ## 配置项
 

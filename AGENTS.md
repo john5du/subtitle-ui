@@ -67,7 +67,7 @@ cd frontend && bun run build   # static export → frontend/out
 
 ## Release / version
 
-- Push to `main` triggers `.github/workflows/docker-publish.yml`: `go test ./...` → bump patch → tag → build/push `ghcr.io/john5du/subtitle-ui` → commit version sync.
+- Push to `main` triggers `.github/workflows/docker-publish.yml`: `go test ./...` → resolve patch bump → build/push `ghcr.io/john5du/subtitle-ui` → commit version sync → tag.
 - Keep **in sync**: `backend/internal/version/version.go` (`const Value`) and `frontend/package.json` `version`. Mismatch fails the release job.
 - Bot commits `chore: sync version files…` do not re-release.
 - Prefer Conventional Commits. Do not push casual WIP to `main`.
