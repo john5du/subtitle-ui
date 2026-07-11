@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"subtitle-ui/backend/internal/archive"
 	"subtitle-ui/backend/internal/domain"
@@ -127,14 +126,7 @@ func (s *Service) PrepareSubHDSeasonPack(ctx context.Context, opts SubHDSeasonPr
 
 	dl, err := client.Download(ctx, sid)
 	if err != nil {
-		_ = s.store.AppendLog(domain.OperationLog{
-			ID:        makeID(fmt.Sprintf("season-download-error-%s-%d", sid, time.Now().UnixNano())),
-			Timestamp: time.Now().UTC(),
-			Action:    "download",
-			VideoID:   videos[0].ID,
-			Status:    "error",
-			Message:   err.Error(),
-		})
+		s.recordOp("download", videos[0].ID, "", "", "error", err.Error())
 		return SubHDSeasonPrepareResult{}, mapSubHDError(err)
 	}
 
@@ -319,7 +311,9 @@ func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *sub
 		replaceSourcePath = existing.Path
 		backupPath, err = subtitle.BackupFile(existing.Path)
 		if err != nil {
-			return domain.Subtitle{}, fmt.Errorf("backup before replace failed: %w", err)
+			err = fmt.Errorf("backup before replace failed: %w", err)
+			s.recordOp("download_replace", videoID, existing.Path, "", "error", err.Error())
+			return domain.Subtitle{}, err
 		}
 		targetPath = subtitle.BuildReplacementSubtitlePath(existing.Path, ext)
 		if !sameFilePath(targetPath, existing.Path) && subtitle.PathExists(targetPath) {
@@ -337,11 +331,14 @@ func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *sub
 		return domain.Subtitle{}, ErrUnsafePath
 	}
 	if err := subtitle.WriteFileBytes(resolved.Data, targetPath); err != nil {
+		s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 	if replaceSourcePath != "" && !sameFilePath(targetPath, replaceSourcePath) {
 		if err := os.Remove(replaceSourcePath); err != nil {
-			return domain.Subtitle{}, fmt.Errorf("cleanup replaced subtitle failed: %w", err)
+			err = fmt.Errorf("cleanup replaced subtitle failed: %w", err)
+			s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
+			return domain.Subtitle{}, err
 		}
 	}
 
@@ -359,19 +356,11 @@ func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *sub
 	}
 	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, targetPath, sourceOverrides)
 	if err != nil {
+		s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
-	_ = s.store.AppendLog(domain.OperationLog{
-		ID:         makeID(fmt.Sprintf("%s-%s-%d", action, targetPath, time.Now().UnixNano())),
-		Timestamp:  time.Now().UTC(),
-		Action:     action,
-		VideoID:    updatedVideo.ID,
-		TargetPath: targetPath,
-		BackupPath: backupPath,
-		Status:     "ok",
-		Message:    detail,
-	})
+	s.recordOp(action, updatedVideo.ID, targetPath, backupPath, "ok", detail)
 	return updatedSub, nil
 }
 

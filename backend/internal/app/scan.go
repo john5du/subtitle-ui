@@ -139,14 +139,7 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	if result.err != nil {
 		scanStatus = "error"
 	}
-	_ = s.store.AppendLog(domain.OperationLog{
-		ID:        makeID(fmt.Sprintf("scan-%d", time.Now().UnixNano())),
-		Timestamp: time.Now().UTC(),
-		Action:    "scan",
-		VideoID:   systemOperationVideoID,
-		Status:    scanStatus,
-		Message:   scanMessage,
-	})
+	s.recordOp("scan", systemOperationVideoID, "", "", scanStatus, scanMessage)
 
 	s.statusMu.Lock()
 	s.scanRunning = false

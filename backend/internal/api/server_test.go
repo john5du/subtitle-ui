@@ -17,7 +17,7 @@ import (
 	"subtitle-ui/backend/internal/domain"
 )
 
-func TestWithErrorLoggingLogsFailedRequests(t *testing.T) {
+func TestWithRequestLoggingLogsFailedRequests(t *testing.T) {
 	var output bytes.Buffer
 	prevWriter := log.Writer()
 	prevFlags := log.Flags()
@@ -28,11 +28,12 @@ func TestWithErrorLoggingLogsFailedRequests(t *testing.T) {
 		log.SetFlags(prevFlags)
 	}()
 
-	handler := withErrorLogging(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := withRequestLogging(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad request")
 	}))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/test", nil)
+	req.RemoteAddr = "127.0.0.1:54321"
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 
@@ -50,12 +51,18 @@ func TestWithErrorLoggingLogsFailedRequests(t *testing.T) {
 	if !strings.Contains(logLine, "status=400") {
 		t.Fatalf("expected status in log, got %q", logLine)
 	}
+	if !strings.Contains(logLine, "duration_ms=") {
+		t.Fatalf("expected duration_ms in log, got %q", logLine)
+	}
+	if !strings.Contains(logLine, "remote=127.0.0.1") {
+		t.Fatalf("expected remote in log, got %q", logLine)
+	}
 	if !strings.Contains(logLine, "bad request") {
 		t.Fatalf("expected error message in log, got %q", logLine)
 	}
 }
 
-func TestWithErrorLoggingSkipsSuccessResponses(t *testing.T) {
+func TestWithRequestLoggingLogsSuccessResponses(t *testing.T) {
 	var output bytes.Buffer
 	prevWriter := log.Writer()
 	prevFlags := log.Flags()
@@ -66,19 +73,59 @@ func TestWithErrorLoggingSkipsSuccessResponses(t *testing.T) {
 		log.SetFlags(prevFlags)
 	}()
 
-	handler := withErrorLogging(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := withRequestLogging(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/videos", nil)
+	req.RemoteAddr = "10.0.0.2:1234"
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", recorder.Code)
 	}
+	logLine := output.String()
+	if !strings.Contains(logLine, "method=GET") {
+		t.Fatalf("expected method in log, got %q", logLine)
+	}
+	if !strings.Contains(logLine, "path=/api/videos") {
+		t.Fatalf("expected path in log, got %q", logLine)
+	}
+	if !strings.Contains(logLine, "status=200") {
+		t.Fatalf("expected status in log, got %q", logLine)
+	}
+	if !strings.Contains(logLine, "remote=10.0.0.2") {
+		t.Fatalf("expected remote in log, got %q", logLine)
+	}
+	if strings.Contains(logLine, "error=") {
+		t.Fatalf("expected no error field for success response, got %q", logLine)
+	}
+}
+
+func TestWithRequestLoggingSkipsHealthAndNonAPI(t *testing.T) {
+	var output bytes.Buffer
+	prevWriter := log.Writer()
+	prevFlags := log.Flags()
+	log.SetOutput(&output)
+	log.SetFlags(0)
+	defer func() {
+		log.SetOutput(prevWriter)
+		log.SetFlags(prevFlags)
+	}()
+
+	handler := withRequestLogging(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}))
+
+	for _, path := range []string{"/api/health", "/index.html", "/"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+	}
+
 	if strings.TrimSpace(output.String()) != "" {
-		t.Fatalf("expected no error logs for success response, got %q", output.String())
+		t.Fatalf("expected no access logs for health/static paths, got %q", output.String())
 	}
 }
 
@@ -161,7 +208,8 @@ func TestHandleLogsPagesAndClears(t *testing.T) {
 
 	var page struct {
 		Items []struct {
-			ID string `json:"id"`
+			ID     string `json:"id"`
+			Action string `json:"action"`
 		} `json:"items"`
 		Total      int `json:"total"`
 		Page       int `json:"page"`
@@ -202,8 +250,12 @@ func TestHandleLogsPagesAndClears(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &page); err != nil {
 		t.Fatalf("decode logs page after clear: %v", err)
 	}
-	if page.Total != 0 || len(page.Items) != 0 {
-		t.Fatalf("expected logs to be empty after clear, total=%d len=%d", page.Total, len(page.Items))
+	// Clear leaves a single audit row so the wipe itself is visible.
+	if page.Total != 1 || len(page.Items) != 1 {
+		t.Fatalf("expected clear_logs audit row after clear, total=%d len=%d", page.Total, len(page.Items))
+	}
+	if page.Items[0].Action != "clear_logs" {
+		t.Fatalf("expected clear_logs action after clear, got %q", page.Items[0].Action)
 	}
 }
 

@@ -115,15 +115,7 @@ func (s *Service) CheckMediaRootWritePermissions() []string {
 		if err := ensureDirectoryWritable(root); err != nil {
 			msg := fmt.Sprintf("media root %s is not writable: %v", root, err)
 			issues = append(issues, msg)
-			_ = s.store.AppendLog(domain.OperationLog{
-				ID:         makeID(fmt.Sprintf("permission-check-%s-%d", root, time.Now().UnixNano())),
-				Timestamp:  time.Now().UTC(),
-				Action:     "permission_check",
-				VideoID:    systemOperationVideoID,
-				TargetPath: root,
-				Status:     "error",
-				Message:    msg,
-			})
+			s.recordOp("permission_check", systemOperationVideoID, root, "", "error", msg)
 		}
 	}
 	return issues

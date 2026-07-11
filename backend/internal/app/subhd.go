@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"subtitle-ui/backend/internal/domain"
 	"subtitle-ui/backend/internal/provider/subhd"
@@ -78,27 +77,13 @@ func (s *Service) InstallFromSubHD(ctx context.Context, videoID string, sid stri
 
 	dl, err := client.Download(ctx, sid)
 	if err != nil {
-		_ = s.store.AppendLog(domain.OperationLog{
-			ID:        makeID(fmt.Sprintf("download-error-%s-%d", sid, time.Now().UnixNano())),
-			Timestamp: time.Now().UTC(),
-			Action:    "download",
-			VideoID:   videoID,
-			Status:    "error",
-			Message:   err.Error(),
-		})
+		s.recordOp("download", videoID, "", "", "error", err.Error())
 		return domain.Subtitle{}, mapSubHDError(err)
 	}
 
 	resolved, err := subhd.ResolveInstallable(dl, opts.ArchiveEntry)
 	if err != nil {
-		_ = s.store.AppendLog(domain.OperationLog{
-			ID:        makeID(fmt.Sprintf("download-resolve-error-%s-%d", sid, time.Now().UnixNano())),
-			Timestamp: time.Now().UTC(),
-			Action:    "download",
-			VideoID:   videoID,
-			Status:    "error",
-			Message:   err.Error(),
-		})
+		s.recordOp("download", videoID, "", "", "error", err.Error())
 		return domain.Subtitle{}, mapSubHDError(err)
 	}
 

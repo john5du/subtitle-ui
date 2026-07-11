@@ -290,7 +290,9 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 		replaceSourcePath = existing.Path
 		backupPath, err = subtitle.BackupFile(existing.Path)
 		if err != nil {
-			return domain.Subtitle{}, fmt.Errorf("backup before replace failed: %w", err)
+			err = fmt.Errorf("backup before replace failed: %w", err)
+			s.recordOp("replace", videoID, existing.Path, "", "error", err.Error())
+			return domain.Subtitle{}, err
 		}
 
 		targetPath = subtitle.BuildReplacementSubtitlePath(existing.Path, ext)
@@ -309,11 +311,14 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 		return domain.Subtitle{}, ErrUnsafePath
 	}
 	if err := subtitle.WriteFileBytes(content, targetPath); err != nil {
+		s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 	if replaceSourcePath != "" && !sameFilePath(targetPath, replaceSourcePath) {
 		if err := os.Remove(replaceSourcePath); err != nil {
-			return domain.Subtitle{}, fmt.Errorf("cleanup replaced subtitle failed: %w", err)
+			err = fmt.Errorf("cleanup replaced subtitle failed: %w", err)
+			s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
+			return domain.Subtitle{}, err
 		}
 	}
 
@@ -329,15 +334,7 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 		convertedTargetPath, err = s.convertSRTPathToASS(targetPath, options.SourceEncoding)
 		if err != nil {
 			_, _, _ = s.refreshVideoSubtitles(videoID, targetPath, sourceOverrides)
-			_ = s.store.AppendLog(domain.OperationLog{
-				ID:         makeID(fmt.Sprintf("convert-error-%s-%d", targetPath, time.Now().UnixNano())),
-				Timestamp:  time.Now().UTC(),
-				Action:     "convert",
-				VideoID:    videoID,
-				TargetPath: targetPath,
-				Status:     "error",
-				Message:    err.Error(),
-			})
+			s.recordOp("convert", videoID, targetPath, "", "error", err.Error())
 			return domain.Subtitle{}, err
 		}
 		sourceOverrides[subtitleSourceOverrideKey(convertedTargetPath)] = subtitleSourceOverride{
@@ -349,29 +346,21 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 
 	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, selectedTargetPath, sourceOverrides)
 	if err != nil {
+		s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
-	_ = s.store.AppendLog(domain.OperationLog{
-		ID:         makeID(fmt.Sprintf("%s-%s-%d", action, targetPath, time.Now().UnixNano())),
-		Timestamp:  time.Now().UTC(),
-		Action:     action,
-		VideoID:    updatedVideo.ID,
-		TargetPath: targetPath,
-		BackupPath: backupPath,
-		Status:     "ok",
-	})
+	s.recordOp(action, updatedVideo.ID, targetPath, backupPath, "ok", "")
 
 	if convertedTargetPath != "" {
-		_ = s.store.AppendLog(domain.OperationLog{
-			ID:         makeID(fmt.Sprintf("convert-%s-%d", convertedTargetPath, time.Now().UnixNano())),
-			Timestamp:  time.Now().UTC(),
-			Action:     "convert",
-			VideoID:    updatedVideo.ID,
-			TargetPath: convertedTargetPath,
-			Status:     "ok",
-			Message:    fmt.Sprintf("generated from %s", filepath.Base(targetPath)),
-		})
+		s.recordOp(
+			"convert",
+			updatedVideo.ID,
+			convertedTargetPath,
+			"",
+			"ok",
+			fmt.Sprintf("generated from %s", filepath.Base(targetPath)),
+		)
 	}
 
 	return updatedSub, nil
@@ -395,15 +384,7 @@ func (s *Service) ConvertSubtitleToASS(videoID string, subtitleID string, option
 
 	targetPath, err := s.convertSRTPathToASS(existing.Path, options.SourceEncoding)
 	if err != nil {
-		_ = s.store.AppendLog(domain.OperationLog{
-			ID:         makeID(fmt.Sprintf("convert-error-%s-%d", existing.Path, time.Now().UnixNano())),
-			Timestamp:  time.Now().UTC(),
-			Action:     "convert",
-			VideoID:    videoID,
-			TargetPath: existing.Path,
-			Status:     "error",
-			Message:    err.Error(),
-		})
+		s.recordOp("convert", videoID, existing.Path, "", "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
@@ -415,18 +396,18 @@ func (s *Service) ConvertSubtitleToASS(videoID string, subtitleID string, option
 	}
 	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, targetPath, sourceOverrides)
 	if err != nil {
+		s.recordOp("convert", videoID, existing.Path, "", "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
-	_ = s.store.AppendLog(domain.OperationLog{
-		ID:         makeID(fmt.Sprintf("convert-%s-%d", targetPath, time.Now().UnixNano())),
-		Timestamp:  time.Now().UTC(),
-		Action:     "convert",
-		VideoID:    updatedVideo.ID,
-		TargetPath: targetPath,
-		Status:     "ok",
-		Message:    fmt.Sprintf("generated from %s", existing.FileName),
-	})
+	s.recordOp(
+		"convert",
+		updatedVideo.ID,
+		targetPath,
+		"",
+		"ok",
+		fmt.Sprintf("generated from %s", existing.FileName),
+	)
 
 	return updatedSub, nil
 }
@@ -506,23 +487,18 @@ func (s *Service) OffsetSubtitleTiming(videoID string, subtitleID string, option
 	}
 	shiftedData, err := subtitle.OffsetTimingBytes(sourceData, filepath.Ext(existing.Path), offsetMS)
 	if err != nil {
-		_ = s.store.AppendLog(domain.OperationLog{
-			ID:         makeID(fmt.Sprintf("offset-error-%s-%d", existing.Path, time.Now().UnixNano())),
-			Timestamp:  time.Now().UTC(),
-			Action:     "offset",
-			VideoID:    videoID,
-			TargetPath: existing.Path,
-			Status:     "error",
-			Message:    err.Error(),
-		})
+		s.recordOp("offset", videoID, existing.Path, "", "error", err.Error())
 		return domain.Subtitle{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
 	}
 
 	backupPath, err := subtitle.BackupFile(existing.Path)
 	if err != nil {
-		return domain.Subtitle{}, fmt.Errorf("backup before timing offset failed: %w", err)
+		err = fmt.Errorf("backup before timing offset failed: %w", err)
+		s.recordOp("offset", videoID, existing.Path, "", "error", err.Error())
+		return domain.Subtitle{}, err
 	}
 	if err := subtitle.WriteFileBytes(shiftedData, existing.Path); err != nil {
+		s.recordOp("offset", videoID, existing.Path, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
@@ -534,19 +510,18 @@ func (s *Service) OffsetSubtitleTiming(videoID string, subtitleID string, option
 	}
 	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, existing.Path, sourceOverrides)
 	if err != nil {
+		s.recordOp("offset", videoID, existing.Path, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
-	_ = s.store.AppendLog(domain.OperationLog{
-		ID:         makeID(fmt.Sprintf("offset-%s-%d", existing.Path, time.Now().UnixNano())),
-		Timestamp:  time.Now().UTC(),
-		Action:     "offset",
-		VideoID:    updatedVideo.ID,
-		TargetPath: existing.Path,
-		BackupPath: backupPath,
-		Status:     "ok",
-		Message:    fmt.Sprintf("offset_ms=%d", offsetMS),
-	})
+	s.recordOp(
+		"offset",
+		updatedVideo.ID,
+		existing.Path,
+		backupPath,
+		"ok",
+		fmt.Sprintf("offset_ms=%d", offsetMS),
+	)
 
 	return updatedSub, nil
 }
@@ -566,26 +541,22 @@ func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {
 
 	backupPath, err := subtitle.BackupFile(existing.Path)
 	if err != nil {
-		return fmt.Errorf("backup before delete failed: %w", err)
+		err = fmt.Errorf("backup before delete failed: %w", err)
+		s.recordOp("delete", videoID, existing.Path, "", "error", err.Error())
+		return err
 	}
 	if err := os.Remove(existing.Path); err != nil {
+		s.recordOp("delete", videoID, existing.Path, backupPath, "error", err.Error())
 		return err
 	}
 
 	_, _, err = s.refreshVideoSubtitles(videoID, "", nil)
 	if err != nil {
+		s.recordOp("delete", videoID, existing.Path, backupPath, "error", err.Error())
 		return err
 	}
 
-	_ = s.store.AppendLog(domain.OperationLog{
-		ID:         makeID(fmt.Sprintf("delete-%s-%d", existing.Path, time.Now().UnixNano())),
-		Timestamp:  time.Now().UTC(),
-		Action:     "delete",
-		VideoID:    videoID,
-		TargetPath: existing.Path,
-		BackupPath: backupPath,
-		Status:     "ok",
-	})
+	s.recordOp("delete", videoID, existing.Path, backupPath, "ok", "")
 	return nil
 }
 

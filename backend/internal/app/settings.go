@@ -57,8 +57,18 @@ func (s *Service) UpdateSubtitleConversionConfig(req domain.SubtitleConversionCo
 		settingSourceEncoding: sourceEncodingDefault,
 	}, updatedAt)
 	if err != nil {
+		s.recordOp("config_subtitle_conversion", systemOperationVideoID, "", "", "error", err.Error())
 		return domain.SubtitleConversionConfig{}, err
 	}
+
+	s.recordOp(
+		"config_subtitle_conversion",
+		systemOperationVideoID,
+		"",
+		"",
+		"ok",
+		fmt.Sprintf("source_encoding_default=%s", sourceEncodingDefault),
+	)
 
 	return domain.SubtitleConversionConfig{
 		ASSTemplate:           template,

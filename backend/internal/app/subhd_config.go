@@ -39,10 +39,24 @@ func (s *Service) UpdateSubHDConfig(req domain.SubHDConfigUpdate) (domain.SubHDC
 		settingSubHDBaseURL: normalizedBase,
 		settingSubHDProxy:   normalizedProxy,
 	}, updatedAt); err != nil {
+		s.recordOp("config_subhd", systemOperationVideoID, "", "", "error", err.Error())
 		return domain.SubHDConfig{}, err
 	}
 
 	s.rebuildSubHDClient(req.Enabled, normalizedBase, normalizedProxy)
+
+	proxyState := "cleared"
+	if normalizedProxy != "" {
+		proxyState = "set"
+	}
+	s.recordOp(
+		"config_subhd",
+		systemOperationVideoID,
+		"",
+		"",
+		"ok",
+		fmt.Sprintf("enabled=%s base_url=%s proxy=%s", enabledValue, normalizedBase, proxyState),
+	)
 
 	return domain.SubHDConfig{
 		Enabled:        req.Enabled,

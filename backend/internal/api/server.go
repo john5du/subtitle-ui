@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -101,7 +102,7 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.withCORS(withErrorLogging(s.withAdminAuth(s.mux)))
+	return s.withCORS(withRequestLogging(s.withAdminAuth(s.mux)))
 }
 
 func (s *Server) withAdminAuth(next http.Handler) http.Handler {
@@ -912,8 +913,14 @@ func (w *errorCaptureResponseWriter) Write(data []byte) (int, error) {
 	return w.ResponseWriter.Write(data)
 }
 
-func withErrorLogging(next http.Handler) http.Handler {
+func withRequestLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !shouldLogAPIRequest(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		started := time.Now()
 		captured := &errorCaptureResponseWriter{ResponseWriter: w}
 		next.ServeHTTP(captured, r)
 
@@ -921,19 +928,68 @@ func withErrorLogging(next http.Handler) http.Handler {
 		if status == 0 {
 			status = http.StatusOK
 		}
-		if status < http.StatusBadRequest {
+		durationMS := time.Since(started).Milliseconds()
+		remote := requestRemoteAddr(r)
+
+		if status >= http.StatusBadRequest {
+			errorMessage := parseErrorMessage(captured.body.Bytes())
+			log.Printf(
+				"api request: method=%s path=%s status=%d duration_ms=%d remote=%s error=%q",
+				r.Method,
+				r.URL.Path,
+				status,
+				durationMS,
+				remote,
+				errorMessage,
+			)
 			return
 		}
 
-		errorMessage := parseErrorMessage(captured.body.Bytes())
 		log.Printf(
-			"api request failed: method=%s path=%s status=%d error=%q",
+			"api request: method=%s path=%s status=%d duration_ms=%d remote=%s",
 			r.Method,
 			r.URL.Path,
 			status,
-			errorMessage,
+			durationMS,
+			remote,
 		)
 	})
+}
+
+func shouldLogAPIRequest(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	if r.Method == http.MethodOptions {
+		return false
+	}
+	path := r.URL.Path
+	if !strings.HasPrefix(path, "/api/") {
+		return false
+	}
+	if r.Method == http.MethodGet && path == "/api/health" {
+		return false
+	}
+	return true
+}
+
+func requestRemoteAddr(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+		if i := strings.IndexByte(forwarded, ','); i >= 0 {
+			forwarded = strings.TrimSpace(forwarded[:i])
+		}
+		if forwarded != "" {
+			return forwarded
+		}
+	}
+	addr := strings.TrimSpace(r.RemoteAddr)
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		return host
+	}
+	return addr
 }
 
 func parseErrorMessage(body []byte) string {
