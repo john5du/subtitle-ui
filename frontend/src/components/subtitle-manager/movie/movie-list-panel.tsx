@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 
-import { RefreshCw, X } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, RefreshCw, X } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import type { Pager, Video } from "@/lib/types";
@@ -48,6 +48,9 @@ interface MovieListPanelProps {
   refreshing: boolean;
   refreshDisabled: boolean;
   refreshLabel: string;
+  sidebarCollapsed?: boolean;
+  sidebarToggleLabel?: string;
+  onToggleSidebar?: () => void;
   pending: boolean;
   formatTime: (value: string | undefined | null) => string;
 }
@@ -92,6 +95,9 @@ export const MovieListPanel = memo(function MovieListPanel({
   refreshing,
   refreshDisabled,
   refreshLabel,
+  sidebarCollapsed = false,
+  sidebarToggleLabel,
+  onToggleSidebar,
   pending,
   formatTime
 }: MovieListPanelProps) {
@@ -151,18 +157,33 @@ export const MovieListPanel = memo(function MovieListPanel({
     <Card className="surface-panel animate-fade-in-up flex h-full flex-col">
       <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="h-9 w-9 shrink-0"
-            onClick={() => void onRefresh()}
-            disabled={refreshDisabled}
-            aria-label={refreshLabel}
-            title={refreshLabel}
-          >
-            {refreshing ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
-          </Button>
+          <div className="flex items-center gap-2">
+            {onToggleSidebar && sidebarToggleLabel ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="hidden h-9 w-9 shrink-0 lg:inline-flex"
+                onClick={onToggleSidebar}
+                aria-label={sidebarToggleLabel}
+                title={sidebarToggleLabel}
+              >
+                {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              onClick={() => void onRefresh()}
+              disabled={refreshDisabled}
+              aria-label={refreshLabel}
+              title={refreshLabel}
+            >
+              {refreshing ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+            </Button>
+          </div>
           <div className="flex w-full flex-col gap-2 sm:min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end xl:w-auto">
             <div className="relative w-full min-w-0 sm:flex-1 xl:w-[260px] xl:flex-none">
               <Input

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 
-import { Database, Search, ScrollText } from "lucide-react";
+import { Database, PanelLeftClose, PanelLeftOpen, Search, ScrollText } from "lucide-react";
 
 import { useI18n, type TranslateFn } from "@/lib/i18n";
 import type {
@@ -143,7 +143,10 @@ export function DashboardPanel({
   onRefreshLogs,
   onClearLogs,
   onLogsDialogOpenChange,
-  formatTime
+  formatTime,
+  sidebarCollapsed,
+  sidebarToggleLabel,
+  onToggleSidebar
 }: {
   scanStatus: ScanStatus | null;
   directoryScan: DirectoryScanResult;
@@ -159,6 +162,9 @@ export function DashboardPanel({
   onClearLogs: () => Promise<boolean>;
   onLogsDialogOpenChange?: (open: boolean) => void;
   formatTime: (value: string | undefined | null) => string;
+  sidebarCollapsed?: boolean;
+  sidebarToggleLabel?: string;
+  onToggleSidebar?: () => void;
 }) {
   const { t } = useI18n();
   const [logsOpen, setLogsOpen] = useState(false);
@@ -170,56 +176,71 @@ export function DashboardPanel({
 
   return (
     <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-4 lg:h-full">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-        <StatusSummaryBar
-          scanStatus={scanStatus}
-          directoryScan={directoryScan}
-          pending={pending}
-          operationLocked={operationLocked}
-          scanPending={scanPending}
-          triggerScan={triggerScan}
-        />
+      <div className="flex items-start gap-2">
+        {onToggleSidebar && sidebarToggleLabel ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="mt-0.5 hidden h-9 w-9 shrink-0 lg:inline-flex"
+            onClick={onToggleSidebar}
+            aria-label={sidebarToggleLabel}
+            title={sidebarToggleLabel}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
+        ) : null}
+        <div className="mx-auto flex min-w-0 w-full max-w-5xl flex-1 flex-col gap-5">
+          <StatusSummaryBar
+            scanStatus={scanStatus}
+            directoryScan={directoryScan}
+            pending={pending}
+            operationLocked={operationLocked}
+            scanPending={scanPending}
+            triggerScan={triggerScan}
+          />
 
-        <div className="animate-fade-in-up space-y-6">
-          <div className="space-y-1">
-            <h1 className="text-display text-lg font-semibold uppercase tracking-section text-foreground">{t("settings.title")}</h1>
-          </div>
+          <div className="animate-fade-in-up space-y-6">
+            <div className="space-y-1">
+              <h1 className="text-display text-lg font-semibold uppercase tracking-section text-foreground">{t("settings.title")}</h1>
+            </div>
 
-          <div className="grid gap-6">
-            <SettingsSection title={t("settings.appearance")}>
-              <SettingsActionRow label={t("locale.label")}>
-                <LocaleSelect />
-              </SettingsActionRow>
-              <SettingsActionRow label={t("sidebar.changeTheme")}>
-                <ThemeToggle />
-              </SettingsActionRow>
-            </SettingsSection>
+            <div className="grid gap-6">
+              <SettingsSection title={t("settings.appearance")}>
+                <SettingsActionRow label={t("locale.label")}>
+                  <LocaleSelect />
+                </SettingsActionRow>
+                <SettingsActionRow label={t("sidebar.changeTheme")}>
+                  <ThemeToggle />
+                </SettingsActionRow>
+              </SettingsSection>
 
-            <SettingsSection title={t("settings.system")}>
-              <SettingsActionRow label={t("settings.databaseType")}>
-                <Badge variant="secondary" title={t("settings.databaseType")} aria-label={t("settings.databaseType")} className="gap-2 py-2">
-                  <Database className="h-3.5 w-3.5" />
-                  {formatDatabaseType(versionInfo?.databaseType, t)}
-                </Badge>
-              </SettingsActionRow>
-            </SettingsSection>
+              <SettingsSection title={t("settings.system")}>
+                <SettingsActionRow label={t("settings.databaseType")}>
+                  <Badge variant="secondary" title={t("settings.databaseType")} aria-label={t("settings.databaseType")} className="gap-2 py-2">
+                    <Database className="h-3.5 w-3.5" />
+                    {formatDatabaseType(versionInfo?.databaseType, t)}
+                  </Badge>
+                </SettingsActionRow>
+              </SettingsSection>
 
-            <SettingsSection title={t("settings.subhd")}>
-              <SubHDSettingsPanel />
-            </SettingsSection>
+              <SettingsSection title={t("settings.subhd")}>
+                <SubHDSettingsPanel />
+              </SettingsSection>
 
-            <SettingsSection title={t("settings.subtitleConversion")}>
-              <SubtitleConversionSettingsPanel />
-            </SettingsSection>
+              <SettingsSection title={t("settings.subtitleConversion")}>
+                <SubtitleConversionSettingsPanel />
+              </SettingsSection>
 
-            <SettingsSection title={t("logs.title")}>
-              <SettingsActionRow label={t("logs.title")}>
-                <Button type="button" variant="outline" className="h-10" onClick={() => handleLogsOpenChange(true)}>
-                  <ScrollText className="h-4 w-4" />
-                  {t("settings.viewOperationLogs")}
-                </Button>
-              </SettingsActionRow>
-            </SettingsSection>
+              <SettingsSection title={t("logs.title")}>
+                <SettingsActionRow label={t("logs.title")}>
+                  <Button type="button" variant="outline" className="h-10" onClick={() => handleLogsOpenChange(true)}>
+                    <ScrollText className="h-4 w-4" />
+                    {t("settings.viewOperationLogs")}
+                  </Button>
+                </SettingsActionRow>
+              </SettingsSection>
+            </div>
           </div>
         </div>
       </div>

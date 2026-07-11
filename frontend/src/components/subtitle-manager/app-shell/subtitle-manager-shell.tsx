@@ -1,7 +1,7 @@
 import { memo, useCallback } from "react";
 
 import Image from "next/image";
-import { LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 import { APP_REPOSITORY_URL, APP_VERSION } from "@/lib/app-version";
 import { useI18n } from "@/lib/i18n";
@@ -27,6 +27,9 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   refreshPending,
   refreshDisabled,
   refreshLabel,
+  sidebarCollapsed,
+  sidebarToggleLabel,
+  onToggleSidebar,
   triggerScan,
   formatTime,
   dashboardScanStatus,
@@ -77,6 +80,9 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   refreshPending: boolean;
   refreshDisabled: boolean;
   refreshLabel: string;
+  sidebarCollapsed: boolean;
+  sidebarToggleLabel: string;
+  onToggleSidebar: () => void;
   triggerScan: SubtitleManagerScreenModel["shell"]["triggerScan"];
   formatTime: SubtitleManagerScreenModel["subtitleActions"]["formatTime"];
   dashboardScanStatus: SubtitleManagerScreenModel["dashboard"]["scanStatus"];
@@ -147,6 +153,9 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
             onClearLogs={dashboardClearLogs}
             onLogsDialogOpenChange={dashboardSetLogsDialogOpen}
             formatTime={dashboardFormatTime}
+            sidebarCollapsed={sidebarCollapsed}
+            sidebarToggleLabel={sidebarToggleLabel}
+            onToggleSidebar={onToggleSidebar}
           />
         </div>
       )}
@@ -174,6 +183,9 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
             refreshLabel={refreshLabel}
             pending={moviePending}
             formatTime={formatTime}
+            sidebarCollapsed={sidebarCollapsed}
+            sidebarToggleLabel={sidebarToggleLabel}
+            onToggleSidebar={onToggleSidebar}
           />
         </div>
       )}
@@ -204,6 +216,9 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
             loading={tvScanLoading}
             pending={tvPendingList}
             formatTime={formatTime}
+            sidebarCollapsed={sidebarCollapsed}
+            sidebarToggleLabel={sidebarToggleLabel}
+            onToggleSidebar={onToggleSidebar}
           />
         </div>
       )}
@@ -475,8 +490,8 @@ export function SubtitleManagerShell({
                   aria-label={item.label}
                   title={item.label}
                   className={cn(
-                    "group surface-transition flex h-10 w-full items-center gap-3 overflow-hidden whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60",
-                    sidebarCollapsed ? "justify-center px-0" : "justify-start px-3",
+                    "group surface-transition flex h-10 w-full items-center overflow-hidden whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60",
+                    sidebarCollapsed ? "justify-center gap-0 px-0" : "justify-start gap-3 px-3",
                     shell.activeTab === item.key
                       ? "bg-surface-strong text-foreground"
                       : "text-foreground-muted hover:bg-surface-subtle hover:text-foreground"
@@ -492,25 +507,17 @@ export function SubtitleManagerShell({
                   >
                     {item.icon}
                   </span>
-                  <span
-                    className={cn(
-                      "min-w-0 truncate text-sm font-semibold transition-[opacity,max-width] duration-200 ease-out",
-                      sidebarCollapsed ? "max-w-0 opacity-0" : "max-w-[9rem] opacity-100"
-                    )}
-                  >
-                    {item.label}
-                  </span>
+                  {!sidebarCollapsed ? (
+                    <span className="min-w-0 max-w-[9rem] truncate text-sm font-semibold opacity-100 transition-[opacity,max-width] duration-200 ease-out">
+                      {item.label}
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
 
-            <div
-              className={cn(
-                "mt-auto flex gap-2",
-                sidebarCollapsed ? "flex-col items-center" : "items-center justify-end"
-              )}
-            >
-              {showSignOut && onSignOut ? (
+            {showSignOut && onSignOut ? (
+              <div className={cn("mt-auto flex", sidebarCollapsed ? "justify-center" : "justify-end")}>
                 <Button
                   type="button"
                   variant="outline"
@@ -522,19 +529,8 @@ export function SubtitleManagerShell({
                 >
                   <LogOut className="h-4 w-4" />
                 </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 shrink-0"
-                aria-label={sidebarToggleLabel}
-                title={sidebarToggleLabel}
-                onClick={shell.toggleSidebarCollapsed}
-              >
-                {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-              </Button>
-            </div>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -546,6 +542,9 @@ export function SubtitleManagerShell({
             refreshPending={shell.refreshPending}
             refreshDisabled={refreshDisabled}
             refreshLabel={refreshLabel}
+            sidebarCollapsed={sidebarCollapsed}
+            sidebarToggleLabel={sidebarToggleLabel}
+            onToggleSidebar={shell.toggleSidebarCollapsed}
             triggerScan={shell.triggerScan}
             formatTime={subtitleActions.formatTime}
             dashboardScanStatus={dashboard.scanStatus}
