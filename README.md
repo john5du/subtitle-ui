@@ -115,9 +115,11 @@ Requirements:
 ### One-click startup
 
 ```bash
+cp scripts/.env.example scripts/.env   # once; fill secrets (gitignored)
 ./scripts/dev-up.sh
 ```
 
+- Loads `scripts/.env` then `scripts/.env.local` (shell-exported vars win). See `scripts/.env.example`.
 - Frontend: `http://localhost:3300`
 - Backend: `http://localhost:9307`
 - Logs: `tmp/frontend.out.log`, `tmp/frontend.err.log`, `tmp/backend.out.log`, `tmp/backend.err.log`

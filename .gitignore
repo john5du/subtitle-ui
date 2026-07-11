@@ -7,6 +7,14 @@ frontend/.npm-cache/
 tmp/
 media/
 plan/
+
+# Local secrets / machine config (keep scripts/.env.example)
+scripts/.env
+scripts/.env.local
+scripts/.env.*.local
+.env
+.env.local
+.env.*.local
 .idea/
 .claude/
 .codex/

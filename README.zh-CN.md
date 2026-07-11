@@ -115,8 +115,11 @@ media/tv/
 ### 一键启动
 
 ```bash
+cp scripts/.env.example scripts/.env   # 首次：填入密钥（scripts/.env 已被 gitignore）
 ./scripts/dev-up.sh
 ```
+
+- 自动加载 `scripts/.env`，再加载 `scripts/.env.local`（已在 shell 中 export 的变量优先）。见 `scripts/.env.example`。
 
 - 前端：`http://localhost:3300`
 - 后端：`http://localhost:9307`

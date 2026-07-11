@@ -6,9 +6,10 @@ Go API + Next.js static UI for subtitle management against a Jellyfin-style medi
 
 ```bash
 # Dev (macOS; needs go, bun, node, lsof, curl)
-./scripts/dev-up.sh          # FE :3300, BE :9307; logs/pids in tmp/
+cp scripts/.env.example scripts/.env   # once; fill secrets (gitignored)
+./scripts/dev-up.sh          # FE :3300, BE :9307; loads scripts/.env; logs/pids in tmp/
 ./scripts/dev-down.sh        # optional: --kill-by-port
-./scripts/dev-restart.sh     # down --kill-by-port then up (refreshes CORS)
+./scripts/dev-restart.sh     # down --kill-by-port then up (reloads .env / CORS)
 
 # Manual
 go run ./backend/cmd/server
@@ -23,7 +24,8 @@ cd frontend && bun run build   # static export → frontend/out
 
 - Package manager is **bun@1.3.14** (`frontend/package.json` `packageManager`). Use `bun`, not npm/yarn.
 - Postgres store tests skip unless `TEST_POSTGRES_DSN` is set (creates a per-test schema, then drops it).
-- Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300`. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.
+- Local env: `dev-up` / `dev-restart` load `scripts/.env` then `scripts/.env.local` via `scripts/lib/load-env.sh` (shell-exported vars win). Real `scripts/.env` is gitignored; commit only `scripts/.env.example`.
+- Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300` when unset. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.
 - Optional FE API override: `NEXT_PUBLIC_API_BASE=http://localhost:9307`.
 - SubHD auto-download (backend, default **on**):
   - Env bootstrap: `SUBHD_ENABLED=false` to disable; `SUBHD_BASE_URL`; `SUBHD_PROXY=socks5://host:port`

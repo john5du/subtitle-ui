@@ -144,6 +144,24 @@ require_cmd curl
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
+# shellcheck source=lib/load-env.sh
+source "$script_dir/lib/load-env.sh"
+
+# Load local env files under scripts/ (shell-exported vars win).
+# Optional: scripts/.env.local overrides scripts/.env.
+env_file="$script_dir/.env"
+env_local_file="$script_dir/.env.local"
+if [ -f "$env_file" ]; then
+  log_step "Loading $env_file"
+  load_dotenv "$env_file"
+else
+  log_step "No scripts/.env found (optional). Copy scripts/.env.example → scripts/.env for local secrets."
+fi
+if [ -f "$env_local_file" ]; then
+  log_step "Loading $env_local_file"
+  load_dotenv "$env_local_file"
+fi
+
 frontend_dir="$repo_root/frontend"
 tmp_dir="$repo_root/tmp"
 backend_port=9307
@@ -152,6 +170,7 @@ backend_url="http://127.0.0.1:$backend_port/"
 frontend_url="http://127.0.0.1:$frontend_port/"
 default_cors_allowed_origins="http://localhost:$frontend_port,http://127.0.0.1:$frontend_port"
 backend_cors_allowed_origins="${CORS_ALLOWED_ORIGINS:-$default_cors_allowed_origins}"
+export CORS_ALLOWED_ORIGINS="$backend_cors_allowed_origins"
 
 if [ ! -d "$frontend_dir" ]; then
   die "frontend directory not found: $frontend_dir"
@@ -173,20 +192,20 @@ if [ -n "$backend_pid" ]; then
     die "Backend is listening on :$backend_port (PID=$backend_pid) but did not respond at $backend_url."
   fi
   log_step "Backend already listening on :$backend_port (PID=$backend_pid)."
-  log_step "Existing backend environment is unchanged; run ./scripts/dev-restart.sh if CORS settings need to refresh."
+  log_step "Existing backend environment is unchanged; run ./scripts/dev-restart.sh to reload .env / CORS."
 else
   log_step "Starting backend on :$backend_port ..."
   log_step "Backend CORS allowed origins: $backend_cors_allowed_origins"
+  if [ -n "${SONARR_URL:-}" ] && [ -n "${SONARR_API_KEY:-}" ]; then
+    log_step "Sonarr: enabled (${SONARR_URL})"
+  else
+    log_step "Sonarr: not configured (set SONARR_URL + SONARR_API_KEY in scripts/.env)"
+  fi
   rm -f "$backend_out" "$backend_err"
 
   pushd "$repo_root" >/dev/null
-  # Pass through optional Sonarr/SubHD env from the caller shell.
-  nohup env \
-    CORS_ALLOWED_ORIGINS="$backend_cors_allowed_origins" \
-    SONARR_URL="${SONARR_URL:-}" \
-    SONARR_API_KEY="${SONARR_API_KEY:-}" \
-    SONARR_ENABLED="${SONARR_ENABLED:-}" \
-    go run ./backend/cmd/server >"$backend_out" 2>"$backend_err" < /dev/null &
+  # Inherit full environment (including vars from .env).
+  nohup go run ./backend/cmd/server >"$backend_out" 2>"$backend_err" < /dev/null &
   backend_launcher_pid=$!
   disown "$backend_launcher_pid" 2>/dev/null || true
   popd >/dev/null
