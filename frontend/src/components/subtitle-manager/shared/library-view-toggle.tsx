@@ -18,25 +18,22 @@ export function LibraryViewToggle({
   const items: Array<{
     value: LibraryViewMode;
     icon: ReactNode;
-    label: string;
     ariaLabel: string;
   }> = [
     {
       value: "list",
       icon: <List className="h-4 w-4" />,
-      label: t("common.listView"),
       ariaLabel: t("common.switchToListView")
     },
     {
       value: "card",
       icon: <LayoutGrid className="h-4 w-4" />,
-      label: t("common.cardView"),
       ariaLabel: t("common.switchToCardView")
     }
   ];
 
   return (
-    <div className="surface-subtle inline-flex w-full items-center rounded-md p-1 sm:w-auto">
+    <div className="surface-subtle inline-flex items-center rounded-md p-1">
       {items.map((item) => {
         const active = item.value === value;
         return (
@@ -44,9 +41,9 @@ export function LibraryViewToggle({
             key={item.value}
             type="button"
             variant="ghost"
-            size="sm"
+            size="icon"
             className={cn(
-              "h-8 flex-1 gap-2 border border-transparent px-3 text-xs font-medium sm:flex-none",
+              "h-8 w-8 border border-transparent",
               active
                 ? "border-input bg-surface-hover text-foreground hover:bg-surface-hover"
                 : "text-foreground-muted hover:text-foreground"
@@ -57,7 +54,6 @@ export function LibraryViewToggle({
             onClick={() => onChange(item.value)}
           >
             {item.icon}
-            <span className="hidden sm:inline">{item.label}</span>
           </Button>
         );
       })}

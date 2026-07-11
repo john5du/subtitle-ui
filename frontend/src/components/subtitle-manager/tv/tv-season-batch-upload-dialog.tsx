@@ -180,6 +180,16 @@ function MappingStatusBadge({ status, label }: { status: SeasonBatchMappingStatu
   return <Badge variant={variant}>{label}</Badge>;
 }
 
+function formatBatchEpisodeOptionLabel(video: Video) {
+  const parsed = parseVideoSeasonEpisode(video);
+  const code = parsed ? formatSeasonEpisodeText(parsed.season, parsed.episode) : "";
+  const title = (video.title || video.fileName || "").trim();
+  if (code && title) {
+    return `${code} · ${title}`;
+  }
+  return code || title || video.id;
+}
+
 function MappingRow({
   row,
   videos,
@@ -217,22 +227,31 @@ function MappingRow({
           </div>
         </div>
 
-        <div className="space-y-2 border-t border-border pt-3 xl:w-[320px] xl:shrink-0 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0">
+        <div className="min-w-0 space-y-2 border-t border-border pt-3 xl:w-[320px] xl:shrink-0 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0">
           <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
             {t("batch.targetEpisode")}
           </p>
           <Select value={selectValue} onValueChange={(value) => onSelectionChange(row.id, value)} disabled={disabled}>
-            <SelectTrigger className="h-9 w-full">
+            <SelectTrigger className="h-9 w-full min-w-0 [&>span]:min-w-0 [&>span]:truncate">
               <SelectValue placeholder={t("batch.chooseEpisode")} />
             </SelectTrigger>
             <SelectContent className="max-h-72">
               <SelectItem value={ROW_SELECT_PENDING}>{t("batch.pendingReview")}</SelectItem>
               <SelectItem value={ROW_SELECT_SKIPPED}>{t("batch.skip")}</SelectItem>
-              {candidates.map((video) => (
-                <SelectItem key={`${row.id}-${video.id}`} value={video.id}>
-                  {video.fileName}
-                </SelectItem>
-              ))}
+              {candidates.map((video) => {
+                const label = formatBatchEpisodeOptionLabel(video);
+                return (
+                  <SelectItem
+                    key={`${row.id}-${video.id}`}
+                    value={video.id}
+                    title={video.fileName || video.title || label}
+                    className="overflow-hidden"
+                    textValue={label}
+                  >
+                    <span className="block truncate">{label}</span>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
