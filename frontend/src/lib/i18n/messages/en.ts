@@ -52,6 +52,8 @@ export const enMessages = {
   "auth.submitting": "Signing in…",
   "auth.invalidToken": "Invalid admin token",
   "auth.signOut": "Sign out",
+  "auth.signOutConfirmTitle": "Sign out?",
+  "auth.signOutConfirmDescription": "You will need to enter the admin token again to continue.",
   "auth.checking": "Checking authentication…",
   "auth.probeFailed": "Unable to reach the API. Check that the server is running.",
   "auth.retry": "Retry",

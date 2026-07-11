@@ -54,6 +54,8 @@ export const zhCNMessages: MessageDictionary = {
   "auth.submitting": "登录中…",
   "auth.invalidToken": "管理员令牌无效",
   "auth.signOut": "退出登录",
+  "auth.signOutConfirmTitle": "确认退出登录？",
+  "auth.signOutConfirmDescription": "退出后需要重新输入管理员令牌才能继续使用。",
   "auth.checking": "正在检查登录状态…",
   "auth.probeFailed": "无法连接 API，请确认后端服务已启动。",
   "auth.retry": "重试",

@@ -1,4 +1,4 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useState } from "react";
 
 import Image from "next/image";
 import { LogOut } from "lucide-react";
@@ -8,6 +8,16 @@ import { useI18n } from "@/lib/i18n";
 import type { TvSeriesSummary } from "@/lib/types";
 import { emitToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogDrawerContent } from "@/components/ui/dialog";
@@ -378,6 +388,7 @@ export function SubtitleManagerShell({
 }) {
   const { t } = useI18n();
   const { shell, dashboard, movie, tv, subtitleActions, dialogs } = model;
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const activeTabLabel = shell.navItems.find((item) => item.key === shell.activeTab)?.label ?? shell.activeTab;
   const sidebarCollapsed = shell.sidebarCollapsed;
   const sidebarToggleLabel = sidebarCollapsed ? t("sidebar.expand") : t("sidebar.collapse");
@@ -386,6 +397,11 @@ export function SubtitleManagerShell({
   const refreshLabel = shell.refreshPending
     ? t("sidebar.refreshingTab", { tab: activeTabLabel })
     : t("sidebar.refreshTab", { tab: activeTabLabel });
+  const openSignOutConfirm = useCallback(() => setSignOutConfirmOpen(true), []);
+  const confirmSignOut = useCallback(() => {
+    setSignOutConfirmOpen(false);
+    onSignOut?.();
+  }, [onSignOut]);
 
   return (
     <div className="relative flex h-full min-h-0 w-full min-w-0 flex-col lg:flex-row">
@@ -418,7 +434,7 @@ export function SubtitleManagerShell({
                 className="h-8 w-8 shrink-0"
                 aria-label={signOutLabel}
                 title={signOutLabel}
-                onClick={onSignOut}
+                onClick={openSignOutConfirm}
               >
                 <LogOut className="h-4 w-4" />
               </Button>
@@ -524,7 +540,7 @@ export function SubtitleManagerShell({
                   className="h-9 w-9 shrink-0"
                   aria-label={signOutLabel}
                   title={signOutLabel}
-                  onClick={onSignOut}
+                  onClick={openSignOutConfirm}
                 >
                   <LogOut className="h-4 w-4" />
                 </Button>
@@ -532,6 +548,21 @@ export function SubtitleManagerShell({
             ) : null}
           </CardContent>
         </Card>
+
+        {showSignOut && onSignOut ? (
+          <AlertDialog open={signOutConfirmOpen} onOpenChange={setSignOutConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("auth.signOutConfirmTitle")}</AlertDialogTitle>
+                <AlertDialogDescription>{t("auth.signOutConfirmDescription")}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmSignOut}>{t("auth.signOut")}</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : null}
 
         <div className="min-h-0 min-w-0 flex-1 lg:flex lg:h-full lg:flex-col">
           <ActiveWorkspace
