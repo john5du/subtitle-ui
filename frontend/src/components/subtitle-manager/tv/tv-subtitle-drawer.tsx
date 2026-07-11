@@ -143,7 +143,7 @@ export function TvSubtitleDrawer({
                 ) : null}
               </h2>
               {selectedSeries ? (
-                <Badge variant="secondary" className="shrink-0 whitespace-nowrap" title={selectedSeriesCoverageLabel}>
+                <Badge variant="secondary" className="shrink-0 whitespace-nowrap px-1.5 py-0 text-[10px] normal-case tracking-normal" title={selectedSeriesCoverageLabel}>
                   {selectedSeriesCoverageLabel}
                 </Badge>
               ) : null}

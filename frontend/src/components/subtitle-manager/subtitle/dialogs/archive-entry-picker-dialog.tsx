@@ -1,3 +1,5 @@
+import { Eye } from "lucide-react";
+
 import { useI18n } from "@/lib/i18n";
 import type { ZipSubtitleEntry } from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
@@ -106,14 +108,16 @@ export function ArchiveEntryPickerDialog({
                           <Button
                             type="button"
                             variant="outline"
-                            size="sm"
-                            className="h-7 px-2"
+                            size="icon"
+                            className="h-7 w-7"
+                            title={t("common.preview")}
+                            aria-label={t("common.preview")}
                             onClick={(event) => {
                               event.stopPropagation();
                               onPreviewEntry(entry);
                             }}
                           >
-                            {t("common.preview")}
+                            <Eye className="h-3.5 w-3.5" />
                           </Button>
                         </TableCell>
                       ) : null}

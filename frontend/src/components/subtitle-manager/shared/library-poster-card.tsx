@@ -41,7 +41,7 @@ export const LibraryPosterCard = memo(function LibraryPosterCard({
               sizes="(max-width: 420px) 100vw, (max-width: 768px) 50vw, 220px"
             />
             <span
-              className="poster-badge absolute bottom-2 right-2 min-w-7 px-2 py-1 text-center text-xs font-semibold leading-none backdrop-blur"
+              className="poster-badge absolute bottom-2 right-2 min-w-6 px-1.5 py-0.5 text-center text-[10px] font-medium leading-none backdrop-blur"
               aria-hidden
             >
               {badge}

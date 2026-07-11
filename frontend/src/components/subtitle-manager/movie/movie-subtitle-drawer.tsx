@@ -71,7 +71,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   ref
 ) {
   const { t } = useI18n();
-  const subtitleRowActionButtonClassName = "h-8 shrink-0 gap-1 px-2 text-caption";
+  const subtitleRowActionIconClassName = "h-8 w-8 shrink-0";
+  const subtitleRowActionTextClassName = "h-8 shrink-0 gap-1 px-2 text-caption";
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
 
@@ -110,7 +111,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                 {selectedVideo.year ? (
                   <span className="shrink-0 text-sm text-muted-foreground">{selectedVideo.year}</span>
                 ) : null}
-                <Badge variant="secondary" className="shrink-0">
+                <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px] normal-case tracking-normal">
                   {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
                 </Badge>
               </div>
@@ -124,25 +125,27 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                 {canAutoDownload ? (
                   <Button
                     type="button"
-                    size="sm"
-                    className="h-8 gap-1.5"
+                    size="icon"
+                    className="h-8 w-8"
                     disabled={busy}
                     onClick={() => setDownloadDialogOpen(true)}
+                    title={downloadPending ? t("download.downloading") : t("download.search")}
+                    aria-label={downloadPending ? t("download.downloading") : t("download.search")}
                   >
                     {downloadPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
-                    <span>{downloadPending ? t("download.downloading") : t("download.search")}</span>
                   </Button>
                 ) : null}
                 <Button
                   type="button"
-                  size="sm"
+                  size="icon"
                   variant={canAutoDownload ? "outline" : "default"}
-                  className="h-8 gap-1.5"
+                  className="h-8 w-8"
                   disabled={uploadDisabled}
                   onClick={workflow.openUploadPicker}
+                  title={uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}
+                  aria-label={uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}
                 >
                   {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-3.5 w-3.5" /> : <UploadCloud className="h-3.5 w-3.5" />}
-                  <span>{uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}</span>
                 </Button>
                 {workflow.zipLoading ? <InlinePending label={t("details.parsingArchive")} /> : null}
               </div>
@@ -241,25 +244,27 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                             <Button
                               type="button"
                               variant="outline"
-                              size="sm"
-                              className={subtitleRowActionButtonClassName}
+                              size="icon"
+                              className={subtitleRowActionIconClassName}
                               disabled={busy || rowBusy}
                               onClick={() => void workflow.openStoredSubtitlePreview(subtitle)}
+                              title={t("common.preview")}
+                              aria-label={t("common.preview")}
                             >
                               <Eye className="h-3.5 w-3.5" />
-                              {t("common.preview")}
                             </Button>
 
                             <Button
                               type="button"
                               variant="outline"
-                              size="sm"
-                              className={subtitleRowActionButtonClassName}
+                              size="icon"
+                              className={subtitleRowActionIconClassName}
                               disabled={busy || rowBusy}
                               onClick={() => workflow.replaceInputRef.current[subtitle.id]?.click()}
+                              title={replacePending ? t("common.replacing") : t("common.replace")}
+                              aria-label={replacePending ? t("common.replacing") : t("common.replace")}
                             >
                               {replacePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-                              {replacePending ? t("common.replacing") : t("common.replace")}
                             </Button>
 
                             {isSRTSubtitle(subtitle) && (
@@ -267,7 +272,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className={subtitleRowActionButtonClassName}
+                                className={subtitleRowActionTextClassName}
                                 disabled={busy || rowBusy}
                                 onClick={() => {
                                   workflow.setPendingConvertSubtitle(subtitle);
@@ -283,32 +288,34 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                               <Button
                                 type="button"
                                 variant="outline"
-                                size="sm"
-                                className={subtitleRowActionButtonClassName}
+                                size="icon"
+                                className={subtitleRowActionIconClassName}
                                 disabled={busy || rowBusy}
                                 onClick={() => {
                                   workflow.setPendingOffsetSubtitle(subtitle);
                                   workflow.setOffsetSeconds("");
                                 }}
+                                title={offsetPending ? t("timing.offsetting") : t("timing.offset")}
+                                aria-label={offsetPending ? t("timing.offsetting") : t("timing.offset")}
                               >
                                 {offsetPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
-                                {offsetPending ? t("timing.offsetting") : t("timing.offset")}
                               </Button>
                             )}
 
                             <Button
                               type="button"
                               variant="outline"
-                              size="sm"
+                              size="icon"
                               className={cn(
-                                subtitleRowActionButtonClassName,
+                                subtitleRowActionIconClassName,
                                 "border-destructive-border text-destructive-muted hover:bg-destructive-soft hover:text-destructive-muted"
                               )}
                               disabled={busy || rowBusy}
                               onClick={() => workflow.setDeleteDialogSubtitleId(subtitle.id)}
+                              title={deletePending ? t("common.deleting") : t("common.delete")}
+                              aria-label={deletePending ? t("common.deleting") : t("common.delete")}
                             >
                               {deletePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
-                              {deletePending ? t("common.deleting") : t("common.delete")}
                             </Button>
                           </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { CircleAlert, CircleCheck, ExternalLink, Info, TriangleAlert } from "lucide-react";
+import { ArrowLeft, CircleAlert, CircleCheck, ExternalLink, Info, Search, TriangleAlert } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import type {
@@ -850,12 +850,14 @@ export function TvSeasonBatchUploadWorkspace({
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-9 shrink-0"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
                     disabled={busy || batchPreparing || uploading || subhdSearching}
                     onClick={() => void searchSubHDSeason()}
+                    title={subhdSearching ? t("batch.subhd.searching") : t("batch.subhd.search")}
+                    aria-label={subhdSearching ? t("batch.subhd.searching") : t("batch.subhd.search")}
                   >
-                    {subhdSearching ? <SpinnerIcon className="h-4 w-4" /> : null}
-                    {t("batch.subhd.search")}
+                    {subhdSearching ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
                   </Button>
                 </div>
 
@@ -937,16 +939,30 @@ export function TvSeasonBatchUploadWorkspace({
 
                 {!subhdSearching && subhdResults.length === 0 && (batchNotices.length > 0 || subhdTitlePage.message) ? (
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      title={t("download.openSubHDSearch")}
+                      aria-label={t("download.openSubHDSearch")}
+                      asChild
+                    >
                       <a href={externalSearchLinks.subhd} target="_blank" rel="noreferrer">
-                        <span>{t("download.openSubHDSearch")}</span>
-                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     </Button>
-                    <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      title={t("download.openZimuku")}
+                      aria-label={t("download.openZimuku")}
+                      asChild
+                    >
                       <a href={externalSearchLinks.zimuku} target="_blank" rel="noreferrer">
-                        <span>{t("download.openZimuku")}</span>
-                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     </Button>
                   </div>
@@ -1001,12 +1017,14 @@ export function TvSeasonBatchUploadWorkspace({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                className="h-8"
+                size="icon"
+                className="h-8 w-8"
                 disabled={busy || batchPreparing || uploading}
                 onClick={backToSelectStep}
+                title={t("batch.backToSelect")}
+                aria-label={t("batch.backToSelect")}
               >
-                {t("batch.backToSelect")}
+                <ArrowLeft className="h-3.5 w-3.5" />
               </Button>
             </div>
 

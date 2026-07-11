@@ -214,9 +214,16 @@ export function SubHDDownloadDialog({
               disabled={locked}
               className="h-9"
             />
-            <Button type="submit" variant="outline" size="sm" className="h-9 shrink-0 gap-1.5" disabled={locked}>
+            <Button
+              type="submit"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              disabled={locked}
+              title={t("download.search")}
+              aria-label={t("download.search")}
+            >
               {loading ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-              {t("download.search")}
             </Button>
           </form>
 
@@ -285,23 +292,31 @@ export function SubHDDownloadDialog({
                         </div>
 
                         <div className="flex shrink-0 flex-wrap gap-1.5">
-                          <Button type="button" variant="outline" size="sm" className="h-8 gap-1 px-2 text-caption" asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            title={t("download.openOnSubHD")}
+                            aria-label={t("download.openOnSubHD")}
+                            asChild
+                          >
                             <a href={`${subhdBase}/a/${encodeURIComponent(item.sid)}`} target="_blank" rel="noreferrer">
                               <ExternalLink className="h-3.5 w-3.5" />
-                              {t("download.openOnSubHD")}
                             </a>
                           </Button>
                           <Button
                             type="button"
-                            size="sm"
-                            className="h-8 gap-1 px-2 text-caption"
+                            size="icon"
+                            className="h-8 w-8"
                             disabled={disabled}
+                            title={rowDownloading ? t("download.downloading") : t("download.action")}
+                            aria-label={rowDownloading ? t("download.downloading") : t("download.action")}
                             onClick={() => {
                               void handleDownload(item);
                             }}
                           >
                             {rowDownloading ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-                            {rowDownloading ? t("download.downloading") : t("download.action")}
                           </Button>
                         </div>
                       </li>
@@ -322,30 +337,45 @@ export function SubHDDownloadDialog({
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5"
+                    size="icon"
+                    className="h-8 w-8"
                     disabled={locked}
+                    title={t("download.uploadLocal")}
+                    aria-label={t("download.uploadLocal")}
                     onClick={() => {
                       onOpenChange(false);
                       onUploadLocal();
                     }}
                   >
                     {uploadLocalPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <UploadCloud className="h-3.5 w-3.5" />}
-                    {t("download.uploadLocal")}
                   </Button>
                 ) : null}
                 {externalLinks ? (
                   <>
-                    <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      title={t("download.openSubHDSearch")}
+                      aria-label={t("download.openSubHDSearch")}
+                      asChild
+                    >
                       <a href={externalLinks.subhd} target="_blank" rel="noreferrer">
-                        <span>{t("download.openSubHDSearch")}</span>
-                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     </Button>
-                    <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      title={t("download.openZimuku")}
+                      aria-label={t("download.openZimuku")}
+                      asChild
+                    >
                       <a href={externalLinks.zimuku} target="_blank" rel="noreferrer">
-                        <span>{t("download.openZimuku")}</span>
-                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     </Button>
                   </>
