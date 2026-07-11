@@ -28,6 +28,9 @@ type Config struct {
 	SubHDProxyURL         string
 	SubHDMinInterval      time.Duration
 	SubHDSearchMaxPages   int
+	SonarrEnabled         bool
+	SonarrURL             string
+	SonarrAPIKey          string
 }
 
 func Load() Config {
@@ -63,6 +66,15 @@ func Load() Config {
 		SubHDProxyURL:         strings.TrimSpace(os.Getenv("SUBHD_PROXY")),
 		SubHDMinInterval:      parseDuration(os.Getenv("SUBHD_MIN_INTERVAL"), 3*time.Second),
 		SubHDSearchMaxPages:   parsePositiveInt(os.Getenv("SUBHD_SEARCH_MAX_PAGES"), 1),
+		SonarrURL:             strings.TrimRight(strings.TrimSpace(os.Getenv("SONARR_URL")), "/"),
+		SonarrAPIKey:          strings.TrimSpace(os.Getenv("SONARR_API_KEY")),
+	}
+
+	// Sonarr: enabled when URL+key set, unless SONARR_ENABLED explicitly disables.
+	if cfg.SonarrURL != "" && cfg.SonarrAPIKey != "" {
+		cfg.SonarrEnabled = parseBoolDefaultTrue(os.Getenv("SONARR_ENABLED"))
+	} else {
+		cfg.SonarrEnabled = false
 	}
 
 	if abs, err := filepath.Abs(cfg.MovieMediaRoot); err == nil {

@@ -180,7 +180,13 @@ else
   rm -f "$backend_out" "$backend_err"
 
   pushd "$repo_root" >/dev/null
-  nohup env CORS_ALLOWED_ORIGINS="$backend_cors_allowed_origins" go run ./backend/cmd/server >"$backend_out" 2>"$backend_err" < /dev/null &
+  # Pass through optional Sonarr/SubHD env from the caller shell.
+  nohup env \
+    CORS_ALLOWED_ORIGINS="$backend_cors_allowed_origins" \
+    SONARR_URL="${SONARR_URL:-}" \
+    SONARR_API_KEY="${SONARR_API_KEY:-}" \
+    SONARR_ENABLED="${SONARR_ENABLED:-}" \
+    go run ./backend/cmd/server >"$backend_out" 2>"$backend_err" < /dev/null &
   backend_launcher_pid=$!
   disown "$backend_launcher_pid" 2>/dev/null || true
   popd >/dev/null

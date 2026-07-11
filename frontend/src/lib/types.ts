@@ -245,6 +245,34 @@ export interface TvSeasonOption {
   season?: number;
 }
 
+export interface MissingEpisode {
+  episode: number;
+  sonarrEpisodeId: number;
+  title?: string;
+  airDate?: string;
+}
+
+export interface SeasonCompleteness {
+  enabled: boolean;
+  matched: boolean;
+  complete: boolean;
+  source?: string;
+  season: number;
+  expectedCount: number;
+  localCount: number;
+  missing: MissingEpisode[];
+  sonarrSeriesId?: number;
+  seriesStatus?: string;
+  message?: string;
+}
+
+export interface SonarrSearchResult {
+  queued: boolean;
+  commandId?: number;
+  episodeIds?: number[];
+  message?: string;
+}
+
 export interface VersionInfo {
   version: string;
   databaseType: "sqlite" | "postgres" | string;

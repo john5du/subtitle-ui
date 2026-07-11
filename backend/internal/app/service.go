@@ -8,6 +8,7 @@ import (
 
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/provider/sonarr"
 	"subtitle-ui/backend/internal/provider/subhd"
 	"subtitle-ui/backend/internal/scanner"
 	"subtitle-ui/backend/internal/store"
@@ -41,6 +42,9 @@ type Service struct {
 	subhd          *subhd.Client
 	subhdPackCache *subhdPackCache
 
+	sonarrMu sync.RWMutex
+	sonarr   *sonarr.Client
+
 	scanRunMu sync.Mutex
 
 	statusMu      sync.RWMutex
@@ -70,6 +74,11 @@ func NewService(cfg config.Config) (*Service, error) {
 			UserAgent:   cfg.SubHDUserAgent,
 			ProxyURL:    cfg.SubHDProxyURL,
 			MinInterval: cfg.SubHDMinInterval,
+		}),
+		sonarr: sonarr.New(sonarr.Options{
+			Enabled: cfg.SonarrEnabled,
+			BaseURL: cfg.SonarrURL,
+			APIKey:  cfg.SonarrAPIKey,
 		}),
 	}
 	if err := svc.applyStoredSubHDConfig(); err != nil {

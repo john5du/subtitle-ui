@@ -159,6 +159,46 @@ type TVSeriesPage struct {
 	TotalPages int               `json:"totalPages"`
 }
 
+// MissingEpisode is one expected episode not present in the local library.
+type MissingEpisode struct {
+	Episode         int    `json:"episode"`
+	SonarrEpisodeID int    `json:"sonarrEpisodeId"`
+	Title           string `json:"title,omitempty"`
+	AirDate         string `json:"airDate,omitempty"`
+}
+
+// SeasonCompleteness compares local TV files against Sonarr expected episodes.
+type SeasonCompleteness struct {
+	Enabled        bool             `json:"enabled"`
+	Matched        bool             `json:"matched"`
+	Complete       bool             `json:"complete"`
+	Source         string           `json:"source,omitempty"`
+	Season         int              `json:"season"`
+	ExpectedCount  int              `json:"expectedCount"`
+	LocalCount     int              `json:"localCount"`
+	Missing        []MissingEpisode `json:"missing"`
+	SonarrSeriesID int              `json:"sonarrSeriesId,omitempty"`
+	SeriesStatus   string           `json:"seriesStatus,omitempty"`
+	Message        string           `json:"message,omitempty"`
+}
+
+// SonarrSearchRequest triggers Sonarr EpisodeSearch for missing episodes.
+type SonarrSearchRequest struct {
+	Path       string `json:"path"`
+	Key        string `json:"key"`
+	Season     int    `json:"season"`
+	Episodes   []int  `json:"episodes"`
+	AllMissing bool   `json:"allMissing"`
+}
+
+// SonarrSearchResult is the outcome of queueing a Sonarr search command.
+type SonarrSearchResult struct {
+	Queued     bool   `json:"queued"`
+	CommandID  int    `json:"commandId,omitempty"`
+	EpisodeIDs []int  `json:"episodeIds,omitempty"`
+	Message    string `json:"message,omitempty"`
+}
+
 type VersionInfo struct {
 	Version      string `json:"version"`
 	DatabaseType string `json:"databaseType"`

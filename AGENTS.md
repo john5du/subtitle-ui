@@ -34,6 +34,13 @@ cd frontend && bun run build   # static export → frontend/out
   - `GET /api/videos/{id}/subtitles/providers/subhd/search?q=&page=`
   - `POST /api/videos/{id}/subtitles/providers/subhd/download` JSON `{ "sid", "label?", "replaceId?", "archiveEntry?" }`
   - Installs sidecar next to video (`source=download`). Archives: zip/7z/rar (pure-Go). Rate-limit / captcha handled server-side.
+- Sonarr TV completeness (optional; env only):
+  - `SONARR_URL` (e.g. `http://127.0.0.1:8989`), `SONARR_API_KEY`, optional `SONARR_ENABLED=false`
+  - Enabled when URL+key set (unless explicitly disabled)
+  - `GET /api/tv/series/completeness?path=&key=&season=` — local vs Sonarr missing episodes (monitored + aired only)
+  - `POST /api/tv/series/sonarr/search` JSON `{ path|key, season, episodes?, allMissing? }` — queues Sonarr `EpisodeSearch`
+  - Match order: series path → `series_tmdb_id` → `series_imdb_id`
+  - Present set is local scan (not Sonarr `hasFile`). UI: TV season/episode panel only.
 
 ## Layout
 
@@ -46,6 +53,7 @@ cd frontend && bun run build   # static export → frontend/out
 | `backend/internal/scanner` | Disk scan (video + NFO + posters + subtitles) |
 | `backend/internal/subtitle` | Paths, ASS conversion, timing offset |
 | `backend/internal/provider/subhd` | SubHD search/download client (on by default) |
+| `backend/internal/provider/sonarr` | Optional Sonarr client (series match, episode list, EpisodeSearch) |
 | `backend/internal/config` | Env config |
 | `backend/internal/version` | `const Value` — release source of truth (with FE package version) |
 | `frontend/src/app` | Next App Router shell |

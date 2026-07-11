@@ -65,6 +65,8 @@ git push origin main
   - response: `{ items: Video[], total, page, pageSize, totalPages }`
 - `GET /api/tv/series` (query: optional `q`, `page`, `pageSize`, `sortYear`, `sortOrder`)
   - response: `{ items: TVSeriesSummary[], total, page, pageSize, totalPages }`
+- `GET /api/tv/series/completeness` (query: `path` or `key`, required `season`) — Sonarr completeness when configured
+- `POST /api/tv/series/sonarr/search` (body: `path`/`key`, `season`, optional `episodes[]` or `allMissing`) — queue Sonarr EpisodeSearch
 - `GET /api/videos/{videoId}`
 - `GET /api/videos/{videoId}/poster` (serves poster image resolved under the video's media root)
 - `POST /api/videos/{videoId}/subtitles` (multipart `file`, optional `label`, optional `replaceId`; optional `convertTo=ass`, `sourceEncoding` for new SRT uploads)

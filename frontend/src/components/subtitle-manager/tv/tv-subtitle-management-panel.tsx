@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ListX, PackageSearch } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Download, ListX, PackageSearch } from "lucide-react";
 
-import type { PendingSubtitleAction, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
+import type { PendingSubtitleAction, SeasonCompleteness, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { tvSeriesSearchTitle } from "@/lib/subtitle-manager/media-metadata";
+import { emitToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -74,7 +76,22 @@ export function TvSubtitleManagementPanel({
 }: TvSubtitleManagementPanelProps) {
   const { t } = useI18n();
   const [activeStep, setActiveStep] = useState<"episodes" | "subtitles">("episodes");
+  const [completeness, setCompleteness] = useState<SeasonCompleteness | null>(null);
+  const [completenessLoading, setCompletenessLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
   const selectedSeasonLabel = seasonOptions.find((option) => option.value === selectedSeason)?.label || t("tv.selectSeason");
+  const seasonNumber = useMemo(() => {
+    const option = seasonOptions.find((item) => item.value === selectedSeason);
+    if (typeof option?.season === "number" && Number.isFinite(option.season)) {
+      return option.season;
+    }
+    const match = String(selectedSeason || "").match(/(\d{1,2})/);
+    if (!match) {
+      return null;
+    }
+    const n = Number.parseInt(match[1], 10);
+    return Number.isFinite(n) ? n : null;
+  }, [seasonOptions, selectedSeason]);
   const searchKeyword = useMemo(() => {
     if (!selectedVideo) {
       return "";
@@ -85,9 +102,47 @@ export function TvSubtitleManagementPanel({
     return `${series} ${episodeCode}`.trim();
   }, [selectedSeries, selectedVideo]);
 
+  const refreshCompleteness = useCallback(async (signal?: AbortSignal) => {
+    if (!selectedSeries || seasonNumber === null) {
+      setCompleteness(null);
+      return;
+    }
+    setCompletenessLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (selectedSeries.key) {
+        params.set("key", selectedSeries.key);
+      }
+      if (selectedSeries.path) {
+        params.set("path", selectedSeries.path);
+      }
+      params.set("season", String(seasonNumber));
+      const payload = await requestPayload<SeasonCompleteness>(`/api/tv/series/completeness?${params.toString()}`, { signal });
+      if (signal?.aborted) {
+        return;
+      }
+      setCompleteness(payload);
+    } catch {
+      if (signal?.aborted) {
+        return;
+      }
+      setCompleteness(null);
+    } finally {
+      if (!signal?.aborted) {
+        setCompletenessLoading(false);
+      }
+    }
+  }, [selectedSeries, seasonNumber]);
+
   useEffect(() => {
     setActiveStep("episodes");
   }, [selectedSeries?.path]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refreshCompleteness(controller.signal);
+    return () => controller.abort();
+  }, [refreshCompleteness]);
 
   function handleStepChange(value: string) {
     setActiveStep(value === "subtitles" ? "subtitles" : "episodes");
@@ -97,6 +152,44 @@ export function TvSubtitleManagementPanel({
     onSelectVideo(video);
     setActiveStep("subtitles");
   }
+
+  async function handleSonarrSearch(options: { allMissing?: boolean; episodes?: number[] }) {
+    if (!selectedSeries || seasonNumber === null || searching) {
+      return;
+    }
+    setSearching(true);
+    try {
+      await requestPayload("/api/tv/series/sonarr/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: selectedSeries.key,
+          path: selectedSeries.path,
+          season: seasonNumber,
+          allMissing: Boolean(options.allMissing),
+          episodes: options.episodes ?? []
+        })
+      });
+      emitToast({
+        level: "success",
+        message: t("tv.completeness.searchQueued"),
+        detail: t("tv.completeness.rescanHint")
+      });
+      await refreshCompleteness();
+    } catch (error) {
+      emitToast({
+        level: "error",
+        message: t("tv.completeness.searchFailed"),
+        detail: error instanceof Error ? error.message : String(error)
+      });
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  const showCompleteness = Boolean(completeness?.enabled);
+  const missing = completeness?.missing ?? [];
+  const canDownloadMissing = showCompleteness && completeness?.matched && missing.length > 0;
 
   const episodesPane = (
     <div className="flex h-full min-h-0 flex-col">
@@ -143,6 +236,67 @@ export function TvSubtitleManagementPanel({
           ) : null}
         </div>
         {episodesPending && <InlinePending label={t("tv.loadingEpisodes")} />}
+        {showCompleteness ? (
+          <div className="mt-2 space-y-1.5">
+            {completenessLoading ? (
+              <div className="text-xs text-muted-foreground">{t("tv.completeness.loading")}</div>
+            ) : !completeness?.matched ? (
+              <div className="text-xs text-muted-foreground">{t("tv.completeness.unmatched")}</div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="tabular-nums text-muted-foreground">
+                    {t("tv.completeness.summary", {
+                      local: String(completeness.localCount),
+                      expected: String(completeness.expectedCount)
+                    })}
+                  </span>
+                  {completeness.complete ? (
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-300">
+                      {t("tv.completeness.complete")}
+                    </span>
+                  ) : missing.length > 0 ? (
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-amber-800 dark:text-amber-200">
+                      {t("tv.completeness.missing", { count: String(missing.length) })}
+                    </span>
+                  ) : null}
+                  {canDownloadMissing ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 px-2 text-xs"
+                      disabled={busy || searching || episodesPending}
+                      onClick={() => void handleSonarrSearch({ allMissing: true })}
+                    >
+                      <Download className="h-3 w-3" />
+                      {t("tv.completeness.downloadMissing")}
+                    </Button>
+                  ) : null}
+                </div>
+                {missing.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {missing.map((item) => (
+                      <Button
+                        key={item.sonarrEpisodeId || item.episode}
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 gap-1 px-1.5 text-[11px] text-muted-foreground"
+                        disabled={busy || searching || episodesPending}
+                        title={item.title || t("tv.completeness.downloadEpisode", { episode: String(item.episode).padStart(2, "0") })}
+                        onClick={() => void handleSonarrSearch({ episodes: [item.episode] })}
+                      >
+                        <Download className="h-3 w-3" />
+                        E{String(item.episode).padStart(2, "0")}
+                      </Button>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div className="relative min-h-0 flex-1">

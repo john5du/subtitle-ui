@@ -65,6 +65,8 @@ git push origin main
   - 响应：`{ items: Video[], total, page, pageSize, totalPages }`
 - `GET /api/tv/series`（查询参数：可选 `q`, `page`, `pageSize`, `sortYear`, `sortOrder`）
   - 响应：`{ items: TVSeriesSummary[], total, page, pageSize, totalPages }`
+- `GET /api/tv/series/completeness`（查询参数：`path` 或 `key`，必填 `season`）— 配置 Sonarr 后返回缺集信息
+- `POST /api/tv/series/sonarr/search`（body：`path`/`key`、`season`，可选 `episodes[]` 或 `allMissing`）— 触发 Sonarr EpisodeSearch
 - `GET /api/videos/{videoId}`
 - `GET /api/videos/{videoId}/poster`（在视频所属媒体根内解析并返回海报图）
 - `POST /api/videos/{videoId}/subtitles`（multipart `file`，可选 `label`，可选 `replaceId`；新上传 SRT 时可选 `convertTo=ass`, `sourceEncoding`）

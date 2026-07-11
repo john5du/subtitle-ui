@@ -90,6 +90,8 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	s.mux.HandleFunc("/api/config/subhd", s.handleSubHDConfig)
 	s.mux.HandleFunc("/api/videos", s.handleVideos)
 	s.mux.HandleFunc("/api/tv/series", s.handleTVSeries)
+	s.mux.HandleFunc("/api/tv/series/completeness", s.handleTVSeriesCompleteness)
+	s.mux.HandleFunc("/api/tv/series/sonarr/search", s.handleTVSeriesSonarrSearch)
 	s.mux.HandleFunc("/api/videos/", s.handleVideoRoute)
 	s.mux.HandleFunc("/api/archives/subtitle-entries", s.handleArchiveSubtitleEntries)
 	s.mux.HandleFunc("/api/archives/extract", s.handleArchiveExtract)
@@ -265,6 +267,61 @@ func (s *Server) handleTVSeries(w http.ResponseWriter, r *http.Request) {
 	pageData := s.service.ListTVSeriesPage(query, page, pageSize, sortBy, sortOrder)
 	s.attachTVSeriesPosterURLs(r, pageData.Items)
 	writeJSON(w, http.StatusOK, pageData)
+}
+
+func (s *Server) handleTVSeriesCompleteness(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	pathValue := strings.TrimSpace(r.URL.Query().Get("path"))
+	key := strings.TrimSpace(r.URL.Query().Get("key"))
+	seasonRaw := strings.TrimSpace(r.URL.Query().Get("season"))
+	if pathValue == "" && key == "" {
+		writeError(w, http.StatusBadRequest, "path or key required")
+		return
+	}
+	if seasonRaw == "" {
+		writeError(w, http.StatusBadRequest, "season required")
+		return
+	}
+	season, err := strconv.Atoi(seasonRaw)
+	if err != nil || season < 0 {
+		writeError(w, http.StatusBadRequest, "invalid season")
+		return
+	}
+	result, err := s.service.GetSeasonCompleteness(r.Context(), pathValue, key, season)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleTVSeriesSonarrSearch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req appdomain.SonarrSearchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if strings.TrimSpace(req.Path) == "" && strings.TrimSpace(req.Key) == "" {
+		writeError(w, http.StatusBadRequest, "path or key required")
+		return
+	}
+	if req.Season < 0 {
+		writeError(w, http.StatusBadRequest, "invalid season")
+		return
+	}
+	result, err := s.service.SearchSonarrMissing(r.Context(), req)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {

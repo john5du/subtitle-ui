@@ -77,6 +77,11 @@ func main() {
 	} else {
 		log.Printf("admin auth: enabled (token from ADMIN_TOKEN)")
 	}
+	if cfg.SonarrEnabled {
+		log.Printf("sonarr: enabled (%s)", cfg.SonarrURL)
+	} else {
+		log.Printf("sonarr: disabled")
+	}
 
 	serverErr := make(chan error, 1)
 	go func() {
