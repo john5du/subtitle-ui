@@ -814,343 +814,349 @@ export function TvSeasonBatchUploadWorkspace({
         }}
       />
 
-      <div className="relative min-h-0 flex-1 space-y-4 overflow-auto pr-1">
-        {(batchPreparing || uploading || subhdSearching) ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {batchPreparing ? <InlinePending label={t("batch.preparing")} /> : null}
-            {subhdSearching ? <InlinePending label={t("batch.subhd.searching")} /> : null}
-            {uploading ? <InlinePending label={uploadingMessage || t("batch.uploadingMapped")} /> : null}
-          </div>
-        ) : null}
-
-        {batchBlockingError ? (
-          <div className="surface-status-destructive border px-4 py-3">
-            <div className="flex items-start gap-3">
-              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-              <p className="text-sm">{batchBlockingError}</p>
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
+          {(batchPreparing || uploading || subhdSearching) ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {batchPreparing ? <InlinePending label={t("batch.preparing")} /> : null}
+              {subhdSearching ? <InlinePending label={t("batch.subhd.searching")} /> : null}
+              {uploading ? <InlinePending label={uploadingMessage || t("batch.uploadingMapped")} /> : null}
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {showSelectStep ? (
-          <>
-            {subhdEnabled ? (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={sourceMode === "subhd" ? "default" : "outline"}
-                  disabled={busy || batchPreparing || uploading}
-                  onClick={() => switchSourceMode("subhd")}
-                >
-                  {t("batch.source.subhd")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={sourceMode === "local" ? "default" : "outline"}
-                  disabled={busy || batchPreparing || uploading}
-                  onClick={() => switchSourceMode("local")}
-                >
-                  {t("batch.source.localFallback")}
-                </Button>
+          {batchBlockingError ? (
+            <div className="surface-status-destructive border px-4 py-3">
+              <div className="flex items-start gap-3">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <p className="text-sm">{batchBlockingError}</p>
               </div>
-            ) : null}
-
-            {sourceMode === "subhd" ? (
-              <div className="surface-panel space-y-3 p-3 sm:p-4">
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Input
-                    value={subhdQuery}
-                    onChange={(event) => setSubhdQuery(event.target.value)}
-                    placeholder={t("batch.subhd.queryPlaceholder")}
-                    disabled={busy || batchPreparing || uploading || subhdSearching}
-                    className="h-9"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
-                    disabled={busy || batchPreparing || uploading || subhdSearching}
-                    onClick={() => void searchSubHDSeason()}
-                    title={subhdSearching ? t("batch.subhd.searching") : t("common.search")}
-                    aria-label={subhdSearching ? t("batch.subhd.searching") : t("common.search")}
-                  >
-                    {subhdSearching ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-                  </Button>
-                </div>
-
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={skipExisting}
-                    disabled={busy || batchPreparing || uploading}
-                    onChange={(event) => setSkipExisting(event.target.checked)}
-                  />
-                  {t("batch.subhd.skipExisting")}
-                </label>
-
-                {subhdTitlePage.doubanId ? (
-                  <p className="text-xs text-muted-foreground">
-                    {t("batch.subhd.titlePage", {
-                      title: subhdTitlePage.title || "-",
-                      id: subhdTitlePage.doubanId
-                    })}
-                    {subhdTitlePage.url ? (
-                      <>
-                        {" · "}
-                        <a
-                          className="underline underline-offset-2 hover:text-foreground"
-                          href={`https://subhd.tv${subhdTitlePage.url.startsWith("/") ? subhdTitlePage.url : `/${subhdTitlePage.url}`}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {subhdTitlePage.url}
-                        </a>
-                      </>
-                    ) : null}
-                  </p>
-                ) : null}
-
-                {batchNotices.length > 0 ? (
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    {batchNotices.map((notice) => (
-                      <p key={notice}>{notice}</p>
-                    ))}
-                  </div>
-                ) : null}
-
-                {subhdResults.length > 0 ? (
-                  <div className="max-h-[min(50vh,420px)] space-y-2 overflow-auto">
-                    {subhdResults.slice(0, 20).map((item) => {
-                      const selected = selectedSubhdSid === item.sid;
-                      return (
-                        <button
-                          key={item.sid}
-                          type="button"
-                          disabled={!item.installable || busy || batchPreparing || uploading}
-                          onClick={() => setSelectedSubhdSid(item.sid)}
-                          className={cn(
-                            "flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm transition-colors",
-                            selected ? "border-primary bg-primary/5" : "border-border hover:bg-surface-hover",
-                            !item.installable && "opacity-50"
-                          )}
-                        >
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <Badge variant="secondary">{t("batch.subhd.packBadge")}</Badge>
-                            <span className="font-semibold">{item.version || item.title || item.sid}</span>
-                            {item.format ? <Badge variant="outline">{item.format}</Badge> : null}
-                            {!item.installable ? <Badge variant="secondary">{t("download.notInstallable")}</Badge> : null}
-                          </div>
-                          {item.langs && item.langs.length > 0 ? (
-                            <span className="text-xs text-muted-foreground">{item.langs.join(" / ")}</span>
-                          ) : null}
-                          {item.downloads ? (
-                            <span className="text-xs text-muted-foreground">
-                              {t("download.downloads")}: {item.downloads}
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-
-                {!subhdSearching && subhdResults.length === 0 && (batchNotices.length > 0 || subhdTitlePage.message) ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      title={t("download.openSubHDSearch")}
-                      aria-label={t("download.openSubHDSearch")}
-                      asChild
-                    >
-                      <a href={externalSearchLinks.subhd} target="_blank" rel="noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      title={t("download.openZimuku")}
-                      aria-label={t("download.openZimuku")}
-                      asChild
-                    >
-                      <a href={externalSearchLinks.zimuku} target="_blank" rel="noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </Button>
-                  </div>
-                ) : null}
-
-                <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-                  <Button
-                    type="button"
-                    disabled={!selectedSubhdSid || busy || batchPreparing || uploading || subhdSearching}
-                    onClick={() => void prepareSelectedSubHDPack()}
-                  >
-                    {batchPreparing ? <SpinnerIcon className="h-4 w-4" /> : null}
-                    {t("batch.subhd.prepare")}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="surface-panel space-y-3 p-4">
-                <Button
-                  type="button"
-                  disabled={busy || batchPreparing}
-                  onClick={() => batchInputRef.current?.click()}
-                >
-                  {t("batch.selectFiles")}
-                </Button>
-                {batchNotices.length > 0 ? (
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    {batchNotices.map((notice) => (
-                      <p key={notice}>{notice}</p>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </>
-        ) : null}
-
-        {showMappingStep ? (
-          <>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-sm font-semibold">{t("batch.mappingStepTitle")}</p>
-                {sourceMode === "subhd" && subhdPackName ? (
-                  <p className="text-xs text-muted-foreground">{subhdPackName}</p>
-                ) : null}
-                {sourceMode === "local" && batchInputFiles.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    {summarizeBatchInputs(batchInputFiles, batchRawEntries.length, t)}
-                  </p>
-                ) : null}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                disabled={busy || batchPreparing || uploading}
-                onClick={backToSelectStep}
-                title={t("batch.backToSelect")}
-                aria-label={t("batch.backToSelect")}
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-              </Button>
             </div>
+          ) : null}
 
-            {batchNotices.length > 0 ? (
-              <div className="surface-panel px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    {batchNotices.map((notice) => (
-                      <p key={notice}>{notice}</p>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="space-y-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          {showSelectStep ? (
+            <>
+              {subhdEnabled ? (
                 <div className="flex flex-wrap gap-2">
-                  {filterActions.map((item) => (
-                    <Button
-                      key={item.key}
-                      type="button"
-                      size="sm"
-                      variant={batchFilter === item.key ? "default" : "outline"}
-                      disabled={batchRows.length === 0}
-                      onClick={() => setBatchFilter(item.key)}
-                    >
-                      {item.label}
-                      <Badge
-                        variant={batchFilter === item.key ? "secondary" : "outline"}
-                        className={cn(
-                          "px-2 py-0 text-micro",
-                          batchFilter === item.key && "border-transparent bg-primary-foreground/10 text-current"
-                        )}
-                      >
-                        {item.count}
-                      </Badge>
-                    </Button>
-                  ))}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={sourceMode === "subhd" ? "default" : "outline"}
+                    disabled={busy || batchPreparing || uploading}
+                    onClick={() => switchSourceMode("subhd")}
+                  >
+                    {t("batch.source.subhd")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={sourceMode === "local" ? "default" : "outline"}
+                    disabled={busy || batchPreparing || uploading}
+                    onClick={() => switchSourceMode("local")}
+                  >
+                    {t("batch.source.localFallback")}
+                  </Button>
                 </div>
-                {batchSummary.total > 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {filteredBatchRows.length}/{batchSummary.total}
-                  </p>
-                ) : null}
-              </div>
+              ) : null}
 
-              <div className={cn("space-y-3", batchPreparing && "animate-pulse-soft")}>
-                {filteredBatchRows.length > 0 ? (
-                  filteredBatchRows.map((row) => (
-                    <MappingRow
-                      key={row.id}
-                      row={row}
-                      videos={batchCandidates}
-                      disabled={busy || batchPreparing || uploading}
-                      t={t}
-                      onSelectionChange={updateBatchRowSelection}
+              {sourceMode === "subhd" ? (
+                <div className="surface-panel space-y-3 p-3 sm:p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      value={subhdQuery}
+                      onChange={(event) => setSubhdQuery(event.target.value)}
+                      placeholder={t("batch.subhd.queryPlaceholder")}
+                      disabled={busy || batchPreparing || uploading || subhdSearching}
+                      className="h-9"
                     />
-                  ))
-                ) : (
-                  <div className="surface-panel px-6 py-10 text-center text-sm text-muted-foreground">
-                    {batchRows.length === 0 ? t("batch.empty") : t("batch.filterEmpty")}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 shrink-0"
+                      disabled={busy || batchPreparing || uploading || subhdSearching}
+                      onClick={() => void searchSubHDSeason()}
+                      title={subhdSearching ? t("batch.subhd.searching") : t("common.search")}
+                      aria-label={subhdSearching ? t("batch.subhd.searching") : t("common.search")}
+                    >
+                      {subhdSearching ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                    </Button>
                   </div>
-                )}
-              </div>
-            </div>
 
-            {batchResult ? (
-              <WorkspaceSection icon={<CircleCheck className="h-4 w-4" />} title={t("batch.resultsTitle")}>
-                <div className="space-y-4">
-                  <div className="surface-panel px-4 py-3 text-sm">
-                    {t("batch.result", {
-                      success: batchResult.success,
-                      total: batchResult.total,
-                      failed: batchResult.failed
-                    })}
-                  </div>
-                  {batchResult.errors.length > 0 ? (
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={skipExisting}
+                      disabled={busy || batchPreparing || uploading}
+                      onChange={(event) => setSkipExisting(event.target.checked)}
+                    />
+                    {t("batch.subhd.skipExisting")}
+                  </label>
+
+                  {subhdTitlePage.doubanId ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t("batch.subhd.titlePage", {
+                        title: subhdTitlePage.title || "-",
+                        id: subhdTitlePage.doubanId
+                      })}
+                      {subhdTitlePage.url ? (
+                        <>
+                          {" · "}
+                          <a
+                            className="underline underline-offset-2 hover:text-foreground"
+                            href={`https://subhd.tv${subhdTitlePage.url.startsWith("/") ? subhdTitlePage.url : `/${subhdTitlePage.url}`}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {subhdTitlePage.url}
+                          </a>
+                        </>
+                      ) : null}
+                    </p>
+                  ) : null}
+
+                  {batchNotices.length > 0 ? (
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      {batchNotices.map((notice) => (
+                        <p key={notice}>{notice}</p>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {subhdResults.length > 0 ? (
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm font-semibold">
-                        <CircleAlert className="h-4 w-4" />
-                        {t("batch.resultErrorsTitle")}
-                      </div>
-                      <div className="space-y-2">
-                        {batchResult.errors.slice(0, 6).map((item) => (
-                          <div key={item} className="surface-panel px-4 py-3 text-sm break-all">
-                            {item}
-                          </div>
-                        ))}
-                        {batchResult.errors.length > 6 ? (
-                          <p className="text-xs text-muted-foreground">
-                            {t("batch.summary.more", { count: batchResult.errors.length - 6 })}
-                          </p>
-                        ) : null}
-                      </div>
+                      {subhdResults.slice(0, 20).map((item) => {
+                        const selected = selectedSubhdSid === item.sid;
+                        return (
+                          <button
+                            key={item.sid}
+                            type="button"
+                            disabled={!item.installable || busy || batchPreparing || uploading}
+                            onClick={() => setSelectedSubhdSid(item.sid)}
+                            className={cn(
+                              "flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                              selected ? "border-primary bg-primary/5" : "border-border hover:bg-surface-hover",
+                              !item.installable && "opacity-50"
+                            )}
+                          >
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Badge variant="secondary">{t("batch.subhd.packBadge")}</Badge>
+                              <span className="font-semibold">{item.version || item.title || item.sid}</span>
+                              {item.format ? <Badge variant="outline">{item.format}</Badge> : null}
+                              {!item.installable ? <Badge variant="secondary">{t("download.notInstallable")}</Badge> : null}
+                            </div>
+                            {item.langs && item.langs.length > 0 ? (
+                              <span className="text-xs text-muted-foreground">{item.langs.join(" / ")}</span>
+                            ) : null}
+                            {item.downloads ? (
+                              <span className="text-xs text-muted-foreground">
+                                {t("download.downloads")}: {item.downloads}
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
+                  {!subhdSearching && subhdResults.length === 0 && (batchNotices.length > 0 || subhdTitlePage.message) ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        title={t("download.openSubHDSearch")}
+                        aria-label={t("download.openSubHDSearch")}
+                        asChild
+                      >
+                        <a href={externalSearchLinks.subhd} target="_blank" rel="noreferrer">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        title={t("download.openZimuku")}
+                        aria-label={t("download.openZimuku")}
+                        asChild
+                      >
+                        <a href={externalSearchLinks.zimuku} target="_blank" rel="noreferrer">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </Button>
                     </div>
                   ) : null}
                 </div>
-              </WorkspaceSection>
-            ) : null}
-          </>
-        ) : null}
+              ) : (
+                <div className="surface-panel space-y-3 p-4">
+                  <Button
+                    type="button"
+                    disabled={busy || batchPreparing}
+                    onClick={() => batchInputRef.current?.click()}
+                  >
+                    {t("batch.selectFiles")}
+                  </Button>
+                  {batchNotices.length > 0 ? (
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      {batchNotices.map((notice) => (
+                        <p key={notice}>{notice}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </>
+          ) : null}
+
+          {showMappingStep ? (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-sm font-semibold">{t("batch.mappingStepTitle")}</p>
+                  {sourceMode === "subhd" && subhdPackName ? (
+                    <p className="text-xs text-muted-foreground">{subhdPackName}</p>
+                  ) : null}
+                  {sourceMode === "local" && batchInputFiles.length > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      {summarizeBatchInputs(batchInputFiles, batchRawEntries.length, t)}
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={busy || batchPreparing || uploading}
+                  onClick={backToSelectStep}
+                  title={t("batch.backToSelect")}
+                  aria-label={t("batch.backToSelect")}
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              {batchNotices.length > 0 ? (
+                <div className="surface-panel px-4 py-3">
+                  <div className="flex items-start gap-3">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      {batchNotices.map((notice) => (
+                        <p key={notice}>{notice}</p>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-wrap gap-2">
+                    {filterActions.map((item) => (
+                      <Button
+                        key={item.key}
+                        type="button"
+                        size="sm"
+                        variant={batchFilter === item.key ? "default" : "outline"}
+                        disabled={batchRows.length === 0}
+                        onClick={() => setBatchFilter(item.key)}
+                      >
+                        {item.label}
+                        <Badge
+                          variant={batchFilter === item.key ? "secondary" : "outline"}
+                          className={cn(
+                            "px-2 py-0 text-micro",
+                            batchFilter === item.key && "border-transparent bg-primary-foreground/10 text-current"
+                          )}
+                        >
+                          {item.count}
+                        </Badge>
+                      </Button>
+                    ))}
+                  </div>
+                  {batchSummary.total > 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {filteredBatchRows.length}/{batchSummary.total}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className={cn("space-y-3", batchPreparing && "animate-pulse-soft")}>
+                  {filteredBatchRows.length > 0 ? (
+                    filteredBatchRows.map((row) => (
+                      <MappingRow
+                        key={row.id}
+                        row={row}
+                        videos={batchCandidates}
+                        disabled={busy || batchPreparing || uploading}
+                        t={t}
+                        onSelectionChange={updateBatchRowSelection}
+                      />
+                    ))
+                  ) : (
+                    <div className="surface-panel px-6 py-10 text-center text-sm text-muted-foreground">
+                      {batchRows.length === 0 ? t("batch.empty") : t("batch.filterEmpty")}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {batchResult ? (
+                <WorkspaceSection icon={<CircleCheck className="h-4 w-4" />} title={t("batch.resultsTitle")}>
+                  <div className="space-y-4">
+                    <div className="surface-panel px-4 py-3 text-sm">
+                      {t("batch.result", {
+                        success: batchResult.success,
+                        total: batchResult.total,
+                        failed: batchResult.failed
+                      })}
+                    </div>
+                    {batchResult.errors.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-semibold">
+                          <CircleAlert className="h-4 w-4" />
+                          {t("batch.resultErrorsTitle")}
+                        </div>
+                        <div className="space-y-2">
+                          {batchResult.errors.slice(0, 6).map((item) => (
+                            <div key={item} className="surface-panel px-4 py-3 text-sm break-all">
+                              {item}
+                            </div>
+                          ))}
+                          {batchResult.errors.length > 6 ? (
+                            <p className="text-xs text-muted-foreground">
+                              {t("batch.summary.more", { count: batchResult.errors.length - 6 })}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </WorkspaceSection>
+              ) : null}
+            </>
+          ) : null}
+        </div>
 
         {batchPreparing ? <PanelLoadingOverlay label={t("batch.preparing")} /> : null}
       </div>
+
+      {showSelectStep && sourceMode === "subhd" ? (
+        <div className="mt-4 shrink-0 border-t border-border pt-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              disabled={!selectedSubhdSid || busy || batchPreparing || uploading || subhdSearching}
+              onClick={() => void prepareSelectedSubHDPack()}
+            >
+              {batchPreparing ? <SpinnerIcon className="h-4 w-4" /> : null}
+              {t("batch.subhd.prepare")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {showMappingStep ? (
         <div className="mt-4 shrink-0 border-t border-border pt-3">

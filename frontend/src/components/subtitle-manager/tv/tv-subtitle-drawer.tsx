@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { MediaExternalLinks } from "../shared/media-external-links";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -195,8 +194,8 @@ export function TvSubtitleDrawer({
       )}
 
       <Dialog open={batchDialogOpen} onOpenChange={handleBatchDialogOpenChange}>
-        <DialogContent className="flex max-h-[min(92dvh,100%)] flex-col overflow-hidden sm:max-h-[90vh] sm:max-w-5xl">
-          <DialogHeader>
+        <DialogContent className="flex h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] flex-col gap-3 overflow-hidden sm:h-[min(90vh,880px)] sm:max-h-[90vh] sm:max-w-5xl">
+          <DialogHeader className="shrink-0">
             <DialogTitle>{t("tv.seasonBatchAction")}</DialogTitle>
             <DialogDescription>
               {t("batch.dialogDescriptionShort", {
@@ -205,10 +204,10 @@ export function TvSubtitleDrawer({
               })}
             </DialogDescription>
           </DialogHeader>
-          <div className={cn("min-h-0 flex-1 overflow-hidden")}>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {batchDialogOpen ? (
               <TvSeasonBatchUploadWorkspace
-                className="min-h-0 h-full max-h-[min(72vh,720px)] flex-1"
+                className="min-h-0 flex-1"
                 busy={busy}
                 uploading={uploading}
                 uploadingMessage={uploadingMessage}
