@@ -491,3 +491,94 @@ func latestAPILogByAction(logs []domain.OperationLog, action string) (domain.Ope
 	}
 	return domain.OperationLog{}, false
 }
+
+func TestAdminAuthDisabledWhenTokenEmpty(t *testing.T) {
+	fixture := newPosterTestFixture(t)
+	defer fixture.cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/version", nil)
+	recorder := httptest.NewRecorder()
+	fixture.server.Handler().ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200 when auth disabled, got %d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestAdminAuthProtectsAPI(t *testing.T) {
+	fixture := newPosterTestFixture(t)
+	defer fixture.cleanup()
+
+	service := fixture.server.service
+	server := NewServerWithConfig(service, config.Config{
+		AdminToken:         "secret-token",
+		CORSAllowedOrigins: []string{"http://localhost:3300"},
+	})
+	handler := server.Handler()
+
+	t.Run("missing token", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/version", nil)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		if recorder.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401, got %d body=%s", recorder.Code, recorder.Body.String())
+		}
+	})
+
+	t.Run("wrong token", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/version", nil)
+		req.Header.Set("Authorization", "Bearer wrong")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		if recorder.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401, got %d body=%s", recorder.Code, recorder.Body.String())
+		}
+	})
+
+	t.Run("valid bearer", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/version", nil)
+		req.Header.Set("Authorization", "Bearer secret-token")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d body=%s", recorder.Code, recorder.Body.String())
+		}
+	})
+
+	t.Run("health remains public", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected health 200, got %d body=%s", recorder.Code, recorder.Body.String())
+		}
+	})
+
+	t.Run("poster remains public", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/videos/"+fixture.movieID+"/poster", nil)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected poster 200, got %d body=%s", recorder.Code, recorder.Body.String())
+		}
+		if body := recorder.Body.Bytes(); string(body) != "movie-poster" {
+			t.Fatalf("unexpected poster body: %q", string(body))
+		}
+	})
+
+	t.Run("options preflight allows authorization header", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodOptions, "/api/version", nil)
+		req.Header.Set("Origin", "http://localhost:3300")
+		req.Header.Set("Access-Control-Request-Method", "GET")
+		req.Header.Set("Access-Control-Request-Headers", "authorization")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		if recorder.Code != http.StatusNoContent {
+			t.Fatalf("expected 204 preflight, got %d body=%s", recorder.Code, recorder.Body.String())
+		}
+		allowHeaders := recorder.Header().Get("Access-Control-Allow-Headers")
+		if !strings.Contains(strings.ToLower(allowHeaders), "authorization") {
+			t.Fatalf("expected Authorization in Allow-Headers, got %q", allowHeaders)
+		}
+	})
+}

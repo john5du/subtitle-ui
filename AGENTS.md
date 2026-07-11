@@ -61,6 +61,7 @@ cd frontend && bun run build   # static export → frontend/out
 ## Config gotchas
 
 - DB: SQLite default `DB_PATH=./tmp/subtitle_manager.sqlite3`. Set `DATABASE_URL` for Postgres; first connect can import SQLite from `DB_PATH` once (backs up SQLite first; refuses non-empty PG without import marker).
+- `ADMIN_TOKEN`: admin API token (default `change-me` when unset). All `/api/*` except `GET /api/health` and `GET /api/videos/{id}/poster` need `Authorization: Bearer <token>` (posters stay public so `<img>` works). Startup logs the default value and warns to set `ADMIN_TOKEN`. FE login page stores token in `localStorage` (`subtitle-ui:admin-token`).
 - Media roots must be **writable** (subtitle write/replace/backup in place).
 - Videos without sidecar NFO (`<title>`/`<year>`) are skipped by the scanner.
 - Subtitle replace/delete/offset backup existing files before mutating.

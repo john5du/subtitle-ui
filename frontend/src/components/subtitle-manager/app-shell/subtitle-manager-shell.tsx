@@ -1,7 +1,7 @@
 import { memo, useCallback } from "react";
 
 import Image from "next/image";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import { APP_REPOSITORY_URL, APP_VERSION } from "@/lib/app-version";
 import { useI18n } from "@/lib/i18n";
@@ -353,12 +353,21 @@ const ManagementDialogs = memo(function ManagementDialogs({
 
 ManagementDialogs.displayName = "ManagementDialogs";
 
-export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenModel }) {
+export function SubtitleManagerShell({
+  model,
+  showSignOut = false,
+  onSignOut
+}: {
+  model: SubtitleManagerScreenModel;
+  showSignOut?: boolean;
+  onSignOut?: () => void;
+}) {
   const { t } = useI18n();
   const { shell, dashboard, movie, tv, subtitleActions, dialogs } = model;
   const activeTabLabel = shell.navItems.find((item) => item.key === shell.activeTab)?.label ?? shell.activeTab;
   const sidebarCollapsed = shell.sidebarCollapsed;
   const sidebarToggleLabel = sidebarCollapsed ? t("sidebar.expand") : t("sidebar.collapse");
+  const signOutLabel = t("auth.signOut");
   const refreshDisabled = shell.operationLocked;
   const refreshLabel = shell.refreshPending
     ? t("sidebar.refreshingTab", { tab: activeTabLabel })
@@ -367,7 +376,7 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
   return (
     <div className="relative flex h-full min-h-0 w-full min-w-0 flex-col lg:flex-row">
         <div className="surface-panel flex shrink-0 flex-col gap-3 p-3 lg:hidden">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <a
                 href={APP_REPOSITORY_URL}
@@ -387,6 +396,19 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
                 />
               </a>
             </div>
+            {showSignOut && onSignOut ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                aria-label={signOutLabel}
+                title={signOutLabel}
+                onClick={onSignOut}
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            ) : null}
           </div>
           <div role="tablist" aria-label={t("sidebar.tagline")} className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-0.5">
             {shell.navItems.map((item) => (
@@ -482,7 +504,25 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
               ))}
             </div>
 
-            <div className={cn("mt-auto flex", sidebarCollapsed ? "justify-center" : "justify-end")}>
+            <div
+              className={cn(
+                "mt-auto flex gap-2",
+                sidebarCollapsed ? "flex-col items-center" : "items-center justify-end"
+              )}
+            >
+              {showSignOut && onSignOut ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  aria-label={signOutLabel}
+                  title={signOutLabel}
+                  onClick={onSignOut}
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 variant="outline"

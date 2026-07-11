@@ -1,5 +1,6 @@
 "use client";
 
+import { getAdminToken } from "@/lib/admin-token";
 import { buildApiURL } from "@/lib/api";
 import type { ArchiveEntryMeta } from "@/lib/types";
 
@@ -56,8 +57,17 @@ async function readPayload(response: Response) {
   }
 }
 
+function withAuthHeaders(options: RequestInit = {}): RequestInit {
+  const headers = new Headers(options.headers);
+  const token = getAdminToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  return { ...options, headers };
+}
+
 export async function requestPayload<T>(path: string, options: RequestInit = {}) {
-  const response = await fetch(buildApiURL(path), options);
+  const response = await fetch(buildApiURL(path), withAuthHeaders(options));
   const payload = await readPayload(response);
 
   if (!response.ok) {
@@ -68,11 +78,45 @@ export async function requestPayload<T>(path: string, options: RequestInit = {})
 }
 
 export async function requestBinary(path: string, options: RequestInit = {}) {
-  const response = await fetch(buildApiURL(path), options);
+  const response = await fetch(buildApiURL(path), withAuthHeaders(options));
   if (!response.ok) {
     const payload = await readPayload(response);
     throw new ApiRequestError(extractErrorMessage(payload, `request failed: ${response.status}`), response.status, payload);
   }
 
   return response.arrayBuffer();
+}
+
+/** Probe API auth without using the stored token. */
+export async function probeAPIAuth(): Promise<"open" | "required" | "error"> {
+  try {
+    const response = await fetch(buildApiURL("/api/version"), { method: "GET", cache: "no-store" });
+    if (response.status === 401) {
+      return "required";
+    }
+    if (response.ok) {
+      return "open";
+    }
+    return "error";
+  } catch {
+    return "error";
+  }
+}
+
+/** Validate a candidate token (or the stored one) against a protected endpoint. */
+export async function validateAdminToken(token?: string): Promise<boolean> {
+  const candidate = (token ?? getAdminToken()).trim();
+  if (!candidate) {
+    return false;
+  }
+  try {
+    const response = await fetch(buildApiURL("/api/version"), {
+      method: "GET",
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${candidate}` }
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }

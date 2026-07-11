@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// DefaultAdminToken is used when ADMIN_TOKEN is unset. Change it in production.
+const DefaultAdminToken = "change-me"
+
 type Config struct {
 	ServerAddr            string
 	MovieMediaRoot        string
@@ -17,6 +20,8 @@ type Config struct {
 	DatabaseURL           string
 	CORSAllowedOrigins    []string
 	TrustForwardedHeaders bool
+	AdminToken            string
+	AdminTokenIsDefault   bool
 	SubHDEnabled          bool
 	SubHDBaseURL          string
 	SubHDUserAgent        string
@@ -34,6 +39,13 @@ func Load() Config {
 		tvDefault = legacyRoot
 	}
 
+	adminToken := strings.TrimSpace(os.Getenv("ADMIN_TOKEN"))
+	adminTokenIsDefault := false
+	if adminToken == "" {
+		adminToken = DefaultAdminToken
+		adminTokenIsDefault = true
+	}
+
 	cfg := Config{
 		ServerAddr:            getEnv("SERVER_ADDR", ":9307"),
 		MovieMediaRoot:        getEnv("MOVIE_MEDIA_ROOT", movieDefault),
@@ -43,12 +55,14 @@ func Load() Config {
 		DatabaseURL:           strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		CORSAllowedOrigins:    splitOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")),
 		TrustForwardedHeaders: parseBool(os.Getenv("TRUST_FORWARDED_HEADERS")),
-		SubHDEnabled:        parseBoolDefaultTrue(os.Getenv("SUBHD_ENABLED")),
-		SubHDBaseURL:        getEnv("SUBHD_BASE_URL", "https://subhd.tv"),
-		SubHDUserAgent:      getEnv("SUBHD_USER_AGENT", ""),
-		SubHDProxyURL:       strings.TrimSpace(os.Getenv("SUBHD_PROXY")),
-		SubHDMinInterval:    parseDuration(os.Getenv("SUBHD_MIN_INTERVAL"), 3*time.Second),
-		SubHDSearchMaxPages: parsePositiveInt(os.Getenv("SUBHD_SEARCH_MAX_PAGES"), 1),
+		AdminToken:            adminToken,
+		AdminTokenIsDefault:   adminTokenIsDefault,
+		SubHDEnabled:          parseBoolDefaultTrue(os.Getenv("SUBHD_ENABLED")),
+		SubHDBaseURL:          getEnv("SUBHD_BASE_URL", "https://subhd.tv"),
+		SubHDUserAgent:        getEnv("SUBHD_USER_AGENT", ""),
+		SubHDProxyURL:         strings.TrimSpace(os.Getenv("SUBHD_PROXY")),
+		SubHDMinInterval:      parseDuration(os.Getenv("SUBHD_MIN_INTERVAL"), 3*time.Second),
+		SubHDSearchMaxPages:   parsePositiveInt(os.Getenv("SUBHD_SEARCH_MAX_PAGES"), 1),
 	}
 
 	if abs, err := filepath.Abs(cfg.MovieMediaRoot); err == nil {

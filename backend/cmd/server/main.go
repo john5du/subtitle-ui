@@ -72,6 +72,11 @@ func main() {
 		log.Printf("db path: %s", cfg.DBPath)
 	}
 	log.Printf("ui dist: %s", cfg.UIDist)
+	if cfg.AdminTokenIsDefault {
+		log.Printf("admin auth: using default token %q — set ADMIN_TOKEN to a strong secret and restart", cfg.AdminToken)
+	} else {
+		log.Printf("admin auth: enabled (token from ADMIN_TOKEN)")
+	}
 
 	serverErr := make(chan error, 1)
 	go func() {

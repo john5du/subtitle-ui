@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"log"
@@ -25,6 +26,7 @@ type Server struct {
 	mux                   *http.ServeMux
 	allowedOrigins        []string
 	trustForwardedHeaders bool
+	adminToken            string
 }
 
 type fileScanRequest struct {
@@ -74,6 +76,7 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 		mux:                   http.NewServeMux(),
 		allowedOrigins:        normalizeAllowedOrigins(cfg.CORSAllowedOrigins),
 		trustForwardedHeaders: cfg.TrustForwardedHeaders,
+		adminToken:            strings.TrimSpace(cfg.AdminToken),
 	}
 
 	s.mux.HandleFunc("/api/health", s.handleHealth)
@@ -98,7 +101,63 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.withCORS(withErrorLogging(s.mux))
+	return s.withCORS(withErrorLogging(s.withAdminAuth(s.mux)))
+}
+
+func (s *Server) withAdminAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.adminToken == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+		path := r.URL.Path
+		if !strings.HasPrefix(path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if isPublicAPIPath(r.Method, path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !s.authorized(r) {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// isPublicAPIPath allows unauthenticated access for health probes and poster
+// images (browser <img> cannot send Authorization headers).
+func isPublicAPIPath(method, path string) bool {
+	if method == http.MethodGet && path == "/api/health" {
+		return true
+	}
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/videos/") && strings.HasSuffix(path, "/poster") {
+		// /api/videos/{id}/poster only (reject deeper or odd paths).
+		rest := strings.TrimPrefix(path, "/api/videos/")
+		parts := strings.Split(rest, "/")
+		return len(parts) == 2 && parts[0] != "" && parts[1] == "poster"
+	}
+	return false
+}
+
+func (s *Server) authorized(r *http.Request) bool {
+	header := strings.TrimSpace(r.Header.Get("Authorization"))
+	const prefix = "Bearer "
+	if len(header) < len(prefix) || !strings.EqualFold(header[:len(prefix)], prefix) {
+		return false
+	}
+	token := strings.TrimSpace(header[len(prefix):])
+	expected := s.adminToken
+	if len(token) != len(expected) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(token), []byte(expected)) == 1
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -759,7 +818,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 		}
 
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == http.MethodOptions {
 			if !allowCORS {

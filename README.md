@@ -296,6 +296,7 @@ volumes:
 - `DATABASE_URL` optional PostgreSQL DSN; when set, PostgreSQL is used instead of SQLite
 - `UI_DIST` default `./frontend/out`
 - `CORS_ALLOWED_ORIGINS` comma-separated allowed origins for mutating cross-origin API requests
+- `ADMIN_TOKEN` admin API token (default `change-me`); all `/api/*` routes except `GET /api/health` and `GET /api/videos/{id}/poster` require `Authorization: Bearer <token>` (poster images stay public because browsers cannot send auth headers on `<img>`). When the default is used, startup logs the value and asks you to change it. The UI shows a login page and stores the token in `localStorage`.
 - `TRUST_FORWARDED_HEADERS` set to `1`, `true`, `yes`, or `on` to build absolute poster URLs from `X-Forwarded-Proto` / `X-Forwarded-Host`
 - `NEXT_PUBLIC_API_BASE` (frontend dev) — overrides the API host, e.g. `http://localhost:9307`
 
