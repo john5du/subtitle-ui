@@ -229,14 +229,14 @@ function MappingRow({
 
         <div className="min-w-0 space-y-2 border-t border-border pt-3 xl:w-[320px] xl:shrink-0 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0">
           <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
-            {t("batch.targetEpisode")}
+            {t("common.episode")}
           </p>
           <Select value={selectValue} onValueChange={(value) => onSelectionChange(row.id, value)} disabled={disabled}>
             <SelectTrigger className="h-9 w-full min-w-0 [&>span]:min-w-0 [&>span]:truncate">
               <SelectValue placeholder={t("batch.chooseEpisode")} />
             </SelectTrigger>
             <SelectContent className="max-h-72">
-              <SelectItem value={ROW_SELECT_PENDING}>{t("batch.pendingReview")}</SelectItem>
+              <SelectItem value={ROW_SELECT_PENDING}>{t("common.pending")}</SelectItem>
               <SelectItem value={ROW_SELECT_SKIPPED}>{t("batch.skip")}</SelectItem>
               {candidates.map((video) => {
                 const label = formatBatchEpisodeOptionLabel(video);
@@ -795,7 +795,7 @@ export function TvSeasonBatchUploadWorkspace({
 
   const filterActions: { key: SeasonBatchMappingFilter; label: string; count: number }[] = [
     { key: "all", label: t("batch.filter.all"), count: batchSummary.total },
-    { key: "pending", label: t("batch.filter.pending"), count: batchSummary.unassigned },
+    { key: "pending", label: t("common.pending"), count: batchSummary.unassigned },
     { key: "mapped", label: t("batch.filter.mapped"), count: batchSummary.mapped },
     { key: "skipped", label: t("batch.filter.skipped"), count: batchSummary.skipped }
   ];
@@ -873,8 +873,8 @@ export function TvSeasonBatchUploadWorkspace({
                     className="h-9 w-9 shrink-0"
                     disabled={busy || batchPreparing || uploading || subhdSearching}
                     onClick={() => void searchSubHDSeason()}
-                    title={subhdSearching ? t("batch.subhd.searching") : t("batch.subhd.search")}
-                    aria-label={subhdSearching ? t("batch.subhd.searching") : t("batch.subhd.search")}
+                    title={subhdSearching ? t("batch.subhd.searching") : t("common.search")}
+                    aria-label={subhdSearching ? t("batch.subhd.searching") : t("common.search")}
                   >
                     {subhdSearching ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
                   </Button>
@@ -1025,7 +1025,7 @@ export function TvSeasonBatchUploadWorkspace({
               <div className="min-w-0 space-y-0.5">
                 <p className="text-sm font-semibold">{t("batch.mappingStepTitle")}</p>
                 {sourceMode === "subhd" && subhdPackName ? (
-                  <p className="text-xs text-muted-foreground">{t("batch.subhd.prepared", { name: subhdPackName })}</p>
+                  <p className="text-xs text-muted-foreground">{subhdPackName}</p>
                 ) : null}
                 {sourceMode === "local" && batchInputFiles.length > 0 ? (
                   <p className="text-xs text-muted-foreground">
@@ -1158,7 +1158,7 @@ export function TvSeasonBatchUploadWorkspace({
               {showBatchLanguageSelector ? (
                 <div className="space-y-2 lg:w-[220px]">
                   <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
-                    {t("batch.languageType")}
+                    {t("common.language")}
                   </p>
                   <Select
                     value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
@@ -1166,7 +1166,7 @@ export function TvSeasonBatchUploadWorkspace({
                     disabled={busy || batchPreparing || batchRawEntries.length === 0}
                   >
                     <SelectTrigger className="h-9 w-full">
-                      <SelectValue placeholder={t("batch.languageTypePlaceholder")} />
+                      <SelectValue placeholder={t("common.language")} />
                     </SelectTrigger>
                     <SelectContent>
                       {batchLanguageOptions.map((item) => (
@@ -1182,7 +1182,7 @@ export function TvSeasonBatchUploadWorkspace({
               {showBatchFormatSelector ? (
                 <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border lg:pl-3">
                   <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
-                    {t("batch.format")}
+                    {t("common.format")}
                   </p>
                   <Select
                     value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
@@ -1190,7 +1190,7 @@ export function TvSeasonBatchUploadWorkspace({
                     disabled={busy || batchPreparing || batchRawEntries.length === 0}
                   >
                     <SelectTrigger className="h-9 w-full">
-                      <SelectValue placeholder={t("batch.format")} />
+                      <SelectValue placeholder={t("common.format")} />
                     </SelectTrigger>
                     <SelectContent>
                       {batchFormatOptions.map((ext) => (
@@ -1229,7 +1229,7 @@ export function TvSeasonBatchUploadWorkspace({
                 }
                 onClick={() => void submitSeasonBatch()}
               >
-                {sourceMode === "subhd" ? t("batch.subhd.installMapped") : t("batch.uploadMapped")}
+                {sourceMode === "subhd" ? t("batch.subhd.installMapped") : t("common.upload")}
               </Button>
             </div>
           </div>

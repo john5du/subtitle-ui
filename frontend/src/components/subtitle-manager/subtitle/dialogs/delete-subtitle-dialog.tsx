@@ -46,7 +46,7 @@ export function DeleteSubtitleDialog({
             }}
             disabled={deletePending}
           >
-            {deletePending ? t("details.deleting") : t("common.delete")}
+            {deletePending ? t("common.deleting") : t("common.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

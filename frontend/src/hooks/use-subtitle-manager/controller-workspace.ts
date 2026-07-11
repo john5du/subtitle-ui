@@ -147,7 +147,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
         setTranslatedMessage("status.scanCompletedWithWarnings", { count: videoCount, warnings: warningCount });
         notifyInfo(
           runtime.t("toast.scanWarningsTitle"),
-          runtime.t("toast.scanWarningsMessage", { count: videoCount }),
+          runtime.t("toast.scanSuccessMessage", { count: videoCount }),
           runtime.t("toast.scanWarningsDetail", { warnings: warningCount })
         );
       } else {

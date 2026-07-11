@@ -234,8 +234,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       className="h-8 w-8 shrink-0"
                       disabled={busy || workflow.zipLoading || !selectedVideo}
                       onClick={() => setDownloadDialogOpen(true)}
-                      title={downloadPending ? t("download.downloading") : t("download.search")}
-                      aria-label={downloadPending ? t("download.downloading") : t("download.search")}
+                      title={downloadPending ? t("download.downloading") : t("common.search")}
+                      aria-label={downloadPending ? t("download.downloading") : t("common.search")}
                     >
                       {downloadPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
                     </Button>
@@ -297,7 +297,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[4.5rem]">{t("details.lang")}</TableHead>
-                        <TableHead className="w-[4.5rem]">{t("batch.format")}</TableHead>
+                        <TableHead className="w-[4.5rem]">{t("common.format")}</TableHead>
                         <TableHead className="min-w-[7rem]">{t("details.source")}</TableHead>
                         <TableHead className="hidden w-[9rem] xl:table-cell">{t("details.modified")}</TableHead>
                         <TableHead className="min-w-[10rem] text-right">{t("common.actions")}</TableHead>

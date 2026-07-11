@@ -129,8 +129,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                     className="h-8 w-8"
                     disabled={busy}
                     onClick={() => setDownloadDialogOpen(true)}
-                    title={downloadPending ? t("download.downloading") : t("download.search")}
-                    aria-label={downloadPending ? t("download.downloading") : t("download.search")}
+                    title={downloadPending ? t("download.downloading") : t("common.search")}
+                    aria-label={downloadPending ? t("download.downloading") : t("common.search")}
                   >
                     {downloadPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
                   </Button>
@@ -218,7 +218,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                                   </span>
                                   <SubtitleSourceDetailButton subtitle={subtitle} sourceLabel={sourceText} />
                                 </div>
-                                <div>{t("details.sizeValue", { value: formatSubtitleSize(subtitle.size) })}</div>
+                                <div>{formatSubtitleSize(subtitle.size)}</div>
                                 <div>{formatTime(subtitle.modTime)}</div>
                               </div>
                             </div>

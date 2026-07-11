@@ -221,10 +221,10 @@ export function TvBatchDeleteDialog({
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-10" />
-                        <TableHead>{t("tv.batchDeleteEpisode")}</TableHead>
+                        <TableHead>{t("common.episode")}</TableHead>
                         <TableHead>{t("tv.batchDeleteFile")}</TableHead>
-                        <TableHead className="hidden sm:table-cell">{t("tv.batchDeleteLanguage")}</TableHead>
-                        <TableHead className="hidden md:table-cell">{t("tv.batchDeleteFormat")}</TableHead>
+                        <TableHead className="hidden sm:table-cell">{t("common.language")}</TableHead>
+                        <TableHead className="hidden md:table-cell">{t("common.format")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

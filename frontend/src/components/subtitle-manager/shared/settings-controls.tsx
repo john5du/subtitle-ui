@@ -189,7 +189,7 @@ export function SubtitleConversionSettingsPanel() {
       <div className="flex justify-end">
         <Button type="button" onClick={() => void saveConfig()} disabled={loading || saving}>
           {saving ? <SpinnerIcon className="h-4 w-4" /> : null}
-          {saving ? t("conversion.saving") : t("conversion.saveSettings")}
+          {saving ? t("common.saving") : t("conversion.saveSettings")}
         </Button>
       </div>
     </div>
@@ -356,7 +356,7 @@ export function SubHDSettingsPanel() {
       <div className="flex justify-end">
         <Button type="button" onClick={() => void saveConfig()} disabled={loading || saving}>
           {saving ? <SpinnerIcon className="h-4 w-4" /> : null}
-          {saving ? t("subhd.saving") : t("subhd.saveSettings")}
+          {saving ? t("common.saving") : t("subhd.saveSettings")}
         </Button>
       </div>
     </div>

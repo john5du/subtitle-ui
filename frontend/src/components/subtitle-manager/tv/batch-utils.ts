@@ -400,7 +400,7 @@ export function summarizeBatchInputs(files: File[], entryCount: number, t: Trans
     parts.push(countSummaryLabel(subtitleCount, t, "batch.summary.subtitle.one", "batch.summary.subtitle.other"));
   }
   if (unsupportedCount > 0) {
-    parts.push(countSummaryLabel(unsupportedCount, t, "batch.summary.unsupported.one", "batch.summary.unsupported.other"));
+    parts.push(t("batch.summary.unsupported", { count: unsupportedCount }));
   }
 
   const inputs = countSummaryLabel(files.length, t, "batch.summary.input.one", "batch.summary.input.other");

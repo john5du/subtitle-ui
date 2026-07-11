@@ -337,8 +337,8 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       setTranslatedMessage("status.batchDeleteFinishedWarnings", { success, total, failed });
       notifyInfo(
         runtime.t("toast.batchDeleteWarningsTitle"),
-        runtime.t("toast.batchDeleteWarningsMessage", { success, total }),
-        runtime.t("toast.batchDeleteWarningsDetail", { failed })
+        runtime.t("toast.batchDeleteSuccessMessage", { success, total }),
+        runtime.t("toast.batchWarningsDetail", { failed })
       );
     } else {
       setTranslatedMessage("status.batchDeleteFinishedSuccess", { success, total });
@@ -499,7 +499,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       setTranslatedMessage("status.batchFinishedWarnings", { success, total, failed });
       notifyInfo(
         runtime.t("toast.batchWarningsTitle"),
-        runtime.t("toast.batchWarningsMessage", { success, total }),
+        runtime.t("toast.batchSuccessMessage", { success, total }),
         runtime.t("toast.batchWarningsDetail", { failed })
       );
     } else {
@@ -675,7 +675,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       setTranslatedMessage("status.batchFinishedWarnings", { success, total, failed: failed || errors.length });
       notifyInfo(
         runtime.t("toast.batchWarningsTitle"),
-        runtime.t("toast.batchWarningsMessage", { success, total }),
+        runtime.t("toast.batchSuccessMessage", { success, total }),
         runtime.t("toast.batchWarningsDetail", { failed: failed || errors.length })
       );
     } else {

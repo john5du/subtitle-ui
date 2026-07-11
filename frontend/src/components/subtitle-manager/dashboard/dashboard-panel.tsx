@@ -212,7 +212,7 @@ export function DashboardPanel({
               <SubtitleConversionSettingsPanel />
             </SettingsSection>
 
-            <SettingsSection title={t("settings.operationLogs")}>
+            <SettingsSection title={t("logs.title")}>
               <SettingsActionRow label={t("logs.title")}>
                 <Button type="button" variant="outline" className="h-10" onClick={() => handleLogsOpenChange(true)}>
                   <ScrollText className="h-4 w-4" />

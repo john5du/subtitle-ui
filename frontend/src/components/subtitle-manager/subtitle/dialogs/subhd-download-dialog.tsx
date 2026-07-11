@@ -220,8 +220,8 @@ export function SubHDDownloadDialog({
               size="icon"
               className="h-9 w-9 shrink-0"
               disabled={locked}
-              title={t("download.search")}
-              aria-label={t("download.search")}
+              title={t("common.search")}
+              aria-label={t("common.search")}
             >
               {loading ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
             </Button>
@@ -281,7 +281,7 @@ export function SubHDDownloadDialog({
                                 {t("download.langs")}: {item.langs.join(" / ")}
                               </span>
                             ) : null}
-                            {item.size ? <span>{t("details.sizeValue", { value: item.size })}</span> : null}
+                            {item.size ? <span>{item.size}</span> : null}
                             {item.downloads ? (
                               <span>
                                 {t("download.downloads")}: {item.downloads}

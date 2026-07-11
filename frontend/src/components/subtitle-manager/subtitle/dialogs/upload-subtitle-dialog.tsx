@@ -99,7 +99,7 @@ export function UploadSubtitleDialog({
             disabled={!pendingUploadFile || busy}
           >
             {uploadPending ? <SpinnerIcon className="h-4 w-4" /> : null}
-            {uploadPending ? t("details.uploading") : t("details.upload")}
+            {uploadPending ? t("details.uploading") : t("common.upload")}
           </Button>
         </DialogFooter>
       </DialogContent>

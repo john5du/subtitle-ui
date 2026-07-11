@@ -144,7 +144,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
       <p className="max-w-[320px] text-sm text-muted-foreground">{t("tv.scanPrompt")}</p>
       <Button type="button" variant="outline" className="gap-2" onClick={() => void onTriggerScan()} disabled={loading}>
         <Search className="h-4 w-4" />
-        {t("tv.scanMediaLibrary")}
+        {t("sidebar.scanMediaLibrary")}
       </Button>
     </div>
   ) : (

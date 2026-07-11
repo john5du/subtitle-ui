@@ -65,7 +65,7 @@ export function ArchiveEntryPickerDialog({
 
         {mode === "upload" && (
           <div className="space-y-2">
-            <p className="text-sm font-semibold">{t("details.uploadSubtitleLabel")}</p>
+            <p className="text-sm font-semibold">{t("details.uploadLabelTitle")}</p>
             <Input
               value={zipUploadLabel}
               maxLength={32}

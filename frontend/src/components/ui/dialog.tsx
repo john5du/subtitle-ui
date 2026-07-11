@@ -4,6 +4,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const Dialog = DialogPrimitive.Root;
@@ -29,6 +30,11 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const dialogCloseClassName =
   "absolute right-4 top-4 bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-foreground focus-ring-inset";
 
+function DialogCloseLabel() {
+  const { t } = useI18n();
+  return <span className="sr-only">{t("common.close")}</span>;
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
@@ -47,7 +53,7 @@ const DialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close data-slot="close" className={dialogCloseClassName}>
         <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
+        <DialogCloseLabel />
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>
@@ -75,7 +81,7 @@ const DialogDrawerContent = React.forwardRef<
         className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))] bg-transparent p-1.5 text-foreground-muted transition-colors hover:text-foreground focus-ring-inset"
       >
         <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
+        <DialogCloseLabel />
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>
