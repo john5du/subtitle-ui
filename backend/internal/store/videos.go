@@ -410,6 +410,12 @@ func normalizeSortBy(sortBy string) string {
 	switch strings.ToLower(strings.TrimSpace(sortBy)) {
 	case "year":
 		return "year"
+	case "title":
+		return "title"
+	case "updatedat", "updated_at":
+		return "updatedAt"
+	case "subtitlecount", "subtitle_count":
+		return "subtitleCount"
 	default:
 		return ""
 	}
@@ -424,20 +430,33 @@ func normalizeSortOrder(sortOrder string) string {
 	}
 }
 
+func sortDirection(sortOrder string) string {
+	if normalizeSortOrder(sortOrder) == "asc" {
+		return "ASC"
+	}
+	return "DESC"
+}
+
 func (s *Store) buildVideoOrderBy(sortBy string, sortOrder string) string {
-	if normalizeSortBy(sortBy) == "year" {
+	dir := sortDirection(sortOrder)
+	switch normalizeSortBy(sortBy) {
+	case "title":
+		return `ORDER BY title_sort_key ` + dir + `, lower(title) ` + dir + `, path ASC`
+	case "updatedAt":
+		return `ORDER BY updated_at ` + dir + `, title_sort_key ASC, path ASC`
+	case "subtitleCount":
+		return `ORDER BY (SELECT COUNT(1) FROM subtitles s WHERE s.video_id = videos.id) ` + dir + `, title_sort_key ASC, path ASC`
+	case "year":
 		emptyExpr := `CASE WHEN trim(ifnull(year, '')) = '' THEN 1 ELSE 0 END`
 		yearExpr := `CAST(year AS INTEGER)`
 		if s.dialect == dialectPostgres {
 			emptyExpr = `CASE WHEN trim(coalesce(year, '')) = '' THEN 1 ELSE 0 END`
 			yearExpr = `CASE WHEN trim(coalesce(year, '')) ~ '^[0-9]+$' THEN CAST(year AS INTEGER) ELSE 0 END`
 		}
-		if normalizeSortOrder(sortOrder) == "asc" {
-			return `ORDER BY ` + emptyExpr + ` ASC, ` + yearExpr + ` ASC, title ASC, path ASC`
-		}
-		return `ORDER BY ` + emptyExpr + ` ASC, ` + yearExpr + ` DESC, title ASC, path ASC`
+		return `ORDER BY ` + emptyExpr + ` ASC, ` + yearExpr + ` ` + dir + `, title_sort_key ASC, path ASC`
+	default:
+		return `ORDER BY title_sort_key ASC, path ASC`
 	}
-	return `ORDER BY title ASC, path ASC`
 }
 
 func defaultMediaType(mediaType string) string {

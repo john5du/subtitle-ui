@@ -125,7 +125,7 @@ export function useSubtitleManagerEffects({
     }
 
     void controllerRef.current.loadMovieVideos({ page: 1 });
-  }, [refs.skipMovieSortRef, state.movieYearSortOrder]);
+  }, [refs.skipMovieSortRef, state.movieSortBy, state.movieSortOrder]);
 
   useEffect(() => {
     if (refs.skipTvSortRef.current) {
@@ -134,7 +134,7 @@ export function useSubtitleManagerEffects({
     }
 
     void controllerRef.current.loadTvSeriesPage({ page: 1 });
-  }, [refs.skipTvSortRef, state.tvSeriesYearSortOrder]);
+  }, [refs.skipTvSortRef, state.tvSeriesSortBy, state.tvSeriesSortOrder]);
 
   useEffect(() => {
     void (async () => {

@@ -6,6 +6,7 @@ import { normalizeForCompare, pickDefaultTvDirectory } from "@/lib/subtitle-mana
 import { DEFAULT_LOG_PAGE_SIZE, DEFAULT_PAGE_SIZE } from "./state";
 import type { ControllerRuntime } from "./controller-runtime";
 import type { LoadActions } from "./controller-load";
+import type { MovieSortBy, TvSeriesSortBy } from "./types";
 
 export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadActions) {
   const {
@@ -294,12 +295,20 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     runtime.refs.logsDialogOpenRef.current = open;
   }
 
-  function toggleMovieYearSort() {
-    setters.setMovieYearSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
+  function setMovieSortBy(value: MovieSortBy) {
+    setters.setMovieSortBy(value);
   }
 
-  function toggleTvSeriesYearSort() {
-    setters.setTvSeriesYearSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
+  function toggleMovieSortOrder() {
+    setters.setMovieSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
+  }
+
+  function setTvSeriesSortBy(value: TvSeriesSortBy) {
+    setters.setTvSeriesSortBy(value);
+  }
+
+  function toggleTvSeriesSortOrder() {
+    setters.setTvSeriesSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
   }
 
   function selectMovieVideo(video: Video) {
@@ -348,8 +357,10 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     setTvPageSize,
     setLogsPage,
     setLogsDialogOpen,
-    toggleMovieYearSort,
-    toggleTvSeriesYearSort,
+    setMovieSortBy,
+    toggleMovieSortOrder,
+    setTvSeriesSortBy,
+    toggleTvSeriesSortOrder,
     selectMovieVideo,
     selectTvVideo,
     selectTvDirectory,

@@ -568,6 +568,178 @@ func TestListVideosSortByYear(t *testing.T) {
 	}
 }
 
+func TestListVideosSortByChinesePinyinTitle(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "sort-pinyin.sqlite3")
+	st, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() {
+		_ = st.Close()
+	}()
+
+	now := time.Now().UTC()
+	tempDir := t.TempDir()
+	videos := []domain.Video{
+		{ID: "1", Path: filepath.Join(tempDir, "1.mkv"), Directory: tempDir, FileName: "1.mkv", Title: "长津湖", Year: "2021", MediaType: domain.MediaTypeMovie, MetadataSource: "nfo", UpdatedAt: now},
+		{ID: "2", Path: filepath.Join(tempDir, "2.mkv"), Directory: tempDir, FileName: "2.mkv", Title: "阿凡达", Year: "2009", MediaType: domain.MediaTypeMovie, MetadataSource: "nfo", UpdatedAt: now},
+		{ID: "3", Path: filepath.Join(tempDir, "3.mkv"), Directory: tempDir, FileName: "3.mkv", Title: "霸王别姬", Year: "1993", MediaType: domain.MediaTypeMovie, MetadataSource: "nfo", UpdatedAt: now},
+		{ID: "4", Path: filepath.Join(tempDir, "4.mkv"), Directory: tempDir, FileName: "4.mkv", Title: "Batman", Year: "2022", MediaType: domain.MediaTypeMovie, MetadataSource: "nfo", UpdatedAt: now},
+	}
+	if err := st.SaveScanResult(videos, now, now, "", nil); err != nil {
+		t.Fatalf("save scan result: %v", err)
+	}
+
+	asc, _, err := st.ListVideos("", domain.MediaTypeMovie, "", 1, 20, "title", "asc")
+	if err != nil {
+		t.Fatalf("list by title asc: %v", err)
+	}
+	got := titlesOf(asc)
+	if len(got) != 4 {
+		t.Fatalf("expected 4 videos, got %v", got)
+	}
+	idxA := indexOf(got, "阿凡达")
+	idxBatman := indexOf(got, "Batman")
+	idxBa := indexOf(got, "霸王别姬")
+	idxChang := indexOf(got, "长津湖")
+	if idxA < 0 || idxBatman < 0 || idxBa < 0 || idxChang < 0 {
+		t.Fatalf("missing titles in %v", got)
+	}
+	// afanda < batman < bawangbieji; 长 is later pinyin than 阿
+	if !(idxA < idxBatman && idxBatman < idxBa && idxA < idxChang) {
+		t.Fatalf("unexpected pinyin order: %v", got)
+	}
+}
+
+func indexOf(items []string, value string) int {
+	for i, item := range items {
+		if item == value {
+			return i
+		}
+	}
+	return -1
+}
+
+func TestListVideosSortByTitleUpdatedAtSubtitleCount(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "sort-multi.sqlite3")
+	st, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() {
+		_ = st.Close()
+	}()
+
+	base := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	tempDir := t.TempDir()
+	videos := []domain.Video{
+		{
+			ID:             "A",
+			Path:           filepath.Join(tempDir, "a.mkv"),
+			Directory:      tempDir,
+			FileName:       "a.mkv",
+			Title:          "Charlie",
+			Year:           "2020",
+			MediaType:      domain.MediaTypeMovie,
+			MetadataSource: "nfo",
+			UpdatedAt:      base.Add(2 * time.Hour),
+			Subtitles: []domain.Subtitle{
+				{ID: "sa1", Path: filepath.Join(tempDir, "a.en.srt"), FileName: "a.en.srt", Language: "en", Format: "srt", Source: "directory"},
+			},
+		},
+		{
+			ID:             "B",
+			Path:           filepath.Join(tempDir, "b.mkv"),
+			Directory:      tempDir,
+			FileName:       "b.mkv",
+			Title:          "Alpha",
+			Year:           "2021",
+			MediaType:      domain.MediaTypeMovie,
+			MetadataSource: "nfo",
+			UpdatedAt:      base.Add(1 * time.Hour),
+			Subtitles: []domain.Subtitle{
+				{ID: "sb1", Path: filepath.Join(tempDir, "b.en.srt"), FileName: "b.en.srt", Language: "en", Format: "srt", Source: "directory"},
+				{ID: "sb2", Path: filepath.Join(tempDir, "b.zh.srt"), FileName: "b.zh.srt", Language: "zh", Format: "srt", Source: "directory"},
+			},
+		},
+		{
+			ID:             "C",
+			Path:           filepath.Join(tempDir, "c.mkv"),
+			Directory:      tempDir,
+			FileName:       "c.mkv",
+			Title:          "Bravo",
+			Year:           "2022",
+			MediaType:      domain.MediaTypeMovie,
+			MetadataSource: "nfo",
+			UpdatedAt:      base.Add(3 * time.Hour),
+		},
+	}
+
+	if err := st.SaveScanResult(videos, base, base, "", nil); err != nil {
+		t.Fatalf("save scan result: %v", err)
+	}
+
+	byTitleAsc, _, err := st.ListVideos("", domain.MediaTypeMovie, "", 1, 20, "title", "asc")
+	if err != nil {
+		t.Fatalf("list by title asc: %v", err)
+	}
+	if got := titlesOf(byTitleAsc); !equalStrings(got, []string{"Alpha", "Bravo", "Charlie"}) {
+		t.Fatalf("unexpected title asc order: %v", got)
+	}
+
+	byTitleDesc, _, err := st.ListVideos("", domain.MediaTypeMovie, "", 1, 20, "title", "desc")
+	if err != nil {
+		t.Fatalf("list by title desc: %v", err)
+	}
+	if got := titlesOf(byTitleDesc); !equalStrings(got, []string{"Charlie", "Bravo", "Alpha"}) {
+		t.Fatalf("unexpected title desc order: %v", got)
+	}
+
+	byUpdatedDesc, _, err := st.ListVideos("", domain.MediaTypeMovie, "", 1, 20, "updatedAt", "desc")
+	if err != nil {
+		t.Fatalf("list by updatedAt desc: %v", err)
+	}
+	if got := titlesOf(byUpdatedDesc); !equalStrings(got, []string{"Bravo", "Charlie", "Alpha"}) {
+		t.Fatalf("unexpected updatedAt desc order: %v", got)
+	}
+
+	bySubDesc, _, err := st.ListVideos("", domain.MediaTypeMovie, "", 1, 20, "subtitleCount", "desc")
+	if err != nil {
+		t.Fatalf("list by subtitleCount desc: %v", err)
+	}
+	if got := titlesOf(bySubDesc); !equalStrings(got, []string{"Alpha", "Charlie", "Bravo"}) {
+		t.Fatalf("unexpected subtitleCount desc order: %v", got)
+	}
+
+	bySubAsc, _, err := st.ListVideos("", domain.MediaTypeMovie, "", 1, 20, "subtitleCount", "asc")
+	if err != nil {
+		t.Fatalf("list by subtitleCount asc: %v", err)
+	}
+	if got := titlesOf(bySubAsc); !equalStrings(got, []string{"Bravo", "Charlie", "Alpha"}) {
+		t.Fatalf("unexpected subtitleCount asc order: %v", got)
+	}
+}
+
+func titlesOf(videos []domain.Video) []string {
+	out := make([]string, 0, len(videos))
+	for _, video := range videos {
+		out = append(out, video.Title)
+	}
+	return out
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestOpenWithOptionsDefaultsToSQLite(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "options.sqlite3")
 	st, err := OpenWithOptions(OpenOptions{SQLitePath: dbPath})

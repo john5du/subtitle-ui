@@ -17,7 +17,15 @@ import type {
 } from "@/lib/types";
 import type { LocalizedText } from "@/lib/subtitle-manager/messages";
 
-import type { LoadChannel, SortOrder, SubtitleManagerRefs, SubtitleManagerState, SubtitleManagerStateApi } from "./types";
+import type {
+  LoadChannel,
+  MovieSortBy,
+  SortOrder,
+  SubtitleManagerRefs,
+  SubtitleManagerState,
+  SubtitleManagerStateApi,
+  TvSeriesSortBy
+} from "./types";
 
 export const DEFAULT_PAGE_SIZE = 30;
 export const DEFAULT_LOG_PAGE_SIZE = 8;
@@ -68,8 +76,10 @@ function createInitialState(): SubtitleManagerState {
     tvSeriesPager: createDefaultPager(),
     queryByType: { movie: "", tv: "" },
     moviePager: createDefaultPager(),
-    movieYearSortOrder: "desc",
-    tvSeriesYearSortOrder: "desc",
+    movieSortBy: "year",
+    movieSortOrder: "desc",
+    tvSeriesSortBy: "year",
+    tvSeriesSortOrder: "desc",
     loading: false,
     pending: EMPTY_PENDING_STATE,
     uploading: false,
@@ -103,8 +113,10 @@ type StateAction =
   | { type: "setTvSeriesPager"; value: SetStateAction<Pager> }
   | { type: "setQueryByType"; value: SetStateAction<Record<MediaType, string>> }
   | { type: "setMoviePager"; value: SetStateAction<Pager> }
-  | { type: "setMovieYearSortOrder"; value: SetStateAction<SortOrder> }
-  | { type: "setTvSeriesYearSortOrder"; value: SetStateAction<SortOrder> }
+  | { type: "setMovieSortBy"; value: SetStateAction<MovieSortBy> }
+  | { type: "setMovieSortOrder"; value: SetStateAction<SortOrder> }
+  | { type: "setTvSeriesSortBy"; value: SetStateAction<TvSeriesSortBy> }
+  | { type: "setTvSeriesSortOrder"; value: SetStateAction<SortOrder> }
   | { type: "setLoading"; value: SetStateAction<boolean> }
   | { type: "setPending"; value: SetStateAction<UiPendingState> }
   | { type: "setUploading"; value: SetStateAction<boolean> }
@@ -192,13 +204,21 @@ function reducer(state: SubtitleManagerState, action: StateAction): SubtitleMana
       const moviePager = resolveUpdate(state.moviePager, action.value);
       return moviePager === state.moviePager ? state : { ...state, moviePager };
     }
-    case "setMovieYearSortOrder": {
-      const movieYearSortOrder = resolveUpdate(state.movieYearSortOrder, action.value);
-      return movieYearSortOrder === state.movieYearSortOrder ? state : { ...state, movieYearSortOrder };
+    case "setMovieSortBy": {
+      const movieSortBy = resolveUpdate(state.movieSortBy, action.value);
+      return movieSortBy === state.movieSortBy ? state : { ...state, movieSortBy };
     }
-    case "setTvSeriesYearSortOrder": {
-      const tvSeriesYearSortOrder = resolveUpdate(state.tvSeriesYearSortOrder, action.value);
-      return tvSeriesYearSortOrder === state.tvSeriesYearSortOrder ? state : { ...state, tvSeriesYearSortOrder };
+    case "setMovieSortOrder": {
+      const movieSortOrder = resolveUpdate(state.movieSortOrder, action.value);
+      return movieSortOrder === state.movieSortOrder ? state : { ...state, movieSortOrder };
+    }
+    case "setTvSeriesSortBy": {
+      const tvSeriesSortBy = resolveUpdate(state.tvSeriesSortBy, action.value);
+      return tvSeriesSortBy === state.tvSeriesSortBy ? state : { ...state, tvSeriesSortBy };
+    }
+    case "setTvSeriesSortOrder": {
+      const tvSeriesSortOrder = resolveUpdate(state.tvSeriesSortOrder, action.value);
+      return tvSeriesSortOrder === state.tvSeriesSortOrder ? state : { ...state, tvSeriesSortOrder };
     }
     case "setLoading": {
       const loading = resolveUpdate(state.loading, action.value);
@@ -322,8 +342,10 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
       setTvSeriesPager: createSetter<Pager>(dispatch, "setTvSeriesPager"),
       setQueryByType: createSetter<Record<MediaType, string>>(dispatch, "setQueryByType"),
       setMoviePager: createSetter<Pager>(dispatch, "setMoviePager"),
-      setMovieYearSortOrder: createSetter<SortOrder>(dispatch, "setMovieYearSortOrder"),
-      setTvSeriesYearSortOrder: createSetter<SortOrder>(dispatch, "setTvSeriesYearSortOrder"),
+      setMovieSortBy: createSetter<MovieSortBy>(dispatch, "setMovieSortBy"),
+      setMovieSortOrder: createSetter<SortOrder>(dispatch, "setMovieSortOrder"),
+      setTvSeriesSortBy: createSetter<TvSeriesSortBy>(dispatch, "setTvSeriesSortBy"),
+      setTvSeriesSortOrder: createSetter<SortOrder>(dispatch, "setTvSeriesSortOrder"),
       setLoading: createSetter<boolean>(dispatch, "setLoading"),
       setPending: createSetter<UiPendingState>(dispatch, "setPending"),
       setUploading: createSetter<boolean>(dispatch, "setUploading"),

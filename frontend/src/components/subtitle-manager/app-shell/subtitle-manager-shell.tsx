@@ -45,8 +45,10 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   movieVideos,
   moviePager,
   movieViewMode,
-  movieYearSortOrder,
-  movieToggleYearSort,
+  movieSortBy,
+  movieSortOrder,
+  movieSetSortBy,
+  movieToggleSortOrder,
   movieSetViewMode,
   movieSetPage,
   movieSetPageSize,
@@ -57,10 +59,12 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   tvRows,
   tvPager,
   tvViewMode,
-  tvYearSortOrder,
+  tvSortBy,
+  tvSortOrder,
+  tvSetSortBy,
+  tvToggleSortOrder,
   tvSetPage,
   tvSetPageSize,
-  tvToggleYearSort,
   tvSetViewMode,
   tvOpenManagerForSeries,
   tvShowScanPrompt,
@@ -91,8 +95,10 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   movieVideos: SubtitleManagerScreenModel["movie"]["videos"];
   moviePager: SubtitleManagerScreenModel["movie"]["pager"];
   movieViewMode: SubtitleManagerScreenModel["movie"]["viewMode"];
-  movieYearSortOrder: SubtitleManagerScreenModel["movie"]["yearSortOrder"];
-  movieToggleYearSort: SubtitleManagerScreenModel["movie"]["toggleYearSort"];
+  movieSortBy: SubtitleManagerScreenModel["movie"]["sortBy"];
+  movieSortOrder: SubtitleManagerScreenModel["movie"]["sortOrder"];
+  movieSetSortBy: SubtitleManagerScreenModel["movie"]["setSortBy"];
+  movieToggleSortOrder: SubtitleManagerScreenModel["movie"]["toggleSortOrder"];
   movieSetViewMode: SubtitleManagerScreenModel["movie"]["setViewMode"];
   movieSetPage: SubtitleManagerScreenModel["movie"]["setPage"];
   movieSetPageSize: SubtitleManagerScreenModel["movie"]["setPageSize"];
@@ -103,10 +109,12 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   tvRows: SubtitleManagerScreenModel["tv"]["rows"];
   tvPager: SubtitleManagerScreenModel["tv"]["pager"];
   tvViewMode: SubtitleManagerScreenModel["tv"]["viewMode"];
-  tvYearSortOrder: SubtitleManagerScreenModel["tv"]["yearSortOrder"];
+  tvSortBy: SubtitleManagerScreenModel["tv"]["sortBy"];
+  tvSortOrder: SubtitleManagerScreenModel["tv"]["sortOrder"];
+  tvSetSortBy: SubtitleManagerScreenModel["tv"]["setSortBy"];
+  tvToggleSortOrder: SubtitleManagerScreenModel["tv"]["toggleSortOrder"];
   tvSetPage: SubtitleManagerScreenModel["tv"]["setPage"];
   tvSetPageSize: SubtitleManagerScreenModel["tv"]["setPageSize"];
-  tvToggleYearSort: SubtitleManagerScreenModel["tv"]["toggleYearSort"];
   tvSetViewMode: SubtitleManagerScreenModel["tv"]["setViewMode"];
   tvOpenManagerForSeries: SubtitleManagerScreenModel["tv"]["openManagerForSeries"];
   tvShowScanPrompt: SubtitleManagerScreenModel["tv"]["showScanPrompt"];
@@ -151,8 +159,10 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
             videos={movieVideos}
             pager={moviePager}
             viewMode={movieViewMode}
-            yearSortOrder={movieYearSortOrder}
-            onToggleYearSort={movieToggleYearSort}
+            sortBy={movieSortBy}
+            sortOrder={movieSortOrder}
+            onSortByChange={movieSetSortBy}
+            onToggleSortOrder={movieToggleSortOrder}
             onViewModeChange={movieSetViewMode}
             onSetPage={movieSetPage}
             onPageSizeChange={movieSetPageSize}
@@ -176,10 +186,12 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
             rows={tvRows}
             pager={tvPager}
             viewMode={tvViewMode}
-            yearSortOrder={tvYearSortOrder}
+            sortBy={tvSortBy}
+            sortOrder={tvSortOrder}
+            onSortByChange={tvSetSortBy}
+            onToggleSortOrder={tvToggleSortOrder}
             onSetPage={tvSetPage}
             onPageSizeChange={tvSetPageSize}
-            onToggleYearSort={tvToggleYearSort}
             onViewModeChange={tvSetViewMode}
             onOpenManager={openTvManagerForRow}
             operationLocked={operationLocked}
@@ -512,8 +524,10 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             movieVideos={movie.videos}
             moviePager={movie.pager}
             movieViewMode={movie.viewMode}
-            movieYearSortOrder={movie.yearSortOrder}
-            movieToggleYearSort={movie.toggleYearSort}
+            movieSortBy={movie.sortBy}
+            movieSortOrder={movie.sortOrder}
+            movieSetSortBy={movie.setSortBy}
+            movieToggleSortOrder={movie.toggleSortOrder}
             movieSetViewMode={movie.setViewMode}
             movieSetPage={movie.setPage}
             movieSetPageSize={movie.setPageSize}
@@ -524,10 +538,12 @@ export function SubtitleManagerShell({ model }: { model: SubtitleManagerScreenMo
             tvRows={tv.rows}
             tvPager={tv.pager}
             tvViewMode={tv.viewMode}
-            tvYearSortOrder={tv.yearSortOrder}
+            tvSortBy={tv.sortBy}
+            tvSortOrder={tv.sortOrder}
+            tvSetSortBy={tv.setSortBy}
+            tvToggleSortOrder={tv.toggleSortOrder}
             tvSetPage={tv.setPage}
             tvSetPageSize={tv.setPageSize}
-            tvToggleYearSort={tv.toggleYearSort}
             tvSetViewMode={tv.setViewMode}
             tvOpenManagerForSeries={tv.openManagerForSeries}
             tvShowScanPrompt={tv.showScanPrompt}

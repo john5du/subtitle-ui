@@ -11,14 +11,23 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+import type { MovieSortBy } from "@/hooks/use-subtitle-manager/types";
 import type { LibraryViewMode } from "../types";
 import { CARD_GRID_CLASS, cardGridPageSize } from "../shared/card-grid";
 import { LibraryPosterCard } from "../shared/library-poster-card";
+import { LibrarySortControl, type LibrarySortOption } from "../shared/library-sort-control";
 import { LibraryViewToggle } from "../shared/library-view-toggle";
 import { InlinePending, PanelLoadingOverlay, SpinnerIcon } from "../shared/pending-state";
 import { PagerView } from "../shared/pager-view";
 import { PosterThumbnail } from "../shared/poster-thumbnail";
 import { useCardGridColumns } from "../shared/use-card-grid-columns";
+
+const MOVIE_SORT_OPTIONS: LibrarySortOption<MovieSortBy>[] = [
+  { value: "year", labelKey: "info.year" },
+  { value: "title", labelKey: "info.title" },
+  { value: "updatedAt", labelKey: "movie.updatedTime" },
+  { value: "subtitleCount", labelKey: "movie.subtitles" }
+];
 
 interface MovieListPanelProps {
   query: string;
@@ -26,8 +35,10 @@ interface MovieListPanelProps {
   videos: Video[];
   pager: Pager;
   viewMode: LibraryViewMode;
-  yearSortOrder: "asc" | "desc";
-  onToggleYearSort: () => void;
+  sortBy: MovieSortBy;
+  sortOrder: "asc" | "desc";
+  onSortByChange: (value: MovieSortBy) => void;
+  onToggleSortOrder: () => void;
   onViewModeChange: (value: LibraryViewMode) => void;
   onSetPage: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
@@ -68,8 +79,10 @@ export const MovieListPanel = memo(function MovieListPanel({
   videos,
   pager,
   viewMode,
-  yearSortOrder,
-  onToggleYearSort,
+  sortBy,
+  sortOrder,
+  onSortByChange,
+  onToggleSortOrder,
   onViewModeChange,
   onSetPage,
   onPageSizeChange,
@@ -130,9 +143,6 @@ export const MovieListPanel = memo(function MovieListPanel({
     [operationLocked, onOpenManager]
   );
 
-  const ariaSort = yearSortOrder === "desc" ? "descending" : "ascending";
-  const sortAriaLabel = yearSortOrder === "desc" ? t("common.sortDescending") : t("common.sortAscending");
-  const showToolbarSortButton = viewMode !== "list";
   const hasVideos = videos.length > 0;
   const showSkeleton = !hasVideos && pending;
   const showPager = Math.max(1, pager.totalPages) > 1 || pager.total > 0;
@@ -175,19 +185,13 @@ export const MovieListPanel = memo(function MovieListPanel({
               )}
             </div>
             <div className="flex items-center gap-2 sm:ml-auto xl:ml-0">
-              {showToolbarSortButton && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 min-w-[88px] gap-2 px-3"
-                  aria-label={`${t("info.year")} · ${sortAriaLabel}`}
-                  onClick={onToggleYearSort}
-                >
-                  {t("info.year")}
-                  <span className="text-micro" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
-                </Button>
-              )}
+              <LibrarySortControl
+                value={sortBy}
+                order={sortOrder}
+                options={MOVIE_SORT_OPTIONS}
+                onValueChange={onSortByChange}
+                onToggleOrder={onToggleSortOrder}
+              />
               <LibraryViewToggle value={viewMode} onChange={onViewModeChange} />
             </div>
           </div>
@@ -204,17 +208,7 @@ export const MovieListPanel = memo(function MovieListPanel({
                   <TableRow>
                     <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
                     <TableHead>{t("info.title")}</TableHead>
-                    <TableHead className="w-[96px]" aria-sort={ariaSort}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-foreground"
-                        aria-label={`${t("info.year")} · ${sortAriaLabel}`}
-                        onClick={onToggleYearSort}
-                      >
-                        {t("info.year")}
-                        <span className="text-micro" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
-                      </button>
-                    </TableHead>
+                    <TableHead className="w-[96px]">{t("info.year")}</TableHead>
                     <TableHead className="hidden w-[156px] md:table-cell">{t("movie.updatedTime")}</TableHead>
                     <TableHead className="w-[92px] text-right">{t("movie.subtitles")}</TableHead>
                     <TableHead className="hidden lg:table-cell lg:w-[320px]">{t("movie.fileName")}</TableHead>

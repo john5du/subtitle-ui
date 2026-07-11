@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/textsort"
 )
 
 const migrationV1 = `
@@ -348,6 +349,31 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 		}
 	}
 
+	applied, err = s.isMigrationApplied(7)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		hasTitleSortKey, err := s.hasColumn("videos", "title_sort_key")
+		if err != nil {
+			return err
+		}
+		if !hasTitleSortKey {
+			if _, err := s.exec(`ALTER TABLE videos ADD COLUMN title_sort_key TEXT NOT NULL DEFAULT ''`); err != nil {
+				return fmt.Errorf("apply migration v7 title_sort_key: %w", err)
+			}
+		}
+		if err := s.backfillTitleSortKeys(); err != nil {
+			return fmt.Errorf("backfill migration v7 title_sort_key: %w", err)
+		}
+		if _, err := s.exec(`CREATE INDEX IF NOT EXISTS idx_videos_title_sort_key ON videos(title_sort_key)`); err != nil {
+			return fmt.Errorf("apply migration v7 index: %w", err)
+		}
+		if _, err := s.exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 7, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
 	if s.dialect == dialectPostgres {
 		if _, err := s.exec(`
 CREATE TABLE IF NOT EXISTS data_migrations (
@@ -360,6 +386,37 @@ CREATE TABLE IF NOT EXISTS data_migrations (
 		}
 	}
 
+	return nil
+}
+
+func (s *Store) backfillTitleSortKeys() error {
+	rows, err := s.query(`SELECT id, title FROM videos`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type row struct {
+		id    string
+		title string
+	}
+	items := make([]row, 0, 128)
+	for rows.Next() {
+		var item row
+		if err := rows.Scan(&item.id, &item.title); err != nil {
+			return err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, item := range items {
+		if _, err := s.exec(`UPDATE videos SET title_sort_key = ? WHERE id = ?`, textsort.SortKey(item.title), item.id); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

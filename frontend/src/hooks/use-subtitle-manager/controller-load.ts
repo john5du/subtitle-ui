@@ -33,7 +33,7 @@ export function createLoadActions(runtime: ControllerRuntime) {
     const page = options.page || state.moviePager.page || 1;
     const pageSize = options.pageSize || state.moviePager.pageSize || DEFAULT_PAGE_SIZE;
     const query = state.queryByType.movie || "";
-    const signature = buildRequestSignature(["movie", page, pageSize, state.movieYearSortOrder, query.trim()]);
+    const signature = buildRequestSignature(["movie", page, pageSize, state.movieSortBy, state.movieSortOrder, query.trim()]);
 
     if (!options.force && refs.loadedMovieListSignatureRef.current === signature) {
       return;
@@ -59,8 +59,8 @@ export function createLoadActions(runtime: ControllerRuntime) {
         params.set("mediaType", "movie");
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
-        params.set("sortBy", "year");
-        params.set("sortOrder", state.movieYearSortOrder);
+        params.set("sortBy", state.movieSortBy);
+        params.set("sortOrder", state.movieSortOrder);
         if (query.trim()) {
           params.set("q", query.trim());
         }
@@ -113,7 +113,7 @@ export function createLoadActions(runtime: ControllerRuntime) {
     const page = options.page || state.tvSeriesPager.page || 1;
     const pageSize = options.pageSize || state.tvSeriesPager.pageSize || DEFAULT_PAGE_SIZE;
     const query = state.queryByType.tv || "";
-    const signature = buildRequestSignature(["tv-series", page, pageSize, state.tvSeriesYearSortOrder, query.trim()]);
+    const signature = buildRequestSignature(["tv-series", page, pageSize, state.tvSeriesSortBy, state.tvSeriesSortOrder, query.trim()]);
 
     if (!options.force && refs.loadedTvSeriesSignatureRef.current === signature) {
       return state.tvSeriesRows;
@@ -138,8 +138,8 @@ export function createLoadActions(runtime: ControllerRuntime) {
         const params = new URLSearchParams();
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
-        params.set("sortYear", "year");
-        params.set("sortOrder", state.tvSeriesYearSortOrder);
+        params.set("sortBy", state.tvSeriesSortBy);
+        params.set("sortOrder", state.tvSeriesSortOrder);
         if (query.trim()) {
           params.set("q", query.trim());
         }

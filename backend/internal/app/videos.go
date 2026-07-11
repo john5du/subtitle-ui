@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/textsort"
 	"subtitle-ui/backend/internal/version"
 )
 
@@ -47,7 +48,7 @@ func (s *Service) ListVideosPage(query string, mediaType string, directory strin
 	}
 }
 
-func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortYear string, sortOrder string) domain.TVSeriesPage {
+func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortBy string, sortOrder string) domain.TVSeriesPage {
 	if page <= 0 {
 		page = 1
 	}
@@ -71,7 +72,7 @@ func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortYea
 
 	rows := buildTVSeriesSummaries(videos, s.cfg.TVMediaRoot)
 	rows = filterTVSeriesSummaries(rows, query)
-	sortTVSeriesSummaries(rows, sortYear, sortOrder)
+	sortTVSeriesSummaries(rows, sortBy, sortOrder)
 
 	total := len(rows)
 	totalPages := 0
@@ -334,31 +335,106 @@ func filterTVSeriesSummaries(items []domain.TVSeriesSummary, query string) []dom
 	return filtered
 }
 
-func sortTVSeriesSummaries(items []domain.TVSeriesSummary, _ string, sortOrder string) {
+func normalizeTVSeriesSortBy(sortBy string) string {
+	switch strings.ToLower(strings.TrimSpace(sortBy)) {
+	case "title":
+		return "title"
+	case "updatedat", "updated_at":
+		return "updatedAt"
+	case "videocount", "video_count":
+		return "videoCount"
+	case "nosubtitlecount", "no_subtitle_count":
+		return "noSubtitleCount"
+	case "year", "latestyear", "latest_year", "latestepisodeyear":
+		return "year"
+	default:
+		return "year"
+	}
+}
+
+func compareTVSeriesTieBreak(a, b domain.TVSeriesSummary) bool {
+	if textsort.Less(a.Title, b.Title) {
+		return true
+	}
+	if textsort.Less(b.Title, a.Title) {
+		return false
+	}
+	return strings.ToLower(a.Path) < strings.ToLower(b.Path)
+}
+
+func sortTVSeriesSummaries(items []domain.TVSeriesSummary, sortBy string, sortOrder string) {
 	order := normalizeSortOrder(sortOrder)
+	field := normalizeTVSeriesSortBy(sortBy)
+	asc := order == "asc"
 
 	sort.Slice(items, func(i int, j int) bool {
-		yearA := parseYearNumber(items[i].LatestEpisodeYear)
-		yearB := parseYearNumber(items[j].LatestEpisodeYear)
-		hasYearA := yearA > 0
-		hasYearB := yearB > 0
+		a := items[i]
+		b := items[j]
 
-		if hasYearA != hasYearB {
-			return hasYearA
-		}
-		if hasYearA && hasYearB && yearA != yearB {
-			if order == "asc" {
-				return yearA < yearB
+		switch field {
+		case "title":
+			lessAB := textsort.Less(a.Title, b.Title)
+			lessBA := textsort.Less(b.Title, a.Title)
+			if lessAB != lessBA {
+				if asc {
+					return lessAB
+				}
+				return lessBA
 			}
-			return yearA > yearB
+			return strings.ToLower(a.Path) < strings.ToLower(b.Path)
+		case "updatedAt":
+			timeA, errA := time.Parse(time.RFC3339Nano, a.UpdatedAt)
+			if errA != nil {
+				timeA, errA = time.Parse(time.RFC3339, a.UpdatedAt)
+			}
+			timeB, errB := time.Parse(time.RFC3339Nano, b.UpdatedAt)
+			if errB != nil {
+				timeB, errB = time.Parse(time.RFC3339, b.UpdatedAt)
+			}
+			hasA := errA == nil && !timeA.IsZero()
+			hasB := errB == nil && !timeB.IsZero()
+			if hasA != hasB {
+				return hasA
+			}
+			if hasA && hasB && !timeA.Equal(timeB) {
+				if asc {
+					return timeA.Before(timeB)
+				}
+				return timeA.After(timeB)
+			}
+			return compareTVSeriesTieBreak(a, b)
+		case "videoCount":
+			if a.VideoCount != b.VideoCount {
+				if asc {
+					return a.VideoCount < b.VideoCount
+				}
+				return a.VideoCount > b.VideoCount
+			}
+			return compareTVSeriesTieBreak(a, b)
+		case "noSubtitleCount":
+			if a.NoSubtitleCount != b.NoSubtitleCount {
+				if asc {
+					return a.NoSubtitleCount < b.NoSubtitleCount
+				}
+				return a.NoSubtitleCount > b.NoSubtitleCount
+			}
+			return compareTVSeriesTieBreak(a, b)
+		default:
+			yearA := parseYearNumber(a.LatestEpisodeYear)
+			yearB := parseYearNumber(b.LatestEpisodeYear)
+			hasYearA := yearA > 0
+			hasYearB := yearB > 0
+			if hasYearA != hasYearB {
+				return hasYearA
+			}
+			if hasYearA && hasYearB && yearA != yearB {
+				if asc {
+					return yearA < yearB
+				}
+				return yearA > yearB
+			}
+			return compareTVSeriesTieBreak(a, b)
 		}
-
-		titleA := strings.ToLower(items[i].Title)
-		titleB := strings.ToLower(items[j].Title)
-		if titleA != titleB {
-			return titleA < titleB
-		}
-		return strings.ToLower(items[i].Path) < strings.ToLower(items[j].Path)
 	})
 }
 

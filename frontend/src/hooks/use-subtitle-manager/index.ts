@@ -22,7 +22,7 @@ import { createSubtitleManagerController } from "./controller";
 import { useSubtitleManagerEffects } from "./effects";
 import { useSubtitleManagerSelectors } from "./selectors";
 import { useSubtitleManagerState } from "./state";
-import type { SubtitleManagerController, SubtitleManagerResult } from "./types";
+import type { MovieSortBy, SubtitleManagerController, SubtitleManagerResult, TvSeriesSortBy } from "./types";
 
 export function useSubtitleManager(): SubtitleManagerResult {
   const { locale, t } = useI18n();
@@ -65,8 +65,10 @@ export function useSubtitleManager(): SubtitleManagerResult {
   const setLogsPage = useCallback((nextPage: number) => controller.setLogsPage(nextPage), [controller]);
   const setLogsDialogOpen = useCallback((open: boolean) => controller.setLogsDialogOpen(open), [controller]);
   const refreshLogs = useCallback((page = 1) => controller.loadLogs({ page }), [controller]);
-  const toggleMovieYearSort = useCallback(() => controller.toggleMovieYearSort(), [controller]);
-  const toggleTvSeriesYearSort = useCallback(() => controller.toggleTvSeriesYearSort(), [controller]);
+  const setMovieSortBy = useCallback((value: MovieSortBy) => controller.setMovieSortBy(value), [controller]);
+  const toggleMovieSortOrder = useCallback(() => controller.toggleMovieSortOrder(), [controller]);
+  const setTvSeriesSortBy = useCallback((value: TvSeriesSortBy) => controller.setTvSeriesSortBy(value), [controller]);
+  const toggleTvSeriesSortOrder = useCallback(() => controller.toggleTvSeriesSortOrder(), [controller]);
   const loadMovieWorkspace = useCallback(() => controller.loadMovieWorkspace(), [controller]);
   const loadTvWorkspace = useCallback((seriesPath?: string) => controller.loadTvWorkspace(seriesPath), [controller]);
   const selectTvDirectory = useCallback((path: string) => controller.selectTvDirectory(path), [controller]);
@@ -157,13 +159,15 @@ export function useSubtitleManager(): SubtitleManagerResult {
       setQuery: setMovieQuery,
       videos: selectors.movieVideos,
       pager: selectors.moviePager,
-      yearSortOrder: state.movieYearSortOrder,
+      sortBy: state.movieSortBy,
+      sortOrder: state.movieSortOrder,
       selectedVideo: selectors.selectedMovie,
       selectedVideoId: state.selectedVideoIdByType.movie,
       selectVideo: selectMovieVideo,
       setPage: setMoviePage,
       setPageSize: setMoviePageSize,
-      toggleYearSort: toggleMovieYearSort,
+      setSortBy: setMovieSortBy,
+      toggleSortOrder: toggleMovieSortOrder,
       loadWorkspace: loadMovieWorkspace
     },
     tv: {
@@ -171,7 +175,8 @@ export function useSubtitleManager(): SubtitleManagerResult {
       setQuery: setTvQuery,
       rows: state.tvSeriesRows,
       pager: selectors.tvPager,
-      yearSortOrder: state.tvSeriesYearSortOrder,
+      sortBy: state.tvSeriesSortBy,
+      sortOrder: state.tvSeriesSortOrder,
       selectedSeries: selectors.selectedTvSeries,
       selectedSeason: state.selectedTvSeason,
       seasonOptions: selectors.tvSeasonOptions,
@@ -185,7 +190,8 @@ export function useSubtitleManager(): SubtitleManagerResult {
       setSelectedSeason: setSelectedTvSeason,
       setPage: setTvPage,
       setPageSize: setTvPageSize,
-      toggleYearSort: toggleTvSeriesYearSort,
+      setSortBy: setTvSeriesSortBy,
+      toggleSortOrder: toggleTvSeriesSortOrder,
       loadWorkspace: loadTvWorkspace,
       loadBatchCandidates: loadTvBatchCandidates
     },

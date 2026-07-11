@@ -12,14 +12,24 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+import type { TvSeriesSortBy } from "@/hooks/use-subtitle-manager/types";
 import type { LibraryViewMode } from "../types";
 import { CARD_GRID_CLASS, cardGridPageSize } from "../shared/card-grid";
 import { LibraryPosterCard } from "../shared/library-poster-card";
+import { LibrarySortControl, type LibrarySortOption } from "../shared/library-sort-control";
 import { LibraryViewToggle } from "../shared/library-view-toggle";
 import { InlinePending, PanelLoadingOverlay, SpinnerIcon } from "../shared/pending-state";
 import { PagerView } from "../shared/pager-view";
 import { PosterThumbnail } from "../shared/poster-thumbnail";
 import { useCardGridColumns } from "../shared/use-card-grid-columns";
+
+const TV_SERIES_SORT_OPTIONS: LibrarySortOption<TvSeriesSortBy>[] = [
+  { value: "year", labelKey: "tv.latestYear" },
+  { value: "title", labelKey: "info.title" },
+  { value: "updatedAt", labelKey: "movie.updatedTime" },
+  { value: "videoCount", labelKey: "tv.videos" },
+  { value: "noSubtitleCount", labelKey: "tv.noSubtitles" }
+];
 
 interface TvSeriesListPanelProps {
   query: string;
@@ -27,10 +37,12 @@ interface TvSeriesListPanelProps {
   rows: TvSeriesSummary[];
   pager: Pager;
   viewMode: LibraryViewMode;
-  yearSortOrder: "asc" | "desc";
+  sortBy: TvSeriesSortBy;
+  sortOrder: "asc" | "desc";
+  onSortByChange: (value: TvSeriesSortBy) => void;
+  onToggleSortOrder: () => void;
   onSetPage: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onToggleYearSort: () => void;
   onViewModeChange: (value: LibraryViewMode) => void;
   onOpenManager: (series: TvSeriesSummary) => void;
   operationLocked: boolean;
@@ -68,10 +80,12 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
   rows,
   pager,
   viewMode,
-  yearSortOrder,
+  sortBy,
+  sortOrder,
+  onSortByChange,
+  onToggleSortOrder,
   onSetPage,
   onPageSizeChange,
-  onToggleYearSort,
   onViewModeChange,
   onOpenManager,
   operationLocked,
@@ -132,9 +146,6 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
     [operationLocked, onOpenManager]
   );
 
-  const ariaSort = yearSortOrder === "desc" ? "descending" : "ascending";
-  const sortAriaLabel = yearSortOrder === "desc" ? t("common.sortDescending") : t("common.sortAscending");
-  const showToolbarSortButton = viewMode !== "list";
   const hasRows = rows.length > 0;
   const showSkeleton = !hasRows && pending;
   const showPager = Math.max(1, pager.totalPages) > 1 || pager.total > 0;
@@ -189,19 +200,13 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
               )}
             </div>
             <div className="flex items-center gap-2 sm:ml-auto xl:ml-0">
-              {showToolbarSortButton && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 min-w-[108px] gap-2 px-3"
-                  aria-label={`${t("tv.latestYear")} · ${sortAriaLabel}`}
-                  onClick={onToggleYearSort}
-                >
-                  {t("tv.latestYear")}
-                  <span className="text-micro" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
-                </Button>
-              )}
+              <LibrarySortControl
+                value={sortBy}
+                order={sortOrder}
+                options={TV_SERIES_SORT_OPTIONS}
+                onValueChange={onSortByChange}
+                onToggleOrder={onToggleSortOrder}
+              />
               <LibraryViewToggle value={viewMode} onChange={onViewModeChange} />
             </div>
           </div>
@@ -218,17 +223,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                   <TableRow>
                     <TableHead className="w-[76px]">{t("info.poster")}</TableHead>
                     <TableHead>{t("info.title")}</TableHead>
-                    <TableHead className="w-[116px]" aria-sort={ariaSort}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-foreground"
-                        aria-label={`${t("tv.latestYear")} · ${sortAriaLabel}`}
-                        onClick={onToggleYearSort}
-                      >
-                        {t("tv.latestYear")}
-                        <span className="text-micro" aria-hidden>{yearSortOrder === "desc" ? "↓" : "↑"}</span>
-                      </button>
-                    </TableHead>
+                    <TableHead className="w-[116px]">{t("tv.latestYear")}</TableHead>
                     <TableHead className="hidden w-[156px] md:table-cell">{t("movie.updatedTime")}</TableHead>
                     <TableHead className="w-[92px] text-right">{t("tv.videos")}</TableHead>
                     <TableHead className="w-[112px] text-right">{t("tv.noSubtitles")}</TableHead>

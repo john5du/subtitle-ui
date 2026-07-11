@@ -112,9 +112,15 @@ func (s *Store) migrateInitialSQLiteData(sqlitePath string) error {
 		return nil
 	}
 
-	if _, err := s.copyTableRowsTx(tx, source, "videos", []string{
+	videoColumns := []string{
 		"id", "path", "directory", "file_name", "title", "original_title", "year", "imdb_id", "tmdb_id", "media_type", "metadata_source", "series_title", "series_original_title", "series_imdb_id", "series_tmdb_id", "poster_path", "updated_at",
-	}, "id"); err != nil {
+	}
+	if hasTitleSortKey, err := source.hasColumn("videos", "title_sort_key"); err != nil {
+		return err
+	} else if hasTitleSortKey {
+		videoColumns = append(videoColumns, "title_sort_key")
+	}
+	if _, err := s.copyTableRowsTx(tx, source, "videos", videoColumns, "id"); err != nil {
 		return err
 	}
 	if _, err := s.copyTableRowsTx(tx, source, "subtitles", []string{
@@ -148,6 +154,9 @@ func (s *Store) migrateInitialSQLiteData(sqlitePath string) error {
 		return err
 	}
 	committed = true
+	if err := s.backfillTitleSortKeys(); err != nil {
+		return fmt.Errorf("backfill title_sort_key after sqlite import: %w", err)
+	}
 	return nil
 }
 

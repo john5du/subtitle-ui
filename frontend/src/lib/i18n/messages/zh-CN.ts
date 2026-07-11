@@ -19,6 +19,7 @@ export const zhCNMessages: MessageDictionary = {
   "common.clear": "清除",
   "common.sortAscending": "升序排列",
   "common.sortDescending": "降序排列",
+  "common.sortBy": "排序",
   "common.noSubtitles": "暂无字幕",
   "common.search": "搜索",
   "common.upload": "上传",

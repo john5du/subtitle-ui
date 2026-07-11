@@ -197,9 +197,12 @@ func (s *Server) handleTVSeries(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	page := parsePositiveIntOrDefault(r.URL.Query().Get("page"), 1)
 	pageSize := parsePositiveIntOrDefault(r.URL.Query().Get("pageSize"), 30)
-	sortYear := r.URL.Query().Get("sortYear")
+	sortBy := r.URL.Query().Get("sortBy")
+	if sortBy == "" {
+		sortBy = r.URL.Query().Get("sortYear")
+	}
 	sortOrder := r.URL.Query().Get("sortOrder")
-	pageData := s.service.ListTVSeriesPage(query, page, pageSize, sortYear, sortOrder)
+	pageData := s.service.ListTVSeriesPage(query, page, pageSize, sortBy, sortOrder)
 	s.attachTVSeriesPosterURLs(r, pageData.Items)
 	writeJSON(w, http.StatusOK, pageData)
 }

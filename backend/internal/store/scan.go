@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/textsort"
 )
 
 // SaveScanResult persists a scan. replaceScopes limits which existing rows are
@@ -49,8 +50,8 @@ func (s *Store) SaveScanResult(videos []domain.Video, startedAt time.Time, finis
 		for _, video := range videos {
 			_, err = s.execTx(
 				tx,
-				s.insertPrefix()+` INTO videos(id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, updated_at)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.videoUpsertSuffix(),
+				s.insertPrefix()+` INTO videos(id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, updated_at, title_sort_key)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.videoUpsertSuffix(),
 				video.ID,
 				video.Path,
 				video.Directory,
@@ -68,6 +69,7 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.videoUpsertSuffix()
 				video.SeriesTmdbID,
 				video.PosterPath,
 				video.UpdatedAt.UTC().Format(time.RFC3339Nano),
+				textsort.SortKey(video.Title),
 			)
 			if err != nil {
 				return err

@@ -17,6 +17,7 @@ export const enMessages = {
   "common.clear": "Clear",
   "common.sortAscending": "Sort ascending",
   "common.sortDescending": "Sort descending",
+  "common.sortBy": "Sort by",
   "common.noSubtitles": "No subtitles",
   "common.search": "Search",
   "common.upload": "Upload",

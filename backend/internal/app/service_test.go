@@ -1097,3 +1097,53 @@ func findSubtitleByFileName(subtitles []domain.Subtitle, fileName string) (domai
 func sampleNFO(title string, year string) string {
 	return "<movie><title>" + title + "</title><year>" + year + "</year></movie>"
 }
+
+func TestSortTVSeriesSummaries(t *testing.T) {
+	base := []domain.TVSeriesSummary{
+		{Title: "Charlie", Path: "/tv/c", LatestEpisodeYear: "2020", UpdatedAt: "2024-01-03T00:00:00Z", VideoCount: 2, NoSubtitleCount: 1},
+		{Title: "Alpha", Path: "/tv/a", LatestEpisodeYear: "2022", UpdatedAt: "2024-01-01T00:00:00Z", VideoCount: 5, NoSubtitleCount: 0},
+		{Title: "Bravo", Path: "/tv/b", LatestEpisodeYear: "2021", UpdatedAt: "2024-01-02T00:00:00Z", VideoCount: 3, NoSubtitleCount: 2},
+	}
+
+	assertTitles := func(t *testing.T, items []domain.TVSeriesSummary, want []string) {
+		t.Helper()
+		got := make([]string, 0, len(items))
+		for _, item := range items {
+			got = append(got, item.Title)
+		}
+		if len(got) != len(want) {
+			t.Fatalf("got %v want %v", got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("got %v want %v", got, want)
+			}
+		}
+	}
+
+	clone := func() []domain.TVSeriesSummary {
+		out := make([]domain.TVSeriesSummary, len(base))
+		copy(out, base)
+		return out
+	}
+
+	items := clone()
+	sortTVSeriesSummaries(items, "title", "asc")
+	assertTitles(t, items, []string{"Alpha", "Bravo", "Charlie"})
+
+	items = clone()
+	sortTVSeriesSummaries(items, "year", "desc")
+	assertTitles(t, items, []string{"Alpha", "Bravo", "Charlie"})
+
+	items = clone()
+	sortTVSeriesSummaries(items, "updatedAt", "desc")
+	assertTitles(t, items, []string{"Charlie", "Bravo", "Alpha"})
+
+	items = clone()
+	sortTVSeriesSummaries(items, "videoCount", "desc")
+	assertTitles(t, items, []string{"Alpha", "Bravo", "Charlie"})
+
+	items = clone()
+	sortTVSeriesSummaries(items, "noSubtitleCount", "desc")
+	assertTitles(t, items, []string{"Bravo", "Charlie", "Alpha"})
+}

@@ -131,7 +131,8 @@ func (s *Store) videoUpsertSuffix() string {
   series_imdb_id = excluded.series_imdb_id,
   series_tmdb_id = excluded.series_tmdb_id,
   poster_path = excluded.poster_path,
-  updated_at = excluded.updated_at`
+  updated_at = excluded.updated_at,
+  title_sort_key = excluded.title_sort_key`
 }
 
 func (s *Store) subtitleUpsertSuffix() string {

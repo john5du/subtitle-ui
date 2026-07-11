@@ -29,6 +29,8 @@ import type {
 import type { LocalizedText } from "@/lib/subtitle-manager/messages";
 
 export type SortOrder = "asc" | "desc";
+export type MovieSortBy = "year" | "title" | "updatedAt" | "subtitleCount";
+export type TvSeriesSortBy = "year" | "title" | "updatedAt" | "videoCount" | "noSubtitleCount";
 export type LoadChannel = "movieList" | "tvSeriesList" | "tvEpisodes" | "logs";
 
 export interface SubtitleManagerState {
@@ -44,8 +46,10 @@ export interface SubtitleManagerState {
   tvSeriesPager: Pager;
   queryByType: Record<MediaType, string>;
   moviePager: Pager;
-  movieYearSortOrder: SortOrder;
-  tvSeriesYearSortOrder: SortOrder;
+  movieSortBy: MovieSortBy;
+  movieSortOrder: SortOrder;
+  tvSeriesSortBy: TvSeriesSortBy;
+  tvSeriesSortOrder: SortOrder;
   loading: boolean;
   pending: UiPendingState;
   uploading: boolean;
@@ -93,8 +97,10 @@ export interface SubtitleManagerSetters {
   setTvSeriesPager: Dispatch<SetStateAction<Pager>>;
   setQueryByType: Dispatch<SetStateAction<Record<MediaType, string>>>;
   setMoviePager: Dispatch<SetStateAction<Pager>>;
-  setMovieYearSortOrder: Dispatch<SetStateAction<SortOrder>>;
-  setTvSeriesYearSortOrder: Dispatch<SetStateAction<SortOrder>>;
+  setMovieSortBy: Dispatch<SetStateAction<MovieSortBy>>;
+  setMovieSortOrder: Dispatch<SetStateAction<SortOrder>>;
+  setTvSeriesSortBy: Dispatch<SetStateAction<TvSeriesSortBy>>;
+  setTvSeriesSortOrder: Dispatch<SetStateAction<SortOrder>>;
   setLoading: Dispatch<SetStateAction<boolean>>;
   setPending: Dispatch<SetStateAction<UiPendingState>>;
   setUploading: Dispatch<SetStateAction<boolean>>;
@@ -156,13 +162,15 @@ export interface SubtitleManagerMovieDomain {
   setQuery: (value: string) => void;
   videos: Video[];
   pager: Pager;
-  yearSortOrder: SortOrder;
+  sortBy: MovieSortBy;
+  sortOrder: SortOrder;
   selectedVideo: Video | null;
   selectedVideoId: string;
   selectVideo: (video: Video) => void;
   setPage: (nextPage: number) => void;
   setPageSize: (pageSize: number) => void;
-  toggleYearSort: () => void;
+  setSortBy: (value: MovieSortBy) => void;
+  toggleSortOrder: () => void;
   loadWorkspace: () => Promise<void>;
 }
 
@@ -171,7 +179,8 @@ export interface SubtitleManagerTvDomain {
   setQuery: (value: string) => void;
   rows: TvSeriesSummary[];
   pager: Pager;
-  yearSortOrder: SortOrder;
+  sortBy: TvSeriesSortBy;
+  sortOrder: SortOrder;
   selectedSeries: TvSeriesSummary | null;
   selectedSeason: string;
   seasonOptions: TvSeasonOption[];
@@ -185,7 +194,8 @@ export interface SubtitleManagerTvDomain {
   setSelectedSeason: (value: string) => void;
   setPage: (nextPage: number) => void;
   setPageSize: (pageSize: number) => void;
-  toggleYearSort: () => void;
+  setSortBy: (value: TvSeriesSortBy) => void;
+  toggleSortOrder: () => void;
   loadWorkspace: (seriesPath?: string) => Promise<Video[]>;
   loadBatchCandidates: () => Promise<Video[]>;
 }
@@ -243,8 +253,10 @@ export interface SubtitleManagerController extends SubtitleManagerActions {
   setTvPageSize: (pageSize: number) => void;
   setLogsPage: (nextPage: number) => void;
   setLogsDialogOpen: (open: boolean) => void;
-  toggleMovieYearSort: () => void;
-  toggleTvSeriesYearSort: () => void;
+  setMovieSortBy: (value: MovieSortBy) => void;
+  toggleMovieSortOrder: () => void;
+  setTvSeriesSortBy: (value: TvSeriesSortBy) => void;
+  toggleTvSeriesSortOrder: () => void;
   loadTvBatchCandidates: () => Promise<Video[]>;
   setMovieQuery: (value: string) => void;
   setTvQuery: (value: string) => void;
