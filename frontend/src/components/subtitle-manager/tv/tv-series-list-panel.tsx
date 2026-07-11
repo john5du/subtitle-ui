@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent } fr
 
 import { PanelLeftClose, PanelLeftOpen, RefreshCw, Search, X } from "lucide-react";
 
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useI18n } from "@/lib/i18n";
 import { tvSeriesDisplayTitle } from "@/lib/subtitle-manager/media-metadata";
 import type { Pager, TvSeriesSummary } from "@/lib/types";
@@ -106,6 +107,8 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
   formatTime
 }: TvSeriesListPanelProps) {
   const { t, locale } = useI18n();
+  const isMdUp = useMediaQuery("(min-width: 768px)", true);
+  const effectiveViewMode: LibraryViewMode = isMdUp ? viewMode : "card";
   const [draftQuery, setDraftQuery] = useState(query);
   const lastPublishedRef = useRef(query);
   const scrollViewportRef = useRef<HTMLDivElement | null>(null);
@@ -116,7 +119,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
     onPageSizeChangeRef.current(cardGridPageSize(columns));
   }, []);
 
-  const { measureRef } = useCardGridColumns(viewMode === "card", handleCardColumnsChange);
+  const { measureRef } = useCardGridColumns(effectiveViewMode === "card", handleCardColumnsChange);
 
   useEffect(() => {
     if (query !== draftQuery) {
@@ -172,13 +175,13 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
     <Card className="surface-panel animate-fade-in-up flex h-full flex-col">
       <CardHeader className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-2 lg:flex">
             {onToggleSidebar && sidebarToggleLabel ? (
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                className="hidden h-9 w-9 shrink-0 lg:inline-flex"
+                className="h-9 w-9 shrink-0"
                 onClick={onToggleSidebar}
                 aria-label={sidebarToggleLabel}
                 title={sidebarToggleLabel}
@@ -199,8 +202,8 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
               {refreshing ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:min-w-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end xl:w-auto">
-            <div className="relative w-full min-w-0 sm:flex-1 xl:w-[260px] xl:flex-none">
+          <div className="flex w-full min-w-0 items-center gap-2 sm:justify-end xl:w-auto">
+            <div className="relative min-w-0 flex-1 xl:w-[260px] xl:flex-none">
               <Input
                 className="h-9 w-full pr-8"
                 value={draftQuery}
@@ -220,7 +223,7 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-2 sm:ml-auto xl:ml-0">
+            <div className="flex shrink-0 items-center gap-2">
               <LibrarySortControl
                 value={sortBy}
                 order={sortOrder}
@@ -236,9 +239,9 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
       </CardHeader>
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col p-0">
-        <ScrollArea viewportRef={scrollViewportRef} className={cn("min-h-0 flex-1", viewMode === "list" && "surface-subtle", pending && hasRows && "animate-pulse-soft")}>
+        <ScrollArea viewportRef={scrollViewportRef} className={cn("min-h-0 flex-1", effectiveViewMode === "list" && "surface-subtle", pending && hasRows && "animate-pulse-soft")}>
           <div className={cn(showPager && "pb-20")}>
-            {viewMode === "list" ? (
+            {effectiveViewMode === "list" ? (
               <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>

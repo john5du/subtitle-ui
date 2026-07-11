@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Download, ListX, PackageSearch } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Download, ListX, PackageSearch } from "lucide-react";
 
 import type { PendingSubtitleAction, SeasonCompleteness, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
@@ -79,6 +79,10 @@ export function TvSubtitleManagementPanel({
   const [completeness, setCompleteness] = useState<SeasonCompleteness | null>(null);
   const [completenessLoading, setCompletenessLoading] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [missingExpanded, setMissingExpanded] = useState(false);
+  useEffect(() => {
+    setMissingExpanded(false);
+  }, [selectedSeason, selectedSeries?.key, selectedSeries?.path]);
   const selectedSeasonLabel = seasonOptions.find((option) => option.value === selectedSeason)?.label || t("tv.selectSeason");
   const seasonNumber = useMemo(() => {
     const option = seasonOptions.find((item) => item.value === selectedSeason);
@@ -212,7 +216,7 @@ export function TvSubtitleManagementPanel({
               type="button"
               variant="outline"
               size="icon"
-              className="h-8 w-8 shrink-0"
+              className="h-10 w-10 shrink-0 touch-target sm:h-8 sm:w-8"
               disabled={!selectedSeries || busy || episodesPending || uploading}
               onClick={onOpenBatchDelete}
               title={t("tv.batchDeleteAction")}
@@ -225,7 +229,7 @@ export function TvSubtitleManagementPanel({
             <Button
               type="button"
               size="icon"
-              className="h-8 w-8 shrink-0"
+              className="h-10 w-10 shrink-0 touch-target sm:h-8 sm:w-8"
               disabled={!selectedSeries || busy || episodesPending || uploading}
               onClick={onOpenSeasonBatch}
               title={t("tv.seasonBatchAction")}
@@ -275,22 +279,38 @@ export function TvSubtitleManagementPanel({
                   ) : null}
                 </div>
                 {missing.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {missing.map((item) => (
-                      <Button
-                        key={item.sonarrEpisodeId || item.episode}
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 gap-1 px-1.5 text-[11px] text-muted-foreground"
-                        disabled={busy || searching || episodesPending}
-                        title={item.title || t("tv.completeness.downloadEpisode", { episode: String(item.episode).padStart(2, "0") })}
-                        onClick={() => void handleSonarrSearch({ episodes: [item.episode] })}
-                      >
-                        <Download className="h-3 w-3" />
-                        E{String(item.episode).padStart(2, "0")}
-                      </Button>
-                    ))}
+                  <div className="space-y-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 gap-1 px-2 text-xs text-muted-foreground"
+                      onClick={() => setMissingExpanded((prev) => !prev)}
+                    >
+                      {missingExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      {missingExpanded
+                        ? t("tv.completeness.hideMissing")
+                        : t("tv.completeness.showMissing", { count: String(missing.length) })}
+                    </Button>
+                    {missingExpanded ? (
+                      <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto overscroll-contain">
+                        {missing.map((item) => (
+                          <Button
+                            key={item.sonarrEpisodeId || item.episode}
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 min-w-[2.75rem] gap-1 px-2 text-xs text-muted-foreground"
+                            disabled={busy || searching || episodesPending}
+                            title={item.title || t("tv.completeness.downloadEpisode", { episode: String(item.episode).padStart(2, "0") })}
+                            onClick={() => void handleSonarrSearch({ episodes: [item.episode] })}
+                          >
+                            <Download className="h-3 w-3" />
+                            E{String(item.episode).padStart(2, "0")}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </>
@@ -299,7 +319,7 @@ export function TvSubtitleManagementPanel({
         ) : null}
       </div>
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         <ScrollArea className={cn("h-full", episodesPending && "animate-pulse-soft")}>
           <ul className="space-y-0.5 p-2">
             {videos.map((video) => {
@@ -349,7 +369,7 @@ export function TvSubtitleManagementPanel({
   );
 
   const subtitlesPane = (
-    <div className="min-h-0 flex-1">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <SubtitleDetailsPanel
         selectedVideo={selectedVideo}
         emptyText={t("tv.selectEpisodeEmpty")}
@@ -383,14 +403,14 @@ export function TvSubtitleManagementPanel({
 
   if (variant === "drawer") {
     return (
-      <div className={cn("flex h-full w-full min-h-0 flex-col", className)}>
-        <div className="hidden min-h-0 flex-1 lg:flex">
-          <div className="min-h-0 w-[280px] shrink-0 border-r border-border xl:w-[300px]">{episodesPane}</div>
-          <div className="min-h-0 min-w-0 flex-1">{subtitlesPane}</div>
+      <div className={cn("flex h-full w-full min-h-0 flex-col overflow-hidden", className)}>
+        <div className="hidden min-h-0 flex-1 overflow-hidden lg:flex">
+          <div className="min-h-0 w-[280px] shrink-0 overflow-hidden border-r border-border xl:w-[300px]">{episodesPane}</div>
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{subtitlesPane}</div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col lg:hidden">
-          <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
+          <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="shrink-0 border-b border-border px-4 py-2">
               <TabsList className="h-9 w-full">
                 <TabsTrigger value="episodes" className="h-full flex-1">
@@ -402,11 +422,11 @@ export function TvSubtitleManagementPanel({
               </TabsList>
             </div>
 
-            <TabsContent value="episodes" className="m-0 min-h-0 flex-1 data-[state=inactive]:hidden">
+            <TabsContent value="episodes" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
               {episodesPane}
             </TabsContent>
 
-            <TabsContent value="subtitles" className="m-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+            <TabsContent value="subtitles" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
               <div className="shrink-0 border-b border-border px-3 py-2">
                 <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2" onClick={() => setActiveStep("episodes")}>
                   <ArrowLeft className="h-4 w-4" />
@@ -422,8 +442,8 @@ export function TvSubtitleManagementPanel({
   }
 
   return (
-    <div className={cn("flex h-full w-full min-h-0 flex-col", className)}>
-      <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col">
+    <div className={cn("flex h-full w-full min-h-0 flex-col overflow-hidden", className)}>
+      <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="shrink-0 border-b border-border px-4 py-3">
           <TabsList className="h-9 w-full sm:max-w-[360px]">
             <TabsTrigger value="episodes" className="h-full flex-1">
@@ -435,11 +455,11 @@ export function TvSubtitleManagementPanel({
           </TabsList>
         </div>
 
-        <TabsContent value="episodes" className="m-0 min-h-0 flex-1 data-[state=inactive]:hidden">
+        <TabsContent value="episodes" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
           {episodesPane}
         </TabsContent>
 
-        <TabsContent value="subtitles" className="m-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+        <TabsContent value="subtitles" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
           <div className="shrink-0 border-b border-border px-3 py-2">
             <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2" onClick={() => setActiveStep("episodes")}>
               <ArrowLeft className="h-4 w-4" />

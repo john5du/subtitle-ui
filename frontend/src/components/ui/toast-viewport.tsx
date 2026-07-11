@@ -109,7 +109,7 @@ export function ToastViewport() {
                   <button
                     type="button"
                     onClick={() => dismiss(toast.id)}
-                    className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     aria-label="Dismiss"
                   >
                     <X className="h-3.5 w-3.5" />

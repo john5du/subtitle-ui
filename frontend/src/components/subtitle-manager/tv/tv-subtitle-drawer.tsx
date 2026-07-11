@@ -162,9 +162,9 @@ export function TvSubtitleDrawer({
           </div>
         </div>
       ) : (
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-hidden">
           <TvSubtitleManagementPanel
-            className="min-h-0 h-full flex-1"
+            className="min-h-0 h-full flex-1 overflow-hidden"
             variant="drawer"
             selectedSeries={selectedSeries}
             selectedSeason={selectedSeason}
@@ -195,7 +195,7 @@ export function TvSubtitleDrawer({
       )}
 
       <Dialog open={batchDialogOpen} onOpenChange={handleBatchDialogOpenChange}>
-        <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-5xl">
+        <DialogContent className="flex max-h-[min(92dvh,100%)] flex-col overflow-hidden sm:max-h-[90vh] sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>{t("tv.seasonBatchAction")}</DialogTitle>
             <DialogDescription>

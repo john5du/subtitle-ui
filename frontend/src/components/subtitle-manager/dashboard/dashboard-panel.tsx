@@ -49,7 +49,7 @@ function SettingsActionRow({
 }) {
   return (
     <div className="surface-panel flex min-h-[56px] items-center justify-between gap-3 p-3">
-      <p className="min-w-0 text-sm font-semibold text-foreground">{label}</p>
+      <p className="min-w-0 shrink text-sm font-semibold text-foreground">{label}</p>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>
   );
@@ -89,14 +89,16 @@ function StatusSummaryBar({
   const scanning = Boolean(scanStatus?.running || scanPending);
   const isPending = pending.scan || pending.bootstrapping;
 
+  const scanLabel = scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary");
+
   return (
     <div
       className={cn(
-        "surface-panel flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+        "surface-panel flex items-start gap-2 p-3 sm:items-center sm:gap-4",
         isPending && "animate-pulse-soft"
       )}
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
         <span className={cn("font-medium", scanning ? "text-info-muted" : "text-success-muted")}>
           {scanning ? t("dashboard.scanInProgress") : t("dashboard.scannerIdle")}
         </span>
@@ -121,14 +123,14 @@ function StatusSummaryBar({
 
       <Button
         type="button"
+        size="icon"
         onClick={() => void triggerScan()}
         disabled={operationLocked}
-        className="h-9 shrink-0 self-start sm:self-auto"
-        aria-label={scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
-        title={scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
+        className="h-9 w-9 shrink-0"
+        aria-label={scanLabel}
+        title={scanLabel}
       >
         {scanPending ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-        {scanPending ? t("sidebar.scanningMediaLibrary") : t("sidebar.scanMediaLibrary")}
       </Button>
     </div>
   );
@@ -212,21 +214,20 @@ export function DashboardPanel({
 
             <div className="grid gap-6">
               <SettingsSection title={t("settings.appearance")}>
-                <SettingsActionRow label={t("locale.label")}>
-                  <LocaleSelect />
-                </SettingsActionRow>
-                <SettingsActionRow label={t("sidebar.changeTheme")}>
-                  <ThemeToggle />
-                </SettingsActionRow>
-              </SettingsSection>
-
-              <SettingsSection title={t("settings.system")}>
-                <SettingsActionRow label={t("settings.databaseType")}>
-                  <Badge variant="secondary" title={t("settings.databaseType")} aria-label={t("settings.databaseType")} className="gap-2 py-2">
-                    <Database className="h-3.5 w-3.5" />
-                    {formatDatabaseType(versionInfo?.databaseType, t)}
-                  </Badge>
-                </SettingsActionRow>
+                <div className="surface-panel divide-y divide-border">
+                  <div className="flex min-h-[56px] items-center justify-between gap-3 p-3">
+                    <p className="min-w-0 shrink text-sm font-semibold text-foreground">{t("locale.label")}</p>
+                    <div className="shrink-0">
+                      <LocaleSelect />
+                    </div>
+                  </div>
+                  <div className="flex min-h-[56px] items-center justify-between gap-3 p-3">
+                    <p className="min-w-0 shrink text-sm font-semibold text-foreground">{t("sidebar.changeTheme")}</p>
+                    <div className="shrink-0">
+                      <ThemeToggle />
+                    </div>
+                  </div>
+                </div>
               </SettingsSection>
 
               <SettingsSection title={t("settings.subhd")}>
@@ -241,13 +242,34 @@ export function DashboardPanel({
                 <SubtitleConversionSettingsPanel />
               </SettingsSection>
 
-              <SettingsSection title={t("logs.title")}>
-                <SettingsActionRow label={t("logs.title")}>
-                  <Button type="button" variant="outline" className="h-10" onClick={() => handleLogsOpenChange(true)}>
-                    <ScrollText className="h-4 w-4" />
-                    {t("settings.viewOperationLogs")}
-                  </Button>
-                </SettingsActionRow>
+              <SettingsSection title={t("settings.system")}>
+                <div className="surface-panel divide-y divide-border">
+                  <div className="flex min-h-[56px] items-center justify-between gap-3 p-3">
+                    <p className="min-w-0 shrink text-sm font-semibold text-foreground">{t("settings.databaseType")}</p>
+                    <div className="shrink-0">
+                      <Badge variant="secondary" title={t("settings.databaseType")} aria-label={t("settings.databaseType")} className="gap-2 py-2">
+                        <Database className="h-3.5 w-3.5" />
+                        {formatDatabaseType(versionInfo?.databaseType, t)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex min-h-[56px] items-center justify-between gap-3 p-3">
+                    <p className="min-w-0 shrink text-sm font-semibold text-foreground">{t("logs.title")}</p>
+                    <div className="shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9"
+                        onClick={() => handleLogsOpenChange(true)}
+                        aria-label={t("settings.viewOperationLogs")}
+                        title={t("settings.viewOperationLogs")}
+                      >
+                        <ScrollText className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </SettingsSection>
             </div>
           </div>

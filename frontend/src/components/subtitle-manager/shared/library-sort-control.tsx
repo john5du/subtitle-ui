@@ -35,7 +35,7 @@ function LibrarySortControlInner<T extends string>({
   return (
     <div className="flex items-center gap-1.5">
       <Select value={value} onValueChange={(next) => onValueChange(next as T)}>
-        <SelectTrigger className="h-9 w-[132px] shrink-0 px-2.5 text-sm" aria-label={t("common.sortBy")}>
+        <SelectTrigger className="h-9 w-[7.5rem] shrink-0 px-2.5 text-sm sm:w-[132px]" aria-label={t("common.sortBy")}>
           <SelectValue placeholder={t("common.sortBy")}>{fieldLabel}</SelectValue>
         </SelectTrigger>
         <SelectContent>

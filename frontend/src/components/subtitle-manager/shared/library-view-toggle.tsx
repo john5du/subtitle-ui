@@ -33,7 +33,7 @@ export function LibraryViewToggle({
   ];
 
   return (
-    <div className="surface-subtle inline-flex items-center rounded-md p-1">
+    <div className="surface-subtle hidden items-center rounded-md p-1 md:inline-flex">
       {items.map((item) => {
         const active = item.value === value;
         return (
@@ -43,7 +43,7 @@ export function LibraryViewToggle({
             variant="ghost"
             size="icon"
             className={cn(
-              "h-8 w-8 border border-transparent",
+              "h-10 w-10 border border-transparent touch-target sm:h-8 sm:w-8",
               active
                 ? "border-input bg-surface-hover text-foreground hover:bg-surface-hover"
                 : "text-foreground-muted hover:text-foreground"

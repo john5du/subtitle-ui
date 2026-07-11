@@ -200,7 +200,7 @@ export function SubHDDownloadDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[min(720px,90vh)] max-w-2xl gap-3 overflow-hidden">
+        <DialogContent className="max-h-[min(92dvh,100%)] gap-3 overflow-hidden sm:max-h-[min(720px,90vh)] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t("download.title")}</DialogTitle>
             <DialogDescription>{t("download.description", { name: videoName })}</DialogDescription>

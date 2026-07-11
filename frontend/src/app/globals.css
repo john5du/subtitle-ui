@@ -236,6 +236,30 @@ body {
   }
 }
 
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-out-down {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
 @keyframes pulse-soft {
   0%,
   100% {
@@ -296,6 +320,21 @@ body {
   .animate-slide-out-right {
     animation: slide-out-right var(--motion-base) var(--motion-ease-out);
     animation-fill-mode: both;
+  }
+
+  .animate-slide-in-up {
+    animation: slide-in-up var(--motion-slow) var(--motion-ease-out);
+    animation-fill-mode: both;
+  }
+
+  .animate-slide-out-down {
+    animation: slide-out-down var(--motion-base) var(--motion-ease-out);
+    animation-fill-mode: both;
+  }
+
+  .touch-target {
+    min-height: 2.5rem;
+    min-width: 2.5rem;
   }
 
   .animate-pulse-soft {

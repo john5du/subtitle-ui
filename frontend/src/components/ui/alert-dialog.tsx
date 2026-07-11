@@ -35,7 +35,11 @@ const AlertDialogContent = React.forwardRef<
       ref={ref}
       data-alert-dialog-content="true"
       className={cn(
-        "data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast fixed left-[50%] top-[50%] z-50 flex w-full max-w-lg translate-x-[-50%] translate-y-[-50%] flex-col gap-4 rounded-lg border border-border bg-background p-6",
+        "fixed z-50 flex w-full flex-col gap-4 border border-border bg-background " +
+          "inset-x-0 bottom-0 max-h-[min(92dvh,100%)] rounded-t-2xl border-b-0 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] " +
+          "data-[state=open]:animate-slide-in-up data-[state=closed]:animate-slide-out-down " +
+          "sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:max-h-[min(90vh,100%)] sm:w-full sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border-b sm:p-6 sm:pb-6 " +
+          "sm:data-[state=open]:animate-fade-in-fast sm:data-[state=closed]:animate-fade-out-fast",
         className
       )}
       {...props}
@@ -50,7 +54,7 @@ const AlertDialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDiv
 AlertDialogHeader.displayName = "AlertDialogHeader";
 
 const AlertDialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props} />
+  <div className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2", className)} {...props} />
 );
 AlertDialogFooter.displayName = "AlertDialogFooter";
 

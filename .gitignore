@@ -3,6 +3,7 @@ frontend/dist/
 frontend/.next/
 frontend/out/
 frontend/.npm-cache/
+frontend/tsconfig.tsbuildinfo
 
 tmp/
 media/

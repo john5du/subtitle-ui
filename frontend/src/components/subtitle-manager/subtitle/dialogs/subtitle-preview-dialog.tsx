@@ -31,7 +31,7 @@ export function SubtitlePreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none sm:h-[88vh] sm:max-h-[88vh] sm:w-[min(1100px,96vw)] sm:rounded-lg">
+      <DialogContent className="inset-0 flex h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-4 overflow-hidden rounded-none border-0 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast sm:inset-auto sm:left-[50%] sm:top-[50%] sm:h-[88vh] sm:max-h-[88vh] sm:w-[min(1100px,96vw)] sm:max-w-none sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border sm:p-6 sm:pb-6">
         <DialogHeader>
           <DialogTitle>{t("details.previewTitle", { name: previewTitle || "-" })}</DialogTitle>
         </DialogHeader>

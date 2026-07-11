@@ -55,7 +55,7 @@ export function ArchiveEntryPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-3xl">
+      <DialogContent className="flex max-h-[min(92dvh,100%)] flex-col overflow-hidden sm:max-h-[85vh] sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{t("details.selectArchiveSubtitle")}</DialogTitle>
           <DialogDescription>

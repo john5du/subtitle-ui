@@ -1,10 +1,9 @@
 "use client";
 
 import { forwardRef, useState } from "react";
-import { Clock, Eye, FileArchive, FileCode2, Languages, Pencil, Search, Trash2, UploadCloud } from "lucide-react";
+import { Search, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -20,14 +19,10 @@ import { SubHDDownloadDialog } from "../subtitle/dialogs/subhd-download-dialog";
 import { SubtitlePreviewDialog } from "../subtitle/dialogs/subtitle-preview-dialog";
 import { TimingOffsetDialog } from "../subtitle/dialogs/timing-offset-dialog";
 import { UploadSubtitleDialog } from "../subtitle/dialogs/upload-subtitle-dialog";
-import { formatSubtitleSourceLabel } from "../subtitle/source-utils";
-import { SubtitleSourceDetailButton } from "../subtitle/source-detail-button";
+import { SubtitleTrackCard, subtitleRowActionIconClassName } from "../subtitle/subtitle-track-card";
 import {
   ACCEPTED_SUBTITLE_UPLOAD_TYPES,
-  formatSubtitleSize,
   isSRTFileName,
-  isSRTSubtitle,
-  isTimingOffsetSupported,
   useSubtitleFileWorkflow
 } from "../subtitle/use-subtitle-file-workflow";
 
@@ -71,8 +66,6 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   ref
 ) {
   const { t } = useI18n();
-  const subtitleRowActionIconClassName = "h-8 w-8 shrink-0";
-  const subtitleRowActionTextClassName = "h-8 shrink-0 gap-1 px-2 text-caption";
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
 
@@ -126,7 +119,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                   <Button
                     type="button"
                     size="icon"
-                    className="h-8 w-8"
+                    className={subtitleRowActionIconClassName}
                     disabled={busy}
                     onClick={() => setDownloadDialogOpen(true)}
                     title={downloadPending ? t("download.downloading") : t("common.search")}
@@ -139,7 +132,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                   type="button"
                   size="icon"
                   variant={canAutoDownload ? "outline" : "default"}
-                  className="h-8 w-8"
+                  className={subtitleRowActionIconClassName}
                   disabled={uploadDisabled}
                   onClick={workflow.openUploadPicker}
                   title={uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}
@@ -172,163 +165,55 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
           <div className="surface-panel w-full px-6 py-12 text-center text-sm text-muted-foreground">{emptyText}</div>
         </div>
       ) : (
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-hidden">
           <ScrollArea className="h-full">
-            <div className="space-y-4 px-5 py-4 sm:px-6">
+            <div className="space-y-3 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:space-y-4 sm:px-6">
               <section className="space-y-2">
                   {selectedVideo.subtitles.length === 0 ? (
                     <div className="surface-panel px-4 py-5 text-center text-sm text-muted-foreground">{t("common.noSubtitles")}</div>
                   ) : (
                     selectedVideo.subtitles.map((subtitle) => {
-                      const replacePending = subtitleAction?.kind === "replace" && subtitleAction.subtitleId === subtitle.id;
-                      const convertPending = subtitleAction?.kind === "convert" && subtitleAction.subtitleId === subtitle.id;
-                      const offsetPending = subtitleAction?.kind === "offset" && subtitleAction.subtitleId === subtitle.id;
                       const deletePending = subtitleAction?.kind === "delete" && subtitleAction.subtitleId === subtitle.id;
-                      const rowBusy = replacePending || convertPending || offsetPending || deletePending;
-                      const sourceText = formatSubtitleSourceLabel(subtitle, t);
-
                       return (
-                        <article
+                        <SubtitleTrackCard
                           key={subtitle.id}
-                          className={cn("surface-panel p-3", rowBusy && "animate-pulse-soft")}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius)] bg-surface-subtle text-foreground-muted">
-                              <FileArchive className="h-4 w-4" />
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex min-w-0 items-center gap-2">
-                                <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground" title={subtitle.fileName || undefined}>
-                                  {subtitle.fileName}
-                                </p>
-                                <Badge variant="secondary" className="shrink-0">
-                                  {subtitle.format || "-"}
-                                </Badge>
-                              </div>
-
-                              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                <div className="flex items-center gap-1.5">
-                                  <Languages className="h-3.5 w-3.5" />
-                                  <span>{subtitle.language || "-"}</span>
-                                </div>
-                                <div className="flex min-w-0 items-center gap-1">
-                                  <span className="min-w-0 truncate" title={sourceText}>
-                                    {sourceText}
-                                  </span>
-                                  <SubtitleSourceDetailButton subtitle={subtitle} sourceLabel={sourceText} />
-                                </div>
-                                <div>{formatSubtitleSize(subtitle.size)}</div>
-                                <div>{formatTime(subtitle.modTime)}</div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mt-2.5 flex flex-wrap gap-1.5 border-t border-border pt-2.5">
-                            <input
-                              ref={(node) => workflow.setReplaceInputNode(subtitle.id, node)}
-                              type="file"
-                              accept={ACCEPTED_SUBTITLE_UPLOAD_TYPES}
-                              className="hidden"
-                              onChange={(event) => {
-                                void workflow.onReplaceFilePicked(subtitle, event);
+                          subtitle={subtitle}
+                          busy={busy}
+                          subtitleAction={subtitleAction}
+                          formatTime={formatTime}
+                          replaceInputRef={(node) => workflow.setReplaceInputNode(subtitle.id, node)}
+                          onReplaceFileChange={(event) => {
+                            void workflow.onReplaceFilePicked(subtitle, event);
+                          }}
+                          onPreview={() => void workflow.openStoredSubtitlePreview(subtitle)}
+                          onReplaceClick={() => workflow.replaceInputRef.current[subtitle.id]?.click()}
+                          onConvert={() => {
+                            workflow.setPendingConvertSubtitle(subtitle);
+                            workflow.setConvertSourceEncoding("auto");
+                          }}
+                          onOffset={() => {
+                            workflow.setPendingOffsetSubtitle(subtitle);
+                            workflow.setOffsetSeconds("");
+                          }}
+                          onDelete={() => workflow.setDeleteDialogSubtitleId(subtitle.id)}
+                          deleteDialog={
+                            <DeleteSubtitleDialog
+                              open={workflow.deleteDialogSubtitleId === subtitle.id}
+                              onOpenChange={(open) => {
+                                if (!open) {
+                                  workflow.setDeleteDialogSubtitleId((current) => (current === subtitle.id ? null : current));
+                                  return;
+                                }
+                                workflow.setDeleteDialogSubtitleId(subtitle.id);
+                              }}
+                              subtitle={subtitle}
+                              deletePending={deletePending}
+                              onConfirm={() => {
+                                void workflow.confirmDeleteSubtitle(subtitle);
                               }}
                             />
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className={subtitleRowActionIconClassName}
-                              disabled={busy || rowBusy}
-                              onClick={() => void workflow.openStoredSubtitlePreview(subtitle)}
-                              title={t("common.preview")}
-                              aria-label={t("common.preview")}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className={subtitleRowActionIconClassName}
-                              disabled={busy || rowBusy}
-                              onClick={() => workflow.replaceInputRef.current[subtitle.id]?.click()}
-                              title={replacePending ? t("common.replacing") : t("common.replace")}
-                              aria-label={replacePending ? t("common.replacing") : t("common.replace")}
-                            >
-                              {replacePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-                            </Button>
-
-                            {isSRTSubtitle(subtitle) && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className={subtitleRowActionTextClassName}
-                                disabled={busy || rowBusy}
-                                onClick={() => {
-                                  workflow.setPendingConvertSubtitle(subtitle);
-                                  workflow.setConvertSourceEncoding("auto");
-                                }}
-                              >
-                                {convertPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <FileCode2 className="h-3.5 w-3.5" />}
-                                {convertPending ? t("conversion.converting") : t("conversion.convertToAss")}
-                              </Button>
-                            )}
-
-                            {isTimingOffsetSupported(subtitle) && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className={subtitleRowActionIconClassName}
-                                disabled={busy || rowBusy}
-                                onClick={() => {
-                                  workflow.setPendingOffsetSubtitle(subtitle);
-                                  workflow.setOffsetSeconds("");
-                                }}
-                                title={offsetPending ? t("timing.offsetting") : t("timing.offset")}
-                                aria-label={offsetPending ? t("timing.offsetting") : t("timing.offset")}
-                              >
-                                {offsetPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
-                              </Button>
-                            )}
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className={cn(
-                                subtitleRowActionIconClassName,
-                                "border-destructive-border text-destructive-muted hover:bg-destructive-soft hover:text-destructive-muted"
-                              )}
-                              disabled={busy || rowBusy}
-                              onClick={() => workflow.setDeleteDialogSubtitleId(subtitle.id)}
-                              title={deletePending ? t("common.deleting") : t("common.delete")}
-                              aria-label={deletePending ? t("common.deleting") : t("common.delete")}
-                            >
-                              {deletePending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
-                            </Button>
-                          </div>
-
-                          <DeleteSubtitleDialog
-                            open={workflow.deleteDialogSubtitleId === subtitle.id}
-                            onOpenChange={(open) => {
-                              if (!open) {
-                                workflow.setDeleteDialogSubtitleId((current) => (current === subtitle.id ? null : current));
-                                return;
-                              }
-                              workflow.setDeleteDialogSubtitleId(subtitle.id);
-                            }}
-                            subtitle={subtitle}
-                            deletePending={deletePending}
-                            onConfirm={() => {
-                              void workflow.confirmDeleteSubtitle(subtitle);
-                            }}
-                          />
-                        </article>
+                          }
+                        />
                       );
                     })
                   )}

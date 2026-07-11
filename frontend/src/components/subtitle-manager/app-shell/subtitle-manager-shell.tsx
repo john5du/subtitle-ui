@@ -1,7 +1,7 @@
 import { memo, useCallback, useState } from "react";
 
 import Image from "next/image";
-import { LogOut } from "lucide-react";
+import { LogOut, RefreshCw } from "lucide-react";
 
 import { APP_REPOSITORY_URL, APP_VERSION } from "@/lib/app-version";
 import { useI18n } from "@/lib/i18n";
@@ -26,6 +26,7 @@ import type { SubtitleManagerScreenModel } from "../hooks/use-subtitle-manager-s
 import { DashboardPanel } from "../dashboard/dashboard-panel";
 import { MovieListPanel } from "../movie/movie-list-panel";
 import { MovieSubtitleDrawer } from "../movie/movie-subtitle-drawer";
+import { SpinnerIcon } from "../shared/pending-state";
 import { UploadBlockingOverlay } from "../shared/upload-blocking-overlay";
 import { TvSubtitleDrawer } from "../tv/tv-subtitle-drawer";
 import { TvSeriesListPanel } from "../tv/tv-series-list-panel";
@@ -405,42 +406,22 @@ export function SubtitleManagerShell({
 
   return (
     <div className="relative flex h-full min-h-0 w-full min-w-0 flex-col lg:flex-row">
-        <div className="surface-panel flex shrink-0 flex-col gap-3 p-3 lg:hidden">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <a
-                href={APP_REPOSITORY_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="surface-transition focus-ring block h-8 w-8 bg-surface-subtle p-1"
-                title={`Subtitle UI v${APP_VERSION}`}
-                aria-label={`Open GitHub repository for Subtitle UI v${APP_VERSION}`}
-              >
-                <Image
-                  src="/icon.svg"
-                  alt=""
-                  aria-hidden
-                  width={32}
-                  height={32}
-                  className="h-full w-full"
-                />
-              </a>
-            </div>
-            {showSignOut && onSignOut ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                aria-label={signOutLabel}
-                title={signOutLabel}
-                onClick={openSignOutConfirm}
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            ) : null}
-          </div>
-          <div role="tablist" aria-label={t("sidebar.tagline")} className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-0.5">
+        <div className="surface-panel flex shrink-0 items-center gap-1.5 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:hidden">
+          <a
+            href={APP_REPOSITORY_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="surface-transition focus-ring block h-9 w-9 shrink-0 bg-surface-subtle p-1.5"
+            title={`Subtitle UI v${APP_VERSION}`}
+            aria-label={`Open GitHub repository for Subtitle UI v${APP_VERSION}`}
+          >
+            <Image src="/icon.svg" alt="" aria-hidden width={32} height={32} className="h-full w-full" />
+          </a>
+          <div
+            role="tablist"
+            aria-label={t("sidebar.tagline")}
+            className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+          >
             {shell.navItems.map((item) => (
               <button
                 key={item.key}
@@ -448,7 +429,7 @@ export function SubtitleManagerShell({
                 role="tab"
                 aria-selected={shell.activeTab === item.key}
                 className={cn(
-                  "surface-transition inline-flex shrink-0 items-center gap-2 px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60",
+                  "surface-transition inline-flex h-9 shrink-0 items-center gap-1.5 px-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60",
                   shell.activeTab === item.key
                     ? "bg-surface-strong text-foreground"
                     : "text-muted-foreground hover:bg-surface-subtle hover:text-foreground"
@@ -461,6 +442,31 @@ export function SubtitleManagerShell({
               </button>
             ))}
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            disabled={refreshDisabled}
+            aria-label={refreshLabel}
+            title={refreshLabel}
+            onClick={() => void shell.refreshActiveTab()}
+          >
+            {shell.refreshPending ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+          </Button>
+          {showSignOut && onSignOut ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              aria-label={signOutLabel}
+              title={signOutLabel}
+              onClick={openSignOutConfirm}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          ) : null}
         </div>
 
         <Card

@@ -53,15 +53,16 @@ export function PagerView({
   const jumpAria = t("pager.gotoAria", { page: pager.page, totalPages });
   const prevLabel = t("pager.prev");
   const nextLabel = t("pager.next");
+  const summaryArgs = { page: pager.page, totalPages, total: pager.total };
 
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 flex justify-center sm:inset-x-4 sm:bottom-4">
+    <div className="pointer-events-none absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 flex justify-center sm:inset-x-4 sm:bottom-4">
       <div className="pointer-events-auto flex w-full max-w-[720px] items-center justify-between gap-2 border border-border bg-card/90 px-3 py-2.5 shadow-lg backdrop-blur sm:w-auto sm:min-w-[420px]">
         <Button
           type="button"
           variant="outline"
           size="icon"
-          className="h-8 w-8 shrink-0"
+          className="h-10 w-10 shrink-0 touch-target sm:h-8 sm:w-8"
           disabled={disabled || pager.page <= 1}
           onClick={() => onSetPage(pager.page - 1)}
           aria-label={prevLabel}
@@ -70,9 +71,10 @@ export function PagerView({
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="flex min-w-0 items-center justify-center gap-3 text-xs text-muted-foreground">
-          <span>{t("pager.summary", { page: pager.page, totalPages, total: pager.total })}</span>
+          <span className="sm:hidden">{t("pager.summaryCompact", summaryArgs)}</span>
+          <span className="hidden sm:inline">{t("pager.summary", summaryArgs)}</span>
           {totalPages > 1 && (
-            <span className="flex items-center gap-1">
+            <span className="hidden items-center gap-1 sm:flex">
               <label className="sr-only" htmlFor={jumpInputId}>
                 {jumpAria}
               </label>
@@ -96,7 +98,7 @@ export function PagerView({
           type="button"
           variant="outline"
           size="icon"
-          className="h-8 w-8 shrink-0"
+          className="h-10 w-10 shrink-0 touch-target sm:h-8 sm:w-8"
           disabled={disabled || pager.page >= totalPages}
           onClick={() => onSetPage(pager.page + 1)}
           aria-label={nextLabel}
