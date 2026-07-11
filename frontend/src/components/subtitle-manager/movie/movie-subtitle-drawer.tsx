@@ -175,15 +175,9 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
         <div className="min-h-0 flex-1">
           <ScrollArea className="h-full">
             <div className="space-y-4 px-5 py-4 sm:px-6">
-              <section className="space-y-2.5">
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-section text-foreground-muted">{t("movie.drawerRepositoryTitle")}</h3>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{t("movie.drawerRepositoryDescription")}</p>
-                </div>
-
-                <div className="space-y-2">
+              <section className="space-y-2">
                   {selectedVideo.subtitles.length === 0 ? (
-                    <div className="surface-panel px-4 py-5 text-center text-sm text-muted-foreground">{t("movie.drawerEmptyRepository")}</div>
+                    <div className="surface-panel px-4 py-5 text-center text-sm text-muted-foreground">{t("common.noSubtitles")}</div>
                   ) : (
                     selectedVideo.subtitles.map((subtitle) => {
                       const replacePending = subtitleAction?.kind === "replace" && subtitleAction.subtitleId === subtitle.id;
@@ -338,7 +332,6 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                       );
                     })
                   )}
-                </div>
               </section>
             </div>
           </ScrollArea>

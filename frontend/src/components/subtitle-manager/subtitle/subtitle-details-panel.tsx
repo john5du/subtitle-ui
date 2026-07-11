@@ -226,18 +226,18 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                 "shrink-0",
                 embedded ? "border-b border-border px-4 py-3" : "mb-4 flex flex-col gap-3 surface-subtle p-3"
               )}>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex h-8 flex-wrap items-center gap-2">
                   {canAutoDownload ? (
                     <Button
                       type="button"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-8 w-8 shrink-0"
                       disabled={busy || workflow.zipLoading || !selectedVideo}
                       onClick={() => setDownloadDialogOpen(true)}
                       title={downloadPending ? t("download.downloading") : t("download.search")}
                       aria-label={downloadPending ? t("download.downloading") : t("download.search")}
                     >
-                      {downloadPending ? <SpinnerIcon className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                      {downloadPending ? <SpinnerIcon className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
                     </Button>
                   ) : null}
                   {showPrimaryUploadButton && (
@@ -245,13 +245,13 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       type="button"
                       size="icon"
                       variant={canAutoDownload ? "outline" : "default"}
-                      className="h-8 w-8"
+                      className="h-8 w-8 shrink-0"
                       disabled={busy || workflow.zipLoading}
                       onClick={workflow.openUploadPicker}
                       title={uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}
                       aria-label={uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}
                     >
-                      {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-4 w-4" /> : <UploadCloud className="h-4 w-4" />}
+                      {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-3.5 w-3.5" /> : <UploadCloud className="h-3.5 w-3.5" />}
                     </Button>
                   )}
                   {workflow.zipLoading && <InlinePending label={t("details.parsingArchive")} />}
@@ -268,7 +268,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                           type="button"
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 shrink-0"
                           title={item.label}
                           aria-label={item.label}
                           asChild
@@ -292,8 +292,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
             <div className={cn("min-h-0 flex-1", !embedded && "surface-subtle", flashSubtitleList && "animate-highlight-flash")}>
               <ScrollArea className="h-full min-h-0">
-                <div className={cn(embedded && "px-2")}>
-                  <Table>
+                <Table containerClassName={embedded ? "rounded-none border-0" : undefined}>
                     {showSubtitleListCaption ? <TableCaption>{t("details.subtitleListCaption")}</TableCaption> : null}
                     <TableHeader>
                       <TableRow>
@@ -434,13 +433,12 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       {selectedVideo.subtitles.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                            {t("details.noSubtitles")}
+                            {t("common.noSubtitles")}
                           </TableCell>
                         </TableRow>
                       )}
                     </TableBody>
                   </Table>
-                </div>
               </ScrollArea>
             </div>
           </div>

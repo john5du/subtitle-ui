@@ -242,7 +242,7 @@ export function SubHDDownloadDialog({
             ) : error ? (
               <div className="surface-status-destructive border p-3 text-sm">{error}</div>
             ) : !page || page.items.length === 0 ? (
-              <div className="surface-panel px-4 py-10 text-center text-sm text-muted-foreground">{t("download.empty")}</div>
+              <div className="surface-panel px-4 py-10 text-center text-sm text-muted-foreground">{t("common.noSubtitles")}</div>
             ) : (
               <ScrollArea className="h-[min(420px,50vh)]">
                 <ul className="space-y-2 pr-3">

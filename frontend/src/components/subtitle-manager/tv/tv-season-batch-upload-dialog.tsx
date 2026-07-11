@@ -460,7 +460,7 @@ export function TvSeasonBatchUploadWorkspace({
         if (unsupported.length > 0) {
           reasons.push(t("batch.unsupportedFiles", { value: summarizeFileNames(unsupported, t) }));
         }
-        setBatchBlockingError(reasons.join(" | ") || t("batch.noSubtitleFiles"));
+        setBatchBlockingError(reasons.join(" | ") || t("common.noSubtitles"));
         return;
       }
 
@@ -682,7 +682,7 @@ export function TvSeasonBatchUploadWorkspace({
       });
 
       if (entries.length === 0) {
-        setBatchBlockingError(t("batch.noSubtitleFiles"));
+        setBatchBlockingError(t("common.noSubtitles"));
         return;
       }
 

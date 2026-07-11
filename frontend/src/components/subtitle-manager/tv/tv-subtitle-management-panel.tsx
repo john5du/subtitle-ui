@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, ListX, PackageSearch } from "lucide-react";
 
 import type { PendingSubtitleAction, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
@@ -100,11 +100,10 @@ export function TvSubtitleManagementPanel({
 
   const episodesPane = (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 space-y-2 border-b border-border px-3 py-3">
-        <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("tv.seasonLabel")}</p>
-        <div className="flex items-center gap-2">
+      <div className="shrink-0 border-b border-border px-4 py-3">
+        <div className="flex h-8 items-center gap-2">
           <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
-            <SelectTrigger className="h-9 min-w-0 flex-1">
+            <SelectTrigger className="h-8 min-w-0 flex-1">
               <SelectValue placeholder={t("tv.selectSeason")} />
             </SelectTrigger>
             <SelectContent>
@@ -120,26 +119,26 @@ export function TvSubtitleManagementPanel({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 shrink-0"
+              className="h-8 w-8 shrink-0"
               disabled={!selectedSeries || busy || episodesPending || uploading}
               onClick={onOpenBatchDelete}
               title={t("tv.batchDeleteAction")}
               aria-label={t("tv.batchDeleteAction")}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <ListX className="h-3.5 w-3.5" />
             </Button>
           ) : null}
           {onOpenSeasonBatch ? (
             <Button
               type="button"
               size="icon"
-              className="h-9 w-9 shrink-0"
+              className="h-8 w-8 shrink-0"
               disabled={!selectedSeries || busy || episodesPending || uploading}
               onClick={onOpenSeasonBatch}
               title={t("tv.seasonBatchAction")}
               aria-label={t("tv.seasonBatchAction")}
             >
-              <Search className="h-3.5 w-3.5" />
+              <PackageSearch className="h-3.5 w-3.5" />
             </Button>
           ) : null}
         </div>
@@ -161,17 +160,23 @@ export function TvSubtitleManagementPanel({
                     onClick={() => handleEpisodeSelect(video)}
                     disabled={busy || episodesPending}
                     className={cn(
-                      "surface-transition w-full rounded-[var(--radius)] px-3 py-2 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                      "surface-transition w-full rounded-[var(--radius)] px-3 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-60",
                       active
-                        ? "bg-surface-strong shadow-[inset_3px_0_0_0_var(--input)]"
+                        ? "bg-surface-strong"
                         : "bg-transparent hover:bg-surface-subtle",
                       itemBusy && "animate-pulse-soft"
                     )}
                     aria-pressed={active}
                   >
-                    <div className="text-xs font-semibold text-muted-foreground">{episodeCode}</div>
-                    <div className="truncate text-sm font-semibold">{video.title || "-"}</div>
-                    <div className="text-xs text-muted-foreground">{t("tv.subtitleCount", { count: video.subtitles.length })}</div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <div className="text-xs font-semibold tabular-nums text-muted-foreground">{episodeCode}</div>
+                        <div className="truncate text-sm font-semibold leading-snug">{video.title || "-"}</div>
+                      </div>
+                      <div className="shrink-0 pt-0.5 text-right text-xs tabular-nums text-muted-foreground">
+                        {t("tv.subtitleCount", { count: video.subtitles.length })}
+                      </div>
+                    </div>
                   </button>
                 </li>
               );

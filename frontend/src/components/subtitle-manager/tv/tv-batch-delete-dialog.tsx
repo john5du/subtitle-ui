@@ -213,7 +213,7 @@ export function TvBatchDeleteDialog({
             <div className="min-h-0 flex-1 overflow-hidden">
               {rows.length === 0 ? (
                 <div className="surface-panel flex h-full min-h-[200px] items-center justify-center p-6 text-sm text-muted-foreground">
-                  {t("tv.batchDeleteEmpty")}
+                  {t("common.noSubtitles")}
                 </div>
               ) : (
                 <ScrollArea className="h-[min(52vh,480px)]">
