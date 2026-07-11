@@ -266,8 +266,8 @@ export function useSubtitleFileWorkflow({
         setZipPickError(t("details.noSubtitleFilesInArchive"));
         emitToast({
           level: "error",
-          title: t("toast.archiveParsingFailedTitle"),
-          message: t("toast.archiveParsingNoSubtitleMessage")
+          message: t("toast.archiveParsingFailedTitle"),
+          detail: t("toast.archiveParsingNoSubtitleMessage")
         });
         return;
       }
@@ -284,7 +284,6 @@ export function useSubtitleFileWorkflow({
       setZipPickDialogOpen(true);
       emitToast({
         level: "info",
-        title: t("toast.archiveParsedTitle"),
         message: t("toast.archiveParsedMessage", { count: entries.length }),
         detail: file.name
       });
@@ -293,9 +292,8 @@ export function useSubtitleFileWorkflow({
       setZipPickError(t("details.parseArchiveFailed", { error: errText }));
       emitToast({
         level: "error",
-        title: t("toast.archiveParsingFailedTitle"),
-        message: errText,
-        detail: file.name
+        message: t("toast.archiveParsingFailedTitle"),
+        detail: errText
       });
     } finally {
       setZipLoading(false);
@@ -312,9 +310,8 @@ export function useSubtitleFileWorkflow({
       setZipPickError(t("details.unsupportedFileType"));
       emitToast({
         level: "error",
-        title: t("toast.unsupportedFileTitle"),
-        message: file.name,
-        detail: t("toast.unsupportedFileDetail")
+        message: t("toast.unsupportedFileTitle"),
+        detail: file.name
       });
       return;
     }

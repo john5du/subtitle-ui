@@ -246,8 +246,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
   const notifyUploadInProgress = useCallback(() => {
     emitToast({
       level: "info",
-      title: t("toast.uploadInProgressTitle"),
-      message: t("toast.uploadInProgressMessage")
+      message: t("toast.uploadInProgressTitle")
     });
   }, [t]);
 

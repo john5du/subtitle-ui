@@ -25,7 +25,6 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     loadVersionInfo,
     loadTvSeriesPage,
     requestTvVideosForPath,
-    shouldRefreshTvVideosForPath,
     refreshTvVideosForPath,
     loadScanStatus,
     loadDirectoryScanResult,
@@ -44,7 +43,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
         totalPages: 0
       });
       setTranslatedMessage("status.logsCleared");
-      notifySuccess(runtime.t("toast.logsClearedTitle"), runtime.t("toast.logsClearedMessage"));
+      notifySuccess(runtime.t("toast.logsClearedTitle"));
       return true;
     } catch (error) {
       reportRequestError("error.clearLogs", error);
@@ -148,16 +147,11 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
         setTranslatedMessage("status.scanCompletedWithWarnings", { count: videoCount, warnings: warningCount });
         notifyInfo(
           runtime.t("toast.scanWarningsTitle"),
-          runtime.t("toast.scanSuccessMessage", { count: videoCount }),
-          runtime.t("toast.scanWarningsDetail", { warnings: warningCount })
+          runtime.t("toast.scanWarningsDetail", { count: videoCount, warnings: warningCount })
         );
       } else {
         setTranslatedMessage("status.scanCompletedNoWarnings", { count: videoCount });
-        notifySuccess(
-          runtime.t("toast.scanSuccessTitle"),
-          runtime.t("toast.scanSuccessMessage", { count: videoCount }),
-          runtime.t("toast.scanSuccessDetail")
-        );
+        notifySuccess(runtime.t("toast.scanSuccessMessage", { count: videoCount }));
       }
     } catch (error) {
       reportRequestError("error.scanFailed", error);
@@ -173,7 +167,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       if (runtime.state.activeTab === "dashboard") {
         await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadVersionInfo()]);
         setTranslatedMessage("status.dashboardRefreshed");
-        notifySuccess(runtime.t("toast.dashboardRefreshedTitle"), runtime.t("toast.dashboardRefreshedMessage"));
+        notifySuccess(runtime.t("toast.dashboardRefreshedTitle"));
         return;
       }
 
@@ -184,22 +178,18 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
           runtime.selectors.tvRootPath ||
           runtime.state.directoryScan.tvRoot ||
           "";
-        const reloadEpisodes = shouldRefreshTvVideosForPath(targetDir);
         await Promise.all([
           loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1, force: true }),
           refreshTvVideosForPath(targetDir)
         ]);
         setTranslatedMessage("status.tvRefreshed");
-        notifySuccess(
-          runtime.t("toast.tvRefreshedTitle"),
-          reloadEpisodes ? runtime.t("toast.tvRefreshedMessageAll") : runtime.t("toast.tvRefreshedMessageList")
-        );
+        notifySuccess(runtime.t("toast.tvRefreshedTitle"));
         return;
       }
 
       await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1, force: true });
       setTranslatedMessage("status.movieRefreshed");
-      notifySuccess(runtime.t("toast.movieRefreshedTitle"), runtime.t("toast.movieRefreshedMessage"));
+      notifySuccess(runtime.t("toast.movieRefreshedTitle"));
     } finally {
       setters.setPending((prev) => ({ ...prev, refreshTab: null }));
     }

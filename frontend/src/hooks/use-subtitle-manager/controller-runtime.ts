@@ -96,25 +96,22 @@ export function createControllerRuntime({ getState, getSelectors, getT, stateApi
     setters.setMessageState({ raw: `${title}: ${errorText}` });
     emitToast({
       level: "error",
-      title,
-      message: errorText,
-      detail: getT()("toast.operationFailedDetail")
+      message: title,
+      detail: errorText
     });
   }
 
-  function notifySuccess(title: string, message: string, detail?: string) {
+  function notifySuccess(message: string, detail?: string) {
     emitToast({
       level: "success",
-      title,
       message,
       detail
     });
   }
 
-  function notifyInfo(title: string, message: string, detail?: string) {
+  function notifyInfo(message: string, detail?: string) {
     emitToast({
       level: "info",
-      title,
       message,
       detail
     });

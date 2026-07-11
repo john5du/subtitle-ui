@@ -154,7 +154,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       await requestPayload(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
       await refreshAfterSubtitleMutation(video, previousSubtitleCount);
       setTranslatedMessage("status.uploadedSubtitleFor", { title: video.title || video.fileName });
-      notifySuccess(runtime.t("toast.subtitleUploadedTitle"), video.title || video.fileName, file.name);
+      notifySuccess(runtime.t("toast.subtitleUploadedTitle"), video.title || video.fileName);
       return true;
     } catch (error) {
       if (options.convertToAss) {
@@ -191,7 +191,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       await requestPayload(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
       await refreshAfterSubtitleMutation(video, video.subtitles.length);
       setTranslatedMessage("status.replacedSubtitle", { name: subtitle.fileName });
-      notifySuccess(runtime.t("toast.subtitleReplacedTitle"), subtitle.fileName, file.name);
+      notifySuccess(runtime.t("toast.subtitleReplacedTitle"), subtitle.fileName);
       return true;
     } catch (error) {
       reportRequestError("error.replaceFailed", error);
@@ -218,7 +218,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       });
       await refreshAfterSubtitleMutation(video, video.subtitles.length);
       setTranslatedMessage("status.convertedSubtitle", { name: subtitle.fileName });
-      notifySuccess(runtime.t("toast.subtitleConvertedTitle"), subtitle.fileName, "ASS");
+      notifySuccess(runtime.t("toast.subtitleConvertedTitle"), subtitle.fileName);
       return true;
     } catch (error) {
       reportRequestError("error.convertFailed", error);
@@ -246,7 +246,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       await refreshAfterSubtitleMutation(video, video.subtitles.length);
       const offsetLabel = formatOffsetMilliseconds(offsetMs);
       setTranslatedMessage("status.offsetSubtitle", { name: subtitle.fileName, offset: offsetLabel });
-      notifySuccess(runtime.t("toast.subtitleOffsetTitle"), subtitle.fileName, offsetLabel);
+      notifySuccess(runtime.t("toast.subtitleOffsetTitle"), `${subtitle.fileName} · ${offsetLabel}`);
       return true;
     } catch (error) {
       reportRequestError("error.offsetFailed", error);
@@ -269,7 +269,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       await requestPayload(`/api/videos/${video.id}/subtitles/${subtitle.id}`, { method: "DELETE" });
       await refreshAfterSubtitleMutation(video, previousSubtitleCount);
       setTranslatedMessage("status.deletedSubtitle", { name: subtitle.fileName });
-      notifySuccess(runtime.t("toast.subtitleDeletedTitle"), subtitle.fileName, video.title || video.fileName);
+      notifySuccess(runtime.t("toast.subtitleDeletedTitle"), subtitle.fileName);
       return true;
     } catch (error) {
       reportRequestError("error.deleteFailed", error);
@@ -337,15 +337,11 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       setTranslatedMessage("status.batchDeleteFinishedWarnings", { success, total, failed });
       notifyInfo(
         runtime.t("toast.batchDeleteWarningsTitle"),
-        runtime.t("toast.batchDeleteSuccessMessage", { success, total }),
-        runtime.t("toast.batchWarningsDetail", { failed })
+        runtime.t("toast.batchDeleteSuccessMessage", { success, total })
       );
     } else {
       setTranslatedMessage("status.batchDeleteFinishedSuccess", { success, total });
-      notifySuccess(
-        runtime.t("toast.batchDeleteSuccessTitle"),
-        runtime.t("toast.batchDeleteSuccessMessage", { success, total })
-      );
+      notifySuccess(runtime.t("toast.batchDeleteSuccessMessage", { success, total }));
     }
 
     return { total, success, failed, errors };
@@ -374,7 +370,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
 
     if (!targetDir) {
       setTranslatedMessage("status.tvBatchNeedsSeries");
-      notifyInfo(runtime.t("toast.selectTvSeriesTitle"), runtime.t("toast.selectTvSeriesMessage"));
+      notifyInfo(runtime.t("toast.selectTvSeriesTitle"));
       return [];
     }
 
@@ -499,12 +495,11 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       setTranslatedMessage("status.batchFinishedWarnings", { success, total, failed });
       notifyInfo(
         runtime.t("toast.batchWarningsTitle"),
-        runtime.t("toast.batchSuccessMessage", { success, total }),
-        runtime.t("toast.batchWarningsDetail", { failed })
+        runtime.t("toast.batchSuccessMessage", { success, total })
       );
     } else {
       setTranslatedMessage("status.batchFinishedSuccess", { success, total });
-      notifySuccess(runtime.t("toast.batchSuccessTitle"), runtime.t("toast.batchSuccessMessage", { success, total }));
+      notifySuccess(runtime.t("toast.batchSuccessMessage", { success, total }));
     }
     setSubtitleActionPending(null);
 
@@ -569,7 +564,7 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       });
       await refreshAfterSubtitleMutation(video, previousSubtitleCount);
       setTranslatedMessage("status.downloadedSubtitleFor", { title: video.title || video.fileName });
-      notifySuccess(runtime.t("toast.subtitleDownloadedTitle"), video.title || video.fileName, sid);
+      notifySuccess(runtime.t("toast.subtitleDownloadedTitle"), video.title || video.fileName);
       return true;
     } catch (error) {
       // Propagate structured multi-entry errors for UI picker; other errors stay toast-only.
@@ -675,12 +670,11 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
       setTranslatedMessage("status.batchFinishedWarnings", { success, total, failed: failed || errors.length });
       notifyInfo(
         runtime.t("toast.batchWarningsTitle"),
-        runtime.t("toast.batchSuccessMessage", { success, total }),
-        runtime.t("toast.batchWarningsDetail", { failed: failed || errors.length })
+        runtime.t("toast.batchSuccessMessage", { success, total })
       );
     } else {
       setTranslatedMessage("status.batchFinishedSuccess", { success, total });
-      notifySuccess(runtime.t("toast.batchSuccessTitle"), runtime.t("toast.batchSuccessMessage", { success, total }));
+      notifySuccess(runtime.t("toast.batchSuccessMessage", { success, total }));
     }
     return { total, success, failed, errors };
   }

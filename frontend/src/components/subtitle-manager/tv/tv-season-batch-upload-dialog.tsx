@@ -480,17 +480,15 @@ export function TvSeasonBatchUploadWorkspace({
 
       emitToast({
         level: "info",
-        title: t("toast.batchPreparedTitle"),
-        message: t("toast.batchPreparedMessage", { count: entries.length }),
-        detail: summarizeBatchInputs(files, entries.length, t)
+        message: t("toast.batchPreparedMessage", { count: entries.length })
       });
     } catch (error) {
       const errText = error instanceof Error ? error.message : String(error);
       setBatchBlockingError(t("batch.prepareFailed", { error: errText }));
       emitToast({
         level: "error",
-        title: t("toast.batchPreparationFailedTitle"),
-        message: errText
+        message: t("toast.batchPreparationFailedTitle"),
+        detail: errText
       });
     } finally {
       setBatchPreparing(false);
@@ -698,7 +696,6 @@ export function TvSeasonBatchUploadWorkspace({
 
       emitToast({
         level: "info",
-        title: t("toast.batchPreparedTitle"),
         message: t("toast.batchPreparedMessage", { count: entries.length }),
         detail: prepared.fileName
       });
@@ -707,8 +704,8 @@ export function TvSeasonBatchUploadWorkspace({
       setBatchBlockingError(t("batch.prepareFailed", { error: errText }));
       emitToast({
         level: "error",
-        title: t("toast.batchPreparationFailedTitle"),
-        message: errText
+        message: t("toast.batchPreparationFailedTitle"),
+        detail: errText
       });
     } finally {
       setBatchPreparing(false);

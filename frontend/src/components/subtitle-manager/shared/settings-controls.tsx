@@ -76,8 +76,8 @@ export function SubtitleConversionSettingsPanel() {
         setError(message);
         emitToast({
           level: "error",
-          title: t("conversion.settingsLoadFailed"),
-          message
+          message: t("conversion.settingsLoadFailed"),
+          detail: message
         });
       } finally {
         if (!cancelled) {
@@ -115,16 +115,15 @@ export function SubtitleConversionSettingsPanel() {
       setDraftEncoding(next.sourceEncodingDefault);
       emitToast({
         level: "success",
-        title: t("conversion.settingsSavedTitle"),
-        message: t("conversion.settingsSavedMessage")
+        message: t("conversion.settingsSavedTitle")
       });
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : String(saveError);
       setError(message);
       emitToast({
         level: "error",
-        title: t("conversion.settingsSaveFailed"),
-        message
+        message: t("conversion.settingsSaveFailed"),
+        detail: message
       });
     } finally {
       setSaving(false);
@@ -229,8 +228,8 @@ export function SubHDSettingsPanel() {
         setError(message);
         emitToast({
           level: "error",
-          title: t("subhd.settingsLoadFailed"),
-          message
+          message: t("subhd.settingsLoadFailed"),
+          detail: message
         });
       } finally {
         if (!cancelled) {
@@ -264,16 +263,15 @@ export function SubHDSettingsPanel() {
       setDraftProxy(next.proxy || "");
       emitToast({
         level: "success",
-        title: t("subhd.settingsSavedTitle"),
-        message: t("subhd.settingsSavedMessage")
+        message: t("subhd.settingsSavedTitle")
       });
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : String(saveError);
       setError(message);
       emitToast({
         level: "error",
-        title: t("subhd.settingsSaveFailed"),
-        message
+        message: t("subhd.settingsSaveFailed"),
+        detail: message
       });
     } finally {
       setSaving(false);

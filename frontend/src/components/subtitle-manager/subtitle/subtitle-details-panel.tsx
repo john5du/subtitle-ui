@@ -454,8 +454,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
             if (isReplacing) {
               emitToast({
                 level: "info",
-                title: t("toast.uploadInProgressTitle"),
-                message: t("toast.uploadInProgressMessage")
+                message: t("toast.uploadInProgressTitle")
               });
               return;
             }
@@ -480,8 +479,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
           if (!open && uploading) {
             emitToast({
               level: "info",
-              title: t("toast.uploadInProgressTitle"),
-              message: t("toast.uploadInProgressMessage")
+              message: t("toast.uploadInProgressTitle")
             });
             return;
           }
@@ -552,8 +550,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
           if (!open && uploading) {
             emitToast({
               level: "info",
-              title: t("toast.uploadInProgressTitle"),
-              message: t("toast.uploadInProgressMessage")
+              message: t("toast.uploadInProgressTitle")
             });
             return;
           }
