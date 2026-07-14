@@ -106,32 +106,35 @@ func (s *Service) planNormalizeForVideo(video domain.Video) []domain.SubtitleNor
 func buildNormalizePlanItem(video domain.Video, sub domain.Subtitle) domain.SubtitleNormalizeItem {
 	fromPath := filepath.Clean(sub.Path)
 	fromLanguage := strings.TrimSpace(sub.Language)
+	fromFileName := filepath.Base(fromPath)
+	pathLabel := subtitle.InferLabelFromSubtitlePath(video.Path, fromPath)
+
+	// Canonicalize stored/path language first (zh-en → zh&en, chs → zh).
 	labelSource := fromLanguage
 	if labelSource == "" || strings.EqualFold(labelSource, "und") {
-		if inferred := subtitle.InferLabelFromSubtitlePath(video.Path, fromPath); inferred != "" {
-			labelSource = inferred
-		}
+		labelSource = pathLabel
 	}
-	toLabel := subtitle.NormalizeLanguageLabel(labelSource)
-	// Weak / missing labels: sample content to recover bilingual tags.
-	if toLabel == "" || (!subtitle.IsBilingualLanguage(toLabel) && (toLabel == "zh" || toLabel == "en" || toLabel == "zh-hant")) {
-		if data, err := os.ReadFile(fromPath); err == nil {
-			if detected := subtitle.DetectSubtitleLanguageLabel(subtitle.DetectLanguageOptions{
-				ExplicitLabel: "",
-				NameHints:     []string{filepath.Base(fromPath), sub.FileName, fromLanguage},
-				Content:       data,
-				Format:        sub.Format,
-				DefaultLabel:  toLabel,
-			}); detected != "" {
-				if toLabel == "" || subtitle.IsBilingualLanguage(detected) {
-					toLabel = detected
-				}
-			}
-		}
+	baseLabel := subtitle.NormalizeLanguageLabel(labelSource)
+	if baseLabel == "" && pathLabel != "" {
+		baseLabel = subtitle.NormalizeLanguageLabel(pathLabel)
 	}
-	if toLabel == "" {
-		toLabel = subtitle.NormalizeLanguageLabel(labelSource)
+
+	// Always re-detect with filename + light content sample so bilingual tracks
+	// mislabeled as zh/en/und are upgraded during normalize.
+	var content []byte
+	if data, err := os.ReadFile(fromPath); err == nil {
+		content = data
 	}
+	detected := subtitle.DetectSubtitleLanguageLabel(subtitle.DetectLanguageOptions{
+		ExplicitLabel: "",
+		NameHints:     []string{fromFileName, sub.FileName, fromLanguage, pathLabel, labelSource},
+		Content:       content,
+		Format:        sub.Format,
+		DefaultLabel:  baseLabel,
+	})
+
+	toLabel := chooseNormalizeTargetLabel(baseLabel, detected)
+
 	ext := filepath.Ext(fromPath)
 	if ext == "" && sub.Format != "" {
 		ext = "." + strings.TrimPrefix(sub.Format, ".")
@@ -142,7 +145,7 @@ func buildNormalizePlanItem(video domain.Video, sub domain.Subtitle) domain.Subt
 		VideoID:      video.ID,
 		SubtitleID:   sub.ID,
 		FromPath:     fromPath,
-		FromFileName: filepath.Base(fromPath),
+		FromFileName: fromFileName,
 		ToPath:       toPath,
 		ToFileName:   filepath.Base(toPath),
 		FromLanguage: fromLanguage,
@@ -155,7 +158,39 @@ func buildNormalizePlanItem(video domain.Video, sub domain.Subtitle) domain.Subt
 		item.Reason = "already canonical"
 		return item
 	}
+	if subtitle.IsBilingualLanguage(toLabel) && !subtitle.IsBilingualLanguage(fromLanguage) &&
+		!strings.EqualFold(subtitle.NormalizeLanguageLabel(fromLanguage), toLabel) {
+		item.Reason = "bilingual detected"
+	}
 	return item
+}
+
+// chooseNormalizeTargetLabel prefers bilingual detection, then filled labels over empty.
+func chooseNormalizeTargetLabel(baseLabel, detected string) string {
+	baseLabel = strings.TrimSpace(baseLabel)
+	detected = strings.TrimSpace(detected)
+	switch {
+	case detected == "" && baseLabel == "":
+		return ""
+	case detected == "":
+		return baseLabel
+	case baseLabel == "":
+		return detected
+	case subtitle.IsBilingualLanguage(detected) && !subtitle.IsBilingualLanguage(baseLabel):
+		return detected
+	case subtitle.IsBilingualLanguage(baseLabel):
+		// Keep canonical bilingual form (zh-en already normalized in baseLabel).
+		return baseLabel
+	case detected != baseLabel && subtitle.IsBilingualLanguage(detected):
+		return detected
+	default:
+		// Prefer base (from stored language / path) for mono stability;
+		// still allow traditional upgrade from content (zh → zh-hant).
+		if baseLabel == "zh" && detected == "zh-hant" {
+			return detected
+		}
+		return baseLabel
+	}
 }
 
 func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.SubtitleNormalizeApplyItem) domain.SubtitleNormalizeApplyResult {

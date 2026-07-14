@@ -50,6 +50,9 @@ func TestNormalizeLanguageLabel(t *testing.T) {
 		{in: "chs+en", want: "zh&en"},
 		{in: "zh&en", want: "zh&en"},
 		{in: "cht&eng", want: "zh-hant&en"},
+		{in: "zh-en", want: "zh&en"},
+		{in: "en-zh", want: "zh&en"},
+		{in: "chs-eng", want: "zh&en"},
 		{in: "ja", want: "ja"},
 		{in: "jpn", want: "ja"},
 	}

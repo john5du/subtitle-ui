@@ -241,7 +241,7 @@ export const enMessages = {
   "tv.normalizeAction": "Normalize names",
 
   "normalize.title": "Normalize subtitle filenames",
-  "normalize.description": "Preview and rename to {video}.{lang}.{ext} (short language tags; conflicts are skipped).",
+  "normalize.description": "Preview and rename to {video}.{lang}.{ext}. Detects bilingual tracks (→ zh&en) from filename and content; conflicts are skipped.",
   "normalize.loading": "Building preview…",
   "normalize.empty": "No subtitles to process.",
   "normalize.from": "Current name",
@@ -250,6 +250,7 @@ export const enMessages = {
   "normalize.status.rename": "Rename",
   "normalize.status.noop": "Already OK",
   "normalize.status.conflict": "Conflict",
+  "normalize.reason.bilingual": "Bilingual detected",
   "normalize.selectRenames": "{count} renames selected",
   "normalize.counts": "{total} total · {rename} renames",
   "normalize.apply": "Apply ({count})",

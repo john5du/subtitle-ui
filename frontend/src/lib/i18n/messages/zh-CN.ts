@@ -243,7 +243,7 @@ export const zhCNMessages: MessageDictionary = {
   "tv.normalizeAction": "规范化文件名",
 
   "normalize.title": "规范化字幕文件名",
-  "normalize.description": "预览并批量改为 {video}.{lang}.{ext}（简短语言码，冲突跳过）。",
+  "normalize.description": "预览并批量改为 {video}.{lang}.{ext}。会结合文件名与正文识别双语（→ zh&en）；冲突跳过。",
   "normalize.loading": "正在生成预览…",
   "normalize.empty": "没有可处理的字幕。",
   "normalize.from": "当前文件名",
@@ -252,6 +252,7 @@ export const zhCNMessages: MessageDictionary = {
   "normalize.status.rename": "将改名",
   "normalize.status.noop": "已规范",
   "normalize.status.conflict": "冲突跳过",
+  "normalize.reason.bilingual": "识别为双语",
   "normalize.selectRenames": "已选 {count} 条改名",
   "normalize.counts": "共 {total} · 可改 {rename}",
   "normalize.apply": "应用（{count}）",

@@ -36,14 +36,14 @@ var shortLanguageAliases = map[string]string{
 }
 
 // NormalizeLanguageLabel maps scanner/path language tags to short canonical labels
-// used in filenames (e.g. chs → zh, eng → en, zh-cn → zh). Empty or und → "".
+// used in filenames (e.g. chs → zh, eng → en, zh-cn → zh, zh-en → zh&en). Empty or und → "".
 func NormalizeLanguageLabel(raw string) string {
 	raw = strings.ToLower(strings.TrimSpace(raw))
 	if raw == "" || raw == "und" {
 		return ""
 	}
 
-	parts := splitLanguageParts(raw)
+	parts := expandLanguageParts(raw)
 	if len(parts) == 0 {
 		return ""
 	}
@@ -65,6 +65,89 @@ func NormalizeLanguageLabel(raw string) string {
 		return ""
 	}
 	return joinCanonicalLanguageLabels(out)
+}
+
+// expandLanguageParts splits multi-language tags, including legacy dash form zh-en.
+func expandLanguageParts(raw string) []string {
+	parts := splitLanguageParts(raw)
+	out := make([]string, 0, len(parts)+1)
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if dashParts := splitDashLanguageList(part); len(dashParts) > 1 {
+			out = append(out, dashParts...)
+			continue
+		}
+		out = append(out, part)
+	}
+	return out
+}
+
+// splitDashLanguageList returns language primaries when part is like zh-en / en-chs
+// (not BCP47 zh-hant / zh-cn / en-us).
+func splitDashLanguageList(part string) []string {
+	part = strings.ToLower(strings.TrimSpace(part))
+	if part == "" || !strings.Contains(part, "-") {
+		return nil
+	}
+	// Whole-tag aliases first (zh-cn, zh-hant, en-us).
+	normalized := normalizeLabel(part)
+	if _, ok := shortLanguageAliases[part]; ok {
+		return nil
+	}
+	if _, ok := shortLanguageAliases[normalized]; ok {
+		return nil
+	}
+	dashParts := strings.Split(part, "-")
+	if len(dashParts) < 2 {
+		return nil
+	}
+	// BCP47 script/region: zh-hant, zh-hans, zh-cn, en-us, ...
+	second := dashParts[1]
+	if second == "hant" || second == "hans" || second == "cn" || second == "tw" || second == "hk" ||
+		second == "us" || second == "gb" || second == "sg" {
+		return nil
+	}
+	mapped := make([]string, 0, len(dashParts))
+	for _, p := range dashParts {
+		m := mapPrimaryLanguageToken(p)
+		if m == "" {
+			return nil
+		}
+		mapped = append(mapped, m)
+	}
+	if len(mapped) < 2 {
+		return nil
+	}
+	return mapped
+}
+
+func mapPrimaryLanguageToken(token string) string {
+	token = strings.ToLower(strings.TrimSpace(token))
+	if token == "" {
+		return ""
+	}
+	if mapped, ok := shortLanguageAliases[token]; ok {
+		return mapped
+	}
+	switch token {
+	case "zh", "en", "ja", "ko", "fr", "de", "es", "pt", "ru", "it", "ar", "th", "vi", "id", "ms", "nl", "pl", "tr", "sv", "no", "da", "fi", "cs", "hu", "ro", "uk", "he", "hi":
+		return token
+	case "chs", "chi", "sc":
+		return "zh"
+	case "cht", "tc":
+		return "zh-hant"
+	case "eng":
+		return "en"
+	case "jpn", "jp":
+		return "ja"
+	case "kor", "kr":
+		return "ko"
+	default:
+		return ""
+	}
 }
 
 // IsBilingualLanguage reports whether a stored language tag is multi-language.

@@ -254,7 +254,12 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
                           ) : null}
                         </TableCell>
                         <TableCell className="text-xs">
-                          <span title={item.reason || undefined}>{statusLabel(item.status)}</span>
+                          <span title={item.reason || undefined}>
+                            {statusLabel(item.status)}
+                            {item.reason === "bilingual detected" ? (
+                              <span className="ml-1 text-primary">({t("normalize.reason.bilingual")})</span>
+                            ) : null}
+                          </span>
                         </TableCell>
                       </TableRow>
                     );
