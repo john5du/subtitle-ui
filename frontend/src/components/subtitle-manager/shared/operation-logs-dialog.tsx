@@ -72,7 +72,7 @@ export function OperationLogsDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="h-[min(760px,88vh)] max-h-[88vh] max-w-4xl gap-0 overflow-hidden p-0 sm:max-w-4xl">
+        <DialogContent size="lg" className="gap-0 overflow-hidden p-0 sm:p-0 sm:pb-0">
           <DialogHeader className="border-b border-border p-5 pr-14">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -127,7 +127,7 @@ export function OperationLogsDialog({
       </Dialog>
 
       <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent size="sm">
           <AlertDialogHeader>
             <AlertDialogTitle>{t("dashboard.clearLogsTitle")}</AlertDialogTitle>
             <AlertDialogDescription>{t("dashboard.clearLogsDescription")}</AlertDialogDescription>

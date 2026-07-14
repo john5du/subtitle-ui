@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
 import { Input } from "@/components/ui/input";
 
 import { SpinnerIcon } from "../../shared/pending-state";
@@ -57,15 +58,19 @@ export function TimingOffsetDialog({
 }: TimingOffsetDialogProps) {
   const { t } = useI18n();
   const offsetMs = parseOffsetSecondsToMilliseconds(offsetSeconds);
+  const contextText = t("timing.offsetDescription", { name: subtitle?.fileName ?? "-" });
+  const helpText = `${t("timing.offsetHint")}\n${t("timing.offsetBackupNote")}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>{t("timing.offsetTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("timing.offsetDescription", { name: subtitle?.fileName ?? "-" })}
-          </DialogDescription>
+          <DialogTitle className="flex items-center gap-1.5">
+            <span>{t("timing.offsetTitle")}</span>
+            <DialogHelpTip text={helpText} label={helpText} />
+          </DialogTitle>
+          <DialogDescription className="sr-only">{contextText}</DialogDescription>
+          <p className="text-sm text-muted-foreground">{contextText}</p>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -99,13 +104,9 @@ export function TimingOffsetDialog({
             ))}
           </div>
 
-          <div className="space-y-1 text-xs text-muted-foreground">
-            <p>{t("timing.offsetHint")}</p>
-            <p>{t("timing.offsetBackupNote")}</p>
-            {offsetSeconds.trim() && !offsetMs ? (
-              <p className="text-destructive">{t("timing.invalidOffset")}</p>
-            ) : null}
-          </div>
+          {offsetSeconds.trim() && !offsetMs ? (
+            <p className="text-xs text-destructive">{t("timing.invalidOffset")}</p>
+          ) : null}
         </div>
 
         <DialogFooter>

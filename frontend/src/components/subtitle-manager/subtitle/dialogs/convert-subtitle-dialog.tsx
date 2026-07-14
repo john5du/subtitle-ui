@@ -2,6 +2,7 @@ import type { Subtitle, SubtitleSourceEncoding } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { SpinnerIcon } from "../../shared/pending-state";
@@ -28,15 +29,17 @@ export function ConvertSubtitleDialog({
   onConfirm
 }: ConvertSubtitleDialogProps) {
   const { t } = useI18n();
+  const helpText = t("conversion.convertSubtitleDescription", { name: subtitle?.fileName ?? "-" });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>{t("conversion.convertSubtitleTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("conversion.convertSubtitleDescription", { name: subtitle?.fileName ?? "-" })}
-          </DialogDescription>
+          <DialogTitle className="flex items-center gap-1.5">
+            <span>{t("conversion.convertSubtitleTitle")}</span>
+            <DialogHelpTip text={helpText} />
+          </DialogTitle>
+          <DialogDescription className="sr-only">{helpText}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">

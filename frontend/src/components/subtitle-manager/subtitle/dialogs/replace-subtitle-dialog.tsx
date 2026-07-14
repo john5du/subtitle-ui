@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from "@/components/ui/alert-dialog";
+import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
 
 interface ReplaceSubtitleDialogProps {
   open: boolean;
@@ -29,12 +30,16 @@ export function ReplaceSubtitleDialog({
   onConfirm
 }: ReplaceSubtitleDialogProps) {
   const { t } = useI18n();
+  const backupNote = t("details.replaceSubtitleBackupNote");
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent size="sm">
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("details.replaceSubtitleTitle")}</AlertDialogTitle>
+          <AlertDialogTitle className="flex items-center gap-1.5">
+            <span>{t("details.replaceSubtitleTitle")}</span>
+            <DialogHelpTip text={backupNote} />
+          </AlertDialogTitle>
           <AlertDialogDescription>
             {t("details.replaceSubtitleDescription", {
               current: subtitle?.fileName ?? "-",
@@ -42,7 +47,6 @@ export function ReplaceSubtitleDialog({
             })}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <p className="text-xs text-muted-foreground">{t("details.replaceSubtitleBackupNote")}</p>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={replacePending}>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction

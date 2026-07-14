@@ -3,6 +3,7 @@ import { useI18n } from "@/lib/i18n";
 import { UPLOAD_LANGUAGE_PRESETS } from "@/lib/subtitle-language";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -42,15 +43,19 @@ export function UploadSubtitleDialog({
   uploadPending
 }: UploadSubtitleDialogProps) {
   const { t } = useI18n();
+  const helpText = pendingUploadFile
+    ? t("details.fileDescription", { name: pendingUploadFile.name })
+    : t("details.uploadLabelDescription");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle>{t("details.uploadLabelTitle")}</DialogTitle>
-          <DialogDescription>
-            {pendingUploadFile ? t("details.fileDescription", { name: pendingUploadFile.name }) : t("details.uploadLabelDescription")}
-          </DialogDescription>
+          <DialogTitle className="flex items-center gap-1.5">
+            <span>{t("details.uploadLabelTitle")}</span>
+            <DialogHelpTip text={helpText} />
+          </DialogTitle>
+          <DialogDescription className="sr-only">{helpText}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
@@ -110,11 +115,7 @@ export function UploadSubtitleDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             {t("common.cancel")}
           </Button>
-          <Button
-            type="button"
-            onClick={onConfirm}
-            disabled={!pendingUploadFile || busy}
-          >
+          <Button type="button" onClick={onConfirm} disabled={!pendingUploadFile || busy}>
             {uploadPending ? <SpinnerIcon className="h-4 w-4" /> : null}
             {uploadPending ? t("details.uploading") : t("common.upload")}
           </Button>

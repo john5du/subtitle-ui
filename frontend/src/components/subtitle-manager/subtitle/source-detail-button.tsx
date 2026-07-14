@@ -44,7 +44,7 @@ export function SubtitleSourceDetailButton({ subtitle, sourceLabel, className }:
           <Info className="h-3.5 w-3.5" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{t("details.sourceDetailTitle")}</DialogTitle>
           <DialogDescription>{sourceLabel}</DialogDescription>

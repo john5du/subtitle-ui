@@ -12,7 +12,15 @@ import type { ZipSubtitleEntry } from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -200,12 +208,18 @@ export function SubHDDownloadDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[min(92dvh,100%)] gap-3 overflow-hidden sm:max-h-[min(720px,90vh)] sm:max-w-2xl">
+        <DialogContent size="md">
           <DialogHeader>
-            <DialogTitle>{t("download.title")}</DialogTitle>
-            <DialogDescription>{t("download.description", { name: videoName })}</DialogDescription>
+            <DialogTitle className="flex items-center gap-1.5">
+              <span>{t("download.title")}</span>
+              <DialogHelpTip text={t("download.description", { name: videoName })} />
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {t("download.description", { name: videoName })}
+            </DialogDescription>
           </DialogHeader>
 
+          <DialogBody>
           <form className="flex gap-2" onSubmit={handleSearchSubmit}>
             <Input
               value={query}
@@ -383,6 +397,7 @@ export function SubHDDownloadDialog({
               </div>
             </div>
           ) : null}
+          </DialogBody>
         </DialogContent>
       </Dialog>
 

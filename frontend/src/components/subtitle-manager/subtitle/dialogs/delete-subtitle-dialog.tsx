@@ -30,7 +30,7 @@ export function DeleteSubtitleDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent size="sm">
         <AlertDialogHeader>
           <AlertDialogTitle>{t("details.deleteSubtitleTitle")}</AlertDialogTitle>
           <AlertDialogDescription>

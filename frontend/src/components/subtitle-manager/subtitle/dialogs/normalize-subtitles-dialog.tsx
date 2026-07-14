@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRightLeft, Check, CircleAlert, Languages, TriangleAlert } from "lucide-react";
+import { ArrowRightLeft, Check, Languages, TriangleAlert } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
@@ -17,18 +17,20 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { InlinePending } from "../../shared/pending-state";
 
-type BubblePos = { top: number; left: number; width: number; placement: "below" | "above" };
+type BubblePos = { top: number; left: number; width: number };
 
 function measureBubbleSize(text: string): { width: number; height: number } {
   if (typeof document === "undefined") {
@@ -60,11 +62,7 @@ function measureBubbleSize(text: string): { width: number; height: number } {
   };
 }
 
-function bubbleStyle(
-  anchor: DOMRect,
-  text: string,
-  align: "start" | "end" | "center" = "end"
-): BubblePos {
+function bubbleStyle(anchor: DOMRect, text: string): BubblePos {
   const gap = 8;
   const viewportPad = 8;
   const size = measureBubbleSize(text);
@@ -72,31 +70,17 @@ function bubbleStyle(
   const height = size.height;
   const spaceBelow = window.innerHeight - anchor.bottom;
   const spaceAbove = anchor.top;
-  const placement: "below" | "above" =
-    spaceBelow >= height + gap
-      ? "below"
-      : spaceAbove >= height + gap
-        ? "above"
-        : spaceBelow >= spaceAbove
-          ? "below"
-          : "above";
-  const top =
-    placement === "below"
-      ? anchor.bottom + gap
-      : Math.max(viewportPad, anchor.top - gap - height);
-  let left =
-    align === "start"
-      ? anchor.left
-      : align === "center"
-        ? anchor.left + anchor.width / 2 - width / 2
-        : anchor.right - width;
-  // Keep bubble fully visible when possible; if wider than viewport, pin to left edge (no text clip).
+  const placeBelow = spaceBelow >= height + gap || spaceBelow >= spaceAbove;
+  const top = placeBelow
+    ? anchor.bottom + gap
+    : Math.max(viewportPad, anchor.top - gap - height);
+  let left = anchor.right - width;
   if (width + viewportPad * 2 <= window.innerWidth) {
     left = Math.min(Math.max(viewportPad, left), window.innerWidth - width - viewportPad);
   } else {
     left = viewportPad;
   }
-  return { top, left, width, placement };
+  return { top, left, width };
 }
 
 export type NormalizeDialogScope =
@@ -121,31 +105,12 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
   const [error, setError] = useState("");
   const [items, setItems] = useState<SubtitleNormalizeItem[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [helpOpen, setHelpOpen] = useState(false);
   const [statusPopoverKey, setStatusPopoverKey] = useState<string | null>(null);
   const [statusBubble, setStatusBubble] = useState<{ key: string; label: string; pos: BubblePos } | null>(null);
-  const [helpBubblePos, setHelpBubblePos] = useState<BubblePos | null>(null);
-  const helpButtonRef = useRef<HTMLButtonElement | null>(null);
-  const helpBubbleRef = useRef<HTMLDivElement | null>(null);
   const statusButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const statusBubbleRef = useRef<HTMLDivElement | null>(null);
 
-  function closeBubbles() {
-    setHelpOpen(false);
-    setHelpBubblePos(null);
-    setStatusPopoverKey(null);
-    setStatusBubble(null);
-  }
-
-  function openHelpBubble() {
-    const button = helpButtonRef.current;
-    if (!button) {
-      return;
-    }
-    const rect = button.getBoundingClientRect();
-    const text = t("normalize.description");
-    setHelpBubblePos(bubbleStyle(rect, text, "start"));
-    setHelpOpen(true);
+  function closeStatusBubble() {
     setStatusPopoverKey(null);
     setStatusBubble(null);
   }
@@ -159,71 +124,53 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
     setStatusBubble({
       key,
       label,
-      pos: bubbleStyle(rect, label, "end")
+      pos: bubbleStyle(rect, label)
     });
     setStatusPopoverKey(key);
-    setHelpOpen(false);
-    setHelpBubblePos(null);
   }
 
   useEffect(() => {
     if (!open) {
-      closeBubbles();
+      closeStatusBubble();
     }
   }, [open]);
 
   useEffect(() => {
-    if (!helpOpen && !statusBubble) {
+    if (!statusBubble) {
       return;
     }
     function onPointerDown(event: MouseEvent | TouchEvent) {
       const target = event.target as Node | null;
-      if (!target) {
+      if (!target || !statusBubble) {
         return;
       }
-      if (helpOpen) {
-        const inButton = helpButtonRef.current?.contains(target);
-        const inBubble = helpBubbleRef.current?.contains(target);
-        if (!inButton && !inBubble) {
-          setHelpOpen(false);
-          setHelpBubblePos(null);
-        }
-      }
-      if (statusBubble) {
-        const inButton = statusButtonRefs.current[statusBubble.key]?.contains(target);
-        const inBubble = statusBubbleRef.current?.contains(target);
-        if (!inButton && !inBubble) {
-          setStatusPopoverKey(null);
-          setStatusBubble(null);
-        }
+      const inButton = statusButtonRefs.current[statusBubble.key]?.contains(target);
+      const inBubble = statusBubbleRef.current?.contains(target);
+      if (!inButton && !inBubble) {
+        closeStatusBubble();
       }
     }
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        closeBubbles();
+        closeStatusBubble();
       }
     }
     function onReposition() {
-      if (helpOpen && helpButtonRef.current) {
-        setHelpBubblePos(
-          bubbleStyle(helpButtonRef.current.getBoundingClientRect(), t("normalize.description"), "start")
-        );
+      if (!statusBubble) {
+        return;
       }
-      if (statusBubble) {
-        const button = statusButtonRefs.current[statusBubble.key];
-        if (button) {
-          setStatusBubble((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  pos: bubbleStyle(button.getBoundingClientRect(), prev.label, "end")
-                }
-              : null
-          );
-        } else {
-          setStatusPopoverKey(null);
-          setStatusBubble(null);
-        }
+      const button = statusButtonRefs.current[statusBubble.key];
+      if (button) {
+        setStatusBubble((prev) =>
+          prev
+            ? {
+                ...prev,
+                pos: bubbleStyle(button.getBoundingClientRect(), prev.label)
+              }
+            : null
+        );
+      } else {
+        closeStatusBubble();
       }
     }
     document.addEventListener("mousedown", onPointerDown);
@@ -238,7 +185,7 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
       window.removeEventListener("resize", onReposition);
       window.removeEventListener("scroll", onReposition, true);
     };
-  }, [helpOpen, statusBubble]);
+  }, [statusBubble]);
 
   useEffect(() => {
     if (!open || !scope) {
@@ -250,7 +197,7 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
       setError("");
       setItems([]);
       setSelected({});
-      closeBubbles();
+      closeStatusBubble();
       try {
         let plan: SubtitleNormalizePlan;
         if (scope!.kind === "video") {
@@ -391,37 +338,16 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] flex-col overflow-hidden sm:h-[min(90vh,880px)] sm:max-h-[90vh] sm:max-w-4xl">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-1.5">
             <span>{t("normalize.title")}</span>
-            <button
-              ref={helpButtonRef}
-              type="button"
-              className={cn(
-                "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                helpOpen && "bg-muted text-foreground"
-              )}
-              aria-expanded={helpOpen}
-              aria-haspopup="dialog"
-              aria-controls="normalize-help-popover"
-              aria-label={t("normalize.description")}
-              onClick={() => {
-                if (helpOpen) {
-                  setHelpOpen(false);
-                  setHelpBubblePos(null);
-                } else {
-                  openHelpBubble();
-                }
-              }}
-            >
-              <CircleAlert className="h-4 w-4" aria-hidden />
-            </button>
+            <DialogHelpTip text={t("normalize.description")} />
           </DialogTitle>
           <DialogDescription className="sr-only">{t("normalize.description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+        <DialogBody>
           {loading ? <InlinePending label={t("normalize.loading")} /> : null}
           {error ? <div className="surface-status-destructive border p-2 text-sm">{error}</div> : null}
 
@@ -541,7 +467,7 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
           ) : null}
 
           {applying ? <p className="text-xs text-muted-foreground">{t("normalize.applying")}</p> : null}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button type="button" variant="outline" disabled={applying} onClick={() => onOpenChange(false)}>
@@ -552,21 +478,6 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
           </Button>
         </DialogFooter>
       </DialogContent>
-
-      {typeof document !== "undefined" && helpOpen && helpBubblePos
-        ? createPortal(
-            <div
-              ref={helpBubbleRef}
-              id="normalize-help-popover"
-              role="tooltip"
-              className="fixed z-[200] w-max max-w-none rounded-md border border-border bg-popover px-2.5 py-2 text-left text-xs font-normal leading-none text-popover-foreground shadow-lg"
-              style={{ top: helpBubblePos.top, left: helpBubblePos.left, width: helpBubblePos.width }}
-            >
-              <p className="whitespace-nowrap">{t("normalize.description")}</p>
-            </div>,
-            document.body
-          )
-        : null}
 
       {typeof document !== "undefined" && statusBubble
         ? createPortal(

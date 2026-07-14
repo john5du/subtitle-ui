@@ -5,7 +5,15 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
 import { MediaExternalLinks } from "../shared/media-external-links";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
 
 import type {
   BatchSubtitleDeleteItem,
@@ -200,17 +208,25 @@ export function TvSubtitleDrawer({
       )}
 
       <Dialog open={batchDialogOpen} onOpenChange={handleBatchDialogOpenChange}>
-        <DialogContent className="flex h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] flex-col overflow-hidden sm:h-[min(90vh,880px)] sm:max-h-[90vh] sm:max-w-4xl">
+        <DialogContent size="lg">
           <DialogHeader>
-            <DialogTitle>{t("tv.seasonBatchAction")}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="flex items-center gap-1.5">
+              <span>{t("tv.seasonBatchAction")}</span>
+              <DialogHelpTip
+                text={t("batch.dialogDescriptionShort", {
+                  series: selectedSeriesPrimaryTitle || "-",
+                  season: seasonLabel || "-"
+                })}
+              />
+            </DialogTitle>
+            <DialogDescription className="sr-only">
               {t("batch.dialogDescriptionShort", {
                 series: selectedSeriesPrimaryTitle || "-",
                 season: seasonLabel || "-"
               })}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <DialogBody>
             {batchDialogOpen ? (
               <TvSeasonBatchUploadWorkspace
                 className="min-h-0 flex-1"
@@ -229,7 +245,7 @@ export function TvSubtitleDrawer({
                 autoSearchOnMount
               />
             ) : null}
-          </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
 

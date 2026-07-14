@@ -560,7 +560,7 @@ export function SubtitleManagerShell({
 
         {showSignOut && onSignOut ? (
           <AlertDialog open={signOutConfirmOpen} onOpenChange={setSignOutConfirmOpen}>
-            <AlertDialogContent>
+            <AlertDialogContent size="sm">
               <AlertDialogHeader>
                 <AlertDialogTitle>{t("auth.signOutConfirmTitle")}</AlertDialogTitle>
                 <AlertDialogDescription>{t("auth.signOutConfirmDescription")}</AlertDialogDescription>

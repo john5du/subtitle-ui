@@ -17,7 +17,16 @@ import {
   AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -178,10 +187,18 @@ export function TvBatchDeleteDialog({
           onOpenChange(next);
         }}
       >
-        <DialogContent className="flex h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] flex-col overflow-hidden sm:h-[min(90vh,880px)] sm:max-h-[90vh] sm:max-w-4xl">
+        <DialogContent size="lg">
           <DialogHeader>
-            <DialogTitle>{t("tv.batchDeleteTitle")}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="flex items-center gap-1.5">
+              <span>{t("tv.batchDeleteTitle")}</span>
+              <DialogHelpTip
+                text={t("tv.batchDeleteDescription", {
+                  series: seriesTitle || "-",
+                  count: rows.length
+                })}
+              />
+            </DialogTitle>
+            <DialogDescription className="sr-only">
               {t("tv.batchDeleteDescription", {
                 series: seriesTitle || "-",
                 count: rows.length
@@ -189,7 +206,7 @@ export function TvBatchDeleteDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+          <DialogBody>
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" disabled={operationBusy || rows.length === 0} onClick={allSelected ? clearSelection : selectAll}>
                 {allSelected ? t("tv.batchDeleteClearSelection") : t("tv.batchDeleteSelectAll")}
@@ -284,7 +301,7 @@ export function TvBatchDeleteDialog({
             {uploading || deleting ? (
               <p className="text-xs text-muted-foreground">{uploadingMessage || t("status.deletingSubtitlesProgress", { current: 0, total: selectedCount })}</p>
             ) : null}
-          </div>
+          </DialogBody>
 
           <DialogFooter>
             <Button type="button" variant="outline" disabled={operationBusy} onClick={() => onOpenChange(false)}>
@@ -304,7 +321,7 @@ export function TvBatchDeleteDialog({
       </Dialog>
 
       <AlertDialog open={confirmOpen} onOpenChange={(next) => !operationBusy && setConfirmOpen(next)}>
-        <AlertDialogContent>
+        <AlertDialogContent size="sm">
           <AlertDialogHeader>
             <AlertDialogTitle>{t("tv.batchDeleteConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
