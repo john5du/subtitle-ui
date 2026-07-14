@@ -379,11 +379,15 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 		return err
 	}
 	if !applied {
+		fileSizeType := "INTEGER"
+		if s.dialect == dialectPostgres {
+			fileSizeType = "BIGINT"
+		}
 		for _, column := range []struct {
 			name      string
 			statement string
 		}{
-			{name: "file_size", statement: `ALTER TABLE videos ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0`},
+			{name: "file_size", statement: fmt.Sprintf(`ALTER TABLE videos ADD COLUMN file_size %s NOT NULL DEFAULT 0`, fileSizeType)},
 			{name: "file_mod_time", statement: `ALTER TABLE videos ADD COLUMN file_mod_time TEXT NOT NULL DEFAULT ''`},
 			{name: "scan_fingerprint", statement: `ALTER TABLE videos ADD COLUMN scan_fingerprint TEXT NOT NULL DEFAULT ''`},
 		} {
@@ -398,6 +402,27 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 			}
 		}
 		if _, err := s.exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 8, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
+	applied, err = s.isMigrationApplied(9)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		if s.dialect == dialectPostgres {
+			hasFileSize, err := s.hasColumn("videos", "file_size")
+			if err != nil {
+				return err
+			}
+			if hasFileSize {
+				if _, err := s.exec(`ALTER TABLE videos ALTER COLUMN file_size TYPE BIGINT`); err != nil {
+					return fmt.Errorf("apply migration v9 file_size bigint: %w", err)
+				}
+			}
+		}
+		if _, err := s.exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 9, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 			return err
 		}
 	}

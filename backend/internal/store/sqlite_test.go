@@ -41,6 +41,7 @@ func TestStoreScanAndLogs(t *testing.T) {
 		SeriesImdbID:        "tt1111111",
 		SeriesTmdbID:        "67890",
 		PosterPath:          filepath.Join(t.TempDir(), "dir", "poster.jpg"),
+		FileSize:            23836844941,
 		UpdatedAt:           now,
 		Subtitles: []domain.Subtitle{
 			{
@@ -105,6 +106,9 @@ func TestStoreScanAndLogs(t *testing.T) {
 	}
 	if storedVideo.PosterPath != video.PosterPath {
 		t.Fatalf("expected stored poster path %q, got %q", video.PosterPath, storedVideo.PosterPath)
+	}
+	if storedVideo.FileSize != video.FileSize {
+		t.Fatalf("expected stored file size %d, got %d", video.FileSize, storedVideo.FileSize)
 	}
 	if storedVideo.OriginalTitle != video.OriginalTitle || storedVideo.ImdbID != video.ImdbID || storedVideo.TmdbID != video.TmdbID {
 		t.Fatalf("unexpected stored movie metadata fields: %+v", storedVideo)
@@ -788,6 +792,7 @@ func TestPostgresStoreScanSettingsAndLogs(t *testing.T) {
 		MediaType:      domain.MediaTypeMovie,
 		MetadataSource: "nfo",
 		PosterPath:     "/media/pg/poster.jpg",
+		FileSize:       23836844941,
 		UpdatedAt:      now,
 		Subtitles: []domain.Subtitle{
 			{
@@ -806,6 +811,16 @@ func TestPostgresStoreScanSettingsAndLogs(t *testing.T) {
 
 	if err := st.SaveScanResult([]domain.Video{video}, now, now.Add(time.Second), "", nil); err != nil {
 		t.Fatalf("save pg scan result: %v", err)
+	}
+	storedPG, foundPG, err := st.GetVideo(video.ID)
+	if err != nil {
+		t.Fatalf("get pg video: %v", err)
+	}
+	if !foundPG {
+		t.Fatalf("expected pg video to exist")
+	}
+	if storedPG.FileSize != video.FileSize {
+		t.Fatalf("expected pg file size %d, got %d", video.FileSize, storedPG.FileSize)
 	}
 	matches, total, err := st.ListVideos("original", domain.MediaTypeMovie, "", 1, 20, "year", "desc")
 	if err != nil {
