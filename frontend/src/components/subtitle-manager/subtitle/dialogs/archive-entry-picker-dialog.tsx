@@ -8,12 +8,10 @@ import {
   Dialog,
   DialogBody,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle
+  DialogHeader
 } from "@/components/ui/dialog";
-import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
+import { DialogTitleWithHelp } from "@/components/ui/dialog-title-with-help";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -67,11 +65,7 @@ export function ArchiveEntryPickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-1.5">
-            <span>{t("details.selectArchiveSubtitle")}</span>
-            <DialogHelpTip text={helpText} />
-          </DialogTitle>
-          <DialogDescription className="sr-only">{helpText}</DialogDescription>
+          <DialogTitleWithHelp title={t("details.selectArchiveSubtitle")} help={helpText} />
         </DialogHeader>
 
         <DialogBody>

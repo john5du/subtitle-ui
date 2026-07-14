@@ -229,9 +229,9 @@ export function RowActionsMenu({
       <Button
         type="button"
         variant="outline"
-        size="icon"
+        size="icon-sm"
         ref={triggerRef}
-        className={cn("h-9 w-9", triggerClassName)}
+        className={triggerClassName}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}

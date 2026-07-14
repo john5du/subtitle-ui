@@ -310,7 +310,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
         open={dialogs.movieManagerOpen}
         onOpenChange={handleMovieManagerOpenChange}
       >
-        <DialogDrawerContent className="p-0 sm:w-[min(680px,94vw)] xl:w-[min(760px,88vw)] [&_[data-slot=close]]:right-5 [&_[data-slot=close]]:top-5 [&_[data-slot=close]]:z-50">
+        <DialogDrawerContent size="md" className="p-0">
           <MovieSubtitleDrawer
             ref={dialogs.movieDetailsRef}
             selectedVideo={movie.selectedVideo}
@@ -337,7 +337,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
         open={dialogs.tvDrawerOpen}
         onOpenChange={handleTvDrawerOpenChange}
       >
-        <DialogDrawerContent className="p-0 xl:w-[min(1240px,92vw)] [&_[data-slot=close]]:right-5 [&_[data-slot=close]]:top-5 [&_[data-slot=close]]:z-50">
+        <DialogDrawerContent size="xl" className="p-0">
           <TvSubtitleDrawer
             selectedSeries={tv.selectedSeries}
             selectedSeason={tv.selectedSeason}
@@ -448,8 +448,7 @@ export function SubtitleManagerShell({
           <Button
             type="button"
             variant="outline"
-            size="icon"
-            className="h-9 w-9 shrink-0"
+            size="icon-sm"
             disabled={refreshDisabled}
             aria-label={refreshLabel}
             title={refreshLabel}
@@ -461,8 +460,7 @@ export function SubtitleManagerShell({
             <Button
               type="button"
               variant="outline"
-              size="icon"
-              className="h-9 w-9 shrink-0"
+              size="icon-sm"
               aria-label={signOutLabel}
               title={signOutLabel}
               onClick={openSignOutConfirm}
@@ -545,8 +543,7 @@ export function SubtitleManagerShell({
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
+                  size="icon-sm"
                   aria-label={signOutLabel}
                   title={signOutLabel}
                   onClick={openSignOutConfirm}

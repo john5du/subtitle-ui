@@ -17,9 +17,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+import { EmptyPanel } from "./empty-panel";
 import { PagerView } from "./pager-view";
 import { PanelLoadingOverlay } from "./pending-state";
 
@@ -49,6 +57,7 @@ export function OperationLogsDialog({
   const clearDisabled = pending.logs || logsPager.total <= 0;
   const showLogsPager = Math.max(1, logsPager.totalPages) > 1 || logsPager.total > 0;
   const { t } = useI18n();
+  const statusLabel = pending.logs ? t("logs.refreshing") : t("dashboard.logCount", { count: logsPager.total });
 
   useEffect(() => {
     if (open) {
@@ -72,17 +81,15 @@ export function OperationLogsDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent size="lg" className="gap-0 overflow-hidden p-0 sm:p-0 sm:pb-0">
-          <DialogHeader className="border-b border-border p-5 pr-14">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <div className="flex flex-col gap-3 pr-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <DialogTitle>{t("logs.title")}</DialogTitle>
-                <DialogDescription>{pending.logs ? t("logs.refreshing") : t("dashboard.logCount", { count: logsPager.total })}</DialogDescription>
+                <DialogDescription>{statusLabel}</DialogDescription>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">
-                  {pending.logs ? t("logs.refreshing") : t("dashboard.logCount", { count: logsPager.total })}
-                </Badge>
+                <Badge variant="secondary">{statusLabel}</Badge>
                 <Button
                   type="button"
                   variant="outline"
@@ -97,32 +104,40 @@ export function OperationLogsDialog({
             </div>
           </DialogHeader>
 
-          <div className="relative flex min-h-0 flex-1 flex-col">
-            <ScrollArea viewportRef={logsViewportRef} className={cn("min-h-0 flex-1", pending.logs && "animate-pulse-soft")}>
-              <ul className={cn("divide-y divide-border", showLogsPager && "pb-20")}>
-                {logs.map((log) => (
-                  <li key={log.id} className="animate-fade-in-up space-y-2 p-3 text-sm sm:p-4">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="font-semibold">{log.action}</p>
-                        <p className="text-xs text-muted-foreground">{formatTime(log.timestamp)}</p>
+          <DialogBody>
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              <ScrollArea viewportRef={logsViewportRef} className={cn("min-h-0 flex-1", pending.logs && "animate-pulse-soft")}>
+                <ul className={cn("divide-y divide-border", showLogsPager && "pb-20")}>
+                  {logs.map((log) => (
+                    <li key={log.id} className="animate-fade-in-up space-y-2 p-3 text-sm sm:p-4">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="font-semibold">{log.action}</p>
+                          <p className="text-xs text-muted-foreground">{formatTime(log.timestamp)}</p>
+                        </div>
+                        <p className="shrink-0 text-xs text-muted-foreground">
+                          {t("logs.videoStatus", { videoId: log.videoId || "-", status: log.status })}
+                        </p>
                       </div>
-                      <p className="shrink-0 text-xs text-muted-foreground">
-                        {t("logs.videoStatus", { videoId: log.videoId || "-", status: log.status })}
-                      </p>
-                    </div>
-                    <p className="break-all text-xs text-muted-foreground">{log.targetPath || "-"}</p>
-                    {log.message && <p className="break-all text-xs text-muted-foreground">{t("logs.details", { details: log.message })}</p>}
-                  </li>
-                ))}
-                {logs.length === 0 && (
-                  <li className="p-8 text-center text-sm text-muted-foreground">{t("logs.empty")}</li>
-                )}
-              </ul>
-            </ScrollArea>
-            <PagerView pager={logsPager} onSetPage={onSetLogsPage} disabled={pending.logs} />
-            {pending.logs && <PanelLoadingOverlay label={t("logs.refreshing")} />}
-          </div>
+                      <p className="break-all text-xs text-muted-foreground">{log.targetPath || "-"}</p>
+                      {log.message && (
+                        <p className="break-all text-xs text-muted-foreground">{t("logs.details", { details: log.message })}</p>
+                      )}
+                    </li>
+                  ))}
+                  {logs.length === 0 && (
+                    <li>
+                      <EmptyPanel className="min-h-[12rem] border-0 bg-transparent" padded>
+                        {t("logs.empty")}
+                      </EmptyPanel>
+                    </li>
+                  )}
+                </ul>
+              </ScrollArea>
+              <PagerView pager={logsPager} onSetPage={onSetLogsPage} disabled={pending.logs} />
+              {pending.logs && <PanelLoadingOverlay label={t("logs.refreshing")} />}
+            </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
 

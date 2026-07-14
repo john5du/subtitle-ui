@@ -235,7 +235,7 @@ export function TvSubtitleManagementPanel({
       <div className="shrink-0 border-b border-border px-4 py-3">
         <div className="flex h-9 items-center gap-2">
           <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
-            <SelectTrigger className="h-9 min-w-0 flex-1">
+            <SelectTrigger size="sm" className="min-w-0 flex-1">
               <SelectValue placeholder={t("tv.selectSeason")} />
             </SelectTrigger>
             <SelectContent>
@@ -250,8 +250,7 @@ export function TvSubtitleManagementPanel({
             <Button
               type="button"
               variant="outline"
-              size="icon"
-              className="h-9 w-9 shrink-0"
+              size="icon-sm"
               disabled={!selectedSeries || busy || episodesPending || uploading}
               onClick={onOpenBatchDelete}
               title={t("tv.batchDeleteAction")}
@@ -263,8 +262,7 @@ export function TvSubtitleManagementPanel({
           {onOpenSeasonBatch ? (
             <Button
               type="button"
-              size="icon"
-              className="h-9 w-9 shrink-0"
+              size="icon-sm"
               disabled={!selectedSeries || busy || episodesPending || uploading}
               onClick={onOpenSeasonBatch}
               title={t("tv.seasonBatchAction")}
@@ -276,8 +274,7 @@ export function TvSubtitleManagementPanel({
           <Button
             type="button"
             variant="outline"
-            size="icon"
-            className="h-9 w-9 shrink-0"
+            size="icon-sm"
             disabled={!selectedSeries || busy || episodesPending || uploading || videos.length === 0}
             onClick={() => {
               if (!selectedSeries) return;

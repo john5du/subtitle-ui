@@ -16,6 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import type { SubtitleDetailsPanelHandle, SubtitleDetailsPanelProps } from "../types";
+import { EmptyPanel } from "../shared/empty-panel";
 import { InfoItem } from "../shared/info-item";
 import { InlinePending, SpinnerIcon } from "../shared/pending-state";
 import { SubtitleSourceDetailButton } from "./source-detail-button";
@@ -28,7 +29,7 @@ import { SubHDDownloadDialog } from "./dialogs/subhd-download-dialog";
 import { SubtitlePreviewDialog } from "./dialogs/subtitle-preview-dialog";
 import { TimingOffsetDialog } from "./dialogs/timing-offset-dialog";
 import { UploadSubtitleDialog } from "./dialogs/upload-subtitle-dialog";
-import { SubtitleTrackCard, subtitleRowActionIconClassName } from "./subtitle-track-card";
+import { SubtitleTrackCard } from "./subtitle-track-card";
 import {
   ACCEPTED_SUBTITLE_UPLOAD_TYPES,
   isSRTFileName,
@@ -190,9 +191,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
             "flex flex-1 items-center justify-center p-6",
             !embedded && "px-4"
           )}>
-            <div className="surface-panel w-full px-6 py-12 text-center text-sm text-muted-foreground">
-              {emptyText}
-            </div>
+            <EmptyPanel padded={false}>{emptyText}</EmptyPanel>
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
@@ -233,8 +232,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                   {canAutoDownload ? (
                     <Button
                       type="button"
-                      size="icon"
-                      className="h-9 w-9 shrink-0"
+                      size="icon-sm"
                       disabled={busy || workflow.zipLoading || !selectedVideo}
                       onClick={() => setDownloadDialogOpen(true)}
                       title={downloadPending ? t("download.downloading") : t("common.search")}
@@ -246,9 +244,8 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                   {showPrimaryUploadButton && (
                     <Button
                       type="button"
-                      size="icon"
+                      size="icon-sm"
                       variant={canAutoDownload ? "outline" : "default"}
-                      className="h-9 w-9 shrink-0"
                       disabled={busy || workflow.zipLoading}
                       onClick={workflow.openUploadPicker}
                       title={uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}
@@ -270,8 +267,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                           key={item.label}
                           type="button"
                           variant="outline"
-                          size="icon"
-                          className="h-9 w-9 shrink-0"
+                          size="icon-sm"
                           title={item.label}
                           aria-label={item.label}
                           asChild

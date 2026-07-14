@@ -21,12 +21,10 @@ import {
   Dialog,
   DialogBody,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle
+  DialogHeader
 } from "@/components/ui/dialog";
-import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
+import { DialogTitleWithHelp } from "@/components/ui/dialog-title-with-help";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -189,21 +187,13 @@ export function TvBatchDeleteDialog({
       >
         <DialogContent size="lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-1.5">
-              <span>{t("tv.batchDeleteTitle")}</span>
-              <DialogHelpTip
-                text={t("tv.batchDeleteDescription", {
-                  series: seriesTitle || "-",
-                  count: rows.length
-                })}
-              />
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              {t("tv.batchDeleteDescription", {
+            <DialogTitleWithHelp
+              title={t("tv.batchDeleteTitle")}
+              help={t("tv.batchDeleteDescription", {
                 series: seriesTitle || "-",
                 count: rows.length
               })}
-            </DialogDescription>
+            />
           </DialogHeader>
 
           <DialogBody>

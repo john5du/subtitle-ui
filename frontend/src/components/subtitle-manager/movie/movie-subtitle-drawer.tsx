@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import type { SubtitleDetailsPanelHandle, SubtitleDetailsPanelProps } from "../types";
+import { EmptyPanel } from "../shared/empty-panel";
 import { MediaExternalLinks } from "../shared/media-external-links";
 import { InlinePending, SpinnerIcon } from "../shared/pending-state";
 import { PosterThumbnail } from "../shared/poster-thumbnail";
@@ -184,7 +185,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 
       {!selectedVideo ? (
         <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-          <div className="surface-panel w-full px-6 py-12 text-center text-sm text-muted-foreground">{emptyText}</div>
+          <EmptyPanel padded={false}>{emptyText}</EmptyPanel>
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-hidden">
@@ -192,7 +193,9 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
             <div className="space-y-3 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:space-y-4 sm:px-6">
               <section className="space-y-2">
                   {selectedVideo.subtitles.length === 0 ? (
-                    <div className="surface-panel px-4 py-5 text-center text-sm text-muted-foreground">{t("common.noSubtitles")}</div>
+                    <EmptyPanel className="min-h-0 px-4 py-5" padded={false}>
+                      {t("common.noSubtitles")}
+                    </EmptyPanel>
                   ) : (
                     selectedVideo.subtitles.map((subtitle) => {
                       const deletePending = subtitleAction?.kind === "delete" && subtitleAction.subtitleId === subtitle.id;

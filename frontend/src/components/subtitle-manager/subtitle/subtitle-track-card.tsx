@@ -9,6 +9,7 @@ import type { PendingSubtitleAction, Subtitle } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { rowActionIconClassName, rowActionTextClassName } from "@/components/ui/control-sizes";
 
 import { RowActionsMenu } from "../shared/row-actions-menu";
 import { SpinnerIcon } from "../shared/pending-state";
@@ -21,8 +22,8 @@ import {
   isTimingOffsetSupported
 } from "./use-subtitle-file-workflow";
 
-export const subtitleRowActionIconClassName = "h-10 w-10 shrink-0 touch-target sm:h-8 sm:w-8";
-export const subtitleRowActionTextClassName = "h-10 shrink-0 gap-1 px-2.5 text-caption touch-target sm:h-8";
+export const subtitleRowActionIconClassName = rowActionIconClassName;
+export const subtitleRowActionTextClassName = rowActionTextClassName;
 
 export interface SubtitleTrackCardProps {
   subtitle: Subtitle;

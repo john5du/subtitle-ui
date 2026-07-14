@@ -1,8 +1,8 @@
 import type { Subtitle, SubtitleSourceEncoding } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
+import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/ui/dialog";
+import { DialogTitleWithHelp } from "@/components/ui/dialog-title-with-help";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { SpinnerIcon } from "../../shared/pending-state";
@@ -35,11 +35,7 @@ export function ConvertSubtitleDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-1.5">
-            <span>{t("conversion.convertSubtitleTitle")}</span>
-            <DialogHelpTip text={helpText} />
-          </DialogTitle>
-          <DialogDescription className="sr-only">{helpText}</DialogDescription>
+          <DialogTitleWithHelp title={t("conversion.convertSubtitleTitle")} help={helpText} />
         </DialogHeader>
 
         <div className="space-y-2">
@@ -49,7 +45,7 @@ export function ConvertSubtitleDialog({
             onValueChange={(value) => onSourceEncodingChange(value as SubtitleSourceEncoding)}
             disabled={convertPending}
           >
-            <SelectTrigger className="h-9">
+            <SelectTrigger size="sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

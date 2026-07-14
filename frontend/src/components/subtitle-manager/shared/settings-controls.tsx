@@ -171,7 +171,7 @@ export function SubtitleConversionSettingsPanel() {
         <p className="min-w-0 shrink text-sm font-semibold text-foreground">{t("conversion.defaultSourceEncoding")}</p>
         <div className="shrink-0">
           <Select value={draftEncoding} onValueChange={(value) => setDraftEncoding(value as SubtitleSourceEncoding)} disabled={loading || saving}>
-            <SelectTrigger className="h-9 w-[140px]" aria-label={t("conversion.defaultSourceEncoding")}>
+            <SelectTrigger size="sm" className="w-[140px]" aria-label={t("conversion.defaultSourceEncoding")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -191,8 +191,7 @@ export function SubtitleConversionSettingsPanel() {
           <Button
             type="button"
             variant="outline"
-            size="icon"
-            className="h-9 w-9 shrink-0"
+            size="icon-sm"
             disabled={loading || saving || !config?.defaultAssTemplate}
             onClick={() => {
               setDraftTemplate(config?.defaultAssTemplate || "");
@@ -338,10 +337,11 @@ export function SubHDSettingsPanel() {
           <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("subhd.baseUrl")}</p>
           <div className="flex items-center gap-2">
             <Input
+              size="sm"
               value={draftBaseUrl}
               placeholder={t("subhd.baseUrlPlaceholder")}
               disabled={loading || saving || !draftEnabled}
-              className="h-9 min-w-0 flex-1"
+              className="min-w-0 flex-1"
               onChange={(event) => {
                 setDraftBaseUrl(event.target.value);
                 setError("");
@@ -350,8 +350,7 @@ export function SubHDSettingsPanel() {
             <Button
               type="button"
               variant="outline"
-              size="icon"
-              className="h-9 w-9 shrink-0"
+              size="icon-sm"
               disabled={loading || saving || !draftEnabled || !config?.defaultBaseUrl}
               onClick={() => {
                 setDraftBaseUrl(config?.defaultBaseUrl || "");
@@ -369,10 +368,10 @@ export function SubHDSettingsPanel() {
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("subhd.proxy")}</p>
         <Input
+          size="sm"
           value={draftProxy}
           placeholder={t("subhd.proxyPlaceholder")}
           disabled={loading || saving || !draftEnabled}
-          className="h-9"
           onChange={(event) => {
             setDraftProxy(event.target.value);
             setError("");
@@ -500,10 +499,10 @@ export function SonarrSettingsPanel() {
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("sonarr.url")}</p>
           <Input
+            size="sm"
             value={draftUrl}
             placeholder={t("sonarr.urlPlaceholder")}
             disabled={loading || saving || !draftEnabled}
-            className="h-9"
             onChange={(event) => {
               setDraftUrl(event.target.value);
               setError("");
@@ -516,12 +515,13 @@ export function SonarrSettingsPanel() {
         <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("sonarr.apiKey")}</p>
         <div className="relative">
           <Input
+            size="sm"
             type={apiKeyVisible ? "text" : "password"}
             autoComplete="off"
             value={draftApiKey}
             placeholder={t("sonarr.apiKeyPlaceholder")}
             disabled={loading || saving || !draftEnabled}
-            className="h-9 pr-10"
+            className="pr-10"
             onChange={(event) => {
               setDraftApiKey(event.target.value);
               setError("");

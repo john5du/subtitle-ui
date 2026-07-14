@@ -2,8 +2,8 @@ import type { SubtitleSourceEncoding } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { UPLOAD_LANGUAGE_PRESETS } from "@/lib/subtitle-language";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
+import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/ui/dialog";
+import { DialogTitleWithHelp } from "@/components/ui/dialog-title-with-help";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -51,11 +51,7 @@ export function UploadSubtitleDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-1.5">
-            <span>{t("details.uploadLabelTitle")}</span>
-            <DialogHelpTip text={helpText} />
-          </DialogTitle>
-          <DialogDescription className="sr-only">{helpText}</DialogDescription>
+          <DialogTitleWithHelp title={t("details.uploadLabelTitle")} help={helpText} />
         </DialogHeader>
 
         <div className="space-y-2">
@@ -96,7 +92,7 @@ export function UploadSubtitleDialog({
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("conversion.sourceEncoding")}</p>
               <Select value={sourceEncoding} onValueChange={(value) => onSourceEncodingChange(value as SubtitleSourceEncoding)} disabled={busy}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger size="sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

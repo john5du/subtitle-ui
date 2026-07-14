@@ -236,7 +236,7 @@ function MappingRow({
             {t("common.episode")}
           </p>
           <Select value={selectValue} onValueChange={(value) => onSelectionChange(row.id, value)} disabled={disabled}>
-            <SelectTrigger className="h-9 w-full min-w-0 [&>span]:min-w-0 [&>span]:truncate">
+            <SelectTrigger size="sm" className="w-full min-w-0 [&>span]:min-w-0 [&>span]:truncate">
               <SelectValue placeholder={t("batch.chooseEpisode")} />
             </SelectTrigger>
             <SelectContent className="max-h-72">
@@ -863,17 +863,16 @@ export function TvSeasonBatchUploadWorkspace({
                 <div className="surface-panel space-y-3 p-3 sm:p-4">
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
+                      size="sm"
                       value={subhdQuery}
                       onChange={(event) => setSubhdQuery(event.target.value)}
                       placeholder={t("batch.subhd.queryPlaceholder")}
                       disabled={busy || batchPreparing || uploading || subhdSearching}
-                      className="h-9"
                     />
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      className="h-9 w-9 shrink-0"
+                      size="icon-sm"
                       disabled={busy || batchPreparing || uploading || subhdSearching}
                       onClick={() => void searchSubHDSeason()}
                       title={subhdSearching ? t("batch.subhd.searching") : t("common.search")}
@@ -1181,7 +1180,7 @@ export function TvSeasonBatchUploadWorkspace({
                   onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
                   disabled={busy || batchPreparing || batchRawEntries.length === 0}
                 >
-                  <SelectTrigger className="h-9 w-full">
+                  <SelectTrigger size="sm" className="w-full">
                     <SelectValue placeholder={t("common.language")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -1205,7 +1204,7 @@ export function TvSeasonBatchUploadWorkspace({
                   onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
                   disabled={busy || batchPreparing || batchRawEntries.length === 0}
                 >
-                  <SelectTrigger className="h-9 w-full">
+                  <SelectTrigger size="sm" className="w-full">
                     <SelectValue placeholder={t("common.format")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -1224,10 +1223,11 @@ export function TvSeasonBatchUploadWorkspace({
                 {t("batch.label")}
               </p>
               <Input
+                size="sm"
                 value={batchLabel}
                 maxLength={32}
                 placeholder="zh&en"
-                className="h-9 w-full"
+                className="w-full"
                 disabled={busy || batchPreparing}
                 onChange={(event) => setBatchLabel(event.target.value)}
               />

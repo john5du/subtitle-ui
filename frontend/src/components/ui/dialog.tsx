@@ -13,6 +13,7 @@ const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
 
 export type DialogSize = "sm" | "md" | "lg";
+export type DialogDrawerSize = "md" | "lg" | "xl";
 
 /** Fixed desktop width/height per size. Mobile stays bottom-sheet. */
 const dialogSizeClassName: Record<DialogSize, string> = {
@@ -25,6 +26,16 @@ const dialogSizeClassName: Record<DialogSize, string> = {
   // Tables / batch / preview / logs: large fixed frame
   lg:
     "sm:h-[min(52rem,90vh)] sm:w-[min(56rem,94vw)] sm:max-h-[min(52rem,90vh)] sm:max-w-[56rem]"
+};
+
+/** Side drawer desktop widths. Full-screen on mobile. */
+const dialogDrawerSizeClassName: Record<DialogDrawerSize, string> = {
+  // Movie subtitle manager
+  md: "sm:w-[min(680px,94vw)] xl:w-[min(760px,88vw)]",
+  // Default dense panel
+  lg: "sm:w-[min(840px,94vw)] xl:w-[min(1040px,88vw)]",
+  // TV series workspace
+  xl: "sm:w-[min(840px,94vw)] xl:w-[min(1240px,92vw)]"
 };
 
 const DialogOverlay = React.forwardRef<
@@ -116,17 +127,23 @@ const DialogSheetContent = React.forwardRef<
 ));
 DialogSheetContent.displayName = "DialogSheetContent";
 
+type DialogDrawerContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  size?: DialogDrawerSize;
+};
+
 const DialogDrawerContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  DialogDrawerContentProps
+>(({ className, children, size = "lg", ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
       data-dialog-content="true"
+      data-dialog-drawer-size={size}
       className={cn(
-        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden border-l border-border bg-background data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right sm:w-[min(840px,94vw)] xl:w-[min(1040px,88vw)]",
+        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden border-l border-border bg-background data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right",
+        dialogDrawerSizeClassName[size],
         className
       )}
       {...props}
@@ -134,7 +151,7 @@ const DialogDrawerContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         data-slot="close"
-        className="absolute right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] flex h-10 w-10 items-center justify-center bg-transparent p-0 text-foreground-muted transition-colors hover:text-foreground focus-ring-inset sm:h-auto sm:w-auto sm:p-1.5"
+        className="absolute right-5 top-5 z-50 flex h-10 w-10 items-center justify-center bg-transparent p-0 text-foreground-muted transition-colors hover:text-foreground focus-ring-inset sm:h-auto sm:w-auto sm:p-1.5"
       >
         <X className="h-4 w-4" />
         <DialogCloseLabel />
@@ -200,5 +217,6 @@ export {
   DialogSheetContent,
   DialogTitle,
   DialogTrigger,
+  dialogDrawerSizeClassName,
   dialogSizeClassName
 };

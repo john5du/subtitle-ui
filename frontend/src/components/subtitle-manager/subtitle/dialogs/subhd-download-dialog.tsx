@@ -16,11 +16,9 @@ import {
   Dialog,
   DialogBody,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
+  DialogHeader
 } from "@/components/ui/dialog";
-import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
+import { DialogTitleWithHelp } from "@/components/ui/dialog-title-with-help";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -210,29 +208,22 @@ export function SubHDDownloadDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent size="md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-1.5">
-              <span>{t("download.title")}</span>
-              <DialogHelpTip text={t("download.description", { name: videoName })} />
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              {t("download.description", { name: videoName })}
-            </DialogDescription>
+            <DialogTitleWithHelp title={t("download.title")} help={t("download.description", { name: videoName })} />
           </DialogHeader>
 
           <DialogBody>
           <form className="flex gap-2" onSubmit={handleSearchSubmit}>
             <Input
+              size="sm"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("download.searchPlaceholder")}
               disabled={locked}
-              className="h-9"
             />
             <Button
               type="submit"
               variant="outline"
-              size="icon"
-              className="h-9 w-9 shrink-0"
+              size="icon-sm"
               disabled={locked}
               title={t("common.search")}
               aria-label={t("common.search")}

@@ -19,12 +19,10 @@ import {
   Dialog,
   DialogBody,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle
+  DialogHeader
 } from "@/components/ui/dialog";
-import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
+import { DialogTitleWithHelp } from "@/components/ui/dialog-title-with-help";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -340,11 +338,7 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-1.5">
-            <span>{t("normalize.title")}</span>
-            <DialogHelpTip text={t("normalize.description")} />
-          </DialogTitle>
-          <DialogDescription className="sr-only">{t("normalize.description")}</DialogDescription>
+          <DialogTitleWithHelp title={t("normalize.title")} help={t("normalize.description")} />
         </DialogHeader>
 
         <DialogBody>

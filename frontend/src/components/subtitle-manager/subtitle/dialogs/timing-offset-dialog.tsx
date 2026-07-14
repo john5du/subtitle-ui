@@ -4,12 +4,10 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle
+  DialogHeader
 } from "@/components/ui/dialog";
-import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
+import { DialogTitleWithHelp } from "@/components/ui/dialog-title-with-help";
 import { Input } from "@/components/ui/input";
 
 import { SpinnerIcon } from "../../shared/pending-state";
@@ -65,11 +63,7 @@ export function TimingOffsetDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-1.5">
-            <span>{t("timing.offsetTitle")}</span>
-            <DialogHelpTip text={helpText} label={helpText} />
-          </DialogTitle>
-          <DialogDescription className="sr-only">{contextText}</DialogDescription>
+          <DialogTitleWithHelp title={t("timing.offsetTitle")} help={helpText} description={contextText} />
           <p className="text-sm text-muted-foreground">{contextText}</p>
         </DialogHeader>
 

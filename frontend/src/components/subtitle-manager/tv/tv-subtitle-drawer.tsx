@@ -4,16 +4,15 @@ import { useEffect, useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
+import { EmptyPanel } from "../shared/empty-panel";
 import { MediaExternalLinks } from "../shared/media-external-links";
 import {
   Dialog,
   DialogBody,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
+  DialogHeader
 } from "@/components/ui/dialog";
-import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
+import { DialogTitleWithHelp } from "@/components/ui/dialog-title-with-help";
 
 import type {
   BatchSubtitleDeleteItem,
@@ -168,9 +167,7 @@ export function TvSubtitleDrawer({
 
       {!selectedSeries ? (
         <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-          <div className="surface-panel w-full px-6 py-12 text-center text-sm text-muted-foreground">
-            {t("tv.drawerEmptySeries")}
-          </div>
+          <EmptyPanel padded={false}>{t("tv.drawerEmptySeries")}</EmptyPanel>
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-hidden">
@@ -210,21 +207,13 @@ export function TvSubtitleDrawer({
       <Dialog open={batchDialogOpen} onOpenChange={handleBatchDialogOpenChange}>
         <DialogContent size="lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-1.5">
-              <span>{t("tv.seasonBatchAction")}</span>
-              <DialogHelpTip
-                text={t("batch.dialogDescriptionShort", {
-                  series: selectedSeriesPrimaryTitle || "-",
-                  season: seasonLabel || "-"
-                })}
-              />
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              {t("batch.dialogDescriptionShort", {
+            <DialogTitleWithHelp
+              title={t("tv.seasonBatchAction")}
+              help={t("batch.dialogDescriptionShort", {
                 series: selectedSeriesPrimaryTitle || "-",
                 season: seasonLabel || "-"
               })}
-            </DialogDescription>
+            />
           </DialogHeader>
           <DialogBody>
             {batchDialogOpen ? (

@@ -91,4 +91,4 @@ cd frontend && bun run build   # static export → frontend/out
 - Prefer focused `go test` packages under `backend/internal/...` while iterating.
 - After FE changes that ship in the container, `bun run build` must succeed (static export).
 - Do not commit secrets, `tmp/`, `media/`, or `frontend/out`.
-- Frontend dialog size/footer/help rules: `docs/frontend-dialogs.md` (`DialogContent` `size` sm|md|lg, `DialogHelpTip` for functional explanations).
+- Frontend UI conventions: `docs/frontend-ui.md` (control density, library list shell, drawer sizes, empty/settings rows) and `docs/frontend-dialogs.md` (modal `sm|md|lg`, drawer `md|lg|xl`, `DialogTitleWithHelp` / `DialogHelpTip`).

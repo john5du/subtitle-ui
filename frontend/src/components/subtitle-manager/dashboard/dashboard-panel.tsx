@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 
 import { Database, PanelLeftClose, PanelLeftOpen, Search, ScrollText } from "lucide-react";
 
@@ -23,6 +23,7 @@ import {
 } from "../shared/settings-controls";
 import { OperationLogsDialog } from "../shared/operation-logs-dialog";
 import { SpinnerIcon } from "../shared/pending-state";
+import { SettingsActionRow } from "../shared/settings-action-row";
 import { ThemeToggle } from "../shared/theme-toggle";
 
 function SettingsSection({
@@ -30,28 +31,13 @@ function SettingsSection({
   children
 }: {
   title: string;
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <section className="space-y-3">
       <h2 className="text-display text-xs font-semibold uppercase tracking-section text-foreground-muted">{title}</h2>
       <div className="space-y-2">{children}</div>
     </section>
-  );
-}
-
-function SettingsActionRow({
-  label,
-  children
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="surface-panel flex min-h-[56px] items-center justify-between gap-3 p-3">
-      <p className="min-w-0 shrink text-sm font-semibold text-foreground">{label}</p>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
-    </div>
   );
 }
 
@@ -123,10 +109,9 @@ function StatusSummaryBar({
 
       <Button
         type="button"
-        size="icon"
+        size="icon-sm"
         onClick={() => void triggerScan()}
         disabled={operationLocked}
-        className="h-9 w-9 shrink-0"
         aria-label={scanLabel}
         title={scanLabel}
       >
@@ -188,8 +173,8 @@ export function DashboardPanel({
           <Button
             type="button"
             variant="outline"
-            size="icon"
-            className="mt-0.5 hidden h-9 w-9 shrink-0 lg:inline-flex"
+            size="icon-sm"
+            className="mt-0.5 hidden lg:inline-flex"
             onClick={onToggleSidebar}
             aria-label={sidebarToggleLabel}
             title={sidebarToggleLabel}
@@ -215,18 +200,12 @@ export function DashboardPanel({
             <div className="grid gap-6">
               <SettingsSection title={t("settings.appearance")}>
                 <div className="surface-panel divide-y divide-border">
-                  <div className="flex min-h-[56px] items-center justify-between gap-3 p-3">
-                    <p className="min-w-0 shrink text-sm font-semibold text-foreground">{t("locale.label")}</p>
-                    <div className="shrink-0">
-                      <LocaleSelect />
-                    </div>
-                  </div>
-                  <div className="flex min-h-[56px] items-center justify-between gap-3 p-3">
-                    <p className="min-w-0 shrink text-sm font-semibold text-foreground">{t("sidebar.changeTheme")}</p>
-                    <div className="shrink-0">
-                      <ThemeToggle />
-                    </div>
-                  </div>
+                  <SettingsActionRow label={t("locale.label")} bare>
+                    <LocaleSelect />
+                  </SettingsActionRow>
+                  <SettingsActionRow label={t("sidebar.changeTheme")} bare>
+                    <ThemeToggle />
+                  </SettingsActionRow>
                 </div>
               </SettingsSection>
 
@@ -244,31 +223,24 @@ export function DashboardPanel({
 
               <SettingsSection title={t("settings.system")}>
                 <div className="surface-panel divide-y divide-border">
-                  <div className="flex min-h-[56px] items-center justify-between gap-3 p-3">
-                    <p className="min-w-0 shrink text-sm font-semibold text-foreground">{t("settings.databaseType")}</p>
-                    <div className="shrink-0">
-                      <Badge variant="secondary" title={t("settings.databaseType")} aria-label={t("settings.databaseType")} className="gap-2 py-2">
-                        <Database className="h-3.5 w-3.5" />
-                        {formatDatabaseType(versionInfo?.databaseType, t)}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex min-h-[56px] items-center justify-between gap-3 p-3">
-                    <p className="min-w-0 shrink text-sm font-semibold text-foreground">{t("logs.title")}</p>
-                    <div className="shrink-0">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9"
-                        onClick={() => handleLogsOpenChange(true)}
-                        aria-label={t("settings.viewOperationLogs")}
-                        title={t("settings.viewOperationLogs")}
-                      >
-                        <ScrollText className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  <SettingsActionRow label={t("settings.databaseType")} bare>
+                    <Badge variant="secondary" title={t("settings.databaseType")} aria-label={t("settings.databaseType")} className="gap-2 py-2">
+                      <Database className="h-3.5 w-3.5" />
+                      {formatDatabaseType(versionInfo?.databaseType, t)}
+                    </Badge>
+                  </SettingsActionRow>
+                  <SettingsActionRow label={t("logs.title")} bare>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={() => handleLogsOpenChange(true)}
+                      aria-label={t("settings.viewOperationLogs")}
+                      title={t("settings.viewOperationLogs")}
+                    >
+                      <ScrollText className="h-4 w-4" />
+                    </Button>
+                  </SettingsActionRow>
                 </div>
               </SettingsSection>
             </div>
