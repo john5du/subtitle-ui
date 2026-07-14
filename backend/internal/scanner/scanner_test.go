@@ -4,6 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"subtitle-ui/backend/internal/domain"
 )
 
 func TestScanReadsVideoMetadataAndSubtitles(t *testing.T) {
@@ -118,6 +121,144 @@ func TestScanSkipsVideoWithoutNFO(t *testing.T) {
 	}
 	if len(videos) != 0 {
 		t.Fatalf("expected 0 videos when nfo is missing, got %d", len(videos))
+	}
+}
+
+func TestComputeMediaFingerprintStableAndSensitive(t *testing.T) {
+	root := t.TempDir()
+	videoPath := filepath.Join(root, "movie.mkv")
+	nfoPath := filepath.Join(root, "movie.nfo")
+	subPath := filepath.Join(root, "movie.zh.srt")
+	posterPath := filepath.Join(root, "poster.jpg")
+
+	if err := os.WriteFile(videoPath, []byte("video-data"), 0o644); err != nil {
+		t.Fatalf("write video: %v", err)
+	}
+	if err := os.WriteFile(nfoPath, []byte(`<movie><title>Movie</title></movie>`), 0o644); err != nil {
+		t.Fatalf("write nfo: %v", err)
+	}
+	if err := os.WriteFile(subPath, []byte("sub"), 0o644); err != nil {
+		t.Fatalf("write sub: %v", err)
+	}
+	if err := os.WriteFile(posterPath, []byte("poster"), 0o644); err != nil {
+		t.Fatalf("write poster: %v", err)
+	}
+
+	fp1, size1, _, err := ComputeMediaFingerprint(videoPath, "movie", posterPath)
+	if err != nil {
+		t.Fatalf("fingerprint: %v", err)
+	}
+	fp2, size2, _, err := ComputeMediaFingerprint(videoPath, "movie", posterPath)
+	if err != nil {
+		t.Fatalf("fingerprint 2: %v", err)
+	}
+	if fp1 == "" || fp1 != fp2 {
+		t.Fatalf("expected stable fingerprint, got %q vs %q", fp1, fp2)
+	}
+	if size1 != size2 || size1 <= 0 {
+		t.Fatalf("unexpected size: %d %d", size1, size2)
+	}
+
+	if err := os.WriteFile(subPath, []byte("sub-changed"), 0o644); err != nil {
+		t.Fatalf("rewrite sub: %v", err)
+	}
+	fpSub, _, _, err := ComputeMediaFingerprint(videoPath, "movie", posterPath)
+	if err != nil {
+		t.Fatalf("fingerprint after sub: %v", err)
+	}
+	if fpSub == fp1 {
+		t.Fatalf("expected subtitle change to alter fingerprint")
+	}
+
+	if err := os.WriteFile(nfoPath, []byte(`<movie><title>Movie 2</title></movie>`), 0o644); err != nil {
+		t.Fatalf("rewrite nfo: %v", err)
+	}
+	fpNFO, _, _, err := ComputeMediaFingerprint(videoPath, "movie", posterPath)
+	if err != nil {
+		t.Fatalf("fingerprint after nfo: %v", err)
+	}
+	if fpNFO == fpSub {
+		t.Fatalf("expected nfo change to alter fingerprint")
+	}
+
+	fpNoPoster, _, _, err := ComputeMediaFingerprint(videoPath, "movie", "")
+	if err != nil {
+		t.Fatalf("fingerprint without poster: %v", err)
+	}
+	if fpNoPoster == fpNFO {
+		t.Fatalf("expected poster presence to alter fingerprint")
+	}
+}
+
+func TestScanDirectoriesIncrementalSkipsUnchanged(t *testing.T) {
+	root := t.TempDir()
+	videoPath := filepath.Join(root, "movie.mkv")
+	nfoPath := filepath.Join(root, "movie.nfo")
+	if err := os.WriteFile(videoPath, []byte("video-data"), 0o644); err != nil {
+		t.Fatalf("write video: %v", err)
+	}
+	if err := os.WriteFile(nfoPath, []byte(`<movie><title>My Test Movie</title><year>2025</year></movie>`), 0o644); err != nil {
+		t.Fatalf("write nfo: %v", err)
+	}
+
+	sc := New()
+	first, err := sc.ScanDirectoriesWithTypeCtx(t.Context(), []string{root}, "movie")
+	if err != nil {
+		t.Fatalf("first scan: %v", err)
+	}
+	if len(first) != 1 {
+		t.Fatalf("expected 1 video, got %d", len(first))
+	}
+
+	fp, size, modTime, err := ComputeMediaFingerprint(first[0].Path, "movie", "")
+	if err != nil {
+		t.Fatalf("fingerprint: %v", err)
+	}
+	prev := first[0]
+	prev.ScanFingerprint = fp
+	prev.FileSize = size
+	prev.FileModTime = modTime
+	previous := map[string]domain.Video{prev.Path: prev}
+
+	second, err := sc.ScanDirectoriesIncrementalCtx(
+		t.Context(),
+		[]string{root},
+		"movie",
+		previous,
+		func(videoPath string, mediaType string) (string, int64, time.Time, error) {
+			return ComputeMediaFingerprint(videoPath, mediaType, "")
+		},
+	)
+	if err != nil {
+		t.Fatalf("incremental scan: %v", err)
+	}
+	if second.Stats.Skipped != 1 || second.Stats.Rebuilt != 0 || second.Stats.Found != 1 {
+		t.Fatalf("unexpected stats: %+v", second.Stats)
+	}
+	if len(second.Rebuilt) != 0 {
+		t.Fatalf("expected no rebuilt paths, got %v", second.Rebuilt)
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "movie.zh.srt"), []byte("sub"), 0o644); err != nil {
+		t.Fatalf("write sub: %v", err)
+	}
+	third, err := sc.ScanDirectoriesIncrementalCtx(
+		t.Context(),
+		[]string{root},
+		"movie",
+		previous,
+		func(videoPath string, mediaType string) (string, int64, time.Time, error) {
+			return ComputeMediaFingerprint(videoPath, mediaType, "")
+		},
+	)
+	if err != nil {
+		t.Fatalf("incremental scan after sub: %v", err)
+	}
+	if third.Stats.Rebuilt != 1 || third.Stats.Skipped != 0 {
+		t.Fatalf("expected rebuild after subtitle add, got %+v", third.Stats)
+	}
+	if len(third.Found) != 1 || len(third.Found[0].Subtitles) != 1 {
+		t.Fatalf("expected rebuilt video with subtitle, got %+v", third.Found)
 	}
 }
 

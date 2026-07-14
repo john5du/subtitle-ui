@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/scanner"
 	"subtitle-ui/backend/internal/subtitle"
 )
 
@@ -31,6 +32,10 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	if beforeErr != nil {
 		beforeVideos = []domain.Video{}
 	}
+	previousByPath := make(map[string]domain.Video, len(beforeVideos))
+	for _, video := range beforeVideos {
+		previousByPath[video.Path] = video
+	}
 
 	started := time.Now().UTC()
 	s.statusMu.Lock()
@@ -39,7 +44,9 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	s.statusMu.Unlock()
 
 	type scanResult struct {
-		videos        []domain.Video
+		found         []domain.Video
+		rebuilt       []domain.Video
+		skipped       int
 		replaceScopes []string
 		fullLibrary   bool
 		err           error
@@ -55,25 +62,73 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 			replaceScopes = nil
 		}
 
-		result := make([]domain.Video, 0, 256)
+		found := make([]domain.Video, 0, 256)
+		rebuilt := make([]domain.Video, 0, 64)
+		skipped := 0
+
 		var movieScanErr error
 		if len(movieTargets) > 0 {
-			movieVideos, err := s.scanner.ScanDirectoriesWithTypeCtx(ctx, movieTargets, domain.MediaTypeMovie)
+			movieResult, err := s.scanner.ScanDirectoriesIncrementalCtx(
+				ctx,
+				movieTargets,
+				domain.MediaTypeMovie,
+				previousByPath,
+				s.resolveVideoScanFingerprint,
+			)
 			movieScanErr = err
-			result = append(result, movieVideos...)
+			found = append(found, movieResult.Found...)
+			skipped += movieResult.Stats.Skipped
+			for _, video := range movieResult.Found {
+				if _, ok := movieResult.Rebuilt[video.Path]; ok {
+					rebuilt = append(rebuilt, video)
+				}
+			}
 		}
 
 		var tvScanErr error
 		if len(tvTargets) > 0 {
-			tvVideos, err := s.scanner.ScanDirectoriesWithTypeCtx(ctx, tvTargets, domain.MediaTypeTV)
+			tvResult, err := s.scanner.ScanDirectoriesIncrementalCtx(
+				ctx,
+				tvTargets,
+				domain.MediaTypeTV,
+				previousByPath,
+				s.resolveVideoScanFingerprint,
+			)
 			tvScanErr = err
-			result = append(result, tvVideos...)
+			found = append(found, tvResult.Found...)
+			skipped += tvResult.Stats.Skipped
+			for _, video := range tvResult.Found {
+				if _, ok := tvResult.Rebuilt[video.Path]; ok {
+					rebuilt = append(rebuilt, video)
+				}
+			}
 		}
 
-		result = s.assignPosterPaths(result)
+		rebuilt = s.assignPosterPaths(rebuilt)
+		for i := range rebuilt {
+			fp, size, modTime, fpErr := s.resolveVideoScanFingerprint(rebuilt[i].Path, rebuilt[i].MediaType)
+			if fpErr == nil {
+				rebuilt[i].ScanFingerprint = fp
+				rebuilt[i].FileSize = size
+				rebuilt[i].FileModTime = modTime
+			}
+		}
+
+		// Merge rebuilt (with poster/fingerprint) back into found for path completeness.
+		rebuiltByPath := make(map[string]domain.Video, len(rebuilt))
+		for _, video := range rebuilt {
+			rebuiltByPath[video.Path] = video
+		}
+		for i, video := range found {
+			if updated, ok := rebuiltByPath[video.Path]; ok {
+				found[i] = updated
+			}
+		}
 
 		done <- scanResult{
-			videos:        result,
+			found:         found,
+			rebuilt:       rebuilt,
+			skipped:       skipped,
 			replaceScopes: replaceScopes,
 			fullLibrary:   fullLibrary,
 			err: combineErrors(
@@ -93,7 +148,7 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	wipeGuardTripped := false
 	// Only refuse empty full-library scans. Partial scans may legitimately find
 	// zero videos under the selected directories without wiping the rest of the DB.
-	if !canceled && result.err == nil && result.fullLibrary && len(result.videos) == 0 && len(beforeVideos) > 0 {
+	if !canceled && result.err == nil && result.fullLibrary && len(result.found) == 0 && len(beforeVideos) > 0 {
 		wipeGuardTripped = true
 		result.err = fmt.Errorf(
 			"scan returned no videos but previous scan had %d; refusing to overwrite database (check media root access)",
@@ -102,8 +157,14 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	}
 
 	var saveErr error
-	if !canceled {
-		saveErr = s.store.SaveScanResult(result.videos, started, finished, errorString(result.err), result.replaceScopes)
+	if !canceled && !wipeGuardTripped {
+		saveErr = s.store.SaveScanReconcile(result.found, result.rebuilt, started, finished, errorString(result.err), result.replaceScopes)
+		if saveErr != nil {
+			result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
+		}
+	} else if !canceled && wipeGuardTripped {
+		// Record the failed run without mutating library rows.
+		saveErr = s.store.SaveScanReconcile(nil, nil, started, finished, errorString(result.err), result.replaceScopes)
 		if saveErr != nil {
 			result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
 		}
@@ -112,16 +173,17 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	currentVideos, currentErr := s.listAllVideos()
 	if currentErr != nil {
 		result.err = combineErrors(result.err, prefixedError("load current videos", currentErr))
-		currentVideos = result.videos
+		currentVideos = result.found
 	}
 
 	changes := calculateVideoChanges(beforeVideos, currentVideos)
 	scanMessage := fmt.Sprintf(
-		"videos=%d added=%d removed=%d updated=%d",
+		"videos=%d added=%d removed=%d updated=%d skipped=%d",
 		len(currentVideos),
 		changes.Added,
 		changes.Removed,
 		changes.Updated,
+		result.skipped,
 	)
 	if beforeErr != nil {
 		scanMessage += fmt.Sprintf("; baseline unavailable: %v", beforeErr)
@@ -150,6 +212,31 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 		status.Error = result.err.Error()
 	}
 	return status
+}
+
+func (s *Service) resolveVideoScanFingerprint(videoPath string, mediaType string) (string, int64, time.Time, error) {
+	posterPath := s.discoverPosterPathForScan(videoPath, mediaType)
+	return scanner.ComputeMediaFingerprint(videoPath, mediaType, posterPath)
+}
+
+func (s *Service) discoverPosterPathForScan(videoPath string, mediaType string) string {
+	absPath, err := filepath.Abs(videoPath)
+	if err != nil {
+		return ""
+	}
+	stub := domain.Video{
+		Path:      absPath,
+		Directory: filepath.Dir(absPath),
+		FileName:  filepath.Base(absPath),
+		MediaType: mediaType,
+	}
+	cache := make(map[string]string, 1)
+	switch normalizePosterMediaType(mediaType) {
+	case domain.MediaTypeTV:
+		return s.findTVPosterPath(stub, cache)
+	default:
+		return s.findMoviePosterPath(stub, cache)
+	}
 }
 
 func (s *Service) DiscoverDirectories(ctx context.Context) domain.DirectoryScanResult {

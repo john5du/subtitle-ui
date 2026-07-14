@@ -21,7 +21,7 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 		pageSize = 200
 	}
 
-	baseQuery := `SELECT id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, updated_at FROM videos`
+	baseQuery := `SELECT id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at FROM videos`
 	args := []any{}
 	conditions := make([]string, 0, 2)
 
@@ -88,14 +88,16 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 
 func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 	row := s.queryRow(
-		`SELECT id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, updated_at FROM videos WHERE id = ?`,
+		`SELECT id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at FROM videos WHERE id = ?`,
 		videoID,
 	)
 
 	var (
-		video      domain.Video
-		posterPath string
-		updatedRaw string
+		video         domain.Video
+		posterPath    string
+		fileModRaw    string
+		fingerprint   string
+		updatedRaw    string
 	)
 	err := row.Scan(
 		&video.ID,
@@ -114,6 +116,9 @@ func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 		&video.SeriesImdbID,
 		&video.SeriesTmdbID,
 		&posterPath,
+		&video.FileSize,
+		&fileModRaw,
+		&fingerprint,
 		&updatedRaw,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -123,6 +128,10 @@ func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 		return domain.Video{}, false, err
 	}
 	video.PosterPath = posterPath
+	video.ScanFingerprint = fingerprint
+	if strings.TrimSpace(fileModRaw) != "" {
+		video.FileModTime = parseTimeOrNow(fileModRaw)
+	}
 	video.UpdatedAt = parseTimeOrNow(updatedRaw)
 
 	subs, err := s.listSubtitlesByVideoID(video.ID)
@@ -469,9 +478,11 @@ func defaultMediaType(mediaType string) string {
 
 func scanVideoRow(rows *sql.Rows) (domain.Video, error) {
 	var (
-		video      domain.Video
-		posterPath string
-		updatedRaw string
+		video       domain.Video
+		posterPath  string
+		fileModRaw  string
+		fingerprint string
+		updatedRaw  string
 	)
 	if err := rows.Scan(
 		&video.ID,
@@ -490,11 +501,18 @@ func scanVideoRow(rows *sql.Rows) (domain.Video, error) {
 		&video.SeriesImdbID,
 		&video.SeriesTmdbID,
 		&posterPath,
+		&video.FileSize,
+		&fileModRaw,
+		&fingerprint,
 		&updatedRaw,
 	); err != nil {
 		return domain.Video{}, err
 	}
 	video.PosterPath = posterPath
+	video.ScanFingerprint = fingerprint
+	if strings.TrimSpace(fileModRaw) != "" {
+		video.FileModTime = parseTimeOrNow(fileModRaw)
+	}
 	video.UpdatedAt = parseTimeOrNow(updatedRaw)
 	return video, nil
 }

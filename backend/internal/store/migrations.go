@@ -374,6 +374,34 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 		}
 	}
 
+	applied, err = s.isMigrationApplied(8)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		for _, column := range []struct {
+			name      string
+			statement string
+		}{
+			{name: "file_size", statement: `ALTER TABLE videos ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0`},
+			{name: "file_mod_time", statement: `ALTER TABLE videos ADD COLUMN file_mod_time TEXT NOT NULL DEFAULT ''`},
+			{name: "scan_fingerprint", statement: `ALTER TABLE videos ADD COLUMN scan_fingerprint TEXT NOT NULL DEFAULT ''`},
+		} {
+			hasColumn, err := s.hasColumn("videos", column.name)
+			if err != nil {
+				return err
+			}
+			if !hasColumn {
+				if _, err := s.exec(column.statement); err != nil {
+					return fmt.Errorf("apply migration v8 %s: %w", column.name, err)
+				}
+			}
+		}
+		if _, err := s.exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 8, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
 	if s.dialect == dialectPostgres {
 		if _, err := s.exec(`
 CREATE TABLE IF NOT EXISTS data_migrations (

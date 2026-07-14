@@ -120,6 +120,15 @@ func (s *Store) migrateInitialSQLiteData(sqlitePath string) error {
 	} else if hasTitleSortKey {
 		videoColumns = append(videoColumns, "title_sort_key")
 	}
+	for _, column := range []string{"file_size", "file_mod_time", "scan_fingerprint"} {
+		hasColumn, err := source.hasColumn("videos", column)
+		if err != nil {
+			return err
+		}
+		if hasColumn {
+			videoColumns = append(videoColumns, column)
+		}
+	}
 	if _, err := s.copyTableRowsTx(tx, source, "videos", videoColumns, "id"); err != nil {
 		return err
 	}

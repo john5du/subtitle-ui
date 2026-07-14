@@ -32,6 +32,9 @@ type Video struct {
 	SeriesTmdbID        string     `json:"seriesTmdbId,omitempty"`
 	PosterPath          string     `json:"-"`
 	PosterURL           string     `json:"posterUrl,omitempty"`
+	FileSize            int64      `json:"-"`
+	FileModTime         time.Time  `json:"-"`
+	ScanFingerprint     string     `json:"-"`
 	Subtitles           []Subtitle `json:"subtitles"`
 	UpdatedAt           time.Time  `json:"updatedAt"`
 }

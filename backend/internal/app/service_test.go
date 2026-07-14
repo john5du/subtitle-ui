@@ -1017,6 +1017,88 @@ func TestRunFileScanPersistsPosterPaths(t *testing.T) {
 	}
 }
 
+func TestRunFileScanSkipsUnchangedVideos(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	movieDir := filepath.Join(movieRoot, "Movie A")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatalf("mkdir movie dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write video: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.nfo"), []byte(sampleNFO("Movie A", "2025")), 0o644); err != nil {
+		t.Fatalf("write nfo: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	status := svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("first scan status error: %s", status.Error)
+	}
+	firstLog, ok := latestLogByAction(svc.ListLogs(20), "scan")
+	if !ok {
+		t.Fatalf("expected first scan log")
+	}
+	if !strings.Contains(firstLog.Message, "added=1") {
+		t.Fatalf("expected added=1 on first scan, got %q", firstLog.Message)
+	}
+
+	status = svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("second scan status error: %s", status.Error)
+	}
+	secondLog, ok := latestLogByAction(svc.ListLogs(20), "scan")
+	if !ok {
+		t.Fatalf("expected second scan log")
+	}
+	if !strings.Contains(secondLog.Message, "skipped=1") {
+		t.Fatalf("expected skipped=1 on unchanged rescan, got %q", secondLog.Message)
+	}
+	if !strings.Contains(secondLog.Message, "added=0") || !strings.Contains(secondLog.Message, "updated=0") {
+		t.Fatalf("expected no add/update on unchanged rescan, got %q", secondLog.Message)
+	}
+
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.zh.srt"), []byte("1\n00:00:01,000 --> 00:00:02,000\nhi\n"), 0o644); err != nil {
+		t.Fatalf("write subtitle: %v", err)
+	}
+	status = svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("third scan status error: %s", status.Error)
+	}
+	thirdLog, ok := latestLogByAction(svc.ListLogs(20), "scan")
+	if !ok {
+		t.Fatalf("expected third scan log")
+	}
+	if !strings.Contains(thirdLog.Message, "updated=1") {
+		t.Fatalf("expected updated=1 after subtitle add, got %q", thirdLog.Message)
+	}
+
+	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	if len(page.Items) != 1 || len(page.Items[0].Subtitles) != 1 {
+		t.Fatalf("expected one video with one subtitle after rescan, got %+v", page.Items)
+	}
+}
+
 func TestRunFileScanMarksPosterChangesAsVideoUpdates(t *testing.T) {
 	base := t.TempDir()
 	movieRoot := filepath.Join(base, "movies")

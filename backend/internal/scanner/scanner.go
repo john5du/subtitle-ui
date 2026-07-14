@@ -151,6 +151,18 @@ var errMetadataNotFound = errors.New("metadata nfo not found")
 
 type Scanner struct{}
 
+type ScanStats struct {
+	Found   int
+	Rebuilt int
+	Skipped int
+}
+
+type IncrementalScanResult struct {
+	Found   []domain.Video
+	Rebuilt map[string]struct{}
+	Stats   ScanStats
+}
+
 type nfoMetadata struct {
 	Title         string `xml:"title"`
 	OriginalTitle string `xml:"originaltitle"`
@@ -176,12 +188,30 @@ func (s *Scanner) ScanDirectoriesWithType(roots []string, mediaType string) ([]d
 }
 
 func (s *Scanner) ScanDirectoriesWithTypeCtx(ctx context.Context, roots []string, mediaType string) ([]domain.Video, error) {
+	result, err := s.ScanDirectoriesIncrementalCtx(ctx, roots, mediaType, nil, nil)
+	return result.Found, err
+}
+
+// ScanDirectoriesIncrementalCtx walks roots and reuses previous rows when
+// resolveFingerprint matches the stored ScanFingerprint. previous is keyed by
+// absolute path. resolveFingerprint must return the same fingerprint that will
+// be stored after a rebuild (including poster component).
+func (s *Scanner) ScanDirectoriesIncrementalCtx(
+	ctx context.Context,
+	roots []string,
+	mediaType string,
+	previous map[string]domain.Video,
+	resolveFingerprint func(videoPath string, mediaType string) (string, int64, time.Time, error),
+) (IncrementalScanResult, error) {
 	uniqueRoots := uniqueAbsDirectories(roots)
+	out := IncrementalScanResult{
+		Found:   make([]domain.Video, 0, 128),
+		Rebuilt: make(map[string]struct{}, 64),
+	}
 	if len(uniqueRoots) == 0 {
-		return []domain.Video{}, nil
+		return out, nil
 	}
 
-	videos := make([]domain.Video, 0, 128)
 	seenVideoPath := make(map[string]struct{}, 256)
 	var scanErrs []error
 
@@ -221,11 +251,38 @@ func (s *Scanner) ScanDirectoriesWithTypeCtx(ctx context.Context, roots []string
 			}
 			seenVideoPath[videoPath] = struct{}{}
 
+			dir := filepath.Dir(videoPath)
+			base := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
+			if !hasMetadataSidecar(dir, base, mediaType) {
+				return nil
+			}
+
+			if previous != nil && resolveFingerprint != nil {
+				if prev, ok := previous[videoPath]; ok {
+					fp := strings.TrimSpace(prev.ScanFingerprint)
+					if fp != "" {
+						diskFP, size, modTime, fpErr := resolveFingerprint(videoPath, mediaType)
+						if fpErr == nil && diskFP == fp {
+							reused := prev
+							reused.FileSize = size
+							reused.FileModTime = modTime
+							out.Found = append(out.Found, reused)
+							out.Stats.Found++
+							out.Stats.Skipped++
+							return nil
+						}
+					}
+				}
+			}
+
 			video, buildErr := s.buildVideo(videoPath, mediaType)
 			if buildErr != nil {
 				return nil
 			}
-			videos = append(videos, video)
+			out.Found = append(out.Found, video)
+			out.Rebuilt[video.Path] = struct{}{}
+			out.Stats.Found++
+			out.Stats.Rebuilt++
 			return nil
 		})
 		if walkErr != nil {
@@ -233,17 +290,17 @@ func (s *Scanner) ScanDirectoriesWithTypeCtx(ctx context.Context, roots []string
 		}
 	}
 
-	sort.Slice(videos, func(i int, j int) bool {
-		if videos[i].Title == videos[j].Title {
-			return videos[i].Path < videos[j].Path
+	sort.Slice(out.Found, func(i int, j int) bool {
+		if out.Found[i].Title == out.Found[j].Title {
+			return out.Found[i].Path < out.Found[j].Path
 		}
-		return videos[i].Title < videos[j].Title
+		return out.Found[i].Title < out.Found[j].Title
 	})
 
 	if len(scanErrs) > 0 {
-		return videos, joinErrors(scanErrs)
+		return out, joinErrors(scanErrs)
 	}
-	return videos, nil
+	return out, nil
 }
 
 func (s *Scanner) DiscoverDirectories(root string, mediaType string) ([]domain.ScanDirectory, error) {
@@ -418,6 +475,13 @@ func (s *Scanner) buildVideo(path string, mediaType string) (domain.Video, error
 		subtitles = []domain.Subtitle{}
 	}
 
+	var fileSize int64
+	var fileModTime time.Time
+	if info, statErr := os.Stat(absPath); statErr == nil {
+		fileSize = info.Size()
+		fileModTime = info.ModTime().UTC()
+	}
+
 	return domain.Video{
 		ID:                  makeID(absPath),
 		Path:                absPath,
@@ -434,6 +498,8 @@ func (s *Scanner) buildVideo(path string, mediaType string) (domain.Video, error
 		SeriesOriginalTitle: seriesMetadata.OriginalTitle,
 		SeriesImdbID:        seriesMetadata.ImdbID,
 		SeriesTmdbID:        seriesMetadata.TmdbID,
+		FileSize:            fileSize,
+		FileModTime:         fileModTime,
 		Subtitles:           subtitles,
 		UpdatedAt:           time.Now().UTC(),
 	}, nil
