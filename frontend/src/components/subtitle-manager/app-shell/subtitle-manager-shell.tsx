@@ -146,7 +146,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
   );
 
   return (
-    <div key={activeTab} className="animate-fade-in-up flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       {activeTab === "dashboard" && (
         <div className="min-h-0 flex-1 lg:h-full">
           <DashboardPanel

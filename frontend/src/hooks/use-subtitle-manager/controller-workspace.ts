@@ -245,7 +245,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       page: 1,
       pageSize: next
     }));
-    void loadMovieVideos({ page: 1, pageSize: next, force: true });
+    void loadMovieVideos({ page: 1, pageSize: next, force: true, quiet: true });
   }
 
   function setTvPage(nextPage: number) {
@@ -270,7 +270,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       page: 1,
       pageSize: next
     }));
-    void loadTvSeriesPage({ page: 1, pageSize: next, force: true });
+    void loadTvSeriesPage({ page: 1, pageSize: next, force: true, quiet: true });
   }
 
   function setLogsPage(nextPage: number) {

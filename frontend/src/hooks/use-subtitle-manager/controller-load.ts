@@ -28,12 +28,13 @@ export function createLoadActions(runtime: ControllerRuntime) {
     reportRequestError
   } = runtime;
 
-  async function loadMovieVideos(options: { page?: number; pageSize?: number; force?: boolean } = {}) {
+  async function loadMovieVideos(options: { page?: number; pageSize?: number; force?: boolean; quiet?: boolean } = {}) {
     const state = runtime.state;
     const page = options.page || state.moviePager.page || 1;
     const pageSize = options.pageSize || state.moviePager.pageSize || DEFAULT_PAGE_SIZE;
     const query = state.queryByType.movie || "";
     const signature = buildRequestSignature(["movie", page, pageSize, state.movieSortBy, state.movieSortOrder, query.trim()]);
+    const quiet = Boolean(options.quiet) && state.movieVideos.length > 0;
 
     if (!options.force && refs.loadedMovieListSignatureRef.current === signature) {
       return;
@@ -52,8 +53,10 @@ export function createLoadActions(runtime: ControllerRuntime) {
     const controller = new AbortController();
 
     const promise = (async () => {
-      beginLoadChannel("movieList");
-      beginLoading();
+      if (!quiet) {
+        beginLoadChannel("movieList");
+        beginLoading();
+      }
       try {
         const params = new URLSearchParams();
         params.set("mediaType", "movie");
@@ -90,8 +93,10 @@ export function createLoadActions(runtime: ControllerRuntime) {
         if (refs.pendingMovieListRequestRef.current?.signature === signature) {
           refs.pendingMovieListRequestRef.current = null;
         }
-        endLoading();
-        endLoadChannel("movieList");
+        if (!quiet) {
+          endLoading();
+          endLoadChannel("movieList");
+        }
       }
     })();
 
@@ -108,12 +113,13 @@ export function createLoadActions(runtime: ControllerRuntime) {
     }
   }
 
-  async function loadTvSeriesPage(options: { page?: number; pageSize?: number; force?: boolean } = {}) {
+  async function loadTvSeriesPage(options: { page?: number; pageSize?: number; force?: boolean; quiet?: boolean } = {}) {
     const state = runtime.state;
     const page = options.page || state.tvSeriesPager.page || 1;
     const pageSize = options.pageSize || state.tvSeriesPager.pageSize || DEFAULT_PAGE_SIZE;
     const query = state.queryByType.tv || "";
     const signature = buildRequestSignature(["tv-series", page, pageSize, state.tvSeriesSortBy, state.tvSeriesSortOrder, query.trim()]);
+    const quiet = Boolean(options.quiet) && state.tvSeriesRows.length > 0;
 
     if (!options.force && refs.loadedTvSeriesSignatureRef.current === signature) {
       return state.tvSeriesRows;
@@ -132,8 +138,10 @@ export function createLoadActions(runtime: ControllerRuntime) {
     const controller = new AbortController();
 
     const promise = (async () => {
-      beginLoadChannel("tvSeriesList");
-      beginLoading();
+      if (!quiet) {
+        beginLoadChannel("tvSeriesList");
+        beginLoading();
+      }
       try {
         const params = new URLSearchParams();
         params.set("page", String(page));
@@ -171,8 +179,10 @@ export function createLoadActions(runtime: ControllerRuntime) {
         if (refs.pendingTvSeriesRequestRef.current?.signature === signature) {
           refs.pendingTvSeriesRequestRef.current = null;
         }
-        endLoading();
-        endLoadChannel("tvSeriesList");
+        if (!quiet) {
+          endLoading();
+          endLoadChannel("tvSeriesList");
+        }
       }
     })();
 

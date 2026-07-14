@@ -241,8 +241,8 @@ export interface SubtitleManagerController extends SubtitleManagerActions {
   loadDirectoryScanResult: () => Promise<string>;
   loadLogs: (options?: { page?: number }) => Promise<void>;
   clearLogs: () => Promise<boolean>;
-  loadMovieVideos: (options?: { page?: number; pageSize?: number; force?: boolean }) => Promise<void>;
-  loadTvSeriesPage: (options?: { page?: number; pageSize?: number; force?: boolean }) => Promise<TvSeriesSummary[]>;
+  loadMovieVideos: (options?: { page?: number; pageSize?: number; force?: boolean; quiet?: boolean }) => Promise<void>;
+  loadTvSeriesPage: (options?: { page?: number; pageSize?: number; force?: boolean; quiet?: boolean }) => Promise<TvSeriesSummary[]>;
   refreshTvVideosForPath: (seriesPath: string) => Promise<Video[]>;
   loadMovieWorkspace: () => Promise<void>;
   loadTvWorkspace: (seriesPath?: string) => Promise<Video[]>;
