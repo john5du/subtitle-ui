@@ -200,8 +200,8 @@ export function TvSubtitleDrawer({
       )}
 
       <Dialog open={batchDialogOpen} onOpenChange={handleBatchDialogOpenChange}>
-        <DialogContent className="flex h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] flex-col gap-3 overflow-hidden sm:h-[min(90vh,880px)] sm:max-h-[90vh] sm:max-w-5xl">
-          <DialogHeader className="shrink-0">
+        <DialogContent className="flex h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] flex-col overflow-hidden sm:h-[min(90vh,880px)] sm:max-h-[90vh] sm:max-w-4xl">
+          <DialogHeader>
             <DialogTitle>{t("tv.seasonBatchAction")}</DialogTitle>
             <DialogDescription>
               {t("batch.dialogDescriptionShort", {

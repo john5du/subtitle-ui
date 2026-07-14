@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ArrowRightLeft, Check, CircleAlert, Languages, TriangleAlert } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
@@ -11,6 +13,7 @@ import type {
   SubtitleNormalizeItem,
   SubtitleNormalizePlan
 } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,6 +27,77 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { InlinePending } from "../../shared/pending-state";
+
+type BubblePos = { top: number; left: number; width: number; placement: "below" | "above" };
+
+function measureBubbleSize(text: string): { width: number; height: number } {
+  if (typeof document === "undefined") {
+    return { width: Math.min(160, Math.max(48, text.length * 8 + 20)), height: 32 };
+  }
+  const el = document.createElement("div");
+  el.style.cssText = [
+    "position:fixed",
+    "visibility:hidden",
+    "pointer-events:none",
+    "left:-9999px",
+    "top:0",
+    "z-index:-1",
+    "box-sizing:border-box",
+    "padding:8px 10px",
+    "font-size:12px",
+    "line-height:1.5",
+    "font-weight:400",
+    "width:max-content",
+    "white-space:nowrap"
+  ].join(";");
+  el.textContent = text;
+  document.body.appendChild(el);
+  const rect = el.getBoundingClientRect();
+  document.body.removeChild(el);
+  return {
+    width: Math.max(48, Math.ceil(rect.width)),
+    height: Math.max(28, Math.ceil(rect.height))
+  };
+}
+
+function bubbleStyle(
+  anchor: DOMRect,
+  text: string,
+  align: "start" | "end" | "center" = "end"
+): BubblePos {
+  const gap = 8;
+  const viewportPad = 8;
+  const size = measureBubbleSize(text);
+  const width = size.width;
+  const height = size.height;
+  const spaceBelow = window.innerHeight - anchor.bottom;
+  const spaceAbove = anchor.top;
+  const placement: "below" | "above" =
+    spaceBelow >= height + gap
+      ? "below"
+      : spaceAbove >= height + gap
+        ? "above"
+        : spaceBelow >= spaceAbove
+          ? "below"
+          : "above";
+  const top =
+    placement === "below"
+      ? anchor.bottom + gap
+      : Math.max(viewportPad, anchor.top - gap - height);
+  let left =
+    align === "start"
+      ? anchor.left
+      : align === "center"
+        ? anchor.left + anchor.width / 2 - width / 2
+        : anchor.right - width;
+  // Keep bubble fully visible when possible; if wider than viewport, pin to left edge (no text clip).
+  if (width + viewportPad * 2 <= window.innerWidth) {
+    left = Math.min(Math.max(viewportPad, left), window.innerWidth - width - viewportPad);
+  } else {
+    left = viewportPad;
+  }
+  return { top, left, width, placement };
+}
 
 export type NormalizeDialogScope =
   | { kind: "video"; videoId: string }
@@ -47,6 +121,124 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
   const [error, setError] = useState("");
   const [items, setItems] = useState<SubtitleNormalizeItem[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [statusPopoverKey, setStatusPopoverKey] = useState<string | null>(null);
+  const [statusBubble, setStatusBubble] = useState<{ key: string; label: string; pos: BubblePos } | null>(null);
+  const [helpBubblePos, setHelpBubblePos] = useState<BubblePos | null>(null);
+  const helpButtonRef = useRef<HTMLButtonElement | null>(null);
+  const helpBubbleRef = useRef<HTMLDivElement | null>(null);
+  const statusButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const statusBubbleRef = useRef<HTMLDivElement | null>(null);
+
+  function closeBubbles() {
+    setHelpOpen(false);
+    setHelpBubblePos(null);
+    setStatusPopoverKey(null);
+    setStatusBubble(null);
+  }
+
+  function openHelpBubble() {
+    const button = helpButtonRef.current;
+    if (!button) {
+      return;
+    }
+    const rect = button.getBoundingClientRect();
+    const text = t("normalize.description");
+    setHelpBubblePos(bubbleStyle(rect, text, "start"));
+    setHelpOpen(true);
+    setStatusPopoverKey(null);
+    setStatusBubble(null);
+  }
+
+  function openStatusBubble(key: string, label: string) {
+    const button = statusButtonRefs.current[key];
+    if (!button) {
+      return;
+    }
+    const rect = button.getBoundingClientRect();
+    setStatusBubble({
+      key,
+      label,
+      pos: bubbleStyle(rect, label, "end")
+    });
+    setStatusPopoverKey(key);
+    setHelpOpen(false);
+    setHelpBubblePos(null);
+  }
+
+  useEffect(() => {
+    if (!open) {
+      closeBubbles();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!helpOpen && !statusBubble) {
+      return;
+    }
+    function onPointerDown(event: MouseEvent | TouchEvent) {
+      const target = event.target as Node | null;
+      if (!target) {
+        return;
+      }
+      if (helpOpen) {
+        const inButton = helpButtonRef.current?.contains(target);
+        const inBubble = helpBubbleRef.current?.contains(target);
+        if (!inButton && !inBubble) {
+          setHelpOpen(false);
+          setHelpBubblePos(null);
+        }
+      }
+      if (statusBubble) {
+        const inButton = statusButtonRefs.current[statusBubble.key]?.contains(target);
+        const inBubble = statusBubbleRef.current?.contains(target);
+        if (!inButton && !inBubble) {
+          setStatusPopoverKey(null);
+          setStatusBubble(null);
+        }
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeBubbles();
+      }
+    }
+    function onReposition() {
+      if (helpOpen && helpButtonRef.current) {
+        setHelpBubblePos(
+          bubbleStyle(helpButtonRef.current.getBoundingClientRect(), t("normalize.description"), "start")
+        );
+      }
+      if (statusBubble) {
+        const button = statusButtonRefs.current[statusBubble.key];
+        if (button) {
+          setStatusBubble((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  pos: bubbleStyle(button.getBoundingClientRect(), prev.label, "end")
+                }
+              : null
+          );
+        } else {
+          setStatusPopoverKey(null);
+          setStatusBubble(null);
+        }
+      }
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onReposition);
+    window.addEventListener("scroll", onReposition, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onReposition);
+      window.removeEventListener("scroll", onReposition, true);
+    };
+  }, [helpOpen, statusBubble]);
 
   useEffect(() => {
     if (!open || !scope) {
@@ -58,6 +250,7 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
       setError("");
       setItems([]);
       setSelected({});
+      closeBubbles();
       try {
         let plan: SubtitleNormalizePlan;
         if (scope!.kind === "video") {
@@ -166,119 +359,228 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
     }
   }
 
-  function statusLabel(status: string) {
-    switch (status) {
+  function statusMeta(item: SubtitleNormalizeItem) {
+    const bilingual = item.reason === "bilingual detected";
+    switch (item.status) {
       case "rename":
-        return t("normalize.status.rename");
+        return {
+          label: bilingual ? `${t("normalize.status.rename")} · ${t("normalize.reason.bilingual")}` : t("normalize.status.rename"),
+          icon: bilingual ? Languages : ArrowRightLeft,
+          className: bilingual ? "text-primary" : "text-foreground"
+        };
       case "noop":
-        return t("normalize.status.noop");
+        return {
+          label: t("normalize.status.noop"),
+          icon: Check,
+          className: "text-emerald-600 dark:text-emerald-400"
+        };
       case "skip_conflict":
-        return t("normalize.status.conflict");
+        return {
+          label: item.reason ? `${t("normalize.status.conflict")}: ${item.reason}` : t("normalize.status.conflict"),
+          icon: TriangleAlert,
+          className: "text-amber-600 dark:text-amber-400"
+        };
       default:
-        return status;
+        return {
+          label: item.status,
+          icon: TriangleAlert,
+          className: "text-muted-foreground"
+        };
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="flex h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] flex-col overflow-hidden sm:h-[min(90vh,880px)] sm:max-h-[90vh] sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>{t("normalize.title")}</DialogTitle>
-          <DialogDescription>{t("normalize.description")}</DialogDescription>
+          <DialogTitle className="flex items-center gap-1.5">
+            <span>{t("normalize.title")}</span>
+            <button
+              ref={helpButtonRef}
+              type="button"
+              className={cn(
+                "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                helpOpen && "bg-muted text-foreground"
+              )}
+              aria-expanded={helpOpen}
+              aria-haspopup="dialog"
+              aria-controls="normalize-help-popover"
+              aria-label={t("normalize.description")}
+              onClick={() => {
+                if (helpOpen) {
+                  setHelpOpen(false);
+                  setHelpBubblePos(null);
+                } else {
+                  openHelpBubble();
+                }
+              }}
+            >
+              <CircleAlert className="h-4 w-4" aria-hidden />
+            </button>
+          </DialogTitle>
+          <DialogDescription className="sr-only">{t("normalize.description")}</DialogDescription>
         </DialogHeader>
 
-        {loading ? <InlinePending label={t("normalize.loading")} /> : null}
-        {error ? <div className="surface-status-destructive border p-2 text-sm">{error}</div> : null}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+          {loading ? <InlinePending label={t("normalize.loading")} /> : null}
+          {error ? <div className="surface-status-destructive border p-2 text-sm">{error}</div> : null}
 
-        {!loading && !error && items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("normalize.empty")}</p>
-        ) : null}
-
-        {!loading && items.length > 0 ? (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 accent-primary"
-                  checked={renameable.length > 0 && selectedCount === renameable.length}
-                  disabled={renameable.length === 0 || applying}
-                  onChange={(event) => toggleAll(event.target.checked)}
-                />
-                {t("normalize.selectRenames", { count: String(selectedCount) })}
-              </label>
-              <span>
-                {t("normalize.counts", {
-                  total: String(items.length),
-                  rename: String(renameable.length)
-                })}
-              </span>
+          {!loading && !error && items.length === 0 ? (
+            <div className="surface-panel flex min-h-[200px] flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
+              {t("normalize.empty")}
             </div>
-            <ScrollArea className="max-h-[50vh] rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10" />
-                    <TableHead>{t("normalize.from")}</TableHead>
-                    <TableHead>{t("normalize.to")}</TableHead>
-                    <TableHead className="w-28">{t("normalize.statusLabel")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => {
-                    const key = itemKey(item);
-                    const canSelect = item.status === "rename";
-                    return (
-                      <TableRow key={key}>
-                        <TableCell>
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 accent-primary"
-                            checked={Boolean(selected[key])}
-                            disabled={!canSelect || applying}
-                            onChange={(event) =>
-                              setSelected((prev) => ({
-                                ...prev,
-                                [key]: event.target.checked
-                              }))
-                            }
-                          />
-                        </TableCell>
-                        <TableCell className="max-w-[220px] truncate font-mono text-xs" title={item.fromFileName}>
-                          {item.fromFileName}
-                        </TableCell>
-                        <TableCell className="max-w-[220px] truncate font-mono text-xs" title={item.toFileName}>
-                          {item.toFileName}
-                          {item.toLabel ? (
-                            <span className="ml-1 text-muted-foreground">({item.toLabel})</span>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          <span title={item.reason || undefined}>
-                            {statusLabel(item.status)}
-                            {item.reason === "bilingual detected" ? (
-                              <span className="ml-1 text-primary">({t("normalize.reason.bilingual")})</span>
-                            ) : null}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    );
+          ) : null}
+
+          {!loading && items.length > 0 ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={renameable.length === 0 || applying}
+                  onClick={() => toggleAll(!(renameable.length > 0 && selectedCount === renameable.length))}
+                >
+                  {renameable.length > 0 && selectedCount === renameable.length
+                    ? t("tv.batchDeleteClearSelection")
+                    : t("tv.batchDeleteSelectAll")}
+                </Button>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {t("normalize.selectRenames", { count: String(selectedCount) })}
+                  <span className="mx-1.5 text-border">·</span>
+                  {t("normalize.counts", {
+                    total: String(items.length),
+                    rename: String(renameable.length)
                   })}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </div>
-        ) : null}
+                </span>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <ScrollArea className="h-full">
+                  <Table className="w-full table-fixed" containerClassName="overflow-x-hidden border-0 rounded-none">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10" />
+                        <TableHead>{t("normalize.from")}</TableHead>
+                        <TableHead>{t("normalize.to")}</TableHead>
+                        <TableHead className="w-12 text-center" title={t("normalize.statusLabel")}>
+                          <span className="sr-only">{t("normalize.statusLabel")}</span>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {items.map((item) => {
+                        const key = itemKey(item);
+                        const canSelect = item.status === "rename";
+                        const status = statusMeta(item);
+                        const StatusIcon = status.icon;
+                        return (
+                          <TableRow key={key}>
+                            <TableCell className="w-10">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 accent-primary"
+                                checked={Boolean(selected[key])}
+                                disabled={!canSelect || applying}
+                                onChange={(event) =>
+                                  setSelected((prev) => ({
+                                    ...prev,
+                                    [key]: event.target.checked
+                                  }))
+                                }
+                              />
+                            </TableCell>
+                            <TableCell className="min-w-0 overflow-hidden font-mono text-xs">
+                              <span className="block truncate" title={item.fromFileName}>
+                                {item.fromFileName}
+                              </span>
+                            </TableCell>
+                            <TableCell className="min-w-0 overflow-hidden font-mono text-xs">
+                              <span
+                                className="block truncate"
+                                title={item.toLabel ? `${item.toFileName} (${item.toLabel})` : item.toFileName}
+                              >
+                                {item.toFileName}
+                                {item.toLabel ? <span className="ml-1 text-muted-foreground">({item.toLabel})</span> : null}
+                              </span>
+                            </TableCell>
+                            <TableCell className="w-12 text-center">
+                              <button
+                                ref={(node) => {
+                                  statusButtonRefs.current[key] = node;
+                                }}
+                                type="button"
+                                className={cn(
+                                  "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                  status.className,
+                                  statusPopoverKey === key && "bg-muted"
+                                )}
+                                aria-expanded={statusPopoverKey === key}
+                                aria-haspopup="dialog"
+                                aria-label={status.label}
+                                onClick={() => {
+                                  if (statusPopoverKey === key) {
+                                    setStatusPopoverKey(null);
+                                    setStatusBubble(null);
+                                  } else {
+                                    openStatusBubble(key, status.label);
+                                  }
+                                }}
+                              >
+                                <StatusIcon className="h-4 w-4 shrink-0" aria-hidden />
+                              </button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </div>
+            </>
+          ) : null}
+
+          {applying ? <p className="text-xs text-muted-foreground">{t("normalize.applying")}</p> : null}
+        </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" disabled={applying} onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </Button>
-          <Button type="button" disabled={loading || applying || selectedCount === 0} onClick={() => void handleApply()}>
+          <Button type="button" variant="default" disabled={loading || applying || selectedCount === 0} onClick={() => void handleApply()}>
             {applying ? t("normalize.applying") : t("normalize.apply", { count: String(selectedCount) })}
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {typeof document !== "undefined" && helpOpen && helpBubblePos
+        ? createPortal(
+            <div
+              ref={helpBubbleRef}
+              id="normalize-help-popover"
+              role="tooltip"
+              className="fixed z-[200] w-max max-w-none rounded-md border border-border bg-popover px-2.5 py-2 text-left text-xs font-normal leading-none text-popover-foreground shadow-lg"
+              style={{ top: helpBubblePos.top, left: helpBubblePos.left, width: helpBubblePos.width }}
+            >
+              <p className="whitespace-nowrap">{t("normalize.description")}</p>
+            </div>,
+            document.body
+          )
+        : null}
+
+      {typeof document !== "undefined" && statusBubble
+        ? createPortal(
+            <div
+              ref={statusBubbleRef}
+              role="tooltip"
+              className="fixed z-[200] w-max max-w-none rounded-md border border-border bg-popover px-2.5 py-2 text-left text-xs font-normal leading-none text-popover-foreground shadow-lg"
+              style={{ top: statusBubble.pos.top, left: statusBubble.pos.left, width: statusBubble.pos.width }}
+            >
+              <p className="whitespace-nowrap">{statusBubble.label}</p>
+            </div>,
+            document.body
+          )
+        : null}
     </Dialog>
   );
 }

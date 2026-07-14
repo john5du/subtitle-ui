@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
-import { describeSubtitleLanguage } from "@/lib/subtitle-language";
+import { subtitleLanguageDisplayText } from "@/lib/subtitle-language";
 import type { BatchSubtitleDeleteItem, BatchSubtitleUploadResult, Subtitle, TvSeasonOption, Video } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -178,7 +178,7 @@ export function TvBatchDeleteDialog({
           onOpenChange(next);
         }}
       >
-        <DialogContent className="flex max-h-[min(92dvh,100%)] flex-col overflow-hidden sm:max-h-[90vh] sm:max-w-4xl">
+        <DialogContent className="flex h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] flex-col overflow-hidden sm:h-[min(90vh,880px)] sm:max-h-[90vh] sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{t("tv.batchDeleteTitle")}</DialogTitle>
             <DialogDescription>
@@ -217,7 +217,7 @@ export function TvBatchDeleteDialog({
                   {t("common.noSubtitles")}
                 </div>
               ) : (
-                <ScrollArea className="h-[min(52vh,480px)]">
+                <ScrollArea className="h-full">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -263,11 +263,11 @@ export function TvBatchDeleteDialog({
                                 {row.subtitle.fileName}
                               </div>
                             </TableCell>
-                            <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                              {(() => {
-                                const lang = describeSubtitleLanguage(row.subtitle.language);
-                                return lang.labelKey ? t(lang.labelKey) : lang.code || "-";
-                              })()}
+                            <TableCell
+                              className="hidden sm:table-cell text-sm text-muted-foreground"
+                              title={row.subtitle.language || undefined}
+                            >
+                              {subtitleLanguageDisplayText(row.subtitle.language, t)}
                             </TableCell>
                             <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                               {row.subtitle.format || "-"}

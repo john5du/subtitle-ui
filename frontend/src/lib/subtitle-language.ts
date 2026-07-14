@@ -110,6 +110,18 @@ export function describeSubtitleLanguage(language: string | undefined | null): S
   }
 }
 
+/** Single short label for list UI (e.g. 双语 / 简中 / en). Raw code kept as title elsewhere. */
+export function subtitleLanguageDisplayText(
+  language: string | undefined | null,
+  t: (key: NonNullable<SubtitleLanguageDisplay["labelKey"]>) => string
+): string {
+  const lang = describeSubtitleLanguage(language);
+  if (lang.labelKey) {
+    return t(lang.labelKey);
+  }
+  return lang.code || "-";
+}
+
 /** Infer filename language label for upload defaults (backend still re-checks content). */
 export function inferUploadLanguageLabel(fileNameOrPath: string): string {
   const text = String(fileNameOrPath || "");

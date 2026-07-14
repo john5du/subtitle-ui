@@ -65,7 +65,7 @@ interface TvSeasonBatchUploadWorkspaceProps {
   onPrepareSubHDSeason?: (options: SubHDSeasonPrepareOptions) => Promise<SubHDSeasonPrepareResult>;
   onInstallSubHDSeason?: (options: SubHDSeasonInstallOptions) => Promise<BatchSubtitleUploadResult>;
   /** Called after mapped install/upload finishes (success or partial failure). */
-  onComplete?: (result: BatchSubtitleUploadResult) => void;
+  onComplete?: (result?: BatchSubtitleUploadResult) => void;
   className?: string;
   /** Start SubHD season-pack search when the workspace mounts. */
   autoSearchOnMount?: boolean;
@@ -1146,9 +1146,18 @@ export function TvSeasonBatchUploadWorkspace({
 
       {showSelectStep && sourceMode === "subhd" ? (
         <div className="mt-4 shrink-0 border-t border-border pt-3">
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2 sm:gap-0">
             <Button
               type="button"
+              variant="outline"
+              disabled={busy || batchPreparing || uploading}
+              onClick={() => onComplete?.()}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="default"
               disabled={!selectedSubhdSid || busy || batchPreparing || uploading || subhdSearching}
               onClick={() => void prepareSelectedSubHDPack()}
             >
@@ -1160,86 +1169,88 @@ export function TvSeasonBatchUploadWorkspace({
       ) : null}
 
       {showMappingStep ? (
-        <div className="mt-4 shrink-0 border-t border-border pt-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-              {showBatchLanguageSelector ? (
-                <div className="space-y-2 lg:w-[220px]">
-                  <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
-                    {t("common.language")}
-                  </p>
-                  <Select
-                    value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
-                    onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
-                    disabled={busy || batchPreparing || batchRawEntries.length === 0}
-                  >
-                    <SelectTrigger className="h-9 w-full">
-                      <SelectValue placeholder={t("common.language")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {batchLanguageOptions.map((item) => (
-                        <SelectItem key={item} value={item}>
-                          {formatLanguageTypeLabel(item, t)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : null}
-
-              {showBatchFormatSelector ? (
-                <div className="space-y-2 lg:w-[220px] lg:border-l lg:border-border lg:pl-3">
-                  <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
-                    {t("common.format")}
-                  </p>
-                  <Select
-                    value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
-                    onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
-                    disabled={busy || batchPreparing || batchRawEntries.length === 0}
-                  >
-                    <SelectTrigger className="h-9 w-full">
-                      <SelectValue placeholder={t("common.format")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {batchFormatOptions.map((ext) => (
-                        <SelectItem key={ext} value={ext}>
-                          {formatSubtitleExtLabel(ext)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : null}
-
-              <div className="space-y-2 lg:w-[180px] lg:border-l lg:border-border lg:pl-3">
+        <div className="mt-4 shrink-0 space-y-3 border-t border-border pt-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            {showBatchLanguageSelector ? (
+              <div className="space-y-2 sm:w-[180px]">
                 <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
-                  {t("batch.label")}
+                  {t("common.language")}
                 </p>
-                <Input
-                  value={batchLabel}
-                  maxLength={32}
-                  placeholder="zh&en"
-                  className="h-9 w-full"
-                  disabled={busy || batchPreparing}
-                  onChange={(event) => setBatchLabel(event.target.value)}
-                />
+                <Select
+                  value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
+                  onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
+                  disabled={busy || batchPreparing || batchRawEntries.length === 0}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder={t("common.language")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {batchLanguageOptions.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {formatLanguageTypeLabel(item, t)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            ) : null}
 
-            <div className="flex shrink-0 flex-col-reverse gap-2 lg:flex-row lg:justify-end">
-              <Button
-                type="button"
-                disabled={
-                  busy ||
-                  batchPreparing ||
-                  batchSummary.mapped === 0 ||
-                  (sourceMode === "subhd" && !subhdCacheToken)
-                }
-                onClick={() => void submitSeasonBatch()}
-              >
-                {sourceMode === "subhd" ? t("batch.subhd.installMapped") : t("common.upload")}
-              </Button>
+            {showBatchFormatSelector ? (
+              <div className="space-y-2 sm:w-[140px]">
+                <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
+                  {t("common.format")}
+                </p>
+                <Select
+                  value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
+                  onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
+                  disabled={busy || batchPreparing || batchRawEntries.length === 0}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder={t("common.format")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {batchFormatOptions.map((ext) => (
+                      <SelectItem key={ext} value={ext}>
+                        {formatSubtitleExtLabel(ext)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
+            <div className="space-y-2 sm:w-[140px]">
+              <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
+                {t("batch.label")}
+              </p>
+              <Input
+                value={batchLabel}
+                maxLength={32}
+                placeholder="zh&en"
+                className="h-9 w-full"
+                disabled={busy || batchPreparing}
+                onChange={(event) => setBatchLabel(event.target.value)}
+              />
             </div>
+          </div>
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2 sm:gap-0">
+            <Button type="button" variant="outline" disabled={busy || batchPreparing || uploading} onClick={() => onComplete?.()}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              disabled={
+                busy ||
+                batchPreparing ||
+                batchSummary.mapped === 0 ||
+                (sourceMode === "subhd" && !subhdCacheToken)
+              }
+              onClick={() => void submitSeasonBatch()}
+            >
+              {sourceMode === "subhd" ? t("batch.subhd.installMapped") : t("common.upload")}
+            </Button>
           </div>
         </div>
       ) : null}
