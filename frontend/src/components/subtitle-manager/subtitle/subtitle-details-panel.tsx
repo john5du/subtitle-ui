@@ -228,12 +228,12 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                 "shrink-0",
                 embedded ? "border-b border-border px-4 py-3" : "mb-4 flex flex-col gap-3 surface-subtle p-3"
               )}>
-                <div className="flex min-h-10 flex-wrap items-center gap-2">
+                <div className="flex h-9 flex-wrap items-center gap-2">
                   {canAutoDownload ? (
                     <Button
                       type="button"
                       size="icon"
-                      className={subtitleRowActionIconClassName}
+                      className="h-9 w-9 shrink-0"
                       disabled={busy || workflow.zipLoading || !selectedVideo}
                       onClick={() => setDownloadDialogOpen(true)}
                       title={downloadPending ? t("download.downloading") : t("common.search")}
@@ -247,7 +247,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       type="button"
                       size="icon"
                       variant={canAutoDownload ? "outline" : "default"}
-                      className={subtitleRowActionIconClassName}
+                      className="h-9 w-9 shrink-0"
                       disabled={busy || workflow.zipLoading}
                       onClick={workflow.openUploadPicker}
                       title={uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}
@@ -263,14 +263,14 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                     </Badge>
                   ) : null}
                   {searchActionItems.length > 0 && (
-                    <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+                    <div className="ml-auto flex h-9 flex-wrap items-center justify-end gap-1.5">
                       {searchActionItems.map((item) => (
                         <Button
                           key={item.label}
                           type="button"
                           variant="outline"
                           size="icon"
-                          className={subtitleRowActionIconClassName}
+                          className="h-9 w-9 shrink-0"
                           title={item.label}
                           aria-label={item.label}
                           asChild

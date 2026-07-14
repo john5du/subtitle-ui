@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CaseSensitive, ChevronDown, ChevronUp, Download, ListX, PackageSearch } from "lucide-react";
+import { ArrowLeft, CaseSensitive, Download, ListX, PackageSearch } from "lucide-react";
 
-import type { PendingSubtitleAction, SeasonCompleteness, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
+import type { MissingEpisode, PendingSubtitleAction, SeasonCompleteness, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { tvSeriesSearchTitle } from "@/lib/subtitle-manager/media-metadata";
@@ -86,10 +86,6 @@ export function TvSubtitleManagementPanel({
   const [normalizeOpen, setNormalizeOpen] = useState(false);
   const [normalizeScope, setNormalizeScope] = useState<NormalizeDialogScope | null>(null);
   const [searching, setSearching] = useState(false);
-  const [missingExpanded, setMissingExpanded] = useState(false);
-  useEffect(() => {
-    setMissingExpanded(false);
-  }, [selectedSeason, selectedSeries?.key, selectedSeries?.path]);
   const selectedSeasonLabel = seasonOptions.find((option) => option.value === selectedSeason)?.label || t("tv.selectSeason");
   const seasonNumber = useMemo(() => {
     const option = seasonOptions.find((item) => item.value === selectedSeason);
@@ -199,15 +195,47 @@ export function TvSubtitleManagementPanel({
   }
 
   const showCompleteness = Boolean(completeness?.enabled);
-  const missing = completeness?.missing ?? [];
+  const missing = useMemo(() => completeness?.missing ?? [], [completeness?.missing]);
   const canDownloadMissing = showCompleteness && completeness?.matched && missing.length > 0;
+
+  type EpisodeListItem =
+    | { kind: "local"; video: Video; episode: number }
+    | { kind: "missing"; missing: MissingEpisode; episode: number };
+
+  const episodeListItems = useMemo<EpisodeListItem[]>(() => {
+    const localEpisodeNumbers = new Set<number>();
+    const items: EpisodeListItem[] = videos.map((video) => {
+      const parsed = parseVideoSeasonEpisode(video);
+      const episode = typeof parsed?.episode === "number" ? parsed.episode : Number.POSITIVE_INFINITY;
+      if (Number.isFinite(episode)) {
+        localEpisodeNumbers.add(episode);
+      }
+      return { kind: "local", video, episode };
+    });
+    for (const item of missing) {
+      if (localEpisodeNumbers.has(item.episode)) {
+        continue;
+      }
+      items.push({ kind: "missing", missing: item, episode: item.episode });
+    }
+    items.sort((a, b) => {
+      if (a.episode !== b.episode) {
+        return a.episode - b.episode;
+      }
+      if (a.kind === b.kind) {
+        return 0;
+      }
+      return a.kind === "local" ? -1 : 1;
+    });
+    return items;
+  }, [missing, videos]);
 
   const episodesPane = (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 border-b border-border px-4 py-3">
-        <div className="flex h-8 items-center gap-2">
+        <div className="flex h-9 items-center gap-2">
           <Select value={selectedSeason} onValueChange={onSeasonChange} disabled={!selectedSeries || busy || episodesPending}>
-            <SelectTrigger className="h-8 min-w-0 flex-1">
+            <SelectTrigger className="h-9 min-w-0 flex-1">
               <SelectValue placeholder={t("tv.selectSeason")} />
             </SelectTrigger>
             <SelectContent>
@@ -223,7 +251,7 @@ export function TvSubtitleManagementPanel({
               type="button"
               variant="outline"
               size="icon"
-              className="h-10 w-10 shrink-0 touch-target sm:h-8 sm:w-8"
+              className="h-9 w-9 shrink-0"
               disabled={!selectedSeries || busy || episodesPending || uploading}
               onClick={onOpenBatchDelete}
               title={t("tv.batchDeleteAction")}
@@ -236,7 +264,7 @@ export function TvSubtitleManagementPanel({
             <Button
               type="button"
               size="icon"
-              className="h-10 w-10 shrink-0 touch-target sm:h-8 sm:w-8"
+              className="h-9 w-9 shrink-0"
               disabled={!selectedSeries || busy || episodesPending || uploading}
               onClick={onOpenSeasonBatch}
               title={t("tv.seasonBatchAction")}
@@ -249,7 +277,7 @@ export function TvSubtitleManagementPanel({
             type="button"
             variant="outline"
             size="icon"
-            className="h-10 w-10 shrink-0 touch-target sm:h-8 sm:w-8"
+            className="h-9 w-9 shrink-0"
             disabled={!selectedSeries || busy || episodesPending || uploading || videos.length === 0}
             onClick={() => {
               if (!selectedSeries) return;
@@ -270,89 +298,51 @@ export function TvSubtitleManagementPanel({
           </Button>
         </div>
         {episodesPending && <InlinePending label={t("tv.loadingEpisodes")} />}
-        {showCompleteness ? (
-          <div className="mt-2 space-y-1.5">
-            {completenessLoading ? (
-              <div className="text-xs text-muted-foreground">{t("tv.completeness.loading")}</div>
-            ) : !completeness?.matched ? (
-              <div className="text-xs text-muted-foreground">{t("tv.completeness.unmatched")}</div>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="tabular-nums text-muted-foreground">
-                    {t("tv.completeness.summary", {
-                      local: String(completeness.localCount),
-                      expected: String(completeness.expectedCount)
-                    })}
-                  </span>
-                  {completeness.complete ? (
-                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-300">
-                      {t("tv.completeness.complete")}
-                    </span>
-                  ) : missing.length > 0 ? (
-                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-amber-800 dark:text-amber-200">
-                      {t("tv.completeness.missing", { count: String(missing.length) })}
-                    </span>
-                  ) : null}
-                  {canDownloadMissing ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-7 gap-1 px-2 text-xs"
-                      disabled={busy || searching || episodesPending}
-                      onClick={() => void handleSonarrSearch({ allMissing: true })}
-                    >
-                      <Download className="h-3 w-3" />
-                      {t("tv.completeness.downloadMissing")}
-                    </Button>
-                  ) : null}
-                </div>
-                {missing.length > 0 ? (
-                  <div className="space-y-1.5">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 gap-1 px-2 text-xs text-muted-foreground"
-                      onClick={() => setMissingExpanded((prev) => !prev)}
-                    >
-                      {missingExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      {missingExpanded
-                        ? t("tv.completeness.hideMissing")
-                        : t("tv.completeness.showMissing", { count: String(missing.length) })}
-                    </Button>
-                    {missingExpanded ? (
-                      <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto overscroll-contain">
-                        {missing.map((item) => (
-                          <Button
-                            key={item.sonarrEpisodeId || item.episode}
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 min-w-[2.75rem] gap-1 px-2 text-xs text-muted-foreground"
-                            disabled={busy || searching || episodesPending}
-                            title={item.title || t("tv.completeness.downloadEpisode", { episode: String(item.episode).padStart(2, "0") })}
-                            onClick={() => void handleSonarrSearch({ episodes: [item.episode] })}
-                          >
-                            <Download className="h-3 w-3" />
-                            E{String(item.episode).padStart(2, "0")}
-                          </Button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-        ) : null}
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <ScrollArea className={cn("h-full", episodesPending && "animate-pulse-soft")}>
           <ul className="space-y-0.5 p-2">
-            {videos.map((video) => {
+            {episodeListItems.map((item) => {
+              if (item.kind === "missing") {
+                const episodeCode =
+                  seasonNumber !== null
+                    ? formatSeasonEpisodeText(seasonNumber, item.episode)
+                    : `E${String(item.episode).padStart(2, "0")}`;
+                const title = item.missing.title?.trim() || t("tv.completeness.missingEpisode");
+                return (
+                  <li key={`missing-${item.missing.sonarrEpisodeId || item.episode}`}>
+                    <div
+                      className="flex w-full items-start gap-2 rounded-[var(--radius)] px-3 py-2.5 text-left opacity-70"
+                      aria-disabled="true"
+                    >
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-semibold tabular-nums text-muted-foreground">{episodeCode}</span>
+                          <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] font-medium leading-none text-amber-800 dark:text-amber-200">
+                            {t("tv.completeness.missingBadge")}
+                          </span>
+                        </div>
+                        <div className="truncate text-sm font-semibold leading-snug text-muted-foreground">{title}</div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="mt-0.5 h-8 w-8 shrink-0"
+                        disabled={busy || searching || episodesPending}
+                        title={t("tv.completeness.downloadEpisode", { episode: String(item.episode).padStart(2, "0") })}
+                        aria-label={t("tv.completeness.downloadEpisode", { episode: String(item.episode).padStart(2, "0") })}
+                        onClick={() => void handleSonarrSearch({ episodes: [item.episode] })}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </li>
+                );
+              }
+
+              const video = item.video;
               const active = selectedVideoId === video.id;
               const itemBusy = subtitleAction?.videoId === video.id;
               const parsed = parseVideoSeasonEpisode(video);
@@ -386,7 +376,7 @@ export function TvSubtitleManagementPanel({
               );
             })}
 
-            {videos.length === 0 && (
+            {episodeListItems.length === 0 && (
               <li className="surface-panel m-1 p-6 text-center text-sm text-muted-foreground">
                 {t("tv.noEpisodesInSeason", { season: selectedSeasonLabel })}
               </li>
@@ -395,6 +385,47 @@ export function TvSubtitleManagementPanel({
         </ScrollArea>
         {episodesPending && <PanelLoadingOverlay label={t("tv.refreshingEpisodes")} />}
       </div>
+
+      {showCompleteness ? (
+        <div className="shrink-0 border-t border-border px-4 py-2.5">
+          {completenessLoading ? (
+            <div className="text-xs text-muted-foreground">{t("tv.completeness.loading")}</div>
+          ) : !completeness?.matched ? (
+            <div className="text-xs text-muted-foreground">{t("tv.completeness.unmatched")}</div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="tabular-nums text-muted-foreground">
+                {t("tv.completeness.summary", {
+                  local: String(completeness.localCount),
+                  expected: String(completeness.expectedCount)
+                })}
+              </span>
+              {completeness.complete ? (
+                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-300">
+                  {t("tv.completeness.complete")}
+                </span>
+              ) : missing.length > 0 ? (
+                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-amber-800 dark:text-amber-200">
+                  {t("tv.completeness.missing", { count: String(missing.length) })}
+                </span>
+              ) : null}
+              {canDownloadMissing ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 px-2 text-xs"
+                  disabled={busy || searching || episodesPending}
+                  onClick={() => void handleSonarrSearch({ allMissing: true })}
+                >
+                  <Download className="h-3 w-3" />
+                  {t("tv.completeness.downloadMissing")}
+                </Button>
+              ) : null}
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 
