@@ -679,6 +679,18 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     return { total, success, failed, errors };
   }
 
+  async function refreshVideoAfterMutation(video: Video) {
+    await refreshAfterSubtitleMutation(video, video.subtitles.length);
+  }
+
+  async function refreshSeriesVideos(seriesPath: string) {
+    const path = (seriesPath || "").trim();
+    if (path) {
+      await refreshTvVideosForPath(path);
+    }
+    await maybeRefreshLogs();
+  }
+
   return {
     uploadSubtitle,
     replaceSubtitle,
@@ -693,7 +705,9 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
     loadTvBatchCandidates,
     uploadBatchSubtitles,
     prepareSubHDSeasonPack,
-    installSubHDSeasonPack
+    installSubHDSeasonPack,
+    refreshVideoAfterMutation,
+    refreshSeriesVideos
   };
 }
 

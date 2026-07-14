@@ -222,6 +222,8 @@ export interface SubtitleManagerActions {
   uploadBatchSubtitles: (items: BatchSubtitleUploadItem[]) => Promise<BatchSubtitleUploadResult>;
   prepareSubHDSeasonPack: (options: SubHDSeasonPrepareOptions) => Promise<SubHDSeasonPrepareResult>;
   installSubHDSeasonPack: (options: SubHDSeasonInstallOptions) => Promise<BatchSubtitleUploadResult>;
+  refreshVideoAfterMutation: (video: Video) => Promise<void>;
+  refreshSeriesVideos: (seriesPath: string) => Promise<void>;
 }
 
 export interface SubtitleManagerResult {

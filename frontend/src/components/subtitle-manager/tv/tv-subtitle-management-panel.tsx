@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChevronDown, ChevronUp, Download, ListX, PackageSearch } from "lucide-react";
+import { ArrowLeft, CaseSensitive, ChevronDown, ChevronUp, Download, ListX, PackageSearch } from "lucide-react";
 
 import type { PendingSubtitleAction, SeasonCompleteness, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import type { SubtitleDetailsPanelProps } from "../types";
 import { InlinePending, PanelLoadingOverlay } from "../shared/pending-state";
+import { NormalizeSubtitlesDialog, type NormalizeDialogScope } from "../subtitle/dialogs/normalize-subtitles-dialog";
 import { SubtitleDetailsPanel } from "../subtitle/subtitle-details-panel";
 import { formatSeasonEpisodeText, parseVideoSeasonEpisode } from "./batch-utils";
 
@@ -36,6 +37,8 @@ interface TvSubtitleManagementPanelProps {
   onDownloadSubHD?: SubtitleDetailsPanelProps["onDownloadSubHD"];
   onOpenSeasonBatch?: () => void;
   onOpenBatchDelete?: () => void;
+  onRefreshVideo?: (video: Video) => Promise<void>;
+  onRefreshSeriesVideos?: (seriesPath: string) => Promise<void>;
   formatTime: SubtitleDetailsPanelProps["formatTime"];
   busy: boolean;
   uploading: boolean;
@@ -65,6 +68,8 @@ export function TvSubtitleManagementPanel({
   onDownloadSubHD,
   onOpenSeasonBatch,
   onOpenBatchDelete,
+  onRefreshVideo,
+  onRefreshSeriesVideos,
   formatTime,
   busy,
   uploading,
@@ -78,6 +83,8 @@ export function TvSubtitleManagementPanel({
   const [activeStep, setActiveStep] = useState<"episodes" | "subtitles">("episodes");
   const [completeness, setCompleteness] = useState<SeasonCompleteness | null>(null);
   const [completenessLoading, setCompletenessLoading] = useState(false);
+  const [normalizeOpen, setNormalizeOpen] = useState(false);
+  const [normalizeScope, setNormalizeScope] = useState<NormalizeDialogScope | null>(null);
   const [searching, setSearching] = useState(false);
   const [missingExpanded, setMissingExpanded] = useState(false);
   useEffect(() => {
@@ -238,6 +245,29 @@ export function TvSubtitleManagementPanel({
               <PackageSearch className="h-3.5 w-3.5" />
             </Button>
           ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-10 w-10 shrink-0 touch-target sm:h-8 sm:w-8"
+            disabled={!selectedSeries || busy || episodesPending || uploading || videos.length === 0}
+            onClick={() => {
+              if (!selectedSeries) return;
+              const seasonMatch = String(selectedSeason || "").match(/(\d{1,2})/);
+              const seasonNumber = seasonMatch ? Number(seasonMatch[1]) : 0;
+              setNormalizeScope({
+                kind: "season",
+                path: selectedSeries.path,
+                key: selectedSeries.key,
+                season: seasonNumber
+              });
+              setNormalizeOpen(true);
+            }}
+            title={t("tv.normalizeAction")}
+            aria-label={t("tv.normalizeAction")}
+          >
+            <CaseSensitive className="h-3.5 w-3.5" />
+          </Button>
         </div>
         {episodesPending && <InlinePending label={t("tv.loadingEpisodes")} />}
         {showCompleteness ? (
@@ -401,74 +431,100 @@ export function TvSubtitleManagementPanel({
     </div>
   );
 
+  const normalizeDialog = (
+    <NormalizeSubtitlesDialog
+      open={normalizeOpen}
+      onOpenChange={(open) => {
+        setNormalizeOpen(open);
+        if (!open) setNormalizeScope(null);
+      }}
+      scope={normalizeScope}
+      onApplied={async () => {
+        if (selectedSeries?.path && onRefreshSeriesVideos) {
+          await onRefreshSeriesVideos(selectedSeries.path);
+          return;
+        }
+        if (selectedVideo && onRefreshVideo) {
+          await onRefreshVideo(selectedVideo);
+        }
+      }}
+    />
+  );
+
   if (variant === "drawer") {
     return (
-      <div className={cn("flex h-full w-full min-h-0 flex-col overflow-hidden", className)}>
-        <div className="hidden min-h-0 flex-1 overflow-hidden lg:flex">
-          <div className="min-h-0 w-[280px] shrink-0 overflow-hidden border-r border-border xl:w-[300px]">{episodesPane}</div>
-          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{subtitlesPane}</div>
-        </div>
+      <>
+        <div className={cn("flex h-full w-full min-h-0 flex-col overflow-hidden", className)}>
+          <div className="hidden min-h-0 flex-1 overflow-hidden lg:flex">
+            <div className="min-h-0 w-[280px] shrink-0 overflow-hidden border-r border-border xl:w-[300px]">{episodesPane}</div>
+            <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{subtitlesPane}</div>
+          </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
-          <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="shrink-0 border-b border-border px-4 py-2">
-              <TabsList className="h-9 w-full">
-                <TabsTrigger value="episodes" className="h-full flex-1">
-                  {t("tv.stepEpisodes")}
-                </TabsTrigger>
-                <TabsTrigger value="subtitles" className="h-full flex-1">
-                  {t("tv.stepSubtitles")}
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <TabsContent value="episodes" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
-              {episodesPane}
-            </TabsContent>
-
-            <TabsContent value="subtitles" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
-              <div className="shrink-0 border-b border-border px-3 py-2">
-                <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2" onClick={() => setActiveStep("episodes")}>
-                  <ArrowLeft className="h-4 w-4" />
-                  {t("tv.backToEpisodes")}
-                </Button>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
+            <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="shrink-0 border-b border-border px-4 py-2">
+                <TabsList className="h-9 w-full">
+                  <TabsTrigger value="episodes" className="h-full flex-1">
+                    {t("tv.stepEpisodes")}
+                  </TabsTrigger>
+                  <TabsTrigger value="subtitles" className="h-full flex-1">
+                    {t("tv.stepSubtitles")}
+                  </TabsTrigger>
+                </TabsList>
               </div>
-              {subtitlesPane}
-            </TabsContent>
-          </Tabs>
+
+              <TabsContent value="episodes" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
+                {episodesPane}
+              </TabsContent>
+
+              <TabsContent value="subtitles" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
+                <div className="shrink-0 border-b border-border px-3 py-2">
+                  <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2" onClick={() => setActiveStep("episodes")}>
+                    <ArrowLeft className="h-4 w-4" />
+                    {t("tv.backToEpisodes")}
+                  </Button>
+                </div>
+                {subtitlesPane}
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
-      </div>
+        {normalizeDialog}
+      </>
     );
   }
 
   return (
-    <div className={cn("flex h-full w-full min-h-0 flex-col overflow-hidden", className)}>
-      <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="shrink-0 border-b border-border px-4 py-3">
-          <TabsList className="h-9 w-full sm:max-w-[360px]">
-            <TabsTrigger value="episodes" className="h-full flex-1">
-              {t("tv.stepEpisodes")}
-            </TabsTrigger>
-            <TabsTrigger value="subtitles" className="h-full flex-1">
-              {t("tv.stepSubtitles")}
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent value="episodes" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
-          {episodesPane}
-        </TabsContent>
-
-        <TabsContent value="subtitles" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
-          <div className="shrink-0 border-b border-border px-3 py-2">
-            <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2" onClick={() => setActiveStep("episodes")}>
-              <ArrowLeft className="h-4 w-4" />
-              {t("tv.backToEpisodes")}
-            </Button>
+    <>
+      <div className={cn("flex h-full w-full min-h-0 flex-col overflow-hidden", className)}>
+        <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="shrink-0 border-b border-border px-4 py-3">
+            <TabsList className="h-9 w-full sm:max-w-[360px]">
+              <TabsTrigger value="episodes" className="h-full flex-1">
+                {t("tv.stepEpisodes")}
+              </TabsTrigger>
+              <TabsTrigger value="subtitles" className="h-full flex-1">
+                {t("tv.stepSubtitles")}
+              </TabsTrigger>
+            </TabsList>
           </div>
-          {subtitlesPane}
-        </TabsContent>
-      </Tabs>
-    </div>
+
+          <TabsContent value="episodes" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
+            {episodesPane}
+          </TabsContent>
+
+          <TabsContent value="subtitles" className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
+            <div className="shrink-0 border-b border-border px-3 py-2">
+              <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2" onClick={() => setActiveStep("episodes")}>
+                <ArrowLeft className="h-4 w-4" />
+                {t("tv.backToEpisodes")}
+              </Button>
+            </div>
+            {subtitlesPane}
+          </TabsContent>
+        </Tabs>
+      </div>
+      {normalizeDialog}
+    </>
   );
 }

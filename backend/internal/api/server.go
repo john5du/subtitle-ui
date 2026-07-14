@@ -93,6 +93,8 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	s.mux.HandleFunc("/api/tv/series", s.handleTVSeries)
 	s.mux.HandleFunc("/api/tv/series/completeness", s.handleTVSeriesCompleteness)
 	s.mux.HandleFunc("/api/tv/series/sonarr/search", s.handleTVSeriesSonarrSearch)
+	s.mux.HandleFunc("/api/tv/series/subtitles/normalize/plan", s.handleTVSeasonNormalizePlan)
+	s.mux.HandleFunc("/api/tv/series/subtitles/normalize/apply", s.handleTVSeasonNormalizeApply)
 	s.mux.HandleFunc("/api/videos/", s.handleVideoRoute)
 	s.mux.HandleFunc("/api/archives/subtitle-entries", s.handleArchiveSubtitleEntries)
 	s.mux.HandleFunc("/api/archives/extract", s.handleArchiveExtract)
@@ -353,6 +355,14 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 
 	case len(segments) == 2 && segments[1] == "subtitles" && r.Method == http.MethodPost:
 		s.handleUploadSubtitle(w, r, videoID)
+		return
+
+	case len(segments) == 4 && segments[1] == "subtitles" && segments[2] == "normalize" && segments[3] == "plan" && r.Method == http.MethodPost:
+		s.handleVideoNormalizePlan(w, r, videoID)
+		return
+
+	case len(segments) == 4 && segments[1] == "subtitles" && segments[2] == "normalize" && segments[3] == "apply" && r.Method == http.MethodPost:
+		s.handleVideoNormalizeApply(w, r, videoID)
 		return
 
 	case len(segments) == 5 && segments[1] == "subtitles" && segments[2] == "providers" && segments[3] == "subhd" && segments[4] == "search" && r.Method == http.MethodGet:
@@ -795,6 +805,108 @@ func (s *Server) handleOffsetSubtitleTiming(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	writeJSON(w, http.StatusOK, subtitle)
+}
+
+func (s *Server) handleVideoNormalizePlan(w http.ResponseWriter, r *http.Request, videoID string) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	plan, err := s.service.PlanNormalizeVideoSubtitles(videoID)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, plan)
+}
+
+func (s *Server) handleVideoNormalizeApply(w http.ResponseWriter, r *http.Request, videoID string) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req struct {
+		Items []appdomain.SubtitleNormalizeApplyItem `json:"items"`
+	}
+	if r.Body != nil {
+		defer r.Body.Close()
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if len(req.Items) == 0 {
+		writeError(w, http.StatusBadRequest, "items required")
+		return
+	}
+	result, err := s.service.ApplyNormalizeVideoSubtitles(videoID, req.Items)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleTVSeasonNormalizePlan(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req appdomain.TVSeasonNormalizeRequest
+	if r.Body != nil {
+		defer r.Body.Close()
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if strings.TrimSpace(req.Path) == "" && strings.TrimSpace(req.Key) == "" {
+		writeError(w, http.StatusBadRequest, "path or key required")
+		return
+	}
+	if req.Season < 0 {
+		writeError(w, http.StatusBadRequest, "invalid season")
+		return
+	}
+	plan, err := s.service.PlanNormalizeSeasonSubtitles(req.Path, req.Key, req.Season)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, plan)
+}
+
+func (s *Server) handleTVSeasonNormalizeApply(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req appdomain.TVSeasonNormalizeRequest
+	if r.Body != nil {
+		defer r.Body.Close()
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if strings.TrimSpace(req.Path) == "" && strings.TrimSpace(req.Key) == "" {
+		writeError(w, http.StatusBadRequest, "path or key required")
+		return
+	}
+	if req.Season < 0 {
+		writeError(w, http.StatusBadRequest, "invalid season")
+		return
+	}
+	if len(req.Items) == 0 {
+		writeError(w, http.StatusBadRequest, "items required")
+		return
+	}
+	result, err := s.service.ApplyNormalizeSeasonSubtitles(req.Path, req.Key, req.Season, req.Items)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) handleSubtitleContent(w http.ResponseWriter, _ *http.Request, videoID string, subtitleID string) {

@@ -58,6 +58,8 @@ interface TvSubtitleDrawerProps {
   onSearchSubHDSeasonPacks?: (video: Video, opts?: { query?: string; season?: number }) => Promise<SubHDSeasonPacksResult>;
   onPrepareSubHDSeason?: (options: SubHDSeasonPrepareOptions) => Promise<SubHDSeasonPrepareResult>;
   onInstallSubHDSeason?: (options: SubHDSeasonInstallOptions) => Promise<BatchSubtitleUploadResult>;
+  onRefreshVideo?: (video: Video) => Promise<void>;
+  onRefreshSeriesVideos?: (seriesPath: string) => Promise<void>;
 }
 
 export function TvSubtitleDrawer({
@@ -91,7 +93,9 @@ export function TvSubtitleDrawer({
   onDeleteBatch,
   onSearchSubHDSeasonPacks,
   onPrepareSubHDSeason,
-  onInstallSubHDSeason
+  onInstallSubHDSeason,
+  onRefreshVideo,
+  onRefreshSeriesVideos
 }: TvSubtitleDrawerProps) {
   const { t, locale } = useI18n();
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
@@ -183,6 +187,8 @@ export function TvSubtitleDrawer({
             onDownloadSubHD={onDownloadSubHD}
             onOpenSeasonBatch={openSeasonBatch}
             onOpenBatchDelete={openBatchDelete}
+            onRefreshVideo={onRefreshVideo}
+            onRefreshSeriesVideos={onRefreshSeriesVideos}
             formatTime={formatTime}
             busy={busy}
             uploading={uploading}

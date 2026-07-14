@@ -31,6 +31,33 @@ func TestInferLabelFromSubtitlePathReturnsEmptyForNonCanonicalName(t *testing.T)
 	}
 }
 
+func TestNormalizeLanguageLabel(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{in: "", want: ""},
+		{in: "und", want: ""},
+		{in: "chs", want: "zh"},
+		{in: "CHI", want: "zh"},
+		{in: "zh-CN", want: "zh"},
+		{in: "zh-Hans", want: "zh"},
+		{in: "cht", want: "zh-hant"},
+		{in: "zh-TW", want: "zh-hant"},
+		{in: "eng", want: "en"},
+		{in: "en-US", want: "en"},
+		{in: "en&chs", want: "en&zh"},
+		{in: "chs+en", want: "en&zh"},
+		{in: "ja", want: "ja"},
+		{in: "jpn", want: "ja"},
+	}
+	for _, tt := range tests {
+		if got := NormalizeLanguageLabel(tt.in); got != tt.want {
+			t.Fatalf("NormalizeLanguageLabel(%q)=%q want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestBuildNewSubtitlePathAvoidsCollision(t *testing.T) {
 	root := t.TempDir()
 	videoPath := filepath.Join(root, "movie.mkv")

@@ -323,6 +323,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
             onPreviewSubtitle={subtitleActions.previewSubtitle}
             onSearchSubHD={subtitleActions.searchSubHDSubtitles}
             onDownloadSubHD={subtitleActions.downloadSubHDSubtitle}
+            onRefreshVideo={subtitleActions.refreshVideoAfterMutation}
             formatTime={subtitleActions.formatTime}
             busy={subtitleActions.operationLocked}
             uploading={subtitleActions.uploading}
@@ -369,6 +370,8 @@ const ManagementDialogs = memo(function ManagementDialogs({
             onSearchSubHDSeasonPacks={dialogs.searchSubHDSeasonPacks}
             onPrepareSubHDSeason={dialogs.prepareSubHDSeasonPack}
             onInstallSubHDSeason={dialogs.installSubHDSeasonPack}
+            onRefreshVideo={subtitleActions.refreshVideoAfterMutation}
+            onRefreshSeriesVideos={subtitleActions.refreshSeriesVideos}
           />
         </DialogDrawerContent>
       </Dialog>

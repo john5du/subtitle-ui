@@ -132,6 +132,14 @@ export function useSubtitleManager(): SubtitleManagerResult {
     (options: SubHDSeasonInstallOptions) => controller.installSubHDSeasonPack(options),
     [controller]
   );
+  const refreshVideoAfterMutation = useCallback(
+    (video: Video) => controller.refreshVideoAfterMutation(video),
+    [controller]
+  );
+  const refreshSeriesVideos = useCallback(
+    (seriesPath: string) => controller.refreshSeriesVideos(seriesPath),
+    [controller]
+  );
 
   return {
     core: {
@@ -211,7 +219,9 @@ export function useSubtitleManager(): SubtitleManagerResult {
       downloadSubHDSubtitle,
       uploadBatchSubtitles,
       prepareSubHDSeasonPack,
-      installSubHDSeasonPack
+      installSubHDSeasonPack,
+      refreshVideoAfterMutation,
+      refreshSeriesVideos
     }
   };
 }

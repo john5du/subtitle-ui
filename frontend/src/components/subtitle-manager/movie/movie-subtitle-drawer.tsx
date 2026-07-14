@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useState } from "react";
-import { Search, UploadCloud } from "lucide-react";
+import { CaseSensitive, Search, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import { DeleteSubtitleDialog } from "../subtitle/dialogs/delete-subtitle-dialog
 import { SubHDDownloadDialog } from "../subtitle/dialogs/subhd-download-dialog";
 import { SubtitlePreviewDialog } from "../subtitle/dialogs/subtitle-preview-dialog";
 import { TimingOffsetDialog } from "../subtitle/dialogs/timing-offset-dialog";
+import { NormalizeSubtitlesDialog, type NormalizeDialogScope } from "../subtitle/dialogs/normalize-subtitles-dialog";
 import { UploadSubtitleDialog } from "../subtitle/dialogs/upload-subtitle-dialog";
 import { SubtitleTrackCard, subtitleRowActionIconClassName } from "../subtitle/subtitle-track-card";
 import {
@@ -43,7 +44,9 @@ type MovieSubtitleDrawerProps = Pick<
   | "uploading"
   | "uploadingMessage"
   | "subtitleAction"
->;
+> & {
+  onRefreshVideo?: (video: NonNullable<SubtitleDetailsPanelProps["selectedVideo"]>) => Promise<void>;
+};
 
 export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieSubtitleDrawerProps>(function MovieSubtitleDrawer(
   {
@@ -57,6 +60,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     onPreviewSubtitle,
     onSearchSubHD,
     onDownloadSubHD,
+    onRefreshVideo,
     formatTime,
     busy,
     uploading,
@@ -67,6 +71,8 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
 ) {
   const { t } = useI18n();
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  const [normalizeOpen, setNormalizeOpen] = useState(false);
+  const [normalizeScope, setNormalizeScope] = useState<NormalizeDialogScope | null>(null);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
 
   const workflow = useSubtitleFileWorkflow({
@@ -139,6 +145,22 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                   aria-label={uploadPending ? uploadingMessage || t("details.uploading") : t("movie.uploadSubtitleArchive")}
                 >
                   {uploadPending || workflow.zipLoading ? <SpinnerIcon className="h-3.5 w-3.5" /> : <UploadCloud className="h-3.5 w-3.5" />}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className={subtitleRowActionIconClassName}
+                  disabled={busy || !selectedVideo || selectedVideo.subtitles.length === 0}
+                  onClick={() => {
+                    if (!selectedVideo) return;
+                    setNormalizeScope({ kind: "video", videoId: selectedVideo.id });
+                    setNormalizeOpen(true);
+                  }}
+                  title={t("normalize.action")}
+                  aria-label={t("normalize.action")}
+                >
+                  <CaseSensitive className="h-3.5 w-3.5" />
                 </Button>
                 {workflow.zipLoading ? <InlinePending label={t("details.parsingArchive")} /> : null}
               </div>
@@ -348,6 +370,20 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
           uploadLocalPending={uploadPending || workflow.zipLoading}
         />
       ) : null}
+
+      <NormalizeSubtitlesDialog
+        open={normalizeOpen}
+        onOpenChange={(open) => {
+          setNormalizeOpen(open);
+          if (!open) setNormalizeScope(null);
+        }}
+        scope={normalizeScope}
+        onApplied={async () => {
+          if (selectedVideo && onRefreshVideo) {
+            await onRefreshVideo(selectedVideo);
+          }
+        }}
+      />
     </div>
   );
 });

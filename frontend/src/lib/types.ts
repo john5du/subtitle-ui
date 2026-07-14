@@ -1,6 +1,50 @@
 ﻿export type MediaType = "movie" | "tv";
 export type ActiveTab = "dashboard" | "movie" | "tv";
-export type SubtitleOperationKind = "upload" | "replace" | "delete" | "convert" | "offset" | "batch" | "download";
+export type SubtitleOperationKind = "upload" | "replace" | "delete" | "convert" | "offset" | "batch" | "download" | "normalize";
+
+export type SubtitleNormalizeStatus = "rename" | "noop" | "skip_conflict";
+
+export interface SubtitleNormalizeItem {
+  videoId: string;
+  subtitleId: string;
+  fromPath: string;
+  fromFileName: string;
+  toPath: string;
+  toFileName: string;
+  fromLanguage: string;
+  toLabel: string;
+  status: SubtitleNormalizeStatus | string;
+  reason?: string;
+}
+
+export interface SubtitleNormalizePlan {
+  items: SubtitleNormalizeItem[];
+}
+
+export interface SubtitleNormalizeApplyItem {
+  videoId: string;
+  subtitleId: string;
+  toPath: string;
+}
+
+export interface SubtitleNormalizeApplyItemResult {
+  videoId: string;
+  subtitleId: string;
+  fromPath?: string;
+  toPath?: string;
+  fromFileName?: string;
+  toFileName?: string;
+  status: string;
+  error?: string;
+  backupPath?: string;
+}
+
+export interface SubtitleNormalizeApplyResult {
+  results: SubtitleNormalizeApplyItemResult[];
+  renamed: number;
+  skipped: number;
+  failed: number;
+}
 export type SubtitleSourceEncoding = "auto" | "utf-8" | "utf-16le" | "utf-16be" | "gb18030" | "big5";
 export type SubtitleSource = "directory" | "upload" | "generated" | "download";
 

@@ -219,3 +219,67 @@ type VersionInfo struct {
 	Version      string `json:"version"`
 	DatabaseType string `json:"databaseType"`
 }
+
+const (
+	SubtitleNormalizeRename        = "rename"
+	SubtitleNormalizeNoop          = "noop"
+	SubtitleNormalizeSkipConflict  = "skip_conflict"
+	SubtitleNormalizeApplyOK       = "ok"
+	SubtitleNormalizeApplySkipped  = "skipped"
+	SubtitleNormalizeApplyFailed   = "failed"
+)
+
+// SubtitleNormalizeItem is one planned rename for Jellyfin-style filenames.
+type SubtitleNormalizeItem struct {
+	VideoID      string `json:"videoId"`
+	SubtitleID   string `json:"subtitleId"`
+	FromPath     string `json:"fromPath"`
+	FromFileName string `json:"fromFileName"`
+	ToPath       string `json:"toPath"`
+	ToFileName   string `json:"toFileName"`
+	FromLanguage string `json:"fromLanguage"`
+	ToLabel      string `json:"toLabel"`
+	Status       string `json:"status"`
+	Reason       string `json:"reason,omitempty"`
+}
+
+// SubtitleNormalizePlan is the preview response for batch rename.
+type SubtitleNormalizePlan struct {
+	Items []SubtitleNormalizeItem `json:"items"`
+}
+
+// SubtitleNormalizeApplyItem selects one planned rename to apply.
+type SubtitleNormalizeApplyItem struct {
+	VideoID    string `json:"videoId"`
+	SubtitleID string `json:"subtitleId"`
+	ToPath     string `json:"toPath"`
+}
+
+// SubtitleNormalizeApplyItemResult is the per-item apply outcome.
+type SubtitleNormalizeApplyItemResult struct {
+	VideoID      string `json:"videoId"`
+	SubtitleID   string `json:"subtitleId"`
+	FromPath     string `json:"fromPath,omitempty"`
+	ToPath       string `json:"toPath,omitempty"`
+	FromFileName string `json:"fromFileName,omitempty"`
+	ToFileName   string `json:"toFileName,omitempty"`
+	Status       string `json:"status"`
+	Error        string `json:"error,omitempty"`
+	BackupPath   string `json:"backupPath,omitempty"`
+}
+
+// SubtitleNormalizeApplyResult summarizes a batch apply.
+type SubtitleNormalizeApplyResult struct {
+	Results []SubtitleNormalizeApplyItemResult `json:"results"`
+	Renamed int                                `json:"renamed"`
+	Skipped int                                `json:"skipped"`
+	Failed  int                                `json:"failed"`
+}
+
+// TVSeasonNormalizeRequest scopes a season-level normalize plan/apply.
+type TVSeasonNormalizeRequest struct {
+	Path   string                       `json:"path"`
+	Key    string                       `json:"key"`
+	Season int                          `json:"season"`
+	Items  []SubtitleNormalizeApplyItem `json:"items,omitempty"`
+}
