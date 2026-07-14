@@ -289,9 +289,9 @@ export function TvSeasonBatchUploadWorkspace({
   const [batchRawEntries, setBatchRawEntries] = useState<ZipSubtitleEntry[]>([]);
   const [batchRows, setBatchRows] = useState<SeasonBatchRowView[]>([]);
   const [batchCandidates, setBatchCandidates] = useState<Video[]>([]);
-  const [batchLanguagePreference, setBatchLanguagePreference] = useState<BatchLanguagePreference>("any");
+  const [batchLanguagePreference, setBatchLanguagePreference] = useState<BatchLanguagePreference>("bilingual");
   const [batchFormatPreference, setBatchFormatPreference] = useState("any");
-  const [batchLabel, setBatchLabel] = useState("zh");
+  const [batchLabel, setBatchLabel] = useState("");
   const [batchBlockingError, setBatchBlockingError] = useState("");
   const [batchNotices, setBatchNotices] = useState<string[]>([]);
   const [batchResult, setBatchResult] = useState<BatchSubtitleUploadResult | null>(null);
@@ -339,13 +339,14 @@ export function TvSeasonBatchUploadWorkspace({
 
   useEffect(() => {
     if (batchLanguageOptions.length <= 1) {
-      if (batchLanguagePreference !== "any") {
-        setBatchLanguagePreference("any");
+      if (batchLanguageOptions[0] && batchLanguagePreference !== batchLanguageOptions[0] && batchLanguagePreference !== "any") {
+        setBatchLanguagePreference(batchLanguageOptions[0]);
       }
       return;
     }
 
     if (batchLanguagePreference === "any" || !batchLanguageOptions.includes(batchLanguagePreference)) {
+      // Prefer bilingual when available (BATCH_LANGUAGE_ORDER puts it first).
       setBatchLanguagePreference(batchLanguageOptions[0]);
     }
   }, [batchLanguageOptions, batchLanguagePreference]);
@@ -668,7 +669,7 @@ export function TvSeasonBatchUploadWorkspace({
         languagePreference: batchLanguagePreference,
         formatPreference: batchFormatPreference,
         skipExisting,
-        label: batchLabel.trim() || "zh"
+        label: batchLabel.trim()
       });
 
       const entries: ZipSubtitleEntry[] = (prepared.entries || []).map((entry, index) => {
@@ -1217,7 +1218,7 @@ export function TvSeasonBatchUploadWorkspace({
                 <Input
                   value={batchLabel}
                   maxLength={32}
-                  placeholder="zh"
+                  placeholder="zh&en"
                   className="h-9 w-full"
                   disabled={busy || batchPreparing}
                   onChange={(event) => setBatchLabel(event.target.value)}

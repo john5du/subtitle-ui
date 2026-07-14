@@ -113,6 +113,25 @@ func buildNormalizePlanItem(video domain.Video, sub domain.Subtitle) domain.Subt
 		}
 	}
 	toLabel := subtitle.NormalizeLanguageLabel(labelSource)
+	// Weak / missing labels: sample content to recover bilingual tags.
+	if toLabel == "" || (!subtitle.IsBilingualLanguage(toLabel) && (toLabel == "zh" || toLabel == "en" || toLabel == "zh-hant")) {
+		if data, err := os.ReadFile(fromPath); err == nil {
+			if detected := subtitle.DetectSubtitleLanguageLabel(subtitle.DetectLanguageOptions{
+				ExplicitLabel: "",
+				NameHints:     []string{filepath.Base(fromPath), sub.FileName, fromLanguage},
+				Content:       data,
+				Format:        sub.Format,
+				DefaultLabel:  toLabel,
+			}); detected != "" {
+				if toLabel == "" || subtitle.IsBilingualLanguage(detected) {
+					toLabel = detected
+				}
+			}
+		}
+	}
+	if toLabel == "" {
+		toLabel = subtitle.NormalizeLanguageLabel(labelSource)
+	}
 	ext := filepath.Ext(fromPath)
 	if ext == "" && sub.Format != "" {
 		ext = "." + strings.TrimPrefix(sub.Format, ".")

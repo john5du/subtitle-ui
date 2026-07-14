@@ -4,6 +4,7 @@ import type { ChangeEvent, ReactNode } from "react";
 import { Clock, Eye, FileArchive, FileCode2, Languages, Pencil, Trash2 } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
+import { describeSubtitleLanguage } from "@/lib/subtitle-language";
 import type { PendingSubtitleAction, Subtitle } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -110,7 +111,16 @@ export function SubtitleTrackCard({
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Languages className="h-3.5 w-3.5" />
-              <span>{subtitle.language || "-"}</span>
+              {(() => {
+                const lang = describeSubtitleLanguage(subtitle.language);
+                const label = lang.labelKey ? t(lang.labelKey) : lang.code || "-";
+                return (
+                  <span className="inline-flex items-center gap-1" title={subtitle.language || undefined}>
+                    {lang.bilingual ? <Badge variant="default" className="h-5 px-1.5 text-[10px]">{label}</Badge> : <span>{label}</span>}
+                    {lang.bilingual && lang.code ? <span className="text-muted-foreground">{lang.code}</span> : null}
+                  </span>
+                );
+              })()}
             </div>
             <div className="flex min-w-0 items-center gap-1">
               <span className="min-w-0 truncate" title={sourceText}>

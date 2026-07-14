@@ -273,6 +273,14 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 		return domain.Subtitle{}, fmt.Errorf("%w: only srt uploads can be converted to ass", ErrBadRequest)
 	}
 
+	label = subtitle.DetectSubtitleLanguageLabel(subtitle.DetectLanguageOptions{
+		ExplicitLabel: label,
+		NameHints:     []string{uploadName, sourceName},
+		Content:       content,
+		Format:        ext,
+		DefaultLabel:  "zh",
+	})
+
 	var err error
 	targetPath := ""
 	backupPath := ""
@@ -295,7 +303,13 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 			return domain.Subtitle{}, err
 		}
 
+		// Keep basename on replace, unless existing language is mono and new content is bilingual.
 		targetPath = subtitle.BuildReplacementSubtitlePath(existing.Path, ext)
+		if !subtitle.IsBilingualLanguage(existing.Language) && subtitle.IsBilingualLanguage(label) {
+			if relabeled, relabelErr := subtitle.BuildNewSubtitlePath(video.Path, label, ext); relabelErr == nil {
+				targetPath = relabeled
+			}
+		}
 		if !sameFilePath(targetPath, existing.Path) && subtitle.PathExists(targetPath) {
 			return domain.Subtitle{}, fmt.Errorf("%w: subtitle path conflict: %s", ErrBadRequest, filepath.Base(targetPath))
 		}

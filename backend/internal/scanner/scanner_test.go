@@ -288,6 +288,18 @@ func TestInferLanguageFromSubtitleName(t *testing.T) {
 			want:         "en&chs",
 		},
 		{
+			name:         "legacy dash bilingual label",
+			videoBase:    "movie",
+			subtitleName: "movie.zh-en.ass",
+			want:         "zh&en",
+		},
+		{
+			name:         "legacy dash bilingual en-zh",
+			videoBase:    "movie",
+			subtitleName: "movie.en-zh.ass",
+			want:         "en&zh",
+		},
+		{
 			name:         "bcp47 script label",
 			videoBase:    "movie",
 			subtitleName: "movie.zh-Hans.ass",

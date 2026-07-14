@@ -203,25 +203,46 @@ func normalizeLabel(label string) string {
 	if label == "" {
 		return ""
 	}
+	// Normalize common bilingual connectors to '&' (kept on disk for scanner).
+	label = strings.NewReplacer("+", "&", ",", "&", "，", "&", "＆", "&", "/", "&", "|", "&").Replace(label)
 
 	var b strings.Builder
 	lastDash := false
+	lastAmp := false
 	for _, ch := range label {
 		isLetter := ch >= 'a' && ch <= 'z'
 		isDigit := ch >= '0' && ch <= '9'
 		if isLetter || isDigit {
 			b.WriteRune(ch)
 			lastDash = false
+			lastAmp = false
 			continue
 		}
-		if !lastDash {
+		if ch == '&' {
+			if b.Len() == 0 || lastAmp {
+				continue
+			}
+			// Drop a trailing dash before ampersand (zh-&en → zh&en).
+			s := b.String()
+			if strings.HasSuffix(s, "-") {
+				b.Reset()
+				b.WriteString(strings.TrimRight(s, "-"))
+			}
+			if b.Len() == 0 {
+				continue
+			}
+			b.WriteByte('&')
+			lastAmp = true
+			lastDash = false
+			continue
+		}
+		if !lastDash && !lastAmp && b.Len() > 0 {
 			b.WriteByte('-')
 			lastDash = true
 		}
 	}
 
-	normalized := strings.Trim(b.String(), "-")
-	return normalized
+	return strings.Trim(b.String(), "-&")
 }
 
 func safeLabelOrDefault(label string) string {

@@ -1,5 +1,6 @@
 import type { SubtitleSourceEncoding } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { UPLOAD_LANGUAGE_PRESETS } from "@/lib/subtitle-language";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -52,12 +53,28 @@ export function UploadSubtitleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Input
-          value={uploadLabel}
-          maxLength={32}
-          placeholder="zh"
-          onChange={(event) => onUploadLabelChange(event.target.value)}
-        />
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {UPLOAD_LANGUAGE_PRESETS.map((preset) => (
+              <Button
+                key={preset.value}
+                type="button"
+                size="sm"
+                variant={uploadLabel === preset.value ? "default" : "outline"}
+                disabled={busy}
+                onClick={() => onUploadLabelChange(preset.value)}
+              >
+                {t(preset.labelKey)}
+              </Button>
+            ))}
+          </div>
+          <Input
+            value={uploadLabel}
+            maxLength={32}
+            placeholder="zh&en"
+            onChange={(event) => onUploadLabelChange(event.target.value)}
+          />
+        </div>
 
         <div className="surface-panel space-y-3 p-3">
           <label className="flex items-center gap-3 text-sm font-medium">

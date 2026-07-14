@@ -156,16 +156,15 @@ func (s *Service) PrepareSubHDSeasonPack(ctx context.Context, opts SubHDSeasonPr
 	token := s.subhdPackCache.put(sid, fileName, strings.TrimSpace(dl.URL), dl.Data)
 	langPref := strings.TrimSpace(strings.ToLower(opts.LanguagePreference))
 	if langPref == "" {
-		langPref = "any"
+		// Prefer bilingual packs by default when present.
+		langPref = "bilingual"
 	}
 	formatPref := strings.TrimSpace(strings.ToLower(opts.FormatPreference))
 	if formatPref == "" {
 		formatPref = "any"
 	}
+	// Empty label means per-entry inference (do not force "zh" over bilingual names).
 	label := strings.TrimSpace(opts.Label)
-	if label == "" {
-		label = "zh"
-	}
 
 	suggested, notices := suggestSeasonPackMappings(videos, entries, langPref, formatPref, label, opts.SkipExisting, opts.Season)
 	return SubHDSeasonPrepareResult{
@@ -289,10 +288,13 @@ func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *sub
 		return domain.Subtitle{}, ErrInvalidFileType
 	}
 
-	label := strings.TrimSpace(opts.Label)
-	if label == "" {
-		label = inferLabelFromSubHD(resolved)
-	}
+	label := subtitle.DetectSubtitleLanguageLabel(subtitle.DetectLanguageOptions{
+		ExplicitLabel: opts.Label,
+		NameHints:     []string{resolved.FileName, resolved.Source},
+		Content:       resolved.Data,
+		Format:        ext,
+		DefaultLabel:  "zh",
+	})
 
 	var err error
 	targetPath := ""
@@ -525,29 +527,7 @@ func seKey(s, e int) string {
 }
 
 func detectLanguageType(name string) string {
-	text := strings.ToLower(name)
-	if regexp.MustCompile(`双语|bilingual|中英|简英|繁英|(?:chs|cht|zh)[._\-\s&+]*(?:en|eng)|(?:en|eng)[._\-\s&+]*(?:chs|cht|zh)`).MatchString(text) ||
-		strings.Contains(name, "双语") || strings.Contains(name, "中英") {
-		return "bilingual"
-	}
-	if regexp.MustCompile(`简体|简中|chs|gb|zh[-_.\s]?hans|\bsc\b`).MatchString(text) ||
-		strings.Contains(name, "简体") || strings.Contains(name, "简中") {
-		return "simplified"
-	}
-	if regexp.MustCompile(`繁体|繁中|cht|big5|zh[-_.\s]?hant|\btc\b`).MatchString(text) ||
-		strings.Contains(name, "繁体") || strings.Contains(name, "繁中") {
-		return "traditional"
-	}
-	if regexp.MustCompile(`\b(eng|english|en)\b|英语`).MatchString(text) || strings.Contains(name, "英语") {
-		return "english"
-	}
-	if regexp.MustCompile(`\b(jpn|japanese|jp)\b|日语`).MatchString(text) {
-		return "japanese"
-	}
-	if regexp.MustCompile(`\b(kor|korean|kr)\b|韩语`).MatchString(text) {
-		return "korean"
-	}
-	return "unknown"
+	return subtitle.DetectLanguageType(name)
 }
 
 func entryFormat(name string) string {
@@ -576,6 +556,28 @@ func choosePreferredArchiveEntry(entries []archive.Entry, langPref, formatPref s
 		}
 		if len(byLang) > 0 {
 			pool = byLang
+		} else if langPref == "bilingual" {
+			// Fall back through simplified → any when no bilingual entry.
+			var simplified []archive.Entry
+			for _, e := range pool {
+				if detectLanguageType(e.Path+" "+e.FileName) == "simplified" {
+					simplified = append(simplified, e)
+				}
+			}
+			if len(simplified) > 0 {
+				pool = simplified
+			}
+		}
+	} else {
+		// Prefer bilingual when preference is unrestricted.
+		var bilingual []archive.Entry
+		for _, e := range pool {
+			if detectLanguageType(e.Path+" "+e.FileName) == "bilingual" {
+				bilingual = append(bilingual, e)
+			}
+		}
+		if len(bilingual) > 0 {
+			pool = bilingual
 		}
 	}
 	if len(pool) == 0 {
@@ -649,11 +651,26 @@ func suggestSeasonPackMappings(
 				video = v
 			}
 		}
-		if skipExisting && len(video.Subtitles) > 0 {
+		entryLabel := label
+		if entryLabel == "" {
+			entryLabel = inferLabelFromName(chosen.Path + " " + chosen.FileName)
+		}
+		if skipExisting && videoHasBilingualSubtitle(video) {
 			suggested = append(suggested, SubHDSeasonSuggestedMapping{
 				VideoID:      video.ID,
 				ArchiveEntry: chosen.Path,
-				Label:        label,
+				Label:        entryLabel,
+				Skipped:      true,
+				Reason:       "already has bilingual subtitle",
+			})
+			continue
+		}
+		if skipExisting && len(video.Subtitles) > 0 && !subtitle.IsBilingualLanguage(entryLabel) {
+			// Mono install into a video that already has any track — skip to avoid clutter.
+			suggested = append(suggested, SubHDSeasonSuggestedMapping{
+				VideoID:      video.ID,
+				ArchiveEntry: chosen.Path,
+				Label:        entryLabel,
 				Skipped:      true,
 				Reason:       "already has subtitles",
 			})
@@ -662,7 +679,7 @@ func suggestSeasonPackMappings(
 		suggested = append(suggested, SubHDSeasonSuggestedMapping{
 			VideoID:      video.ID,
 			ArchiveEntry: chosen.Path,
-			Label:        label,
+			Label:        entryLabel,
 		})
 	}
 
@@ -741,6 +758,8 @@ func (s *Service) SearchSubHDSeasonPacks(ctx context.Context, videoID string, op
 	if season >= 0 {
 		items = sortPacksForSeason(items, season)
 	}
+	// Within season ranking, prefer bilingual listings.
+	sortSubHDResultsPreferBilingual(items)
 	msg := ""
 	if len(items) == 0 {
 		msg = "no season packs on SubHD title page"

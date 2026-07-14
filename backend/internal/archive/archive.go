@@ -169,7 +169,13 @@ func matchPreferred(name, preferred string) bool {
 func scoreSubtitleName(name string) int {
 	lower := strings.ToLower(name)
 	score := 0
-	for _, key := range []string{"简体", "简中", "chs", "zh-cn", "zh_cn", "gb", "chi", "chinese", "双语", "cht", "zh"} {
+	// Bilingual first (highest weight).
+	for _, key := range []string{"双语", "bilingual", "中英", "简英", "繁英", "chs&eng", "cht&eng", "zh&en", "en&zh"} {
+		if strings.Contains(lower, key) || strings.Contains(name, key) {
+			score += 8
+		}
+	}
+	for _, key := range []string{"简体", "简中", "chs", "zh-cn", "zh_cn", "gb", "chi", "chinese", "cht", "zh"} {
 		if strings.Contains(lower, key) || strings.Contains(name, key) {
 			score += 2
 		}

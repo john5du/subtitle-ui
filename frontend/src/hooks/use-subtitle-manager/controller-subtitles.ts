@@ -589,10 +589,11 @@ export function createSubtitleActions(runtime: ControllerRuntime, load: LoadActi
           sid: options.sid,
           videoIds: options.videoIds,
           season: options.season && options.season > 0 ? options.season : undefined,
-          languagePreference: options.languagePreference || "any",
+          languagePreference: options.languagePreference || "bilingual",
           formatPreference: options.formatPreference || "any",
           skipExisting: Boolean(options.skipExisting),
-          label: options.label || "zh"
+          // Empty label lets backend infer per archive entry (prefer bilingual tags).
+          label: options.label || ""
         })
       });
     } catch (error) {

@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"subtitle-ui/backend/internal/domain"
 	"subtitle-ui/backend/internal/provider/subhd"
+	"subtitle-ui/backend/internal/subtitle"
 )
 
 // SubHDSearchOptions controls search query overrides.
@@ -56,6 +58,9 @@ func (s *Service) SearchSubHD(ctx context.Context, videoID string, opts SubHDSea
 	result, err := client.Search(ctx, query, page)
 	if err != nil {
 		return nil, mapSubHDError(err)
+	}
+	if result != nil {
+		sortSubHDResultsPreferBilingual(result.Items)
 	}
 	return result, nil
 }
@@ -171,69 +176,77 @@ func inferLabelFromSubHD(resolved *subhd.ResolvedSubtitle) string {
 	if resolved == nil {
 		return "zh"
 	}
-	// Prefer entry name; fall back to archive/source name.
-	return inferSubtitleLanguageLabel(resolved.FileName, resolved.Source)
-}
-
-// inferSubtitleLanguageLabel maps free-text SubHD names into filename language labels
-// that the scanner can parse (zh / en / zh&en). Unknown defaults to zh (SubHD corpus is mostly Chinese).
-func inferSubtitleLanguageLabel(parts ...string) string {
-	raw := strings.Join(parts, " ")
-	lower := strings.ToLower(raw)
-	hasZh := hasChineseSubtitleHint(raw, lower)
-	hasEn := hasEnglishSubtitleHint(lower, raw)
-	switch {
-	case hasZh && hasEn:
-		// Ampersand form is recognized by scanner language inference.
-		return "zh&en"
-	case hasZh:
-		return "zh"
-	case hasEn:
-		return "en"
-	default:
-		return "zh"
-	}
-}
-
-func hasChineseSubtitleHint(raw, lower string) bool {
-	if strings.Contains(raw, "简") || strings.Contains(raw, "繁") || strings.Contains(raw, "中文") ||
-		strings.Contains(raw, "双语") || strings.Contains(raw, "国语") || strings.Contains(raw, "粤语") {
-		return true
-	}
-	return hasLangToken(lower, "chs", "cht", "zh", "zh-cn", "zh-tw", "zh_cn", "zh_tw", "zh-hans", "zh-hant",
-		"chi", "chinese", "sc", "tc", "gb", "big5", "cn", "tw", "hk")
-}
-
-func hasEnglishSubtitleHint(lower, raw string) bool {
-	if strings.Contains(raw, "英") {
-		return true
-	}
-	return hasLangToken(lower, "eng", "en", "english")
-}
-
-func hasLangToken(lower string, tokens ...string) bool {
-	fields := strings.FieldsFunc(lower, func(r rune) bool {
-		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && r != '-' && r != '_'
+	return subtitle.DetectSubtitleLanguageLabel(subtitle.DetectLanguageOptions{
+		NameHints:    []string{resolved.FileName, resolved.Source},
+		Content:      resolved.Data,
+		Format:       resolved.Ext,
+		DefaultLabel: "zh",
 	})
-	seen := make(map[string]struct{}, len(fields))
-	for _, f := range fields {
-		f = strings.Trim(f, "-_")
-		if f == "" {
-			continue
-		}
-		seen[f] = struct{}{}
-		// Also index without separators: zh-cn -> zhcn already separate; keep as-is.
+}
+
+// inferSubtitleLanguageLabel maps free-text names into filename language labels.
+func inferSubtitleLanguageLabel(parts ...string) string {
+	return subtitle.DetectSubtitleLanguageLabel(subtitle.DetectLanguageOptions{
+		NameHints:    parts,
+		DefaultLabel: "zh",
+	})
+}
+
+// sortSubHDResultsPreferBilingual stable-sorts search hits: bilingual first, then simplified, then rest.
+func sortSubHDResultsPreferBilingual(items []subhd.SearchResult) {
+	if len(items) < 2 {
+		return
 	}
-	for _, token := range tokens {
-		token = strings.ToLower(token)
-		if _, ok := seen[token]; ok {
-			return true
+	type ranked struct {
+		item  subhd.SearchResult
+		score int
+		idx   int
+	}
+	rankedItems := make([]ranked, len(items))
+	for i, item := range items {
+		rankedItems[i] = ranked{item: item, score: subHDResultLanguageScore(item), idx: i}
+	}
+	sort.SliceStable(rankedItems, func(i, j int) bool {
+		if rankedItems[i].score != rankedItems[j].score {
+			return rankedItems[i].score > rankedItems[j].score
 		}
-		// Multi-part tokens like zh-cn may appear as a single field.
-		if strings.Contains(token, "-") || strings.Contains(token, "_") {
-			if _, ok := seen[strings.ReplaceAll(token, "_", "-")]; ok {
-				return true
+		return rankedItems[i].idx < rankedItems[j].idx
+	})
+	for i := range rankedItems {
+		items[i] = rankedItems[i].item
+	}
+}
+
+func subHDResultLanguageScore(item subhd.SearchResult) int {
+	blob := strings.Join(item.Langs, " ") + " " + item.Title + " " + item.Version
+	switch subtitle.DetectLanguageType(blob) {
+	case "bilingual":
+		return 100
+	case "simplified":
+		return 60
+	case "traditional":
+		return 50
+	case "english":
+		return 20
+	default:
+		// Still boost explicit 双语 tags in langs.
+		for _, lang := range item.Langs {
+			if strings.Contains(lang, "双语") {
+				return 100
 			}
+			if strings.Contains(lang, "简体") {
+				return 60
+			}
+		}
+		return 0
+	}
+}
+
+// videoHasBilingualSubtitle reports whether any track is already bilingual.
+func videoHasBilingualSubtitle(video domain.Video) bool {
+	for _, sub := range video.Subtitles {
+		if subtitle.IsBilingualLanguage(sub.Language) {
+			return true
 		}
 	}
 	return false

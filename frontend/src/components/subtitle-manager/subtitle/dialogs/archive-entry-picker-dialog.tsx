@@ -69,7 +69,7 @@ export function ArchiveEntryPickerDialog({
             <Input
               value={zipUploadLabel}
               maxLength={32}
-              placeholder="zh"
+              placeholder="zh&en"
               onChange={(event) => onZipUploadLabelChange(event.target.value)}
             />
           </div>

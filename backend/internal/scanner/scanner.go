@@ -727,10 +727,16 @@ func looksLikeBCP47LanguageTag(parts []string) bool {
 	if len(parts) < 2 || !isSubtitleLanguagePrimary(parts[0]) {
 		return false
 	}
+	// Known language codes joined by '-' (zh-en, en-zh) are bilingual lists, not BCP47.
+	if allPartsKnownSubtitleLanguages(parts) {
+		return false
+	}
 	second := strings.ToLower(parts[1])
 	if len(second) == 4 && isAlphaString(second) {
 		return true
 	}
+	// Region-like 2-letter subtags only when second part is NOT itself a language primary
+	// we already treat as a language list (handled above). ISO regions like CN/TW/US remain BCP47.
 	if len(second) == 2 && isAlphaString(second) {
 		return true
 	}
@@ -738,6 +744,18 @@ func looksLikeBCP47LanguageTag(parts []string) bool {
 		return true
 	}
 	return false
+}
+
+func allPartsKnownSubtitleLanguages(parts []string) bool {
+	if len(parts) < 2 {
+		return false
+	}
+	for _, part := range parts {
+		if !isKnownSubtitleLanguageLabel(part) {
+			return false
+		}
+	}
+	return true
 }
 
 func isSubtitleLanguagePrimary(label string) bool {

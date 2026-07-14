@@ -46,8 +46,10 @@ func TestNormalizeLanguageLabel(t *testing.T) {
 		{in: "zh-TW", want: "zh-hant"},
 		{in: "eng", want: "en"},
 		{in: "en-US", want: "en"},
-		{in: "en&chs", want: "en&zh"},
-		{in: "chs+en", want: "en&zh"},
+		{in: "en&chs", want: "zh&en"},
+		{in: "chs+en", want: "zh&en"},
+		{in: "zh&en", want: "zh&en"},
+		{in: "cht&eng", want: "zh-hant&en"},
 		{in: "ja", want: "ja"},
 		{in: "jpn", want: "ja"},
 	}
@@ -55,6 +57,34 @@ func TestNormalizeLanguageLabel(t *testing.T) {
 		if got := NormalizeLanguageLabel(tt.in); got != tt.want {
 			t.Fatalf("NormalizeLanguageLabel(%q)=%q want %q", tt.in, got, tt.want)
 		}
+	}
+}
+
+func TestNormalizeLabelKeepsAmpersand(t *testing.T) {
+	if got := normalizeLabel("zh&en"); got != "zh&en" {
+		t.Fatalf("normalizeLabel(zh&en)=%q", got)
+	}
+	if got := normalizeLabel("CHS+ENG"); got != "chs&eng" {
+		t.Fatalf("normalizeLabel(CHS+ENG)=%q", got)
+	}
+	target := BuildCanonicalSubtitlePath(filepath.Join("media", "movie.mkv"), "zh&en", ".ass")
+	if filepath.Base(target) != "movie.zh&en.ass" {
+		t.Fatalf("unexpected bilingual path base: %s", filepath.Base(target))
+	}
+}
+
+func TestIsBilingualLanguage(t *testing.T) {
+	if !IsBilingualLanguage("zh&en") {
+		t.Fatal("expected zh&en bilingual")
+	}
+	if !IsBilingualLanguage("zh-en") {
+		t.Fatal("expected legacy zh-en bilingual")
+	}
+	if IsBilingualLanguage("zh") {
+		t.Fatal("zh should not be bilingual")
+	}
+	if IsBilingualLanguage("zh-hant") {
+		t.Fatal("zh-hant should not be bilingual")
 	}
 }
 

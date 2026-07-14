@@ -11,6 +11,7 @@ import type {
   SubtitleUploadOptions,
   Video
 } from "@/lib/types";
+import { inferUploadLanguageLabel } from "@/lib/subtitle-language";
 import {
   extractArchiveSubtitleEntry,
   isArchiveFileName,
@@ -98,7 +99,7 @@ export function useSubtitleFileWorkflow({
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
-  const [uploadLabel, setUploadLabel] = useState("zh");
+  const [uploadLabel, setUploadLabel] = useState("zh&en");
   const [uploadConvertToAss, setUploadConvertToAss] = useState(false);
   const [uploadSourceEncoding, setUploadSourceEncoding] = useState<SubtitleSourceEncoding>("auto");
   const [zipPickDialogOpen, setZipPickDialogOpen] = useState(false);
@@ -107,7 +108,7 @@ export function useSubtitleFileWorkflow({
   const [zipPickFile, setZipPickFile] = useState<File | null>(null);
   const [zipPickEntries, setZipPickEntries] = useState<ZipSubtitleEntry[]>([]);
   const [zipPickTargetSubtitle, setZipPickTargetSubtitle] = useState<Subtitle | null>(null);
-  const [zipUploadLabel, setZipUploadLabel] = useState("zh");
+  const [zipUploadLabel, setZipUploadLabel] = useState("zh&en");
   const [selectedZipEntryId, setSelectedZipEntryId] = useState("");
   const [zipPickError, setZipPickError] = useState("");
   const [zipLoading, setZipLoading] = useState(false);
@@ -132,7 +133,7 @@ export function useSubtitleFileWorkflow({
     setZipPickFile(null);
     setZipPickEntries([]);
     setZipPickTargetSubtitle(null);
-    setZipUploadLabel("zh");
+    setZipUploadLabel("zh&en");
     setSelectedZipEntryId("");
     setZipPickError("");
     setZipLoading(false);
@@ -141,7 +142,7 @@ export function useSubtitleFileWorkflow({
   function resetUploadState() {
     setUploadDialogOpen(false);
     setPendingUploadFile(null);
-    setUploadLabel("zh");
+    setUploadLabel("zh&en");
     setUploadConvertToAss(false);
     setUploadSourceEncoding("auto");
   }
@@ -275,7 +276,12 @@ export function useSubtitleFileWorkflow({
       setZipPickMode(mode);
       setZipPickTargetSubtitle(targetSubtitle);
       if (mode === "upload") {
-        setZipUploadLabel(uploadLabel.trim() || "zh");
+        const preferred =
+          entries.map((entry) => inferUploadLanguageLabel(`${entry.path} ${entry.fileName}`)).find((label) => label.includes("&")) ||
+          inferUploadLanguageLabel(file.name) ||
+          uploadLabel.trim() ||
+          "zh&en";
+        setZipUploadLabel(preferred);
       }
       setZipPickFileName(file.name);
       setZipPickFile(file);
@@ -318,6 +324,7 @@ export function useSubtitleFileWorkflow({
 
     if (mode === "upload") {
       setPendingUploadFile(file);
+      setUploadLabel(inferUploadLanguageLabel(file.name));
       setUploadConvertToAss(false);
       setUploadSourceEncoding("auto");
       setUploadDialogOpen(true);

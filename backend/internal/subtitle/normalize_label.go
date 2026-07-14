@@ -64,10 +64,99 @@ func NormalizeLanguageLabel(raw string) string {
 	if len(out) == 0 {
 		return ""
 	}
+	return joinCanonicalLanguageLabels(out)
+}
+
+// IsBilingualLanguage reports whether a stored language tag is multi-language.
+func IsBilingualLanguage(raw string) bool {
+	raw = strings.ToLower(strings.TrimSpace(raw))
+	if raw == "" || raw == "und" {
+		return false
+	}
+	parts := splitLanguageParts(raw)
+	if len(parts) > 1 {
+		// zh-hant is a single BCP47-style tag (no '&'); splitLanguageParts keeps it whole.
+		mapped := make([]string, 0, len(parts))
+		seen := make(map[string]struct{}, len(parts))
+		for _, p := range parts {
+			m := mapSingleLanguageTag(p)
+			if m == "" {
+				continue
+			}
+			if _, ok := seen[m]; ok {
+				continue
+			}
+			seen[m] = struct{}{}
+			mapped = append(mapped, m)
+		}
+		return len(mapped) >= 2
+	}
+	// Legacy on-disk form after older sanitize: zh-en / en-zh (not zh-hant / zh-cn).
+	if strings.Contains(raw, "-") {
+		dashParts := strings.Split(raw, "-")
+		if len(dashParts) < 2 {
+			return false
+		}
+		// Script/region subtags are single-language BCP47.
+		second := dashParts[1]
+		if second == "hant" || second == "hans" || second == "cn" || second == "tw" || second == "hk" ||
+			second == "us" || second == "gb" || second == "sg" {
+			return false
+		}
+		mapped := make([]string, 0, len(dashParts))
+		seen := make(map[string]struct{}, len(dashParts))
+		for _, p := range dashParts {
+			// Only count known short language primaries, not random subtags.
+			m := mapSingleLanguageTag(p)
+			if m == "" || m == p && len(p) > 3 {
+				// Unknown long tags are not language primaries.
+				if _, ok := shortLanguageAliases[p]; !ok && p != "zh" && p != "en" && p != "ja" && p != "ko" &&
+					p != "fr" && p != "de" && p != "es" && p != "pt" && p != "ru" {
+					continue
+				}
+			}
+			if m == "" {
+				continue
+			}
+			if _, ok := seen[m]; ok {
+				continue
+			}
+			seen[m] = struct{}{}
+			mapped = append(mapped, m)
+		}
+		return len(mapped) >= 2
+	}
+	return false
+}
+
+// joinCanonicalLanguageLabels prefers Chinese-first zh&en / zh-hant&en.
+func joinCanonicalLanguageLabels(out []string) string {
 	if len(out) == 1 {
 		return out[0]
 	}
-	// Stable bilingual order for deterministic filenames.
+	hasEn, hasZh, hasZhHant := false, false, false
+	others := make([]string, 0, len(out))
+	for _, tag := range out {
+		switch tag {
+		case "en":
+			hasEn = true
+		case "zh":
+			hasZh = true
+		case "zh-hant":
+			hasZhHant = true
+		default:
+			others = append(others, tag)
+		}
+	}
+	if hasEn && len(others) == 0 && (hasZh || hasZhHant) {
+		if hasZh && hasZhHant {
+			return "zh&zh-hant&en"
+		}
+		if hasZhHant {
+			return "zh-hant&en"
+		}
+		return "zh&en"
+	}
 	sort.Strings(out)
 	return strings.Join(out, "&")
 }

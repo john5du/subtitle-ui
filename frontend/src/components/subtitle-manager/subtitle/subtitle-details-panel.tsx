@@ -5,6 +5,7 @@ import { ArrowLeft, AlertTriangle, Clock, ExternalLink, Eye, FileCode2, Pencil, 
 
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useI18n } from "@/lib/i18n";
+import { describeSubtitleLanguage } from "@/lib/subtitle-language";
 import { buildSubtitleSearchLinks, buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
 import { emitToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -368,7 +369,24 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 
                         return (
                           <TableRow key={subtitle.id} className={cn(rowBusy && "animate-pulse-soft bg-muted/40")}>
-                            <TableCell title={subtitle.fileName || undefined}>{subtitle.language || "-"}</TableCell>
+                            <TableCell title={subtitle.fileName || undefined}>
+                              {(() => {
+                                const lang = describeSubtitleLanguage(subtitle.language);
+                                const label = lang.labelKey ? t(lang.labelKey) : lang.code || "-";
+                                return (
+                                  <span className="inline-flex items-center gap-1.5" title={subtitle.language || undefined}>
+                                    {lang.bilingual ? (
+                                      <Badge variant="default" className="h-5 px-1.5 text-[10px]">
+                                        {label}
+                                      </Badge>
+                                    ) : (
+                                      <span>{label}</span>
+                                    )}
+                                    {lang.bilingual ? <span className="text-muted-foreground">{lang.code}</span> : null}
+                                  </span>
+                                );
+                              })()}
+                            </TableCell>
                             <TableCell>{subtitle.format || "-"}</TableCell>
                             <TableCell>
                               <div className="flex min-w-0 items-center gap-1">

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
+import { describeSubtitleLanguage } from "@/lib/subtitle-language";
 import type { BatchSubtitleDeleteItem, BatchSubtitleUploadResult, Subtitle, TvSeasonOption, Video } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -263,7 +264,10 @@ export function TvBatchDeleteDialog({
                               </div>
                             </TableCell>
                             <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                              {row.subtitle.language || "-"}
+                              {(() => {
+                                const lang = describeSubtitleLanguage(row.subtitle.language);
+                                return lang.labelKey ? t(lang.labelKey) : lang.code || "-";
+                              })()}
                             </TableCell>
                             <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                               {row.subtitle.format || "-"}
