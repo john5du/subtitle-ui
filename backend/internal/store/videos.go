@@ -21,6 +21,37 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 		pageSize = 200
 	}
 
+	baseQuery, args, conditions := s.videosSelectQuery(query, mediaType, directory)
+
+	countQuery := `SELECT COUNT(1) FROM videos`
+	if len(conditions) > 0 {
+		countQuery += ` WHERE ` + strings.Join(conditions, " AND ")
+	}
+	total, err := s.countByQuery(countQuery, args)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	baseQuery += " " + s.buildVideoOrderBy(sortBy, sortOrder) + ` LIMIT ? OFFSET ?`
+	listArgs := append(append([]any{}, args...), pageSize, offset)
+
+	out, err := s.queryVideos(baseQuery, listArgs)
+	if err != nil {
+		return nil, 0, err
+	}
+	return out, total, nil
+}
+
+// ListAllVideos returns every video of the optional media type in one query (no page limit).
+// Used for scan diffs and TV series aggregation; prefer ListVideos for API paging.
+func (s *Store) ListAllVideos(mediaType string) ([]domain.Video, error) {
+	baseQuery, args, _ := s.videosSelectQuery("", mediaType, "")
+	baseQuery += " " + s.buildVideoOrderBy("", "")
+	return s.queryVideos(baseQuery, args)
+}
+
+func (s *Store) videosSelectQuery(query string, mediaType string, directory string) (string, []any, []string) {
 	baseQuery := `SELECT id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at FROM videos`
 	args := []any{}
 	conditions := make([]string, 0, 2)
@@ -45,23 +76,13 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 	if len(conditions) > 0 {
 		baseQuery += ` WHERE ` + strings.Join(conditions, " AND ")
 	}
+	return baseQuery, args, conditions
+}
 
-	countQuery := `SELECT COUNT(1) FROM videos`
-	if len(conditions) > 0 {
-		countQuery += ` WHERE ` + strings.Join(conditions, " AND ")
-	}
-	total, err := s.countByQuery(countQuery, args)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	offset := (page - 1) * pageSize
-	baseQuery += " " + s.buildVideoOrderBy(sortBy, sortOrder) + ` LIMIT ? OFFSET ?`
-	args = append(args, pageSize, offset)
-
+func (s *Store) queryVideos(baseQuery string, args []any) ([]domain.Video, error) {
 	rows, err := s.query(baseQuery, args...)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -69,21 +90,20 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 	for rows.Next() {
 		video, err := scanVideoRow(rows)
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 		out = append(out, video)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	// Batch-load subtitles after the main rows cursor is closed to avoid
 	// single-connection SQLite deadlocks.
 	if err := s.attachSubtitles(out); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-
-	return out, total, nil
+	return out, nil
 }
 
 func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {

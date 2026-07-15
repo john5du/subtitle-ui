@@ -370,18 +370,23 @@ export function useSeasonBatchWorkspace({
     }
   }
 
+  const searchSubHDSeasonRef = useRef(searchSubHDSeason);
+  searchSubHDSeasonRef.current = searchSubHDSeason;
+  const selectedSeriesKey = selectedSeries?.key ?? "";
+  const autoSearchQuery = useMemo(
+    () => buildDefaultSeasonQuery(selectedSeries, selectedSeason, seasonVideos),
+    [selectedSeries, selectedSeason, seasonVideos]
+  );
+
   useEffect(() => {
     if (!autoSearchOnMount || !subhdEnabled || autoSearchStartedRef.current) {
       return;
     }
     autoSearchStartedRef.current = true;
-    const query = buildDefaultSeasonQuery(selectedSeries, selectedSeason, seasonVideos);
     setSourceMode("subhd");
-    setSubhdQuery(query);
-    void searchSubHDSeason(query);
-    // Intentionally run once per open/season; searchSubHDSeason closes over latest callbacks.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoSearchOnMount, subhdEnabled, selectedSeries?.key, selectedSeason]);
+    setSubhdQuery(autoSearchQuery);
+    void searchSubHDSeasonRef.current(autoSearchQuery);
+  }, [autoSearchOnMount, subhdEnabled, selectedSeriesKey, selectedSeason, autoSearchQuery]);
 
   async function prepareSelectedSubHDPack() {
     if (!onPrepareSubHDSeason) {

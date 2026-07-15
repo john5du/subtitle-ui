@@ -73,6 +73,9 @@ func (s *Store) queryRowTx(tx *sql.Tx, query string, args ...any) *sql.Row {
 	return tx.QueryRow(s.rebind(query), args...)
 }
 
+// rebind rewrites ? placeholders for the active SQL dialect (Postgres $1, $2, …).
+// Dual-dialect support (SQLite default + Postgres via DATABASE_URL) is intentional;
+// keep queries dialect-agnostic and route differences through helpers in this file.
 func (s *Store) rebind(query string) string {
 	if s.dialect != dialectPostgres {
 		return query

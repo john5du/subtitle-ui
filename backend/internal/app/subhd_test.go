@@ -178,6 +178,63 @@ func TestSuggestSeasonPackMappingsBareEpisodes(t *testing.T) {
 	}
 }
 
+func TestSuggestSeasonPackMappingsSkipExisting(t *testing.T) {
+	videos := []domain.Video{
+		{
+			ID:       "v1",
+			FileName: "Show.S01E01.mkv",
+			Path:     "/a/1.mkv",
+			Subtitles: []domain.Subtitle{
+				{Language: "zh&en"},
+			},
+		},
+		{
+			ID:       "v2",
+			FileName: "Show.S01E02.mkv",
+			Path:     "/a/2.mkv",
+			Subtitles: []domain.Subtitle{
+				{Language: "zh"},
+			},
+		},
+		{
+			ID:        "v3",
+			FileName:  "Show.S01E03.mkv",
+			Path:      "/a/3.mkv",
+			Subtitles: nil,
+		},
+	}
+	entries := []archive.Entry{
+		{Path: "S01E01.chs&eng.ass", FileName: "S01E01.chs&eng.ass", Size: 10},
+		{Path: "S01E02.chs.srt", FileName: "S01E02.chs.srt", Size: 10},
+		{Path: "S01E03.chs.srt", FileName: "S01E03.chs.srt", Size: 10},
+	}
+	suggested, _ := suggestSeasonPackMappings(videos, entries, "any", "any", "", true, 1)
+	byVideo := map[string]SubHDSeasonSuggestedMapping{}
+	for _, m := range suggested {
+		byVideo[m.VideoID] = m
+	}
+	if !byVideo["v1"].Skipped || byVideo["v1"].Reason == "" {
+		t.Fatalf("v1 should skip bilingual existing: %+v", byVideo["v1"])
+	}
+	if !byVideo["v2"].Skipped {
+		t.Fatalf("v2 mono install should skip when already has tracks: %+v", byVideo["v2"])
+	}
+	if byVideo["v3"].Skipped || byVideo["v3"].ArchiveEntry != "S01E03.chs.srt" {
+		t.Fatalf("v3 should map: %+v", byVideo["v3"])
+	}
+}
+
+func TestChoosePreferredArchiveEntryBilingualFallback(t *testing.T) {
+	entries := []archive.Entry{
+		{Path: "S01E01.chs.srt", FileName: "S01E01.chs.srt"},
+		{Path: "S01E01.eng.srt", FileName: "S01E01.eng.srt"},
+	}
+	chosen := choosePreferredArchiveEntry(entries, "bilingual", "any")
+	if chosen.Path != "S01E01.chs.srt" {
+		t.Fatalf("bilingual pref should fall back to simplified, got %q", chosen.Path)
+	}
+}
+
 func TestMapSubHDError(t *testing.T) {
 	err := mapSubHDError(subhd.ErrRateLimited)
 	if err == nil {

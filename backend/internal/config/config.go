@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// DefaultAdminToken is used when ADMIN_TOKEN is unset. Change it in production.
+// DefaultAdminToken is used when ADMIN_TOKEN is unset. Forbidden when IsProduction().
 const DefaultAdminToken = "change-me"
 
 type Config struct {
@@ -33,18 +33,29 @@ type Config struct {
 	SonarrAPIKey          string
 }
 
+// IsProduction reports whether APP_ENV/ENV is production (or prod).
+// Used to refuse insecure defaults such as the default admin token.
+func IsProduction() bool {
+	env := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
+	if env == "" {
+		env = strings.ToLower(strings.TrimSpace(os.Getenv("ENV")))
+	}
+	return env == "production" || env == "prod"
+}
+
 func Load() Config {
 	legacyRoot := strings.TrimSpace(os.Getenv("MEDIA_ROOT"))
 	movieDefault := "./media/movies"
 	tvDefault := "./media/tv"
 	if legacyRoot != "" {
+		// Legacy single-root: both movie and TV share MEDIA_ROOT.
 		movieDefault = legacyRoot
 		tvDefault = legacyRoot
 	}
 
 	adminToken := strings.TrimSpace(os.Getenv("ADMIN_TOKEN"))
 	adminTokenIsDefault := false
-	if adminToken == "" {
+	if adminToken == "" || adminToken == DefaultAdminToken {
 		adminToken = DefaultAdminToken
 		adminTokenIsDefault = true
 	}
@@ -91,6 +102,30 @@ func Load() Config {
 	}
 
 	return cfg
+}
+
+// Validate returns a non-nil error when the config is unsafe for the current environment.
+func (c Config) Validate() error {
+	if c.AdminTokenIsDefault && IsProduction() {
+		return errDefaultAdminTokenInProduction
+	}
+	return nil
+}
+
+var errDefaultAdminTokenInProduction = &ConfigError{
+	Message: "ADMIN_TOKEN must be set to a strong secret in production (default \"change-me\" is not allowed; set APP_ENV/ENV away from production for local dev)",
+}
+
+// ConfigError is a user-facing configuration problem.
+type ConfigError struct {
+	Message string
+}
+
+func (e *ConfigError) Error() string {
+	if e == nil {
+		return "config error"
+	}
+	return e.Message
 }
 
 func getEnv(key string, fallback string) string {

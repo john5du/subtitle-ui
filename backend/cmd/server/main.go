@@ -18,6 +18,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid config: %v", err)
+	}
 
 	if err := os.MkdirAll(cfg.MovieMediaRoot, 0o755); err != nil {
 		log.Fatalf("failed to create movie media root %q: %v", cfg.MovieMediaRoot, err)

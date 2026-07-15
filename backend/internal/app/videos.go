@@ -129,28 +129,7 @@ func (s *Service) listAllVideos() ([]domain.Video, error) {
 }
 
 func (s *Service) listAllVideosByType(mediaType string) ([]domain.Video, error) {
-	out := make([]domain.Video, 0, 256)
-	page := 1
-	pageSize := 200
-	total := 0
-
-	for {
-		items, itemTotal, err := s.store.ListVideos("", mediaType, "", page, pageSize, "", "")
-		if err != nil {
-			return nil, err
-		}
-		if page == 1 {
-			total = itemTotal
-		}
-
-		out = append(out, items...)
-		if len(items) == 0 || len(out) >= total {
-			break
-		}
-		page += 1
-	}
-
-	return out, nil
+	return s.store.ListAllVideos(mediaType)
 }
 
 type videoChanges struct {

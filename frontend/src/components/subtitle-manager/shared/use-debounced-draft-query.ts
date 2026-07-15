@@ -8,14 +8,14 @@ export function useDebouncedDraftQuery(
 ): [string, (value: string) => void] {
   const [draftQuery, setDraftQuery] = useState(query);
   const lastPublishedRef = useRef(query);
+  const draftQueryRef = useRef(draftQuery);
+  draftQueryRef.current = draftQuery;
 
   useEffect(() => {
-    if (query !== draftQuery) {
+    if (query !== draftQueryRef.current) {
       setDraftQuery(query);
       lastPublishedRef.current = query;
     }
-    // only sync from parent-controlled query
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   useEffect(() => {

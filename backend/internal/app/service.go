@@ -36,6 +36,12 @@ const (
 	settingSonarrAPIKey    = "sonarr.api_key"
 )
 
+type scanStatus struct {
+	mu        sync.RWMutex
+	running   bool
+	startedAt *time.Time
+}
+
 type Service struct {
 	cfg     config.Config
 	scanner *scanner.Scanner
@@ -49,10 +55,7 @@ type Service struct {
 	sonarr   *sonarr.Client
 
 	scanRunMu sync.Mutex
-
-	statusMu      sync.RWMutex
-	scanRunning   bool
-	scanStartedAt *time.Time
+	scan      scanStatus
 
 	dirScanMu   sync.RWMutex
 	lastDirScan domain.DirectoryScanResult

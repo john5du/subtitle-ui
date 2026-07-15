@@ -38,10 +38,10 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	}
 
 	started := time.Now().UTC()
-	s.statusMu.Lock()
-	s.scanRunning = true
-	s.scanStartedAt = &started
-	s.statusMu.Unlock()
+	s.scan.mu.Lock()
+	s.scan.running = true
+	s.scan.startedAt = &started
+	s.scan.mu.Unlock()
 
 	type scanResult struct {
 		found         []domain.Video
@@ -203,9 +203,9 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	}
 	s.recordOp("scan", systemOperationVideoID, "", "", scanStatus, scanMessage)
 
-	s.statusMu.Lock()
-	s.scanRunning = false
-	s.statusMu.Unlock()
+	s.scan.mu.Lock()
+	s.scan.running = false
+	s.scan.mu.Unlock()
 
 	status := s.ScanStatus()
 	if result.err != nil {
@@ -318,11 +318,11 @@ func (s *Service) ScanStatus() domain.ScanStatus {
 		status.Error = err.Error()
 	}
 
-	s.statusMu.RLock()
-	defer s.statusMu.RUnlock()
-	status.Running = s.scanRunning
-	if s.scanRunning && s.scanStartedAt != nil {
-		started := *s.scanStartedAt
+	s.scan.mu.RLock()
+	defer s.scan.mu.RUnlock()
+	status.Running = s.scan.running
+	if s.scan.running && s.scan.startedAt != nil {
+		started := *s.scan.startedAt
 		status.LastStartedAt = &started
 	}
 	return status
