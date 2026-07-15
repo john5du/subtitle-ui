@@ -1,0 +1,13 @@
+[
+  { "input": "zh&en", "want": true },
+  { "input": "zh-hant&en", "want": true },
+  { "input": "zh-en", "want": true },
+  { "input": "en-zh", "want": true },
+  { "input": "zh", "want": false },
+  { "input": "zh-hant", "want": false },
+  { "input": "en", "want": false },
+  { "input": "", "want": false },
+  { "input": "und", "want": false },
+  { "input": "chs", "want": false },
+  { "input": "cht", "want": false }
+]

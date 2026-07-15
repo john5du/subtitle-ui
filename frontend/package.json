@@ -8,7 +8,8 @@
     "dev": "node ./scripts/dev-next.mjs",
     "build": "bun --bun next build",
     "start": "bun --bun next start",
-    "lint": "bun --bun eslint ."
+    "lint": "bun --bun eslint .",
+    "test": "bun test"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.19",

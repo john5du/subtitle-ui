@@ -87,8 +87,9 @@ cd frontend && bun run build   # static export → frontend/out
 
 ## Agent notes
 
-- No frontend unit test suite; backend tests are the primary safety net.
+- Frontend unit tests: `cd frontend && bun test` (Bun test runner). Prefer pure-function tests.
 - Prefer focused `go test` packages under `backend/internal/...` while iterating.
 - After FE changes that ship in the container, `bun run build` must succeed (static export).
 - Do not commit secrets, `tmp/`, `media/`, or `frontend/out`.
 - Frontend UI conventions: `docs/frontend-ui.md` (control density, library list shell, drawer sizes, empty/settings rows) and `docs/frontend-dialogs.md` (modal `sm|md|lg`, drawer `md|lg|xl`, `DialogTitleWithHelp` / `DialogHelpTip`).
+- Language label contract: shared fixtures in `testdata/language/*.json` — update both Go (`backend/internal/subtitle/language_contract_test.go`) and FE (`frontend/src/lib/language-contract.test.ts`) when changing detection/normalization rules.

@@ -1,0 +1,11 @@
+[
+  { "input": "中英双语.ass", "want": "bilingual" },
+  { "input": "Show.chs&eng.srt", "want": "bilingual" },
+  { "input": "Show.S01E01.chs&eng.ass", "want": "bilingual" },
+  { "input": "简体.srt", "want": "simplified" },
+  { "input": "简体中文.srt", "want": "simplified" },
+  { "input": "繁体.srt", "want": "traditional" },
+  { "input": "English.srt", "want": "english" },
+  { "input": "unknown.srt", "want": "unknown" },
+  { "input": "episode.srt", "want": "unknown" }
+]

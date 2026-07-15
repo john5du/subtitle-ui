@@ -1,0 +1,9 @@
+[
+  { "input": "Show.S01E01.chs&eng.ass", "wantLabel": "zh&en" },
+  { "input": "中英双语.ass", "wantLabel": "zh&en" },
+  { "input": "简体中文.srt", "wantLabel": "zh" },
+  { "input": "繁体.srt", "wantLabel": "zh-hant" },
+  { "input": "English.srt", "wantLabel": "en" },
+  { "input": "episode.srt", "wantLabel": "zh" },
+  { "input": "unknown.srt", "wantLabel": "zh" }
+]
