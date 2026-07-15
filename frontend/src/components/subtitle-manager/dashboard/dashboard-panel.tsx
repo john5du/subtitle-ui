@@ -167,22 +167,22 @@ export function DashboardPanel({
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-4 lg:h-full">
-      <div className="flex items-start gap-2">
-        {onToggleSidebar && sidebarToggleLabel ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            className="mt-0.5 hidden lg:inline-flex"
-            onClick={onToggleSidebar}
-            aria-label={sidebarToggleLabel}
-            title={sidebarToggleLabel}
-          >
-            {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </Button>
-        ) : null}
-        <div className="mx-auto flex min-w-0 w-full max-w-5xl flex-1 flex-col gap-5">
+    <div className="flex min-h-0 flex-1 gap-2 p-3 sm:p-4 lg:h-full">
+      {onToggleSidebar && sidebarToggleLabel ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          className="mt-0.5 hidden shrink-0 self-start lg:inline-flex"
+          onClick={onToggleSidebar}
+          aria-label={sidebarToggleLabel}
+          title={sidebarToggleLabel}
+        >
+          {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </Button>
+      ) : null}
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
           <StatusSummaryBar
             scanStatus={scanStatus}
             directoryScan={directoryScan}
