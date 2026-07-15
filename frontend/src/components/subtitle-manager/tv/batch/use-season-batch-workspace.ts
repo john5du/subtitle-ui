@@ -11,11 +11,11 @@ import type {
 import { emitToast } from "@/lib/toast";
 import { buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
 import type { ZipSubtitleEntry } from "@/lib/subtitle-zip";
-
 import type { BatchLanguagePreference, SeasonBatchMappingFilter, SeasonBatchRowView } from "../../types";
 import {
   applyBatchEntryPreferences,
   buildSeasonBatchRows,
+  buildSeasonBatchRowsFromSubHDSuggestions,
   buildSeasonBatchRowViews,
   collectBatchEntriesFromFiles,
   filterSeasonBatchRowViews,
@@ -25,6 +25,7 @@ import {
   summarizeFileNames,
   summarizeSeasonBatchRows
 } from "../batch-utils";
+import { mapSubHDPrepareEntries } from "./season-batch-entries";
 import {
   buildDefaultSeasonQuery,
   filterVideosForSeason,
@@ -144,39 +145,24 @@ export function useSeasonBatchWorkspace({
       return;
     }
 
+    const defaultSeason = seasonNumber > 0 ? seasonNumber : 0;
+
+    // SubHD prepare: trust server suggestedMappings (prefs already applied server-side).
+    if (sourceMode === "subhd" && subhdCacheToken) {
+      setBatchRows(
+        buildSeasonBatchRowViews(
+          buildSeasonBatchRowsFromSubHDSuggestions(batchRawEntries, subhdSuggestions, defaultSeason),
+          batchCandidates
+        )
+      );
+      return;
+    }
+
+    // Local upload: FE still owns preference filtering + S/E auto-map.
     const effectiveLanguagePreference = showBatchLanguageSelector ? batchLanguagePreference : "any";
     const effectiveFormatPreference = showBatchFormatSelector ? normalizeSubtitleFormat(batchFormatPreference) : "any";
     const preferred = applyBatchEntryPreferences(batchRawEntries, effectiveLanguagePreference, effectiveFormatPreference);
-    const defaultSeason = seasonNumber > 0 ? seasonNumber : 0;
-    let rows = buildSeasonBatchRowViews(
-      buildSeasonBatchRows(batchCandidates, preferred.entries, defaultSeason),
-      batchCandidates
-    );
-
-    if (sourceMode === "subhd" && subhdSuggestions.length > 0) {
-      const suggestionByEntry = new Map(subhdSuggestions.map((m) => [m.archiveEntry, m]));
-      rows = buildSeasonBatchRowViews(
-        rows.map((row) => {
-          const entryPath = row.entry.archiveEntry || row.entry.path;
-          const suggestion = suggestionByEntry.get(entryPath);
-          if (!suggestion) {
-            return row;
-          }
-          if (suggestion.skipped) {
-            return { ...row, selectedVideoId: "", skipped: true };
-          }
-          return {
-            ...row,
-            selectedVideoId: suggestion.videoId,
-            autoVideoId: suggestion.videoId,
-            skipped: false
-          };
-        }),
-        batchCandidates
-      );
-    }
-
-    setBatchRows(rows);
+    setBatchRows(buildSeasonBatchRowViews(buildSeasonBatchRows(batchCandidates, preferred.entries, defaultSeason), batchCandidates));
   }, [
     batchCandidates,
     batchRawEntries,
@@ -185,6 +171,7 @@ export function useSeasonBatchWorkspace({
     showBatchLanguageSelector,
     showBatchFormatSelector,
     sourceMode,
+    subhdCacheToken,
     subhdSuggestions,
     seasonNumber
   ]);
@@ -437,17 +424,7 @@ export function useSeasonBatchWorkspace({
         label: batchLabel.trim()
       });
 
-      const entries: ZipSubtitleEntry[] = (prepared.entries || []).map((entry, index) => {
-        const pathValue = (entry.path || entry.fileName || "").replace(/\\/g, "/").replace(/^\/+/, "");
-        return {
-          id: `subhd-${index}-${pathValue.toLowerCase()}`,
-          path: `${prepared.fileName || "pack"}/${pathValue}`,
-          fileName: entry.fileName || pathValue.split("/").pop() || pathValue,
-          size: Number(entry.size) || 0,
-          archiveEntry: pathValue,
-          cacheToken: prepared.cacheToken
-        };
-      });
+      const entries = mapSubHDPrepareEntries(prepared);
 
       if (entries.length === 0) {
         setBatchBlockingError(t("common.noSubtitles"));

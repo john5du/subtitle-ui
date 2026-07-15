@@ -7,6 +7,7 @@ import type { SeasonBatchMappingRow } from "../types";
 import {
   applyBatchEntryPreferences,
   buildSeasonBatchRows,
+  buildSeasonBatchRowsFromSubHDSuggestions,
   detectSubtitleLanguageType,
   filterSeasonBatchRowViews,
   getSeasonBatchRowStatus
@@ -164,5 +165,34 @@ describe("applyBatchEntryPreferences", () => {
     expect(result.reducedCount).toBe(1);
     expect(result.entries).toHaveLength(2);
     expect(result.entries.some((e) => e.fileName.includes("chs&eng"))).toBe(true);
+  });
+});
+
+describe("buildSeasonBatchRowsFromSubHDSuggestions", () => {
+  test("trusts server auto-map and skip flags", () => {
+    const entries = [
+      makeEntry({ id: "e1", path: "pack/S01E01.chs&eng.ass", fileName: "S01E01.chs&eng.ass", archiveEntry: "S01E01.chs&eng.ass" }),
+      makeEntry({ id: "e2", path: "pack/S01E01.chs.srt", fileName: "S01E01.chs.srt", archiveEntry: "S01E01.chs.srt" }),
+      makeEntry({ id: "e3", path: "pack/readme.txt.ass", fileName: "readme.txt.ass", archiveEntry: "readme.txt.ass" })
+    ];
+
+    const rows = buildSeasonBatchRowsFromSubHDSuggestions(
+      entries,
+      [
+        { videoId: "v1", archiveEntry: "S01E01.chs&eng.ass" },
+        { videoId: "v2", archiveEntry: "S01E02.chs.ass", skipped: true }
+      ],
+      1
+    );
+
+    expect(rows).toHaveLength(3);
+    expect(rows[0].selectedVideoId).toBe("v1");
+    expect(rows[0].autoVideoId).toBe("v1");
+    expect(rows[0].skipped).toBe(false);
+    expect(rows[1].skipped).toBe(true);
+    expect(rows[1].selectedVideoId).toBe("");
+    // Non-preferred S01E01.chs.srt is hidden; unparsed leftover stays for manual map.
+    expect(rows[2].entry.fileName).toBe("readme.txt.ass");
+    expect(rows[2].selectedVideoId).toBe("");
   });
 });

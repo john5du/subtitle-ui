@@ -42,7 +42,7 @@ type Service struct {
 	store   *store.Store
 
 	subhdMu        sync.RWMutex
-	subhd          *subhd.Client
+	subhd          SubHDProvider
 	subhdPackCache *subhdPackCache
 
 	sonarrMu sync.RWMutex
@@ -101,7 +101,7 @@ func (s *Service) SonarrEnabled() bool {
 	return c != nil && c.Enabled()
 }
 
-func (s *Service) subhdClient() *subhd.Client {
+func (s *Service) subhdClient() SubHDProvider {
 	s.subhdMu.RLock()
 	defer s.subhdMu.RUnlock()
 	return s.subhd

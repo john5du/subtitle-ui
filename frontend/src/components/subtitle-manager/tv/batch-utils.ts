@@ -1,5 +1,5 @@
 import type { TranslateFn } from "@/lib/i18n";
-import type { Video } from "@/lib/types";
+import type { SubHDSeasonSuggestedMapping, Video } from "@/lib/types";
 import {
   compareTvVideosByEpisode,
   parseSeasonEpisode,
@@ -211,6 +211,106 @@ export function buildSeasonBatchRows(videos: Video[], entries: ZipSubtitleEntry[
       skipped: false
     } satisfies SeasonBatchMappingRow;
   });
+
+  return rows;
+}
+
+function normalizeArchiveEntryKey(value: string) {
+  return value.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+/**
+ * Builds mapping rows from server prepare suggestions (SubHD path).
+ * Server is the source of truth for auto-assign / skipExisting / preferred entry.
+ * Non-preferred pack variants are omitted; only unparsed leftovers stay for manual map.
+ */
+export function buildSeasonBatchRowsFromSubHDSuggestions(
+  entries: ZipSubtitleEntry[],
+  suggestions: SubHDSeasonSuggestedMapping[],
+  defaultSeason = 0
+) {
+  const entryByKey = new Map<string, ZipSubtitleEntry>();
+  for (const entry of entries) {
+    const key = normalizeArchiveEntryKey(entry.archiveEntry || entry.path || "");
+    if (key && !entryByKey.has(key)) {
+      entryByKey.set(key, entry);
+    }
+  }
+
+  const usedKeys = new Set<string>();
+  const rows: SeasonBatchMappingRow[] = [];
+
+  for (const suggestion of suggestions) {
+    const key = normalizeArchiveEntryKey(suggestion.archiveEntry || "");
+    if (!key) {
+      continue;
+    }
+    usedKeys.add(key);
+    const entry =
+      entryByKey.get(key) ||
+      ({
+        id: `subhd-suggestion-${key.toLowerCase()}`,
+        path: key,
+        fileName: key.split("/").pop() || key,
+        size: 0,
+        archiveEntry: key
+      } satisfies ZipSubtitleEntry);
+
+    const parsed = parseSeasonEpisode(`${entry.path} ${entry.fileName}`, defaultSeason);
+    let season = parsed?.season ?? null;
+    let episode = parsed?.episode ?? null;
+    if (defaultSeason > 0 && season !== null && season !== defaultSeason) {
+      season = null;
+      episode = null;
+    }
+
+    if (suggestion.skipped) {
+      rows.push({
+        id: entry.id,
+        entry,
+        season,
+        episode,
+        autoVideoId: "",
+        selectedVideoId: "",
+        skipped: true
+      });
+      continue;
+    }
+
+    const videoId = suggestion.videoId || "";
+    rows.push({
+      id: entry.id,
+      entry,
+      season,
+      episode,
+      autoVideoId: videoId,
+      selectedVideoId: videoId,
+      skipped: false
+    });
+  }
+
+  for (const entry of entries) {
+    const key = normalizeArchiveEntryKey(entry.archiveEntry || entry.path || "");
+    if (key && usedKeys.has(key)) {
+      continue;
+    }
+    const parsed = parseSeasonEpisode(`${entry.path} ${entry.fileName}`, defaultSeason);
+    if (parsed) {
+      // Server already chose a preferred entry for this S/E (or skipped); hide variants.
+      if (defaultSeason <= 0 || parsed.season === defaultSeason) {
+        continue;
+      }
+    }
+    rows.push({
+      id: entry.id,
+      entry,
+      season: null,
+      episode: null,
+      autoVideoId: "",
+      selectedVideoId: "",
+      skipped: false
+    });
+  }
 
   return rows;
 }
