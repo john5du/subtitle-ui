@@ -104,6 +104,7 @@ export const enMessages = {
   "theme.system": "System",
   "theme.light": "Light",
   "theme.dark": "Dark",
+  "theme.oled": "OLED Black",
 
   "conversion.settingsDescription": "Edit the global ASS template used by SRT conversions.",
   "conversion.assTemplate": "ASS Template",

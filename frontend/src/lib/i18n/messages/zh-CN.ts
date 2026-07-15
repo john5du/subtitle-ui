@@ -106,6 +106,7 @@ export const zhCNMessages: MessageDictionary = {
   "theme.system": "跟随系统",
   "theme.light": "浅色",
   "theme.dark": "深色",
+  "theme.oled": "OLED 纯黑",
 
   "conversion.settingsDescription": "统一编辑 SRT 转 ASS 时使用的全局 ASS 模板。",
   "conversion.assTemplate": "ASS 模板",

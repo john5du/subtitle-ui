@@ -57,14 +57,20 @@ const localeBootstrapScript = `
 
     const themeKey = "subtitle-ui:theme";
     const storedTheme = window.localStorage.getItem(themeKey);
-    const theme = (storedTheme === "light" || storedTheme === "dark" || storedTheme === "system") ? storedTheme : "system";
+    const theme = (storedTheme === "light" || storedTheme === "dark" || storedTheme === "oled" || storedTheme === "system") ? storedTheme : "system";
     window.__subtitleUiTheme = theme;
     const systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const isDark = theme === "dark" || (theme === "system" && systemDark);
+    const isOled = theme === "oled";
+    const isDark = isOled || theme === "dark" || (theme === "system" && systemDark);
     if (isDark) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
+    }
+    if (isOled) {
+      document.documentElement.classList.add("oled");
+    } else {
+      document.documentElement.classList.remove("oled");
     }
   } catch {
     window.__subtitleUiLocale = "en";
@@ -73,6 +79,7 @@ const localeBootstrapScript = `
     window.__subtitleUiTheme = "system";
     document.documentElement.lang = "en";
     document.documentElement.classList.add("dark");
+    document.documentElement.classList.remove("oled");
   }
 })();
 `;

@@ -10,8 +10,8 @@ import {
   type ReactNode
 } from "react";
 
-export type ThemePreference = "system" | "light" | "dark";
-export type ResolvedTheme = "light" | "dark";
+export type ThemePreference = "system" | "light" | "dark" | "oled";
+export type ResolvedTheme = "light" | "dark" | "oled";
 
 const STORAGE_KEY = "subtitle-ui:theme";
 
@@ -30,7 +30,7 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function isThemePreference(value: string | null | undefined): value is ThemePreference {
-  return value === "system" || value === "light" || value === "dark";
+  return value === "system" || value === "light" || value === "dark" || value === "oled";
 }
 
 function readStoredTheme(): ThemePreference {
@@ -61,7 +61,9 @@ function resolveTheme(theme: ThemePreference): ResolvedTheme {
 
 function applyResolvedTheme(resolved: ResolvedTheme) {
   if (typeof document === "undefined") return;
-  document.documentElement.classList.toggle("dark", resolved === "dark");
+  const root = document.documentElement;
+  root.classList.toggle("dark", resolved === "dark" || resolved === "oled");
+  root.classList.toggle("oled", resolved === "oled");
 }
 
 function persistTheme(theme: ThemePreference) {
