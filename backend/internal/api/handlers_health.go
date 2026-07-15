@@ -12,11 +12,15 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := s.service.ScanStatus()
-	writeJSON(w, http.StatusOK, map[string]any{
+	payload := map[string]any{
 		"status":     "ok",
 		"time":       time.Now().UTC(),
 		"scanStatus": status,
-	})
+	}
+	if stats, ok := s.service.SubHDParseStats(); ok {
+		payload["subhdParse"] = stats
+	}
+	writeJSON(w, http.StatusOK, payload)
 }
 
 func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {

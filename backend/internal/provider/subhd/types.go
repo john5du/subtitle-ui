@@ -20,6 +20,16 @@ var (
 	ErrEmptySID            = errors.New("empty subtitle id")
 	ErrEmptyQuery          = errors.New("empty search query")
 	ErrProvider            = errors.New("subhd provider error")
+	// ErrParseFragile is returned only for severe HTML layout breaks (optional hard-fail paths).
+	ErrParseFragile = errors.New("subhd html layout may have changed")
+)
+
+// Search parse warning codes (machine-readable for UI / health).
+const (
+	// WarningHTMLLayout means response looked like a SubHD page but card markup did not match.
+	WarningHTMLLayout = "html_layout_changed"
+	// WarningCardsUnparsed means cards were split but none yielded a valid SID.
+	WarningCardsUnparsed = "cards_unparsed"
 )
 
 // MultipleEntriesError is returned when a SubHD archive needs an explicit entry pick.
@@ -63,6 +73,18 @@ type SearchPage struct {
 	Page  int            `json:"page"`
 	Total string         `json:"total,omitempty"`
 	Items []SearchResult `json:"items"`
+	// Warning is a machine-readable parse issue code (see Warning* constants).
+	// Search still returns 200 with partial/empty items for graceful degrade.
+	Warning string `json:"warning,omitempty"`
+}
+
+// ParseStats is cumulative SubHD HTML parse telemetry (process lifetime).
+type ParseStats struct {
+	Searches       int64 `json:"searches"`
+	ParseOK        int64 `json:"parseOk"`
+	EmptyResults   int64 `json:"emptyResults"`
+	LayoutWarnings int64 `json:"layoutWarnings"`
+	CardWarnings   int64 `json:"cardWarnings"`
 }
 
 // DownloadedFile is raw payload from SubHD CDN after download API.

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	xproxy "golang.org/x/net/proxy"
@@ -33,6 +34,12 @@ type Client struct {
 	userAgent string
 	client    *http.Client
 	limiter   *limiter
+
+	parseSearches       atomic.Int64
+	parseOK             atomic.Int64
+	parseEmpty          atomic.Int64
+	parseLayoutWarnings atomic.Int64
+	parseCardWarnings   atomic.Int64
 }
 
 // New creates a SubHD client. When disabled, methods return ErrDisabled.
@@ -165,6 +172,39 @@ func buildTransport(proxyRaw string) (http.RoundTripper, error) {
 // Enabled reports whether the provider is turned on.
 func (c *Client) Enabled() bool {
 	return c != nil && c.enabled
+}
+
+// ParseStats returns cumulative search HTML parse telemetry for this client.
+func (c *Client) ParseStats() ParseStats {
+	if c == nil {
+		return ParseStats{}
+	}
+	return ParseStats{
+		Searches:       c.parseSearches.Load(),
+		ParseOK:        c.parseOK.Load(),
+		EmptyResults:   c.parseEmpty.Load(),
+		LayoutWarnings: c.parseLayoutWarnings.Load(),
+		CardWarnings:   c.parseCardWarnings.Load(),
+	}
+}
+
+func (c *Client) recordSearchParse(itemCount int, warning string) {
+	if c == nil {
+		return
+	}
+	c.parseSearches.Add(1)
+	switch warning {
+	case WarningHTMLLayout:
+		c.parseLayoutWarnings.Add(1)
+	case WarningCardsUnparsed:
+		c.parseCardWarnings.Add(1)
+	default:
+		if itemCount == 0 {
+			c.parseEmpty.Add(1)
+		} else {
+			c.parseOK.Add(1)
+		}
+	}
 }
 
 // PageURL returns the SubHD detail page URL for a subtitle sid.

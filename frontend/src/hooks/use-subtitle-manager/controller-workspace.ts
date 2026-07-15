@@ -2,6 +2,12 @@ import type { ActiveTab, Video } from "@/lib/types";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { normalizeDirectoryScanResult, normalizeScanStatus } from "@/lib/subtitle-manager/normalizers";
 import { normalizeForCompare, pickDefaultTvDirectory } from "@/lib/subtitle-manager/tv-tree";
+import {
+  clampPage,
+  clampPageSize,
+  resolveTvInitialPath,
+  resolveTvWorkspacePath
+} from "@/lib/subtitle-manager/workspace-path";
 
 import { DEFAULT_LOG_PAGE_SIZE, DEFAULT_PAGE_SIZE } from "./state";
 import type { ControllerRuntime } from "./controller-runtime";
@@ -70,13 +76,12 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
             ? runtime.state.selectedTvDirPath
             : await loadDirectoryScanResult();
           const seriesRows = await loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1 });
-          const selectedNorm = normalizeForCompare(runtime.state.selectedTvDirPath);
-          const targetDir =
-            seriesRows.find((item) => normalizeForCompare(item.path) === selectedNorm)?.path ||
-            seriesRows.find((item) => item.path)?.path ||
-            runtime.state.selectedTvDirPath ||
-            defaultDir ||
-            runtime.state.directoryScan.tvRoot;
+          const targetDir = resolveTvInitialPath({
+            seriesRows,
+            selectedPath: runtime.state.selectedTvDirPath,
+            defaultDir,
+            tvRoot: runtime.state.directoryScan.tvRoot
+          });
 
           if (targetDir) {
             setters.setSelectedTvDirPath(targetDir);
@@ -202,18 +207,14 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
   async function loadTvWorkspace(seriesPath = "") {
     const state = runtime.state;
     const selectors = runtime.selectors;
-    const requestedPath = seriesPath.trim();
-    const selectedNorm = normalizeForCompare(requestedPath || selectors.selectedTvSeries?.path || state.selectedTvDirPath);
-    const selectedPath = (
-      state.tvSeriesRows.find((item) => normalizeForCompare(item.path) === selectedNorm)?.path ||
-      requestedPath ||
-      selectors.selectedTvSeries?.path ||
-      state.selectedTvDirPath ||
-      state.tvSeriesRows.find((item) => item.path)?.path ||
-      selectors.tvRootPath ||
-      state.directoryScan.tvRoot ||
-      ""
-    ).trim();
+    const selectedPath = resolveTvWorkspacePath({
+      seriesRows: state.tvSeriesRows,
+      requestedPath: seriesPath,
+      selectedSeriesPath: selectors.selectedTvSeries?.path,
+      selectedPath: state.selectedTvDirPath,
+      tvRootPath: selectors.tvRootPath,
+      tvRoot: state.directoryScan.tvRoot
+    });
 
     if (!selectedPath) {
       return [];
@@ -224,20 +225,17 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
   }
 
   function setMoviePage(nextPage: number) {
-    const totalPages = Math.max(1, runtime.selectors.moviePager.totalPages || 1);
-    if (nextPage < 1 || nextPage > totalPages || nextPage === runtime.selectors.moviePager.page) {
+    const page = clampPage(nextPage, runtime.selectors.moviePager.totalPages || 1, runtime.selectors.moviePager.page);
+    if (page == null) {
       return;
     }
-    void loadMovieVideos({ page: nextPage });
+    void loadMovieVideos({ page });
   }
 
   function setMoviePageSize(pageSize: number) {
-    const next = Math.max(1, Math.min(200, Math.floor(pageSize)));
-    if (!Number.isFinite(next)) {
-      return;
-    }
     const current = runtime.state.moviePager.pageSize || DEFAULT_PAGE_SIZE;
-    if (next === current) {
+    const next = clampPageSize(pageSize, current);
+    if (next == null) {
       return;
     }
     setters.setMoviePager((prev) => ({
@@ -249,20 +247,17 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
   }
 
   function setTvPage(nextPage: number) {
-    const totalPages = Math.max(1, runtime.selectors.tvPager.totalPages || 1);
-    if (nextPage < 1 || nextPage > totalPages || nextPage === runtime.selectors.tvPager.page) {
+    const page = clampPage(nextPage, runtime.selectors.tvPager.totalPages || 1, runtime.selectors.tvPager.page);
+    if (page == null) {
       return;
     }
-    void loadTvSeriesPage({ page: nextPage });
+    void loadTvSeriesPage({ page });
   }
 
   function setTvPageSize(pageSize: number) {
-    const next = Math.max(1, Math.min(200, Math.floor(pageSize)));
-    if (!Number.isFinite(next)) {
-      return;
-    }
     const current = runtime.state.tvSeriesPager.pageSize || DEFAULT_PAGE_SIZE;
-    if (next === current) {
+    const next = clampPageSize(pageSize, current);
+    if (next == null) {
       return;
     }
     setters.setTvSeriesPager((prev) => ({
@@ -274,11 +269,11 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
   }
 
   function setLogsPage(nextPage: number) {
-    const totalPages = Math.max(1, runtime.state.logsPager.totalPages || 1);
-    if (nextPage < 1 || nextPage > totalPages || nextPage === runtime.state.logsPager.page) {
+    const page = clampPage(nextPage, runtime.state.logsPager.totalPages || 1, runtime.state.logsPager.page);
+    if (page == null) {
       return;
     }
-    void loadLogs({ page: nextPage });
+    void loadLogs({ page });
   }
 
   function setLogsDialogOpen(open: boolean) {

@@ -476,12 +476,7 @@ func (s *Store) buildVideoOrderBy(sortBy string, sortOrder string) string {
 	case "subtitleCount":
 		return `ORDER BY (SELECT COUNT(1) FROM subtitles s WHERE s.video_id = videos.id) ` + dir + `, title_sort_key ASC, path ASC`
 	case "year":
-		emptyExpr := `CASE WHEN trim(ifnull(year, '')) = '' THEN 1 ELSE 0 END`
-		yearExpr := `CAST(year AS INTEGER)`
-		if s.dialect == dialectPostgres {
-			emptyExpr = `CASE WHEN trim(coalesce(year, '')) = '' THEN 1 ELSE 0 END`
-			yearExpr = `CASE WHEN trim(coalesce(year, '')) ~ '^[0-9]+$' THEN CAST(year AS INTEGER) ELSE 0 END`
-		}
+		emptyExpr, yearExpr := s.yearSortExprs()
 		return `ORDER BY ` + emptyExpr + ` ASC, ` + yearExpr + ` ` + dir + `, title_sort_key ASC, path ASC`
 	default:
 		return `ORDER BY title_sort_key ASC, path ASC`

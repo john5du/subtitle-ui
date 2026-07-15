@@ -1,7 +1,6 @@
 package store
 
 import (
-	"strings"
 	"time"
 
 	"subtitle-ui/backend/internal/domain"
@@ -13,15 +12,13 @@ func (s *Store) GetAppSettings(keys []string) (map[string]domain.AppSetting, err
 		return out, nil
 	}
 
-	placeholders := make([]string, len(keys))
 	args := make([]any, len(keys))
 	for i, key := range keys {
-		placeholders[i] = "?"
 		args[i] = key
 	}
 
 	rows, err := s.query(
-		`SELECT key, value, updated_at FROM app_settings WHERE key IN (`+strings.Join(placeholders, ",")+`)`,
+		`SELECT key, value, updated_at FROM app_settings WHERE key IN (`+placeholders(len(keys))+`)`,
 		args...,
 	)
 	if err != nil {
@@ -62,10 +59,7 @@ func (s *Store) SetAppSettings(values map[string]string, updatedAt time.Time) er
 	}()
 
 	updatedValue := updatedAt.UTC().Format(time.RFC3339Nano)
-	query := s.insertPrefix() + ` INTO app_settings(key, value, updated_at) VALUES(?, ?, ?)`
-	if s.dialect == dialectPostgres {
-		query += ` ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-	}
+	query := s.insertPrefix() + ` INTO app_settings(key, value, updated_at) VALUES(?, ?, ?)` + s.settingsUpsertSuffix()
 	for key, value := range values {
 		if _, err = s.execTx(tx, query, key, value, updatedValue); err != nil {
 			return err

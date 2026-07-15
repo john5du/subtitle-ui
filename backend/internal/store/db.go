@@ -114,6 +114,26 @@ func (s *Store) insertPrefix() string {
 	return "INSERT"
 }
 
+// settingsUpsertSuffix is the Postgres ON CONFLICT clause for app_settings.
+// SQLite uses INSERT OR REPLACE via insertPrefix(); keep dialect forks here only.
+func (s *Store) settingsUpsertSuffix() string {
+	if s.dialect != dialectPostgres {
+		return ""
+	}
+	return ` ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+}
+
+// yearSortExprs returns (emptyYearExpr, yearValueExpr) for ORDER BY year.
+// Dialects differ on ifnull/coalesce and safe integer casts.
+func (s *Store) yearSortExprs() (emptyExpr, yearExpr string) {
+	if s.dialect == dialectPostgres {
+		return `CASE WHEN trim(coalesce(year, '')) = '' THEN 1 ELSE 0 END`,
+			`CASE WHEN trim(coalesce(year, '')) ~ '^[0-9]+$' THEN CAST(year AS INTEGER) ELSE 0 END`
+	}
+	return `CASE WHEN trim(ifnull(year, '')) = '' THEN 1 ELSE 0 END`,
+		`CAST(year AS INTEGER)`
+}
+
 func (s *Store) videoUpsertSuffix() string {
 	if s.dialect != dialectPostgres {
 		return ""

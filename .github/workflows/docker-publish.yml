@@ -34,6 +34,21 @@ jobs:
     env:
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       REQUESTED_VERSION: ${{ github.event.inputs.version || '' }}
+      TEST_POSTGRES_DSN: postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6

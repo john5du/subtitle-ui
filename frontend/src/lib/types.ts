@@ -348,6 +348,8 @@ export interface SubHDSearchPage {
   page: number;
   total?: string;
   items: SubHDSearchResult[];
+  /** Machine-readable parse issue: html_layout_changed | cards_unparsed */
+  warning?: string;
 }
 
 export interface SubHDSeasonPacksResult {

@@ -21,9 +21,15 @@ func TestParseSearchHTML(t *testing.T) {
 		t.Fatalf("read fixture: %v", err)
 	}
 
-	items := parseSearchHTML(string(raw))
+	items, meta := parseSearchHTMLDetailed(string(raw))
 	if len(items) != 2 {
 		t.Fatalf("expected 2 items, got %d", len(items))
+	}
+	if meta.cardParts < 2 || meta.parsedCards < 2 {
+		t.Fatalf("meta: %+v", meta)
+	}
+	if warn := assessSearchParse(string(raw), meta, len(items), "2"); warn != "" {
+		t.Fatalf("fixture should not warn: %q", warn)
 	}
 	a := items[0]
 	if a.SID != "bqpxFZ" {
@@ -346,5 +352,49 @@ func TestSearchViaServer(t *testing.T) {
 	}
 	if len(page.Items) != 1 || page.Items[0].SID != "Ab12Cd" {
 		t.Fatalf("%+v", page)
+	}
+	if page.Warning != "" {
+		t.Fatalf("unexpected warning %q", page.Warning)
+	}
+	stats := c.ParseStats()
+	if stats.Searches != 1 || stats.ParseOK != 1 {
+		t.Fatalf("stats %+v", stats)
+	}
+}
+
+func TestAssessSearchParse(t *testing.T) {
+	if got := assessSearchParse("<html>subhd navbar search</html>"+strings.Repeat("x", 2000), searchParseMeta{}, 0, ""); got != WarningHTMLLayout {
+		t.Fatalf("layout: got %q", got)
+	}
+	if got := assessSearchParse("body", searchParseMeta{hadCardMark: true, cardParts: 3, parsedCards: 0}, 0, "10"); got != WarningCardsUnparsed {
+		t.Fatalf("cards: got %q", got)
+	}
+	if got := assessSearchParse("没有找到相关字幕", searchParseMeta{}, 0, ""); got != "" {
+		t.Fatalf("empty copy should not warn: %q", got)
+	}
+	if got := assessSearchParse("ok", searchParseMeta{}, 0, "0"); got != "" {
+		t.Fatalf("total=0 should not warn: %q", got)
+	}
+	if got := assessSearchParse("ok", searchParseMeta{}, 2, ""); got != "" {
+		t.Fatalf("items>0 should not warn: %q", got)
+	}
+}
+
+func TestSearchRecordsLayoutWarning(t *testing.T) {
+	body := `<html><head><title>SubHD</title></head><body class="navbar">search ` + strings.Repeat("z", 2000) + `</body></html>`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, body)
+	}))
+	defer srv.Close()
+	c := New(Options{Enabled: true, BaseURL: srv.URL, HTTPClient: srv.Client()})
+	page, err := c.Search(context.Background(), "Dune", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Warning != WarningHTMLLayout {
+		t.Fatalf("want layout warning, got %q items=%d", page.Warning, len(page.Items))
+	}
+	if c.ParseStats().LayoutWarnings != 1 {
+		t.Fatalf("stats %+v", c.ParseStats())
 	}
 }

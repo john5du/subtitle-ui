@@ -61,6 +61,23 @@ type Service struct {
 	lastDirScan domain.DirectoryScanResult
 }
 
+// SubHDParseStats returns HTML parse telemetry when the live SubHD client is in use.
+func (s *Service) SubHDParseStats() (subhd.ParseStats, bool) {
+	if s == nil {
+		return subhd.ParseStats{}, false
+	}
+	s.subhdMu.RLock()
+	provider := s.subhd
+	s.subhdMu.RUnlock()
+	type parseStatter interface {
+		ParseStats() subhd.ParseStats
+	}
+	if st, ok := provider.(parseStatter); ok {
+		return st.ParseStats(), true
+	}
+	return subhd.ParseStats{}, false
+}
+
 func NewService(cfg config.Config) (*Service, error) {
 	st, err := store.OpenWithOptions(store.OpenOptions{
 		SQLitePath:  cfg.DBPath,

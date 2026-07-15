@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -46,7 +47,7 @@ func (c *Client) Search(ctx context.Context, query string, page int) (*SearchPag
 		return nil, err
 	}
 
-	items := parseSearchHTML(body)
+	items, meta := parseSearchHTMLDetailed(body)
 	if items == nil {
 		items = []SearchResult{}
 	}
@@ -54,12 +55,86 @@ func (c *Client) Search(ctx context.Context, query string, page int) (*SearchPag
 	if m := reTotalPage.FindStringSubmatch(body); len(m) > 1 {
 		total = m[1]
 	}
+	warning := assessSearchParse(body, meta, len(items), total)
+	c.recordSearchParse(len(items), warning)
+	if warning != "" {
+		log.Printf("subhd search parse warning=%s query=%q page=%d items=%d cards=%d parsed=%d bodyBytes=%d",
+			warning, strings.TrimSpace(query), page, len(items), meta.cardParts, meta.parsedCards, len(body))
+	}
 	return &SearchPage{
-		Query: strings.TrimSpace(query),
-		Page:  page,
-		Total: total,
-		Items: items,
+		Query:   strings.TrimSpace(query),
+		Page:    page,
+		Total:   total,
+		Items:   items,
+		Warning: warning,
 	}, nil
+}
+
+type searchParseMeta struct {
+	cardParts   int // number of card fragments after split (0 if layout miss)
+	parsedCards int // fragments that yielded a SID
+	hadCardMark bool
+}
+
+func parseSearchHTMLDetailed(html string) ([]SearchResult, searchParseMeta) {
+	meta := searchParseMeta{
+		hadCardMark: reCardSplit.MatchString(html),
+	}
+	parts := reCardSplit.Split(html, -1)
+	if len(parts) <= 1 {
+		return nil, meta
+	}
+	meta.cardParts = len(parts) - 1
+	out := make([]SearchResult, 0, meta.cardParts)
+	seen := make(map[string]struct{})
+	for _, part := range parts[1:] {
+		item, ok := parseSearchCard(part)
+		if !ok {
+			continue
+		}
+		meta.parsedCards++
+		if _, exists := seen[item.SID]; exists {
+			continue
+		}
+		seen[item.SID] = struct{}{}
+		out = append(out, item)
+	}
+	return out, meta
+}
+
+// assessSearchParse returns a warning code when HTML likely changed or cards failed to parse.
+// Empty legitimate result pages (total=0 / no matches) produce no warning.
+func assessSearchParse(body string, meta searchParseMeta, itemCount int, total string) string {
+	if itemCount > 0 {
+		return ""
+	}
+	if total == "0" {
+		return ""
+	}
+	// Known empty-result copy on SubHD (Chinese).
+	if strings.Contains(body, "没有找到") || strings.Contains(body, "暂无相关") {
+		return ""
+	}
+	if !meta.hadCardMark {
+		// Large HTML that looks like a site shell but no card markup → layout drift.
+		if len(body) > 1500 && looksLikeSubHDShell(body) {
+			return WarningHTMLLayout
+		}
+		return ""
+	}
+	if meta.cardParts > 0 && meta.parsedCards == 0 {
+		return WarningCardsUnparsed
+	}
+	return ""
+}
+
+func looksLikeSubHDShell(body string) bool {
+	lower := strings.ToLower(body)
+	if strings.Contains(lower, "subhd") {
+		return true
+	}
+	// Common layout chrome even when class names for cards change.
+	return strings.Contains(lower, "search") && (strings.Contains(lower, "bootstrap") || strings.Contains(lower, "navbar") || strings.Contains(body, "字幕"))
 }
 
 func (c *Client) getHTML(ctx context.Context, path, referer string) (string, error) {
@@ -86,24 +161,8 @@ func (c *Client) getHTML(ctx context.Context, path, referer string) (string, err
 }
 
 func parseSearchHTML(html string) []SearchResult {
-	parts := reCardSplit.Split(html, -1)
-	if len(parts) <= 1 {
-		return nil
-	}
-	out := make([]SearchResult, 0, len(parts)-1)
-	seen := make(map[string]struct{})
-	for _, part := range parts[1:] {
-		item, ok := parseSearchCard(part)
-		if !ok {
-			continue
-		}
-		if _, exists := seen[item.SID]; exists {
-			continue
-		}
-		seen[item.SID] = struct{}{}
-		out = append(out, item)
-	}
-	return out
+	items, _ := parseSearchHTMLDetailed(html)
+	return items
 }
 
 func parseSearchCard(card string) (SearchResult, bool) {

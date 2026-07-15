@@ -151,7 +151,10 @@ func (s *Service) PrepareSubHDSeasonPack(ctx context.Context, opts SubHDSeasonPr
 		return SubHDSeasonPrepareResult{}, fmt.Errorf("%w: not an installable subtitle pack", ErrInvalidFileType)
 	}
 
-	token := s.subhdPackCache.put(sid, fileName, strings.TrimSpace(dl.URL), dl.Data)
+	token, cacheErr := s.subhdPackCache.put(sid, fileName, strings.TrimSpace(dl.URL), dl.Data)
+	if cacheErr != nil {
+		return SubHDSeasonPrepareResult{}, fmt.Errorf("%w: pack cache: %v", ErrBadRequest, cacheErr)
+	}
 	langPref := strings.TrimSpace(strings.ToLower(opts.LanguagePreference))
 	if langPref == "" {
 		// Prefer bilingual packs by default when present.

@@ -239,6 +239,16 @@ export function SubHDDownloadDialog({
             </p>
           ) : null}
 
+          {page?.warning ? (
+            <div className="surface-status-warning border p-3 text-sm">
+              {page.warning === "html_layout_changed"
+                ? t("download.warningHtmlLayout")
+                : page.warning === "cards_unparsed"
+                  ? t("download.warningCardsUnparsed")
+                  : t("download.warningGeneric")}
+            </div>
+          ) : null}
+
           <div className="min-h-0 flex-1">
             {loading && !page ? (
               <div className="flex items-center justify-center py-12">
