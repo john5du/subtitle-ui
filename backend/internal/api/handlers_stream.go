@@ -1,12 +1,16 @@
 package api
 
 import (
+	"bytes"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"subtitle-ui/backend/internal/app"
 )
@@ -89,8 +93,7 @@ func (s *Server) streamRemux(w http.ResponseWriter, r *http.Request, src app.Vid
 	if r.Method == http.MethodHead {
 		w.Header().Set("Content-Type", "video/mp4")
 		w.Header().Set("Cache-Control", "private, no-store")
-		// Progressive remux stream has no known length / no Range.
-		w.Header().Set("Accept-Ranges", "none")
+		w.Header().Set("Accept-Ranges", "bytes")
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -101,12 +104,92 @@ func (s *Server) streamRemux(w http.ResponseWriter, r *http.Request, src app.Vid
 	}
 	defer s.service.ReleaseRemuxSlot()
 
+	// Prefer temp-file remux (+faststart) so HTML5 video gets Range seek and a valid moov.
+	// Falls back to progressive pipe if temp remux fails (unless client already left).
+	if err := s.streamRemuxTempFile(w, r, src); err != nil {
+		if r.Context().Err() != nil {
+			return
+		}
+		log.Printf("stream remux temp failed for %s: %v", src.VideoID, err)
+		s.streamRemuxPipe(w, r, src)
+	}
+}
+
+func (s *Server) streamRemuxTempFile(w http.ResponseWriter, r *http.Request, src app.VideoStreamSource) error {
+	tmpDir := os.TempDir()
+	tmp, err := os.CreateTemp(tmpDir, "subtitle-ui-remux-*.mp4")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	_ = tmp.Close()
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	cmd := s.service.FFmpegRemuxToMP4Command(src.Path, tmpPath)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	// Cap remux wall time so a stuck ffmpeg cannot hold the slot forever.
+	done := make(chan error, 1)
+	go func() { done <- cmd.Run() }()
+
+	select {
+	case <-r.Context().Done():
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		<-done
+		return r.Context().Err()
+	case err := <-done:
+		if err != nil {
+			msg := strings.TrimSpace(stderr.String())
+			if msg == "" {
+				msg = err.Error()
+			}
+			return errors.New(msg)
+		}
+	case <-time.After(3 * time.Minute):
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		<-done
+		return errors.New("ffmpeg remux timed out")
+	}
+
+	info, err := os.Stat(tmpPath)
+	if err != nil {
+		return err
+	}
+	if info.Size() < 1024 {
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = "remux output too small"
+		}
+		return errors.New(msg)
+	}
+
+	file, err := os.Open(tmpPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	w.Header().Set("Content-Type", "video/mp4")
+	w.Header().Set("Cache-Control", "private, no-store")
+	// ServeContent enables Range so ArtPlayer progress scrubbing works on remuxed preview.
+	http.ServeContent(w, r, filepath.Base(src.FileName)+".mp4", info.ModTime(), file)
+	return nil
+}
+
+func (s *Server) streamRemuxPipe(w http.ResponseWriter, r *http.Request, src app.VideoStreamSource) {
 	cmd := s.service.FFmpegRemuxCommand(src.Path)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to start remux")
 		return
 	}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 	if err := cmd.Start(); err != nil {
 		writeError(w, http.StatusInternalServerError, "ffmpeg remux failed to start")
 		return
@@ -124,6 +207,23 @@ func (s *Server) streamRemux(w http.ResponseWriter, r *http.Request, src app.Vid
 		}
 	}()
 
+	// Probe first chunk before committing to 200 so broken remux returns a real error.
+	buf := make([]byte, 64*1024)
+	n, readErr := stdout.Read(buf)
+	if n == 0 {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" && readErr != nil && !errors.Is(readErr, io.EOF) {
+			msg = readErr.Error()
+		}
+		if msg == "" {
+			msg = "ffmpeg remux produced no output"
+		}
+		writeError(w, http.StatusServiceUnavailable, "ffmpeg remux failed: "+msg)
+		return
+	}
+
 	defer func() {
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()
@@ -136,7 +236,11 @@ func (s *Server) streamRemux(w http.ResponseWriter, r *http.Request, src app.Vid
 	w.Header().Set("Accept-Ranges", "none")
 	w.WriteHeader(http.StatusOK)
 
-	_, _ = io.Copy(flushingWriter{w: w}, stdout)
+	fw := flushingWriter{w: w}
+	_, _ = fw.Write(buf[:n])
+	if readErr == nil {
+		_, _ = io.Copy(fw, stdout)
+	}
 }
 
 // flushingWriter flushes after each write so progressive fMP4 reaches the browser promptly.

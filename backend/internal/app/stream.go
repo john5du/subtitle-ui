@@ -284,21 +284,68 @@ func (s *Service) ffmpegBinary() string {
 	return "ffmpeg"
 }
 
-// FFmpegRemuxCommand builds a remux-to-fMP4 command (no re-encode). Caller must Start/Wait.
-func (s *Service) FFmpegRemuxCommand(inputPath string) *exec.Cmd {
+// RemuxPreviewMaxSeconds limits optional remux length for preview (keeps temp output small).
+// 0 or negative means no limit (not recommended for large MKV).
+func (s *Service) RemuxPreviewMaxSeconds() int {
+	// Fixed product default: first 20 minutes is enough to check subtitle sync.
+	return 20 * 60
+}
+
+// FFmpegRemuxToMP4Command builds a copy-remux command writing a seekable MP4 to outPath.
+// Used for MKV/AVI preview: moov at front (+faststart) so browsers can Range-seek.
+func (s *Service) FFmpegRemuxToMP4Command(inputPath string, outPath string) *exec.Cmd {
 	bin := s.ffmpegBinary()
-	// Progressive fMP4 suitable for HTML5 progressive download (limited random seek).
-	return exec.Command(bin,
+	args := []string{
 		"-hide_banner",
+		"-nostdin",
+		"-y",
 		"-loglevel", "error",
+	}
+	if maxSec := s.RemuxPreviewMaxSeconds(); maxSec > 0 {
+		args = append(args, "-t", strconv.Itoa(maxSec))
+	}
+	args = append(args,
 		"-i", inputPath,
-		"-map", "0:v:0?",
+		// Only first video + optional first audio; drop subs/data/chapters that break remux.
+		"-map", "0:v:0",
 		"-map", "0:a:0?",
 		"-c", "copy",
+		"-sn",
+		"-dn",
+		"-map_chapters", "-1",
+		"-map_metadata", "-1",
+		"-f", "mp4",
+		"-movflags", "+faststart",
+		outPath,
+	)
+	return exec.Command(bin, args...)
+}
+
+// FFmpegRemuxCommand builds a progressive fMP4 pipe remux (legacy / fallback).
+func (s *Service) FFmpegRemuxCommand(inputPath string) *exec.Cmd {
+	bin := s.ffmpegBinary()
+	args := []string{
+		"-hide_banner",
+		"-nostdin",
+		"-loglevel", "error",
+	}
+	if maxSec := s.RemuxPreviewMaxSeconds(); maxSec > 0 {
+		args = append(args, "-t", strconv.Itoa(maxSec))
+	}
+	args = append(args,
+		"-i", inputPath,
+		"-map", "0:v:0",
+		"-map", "0:a:0?",
+		"-c", "copy",
+		"-sn",
+		"-dn",
+		"-map_chapters", "-1",
+		"-map_metadata", "-1",
 		"-f", "mp4",
 		"-movflags", "frag_keyframe+empty_moov+default_base_moof",
 		"pipe:1",
 	)
+	return exec.Command(bin, args...)
 }
 
 func needsContainerRemux(ext string) bool {
