@@ -16,39 +16,56 @@ export interface ArtPlayerHostProps {
 type ArtInstance = {
   destroy: (removeHtml?: boolean) => void;
   switchUrl: (url: string) => Promise<unknown>;
+  muted: boolean;
+  volume: number;
   fullscreen: boolean;
   fullscreenWeb: boolean;
   subtitle: {
-    switch: (url: string, option?: { name?: string; type?: string; encoding?: string }) => void | Promise<unknown>;
+    switch: (url: string, option?: { name?: string; type?: string; encoding?: string; style?: Partial<CSSStyleDeclaration> }) => void | Promise<unknown>;
     show: boolean;
+    style?: (name: string | Partial<CSSStyleDeclaration>, value?: string) => void;
   };
   on: (event: string, handler: (...args: unknown[]) => void) => void;
+  once: (event: string, handler: (...args: unknown[]) => void) => void;
+};
+
+const DEFAULT_SUBTITLE_STYLE: Partial<CSSStyleDeclaration> = {
+  color: "#fff",
+  fontSize: "20px",
+  textShadow: "0 1px 2px rgba(0,0,0,.9)",
+  bottom: "48px"
 };
 
 const DEFAULT_SUBTITLE_OPTION = {
   type: "vtt" as const,
   encoding: "utf-8",
-  escape: true,
-  style: {
-    color: "#fff",
-    fontSize: "18px",
-    textShadow: "0 1px 2px rgba(0,0,0,.85)"
-  } as Partial<CSSStyleDeclaration>
+  escape: false,
+  style: DEFAULT_SUBTITLE_STYLE
 };
 
 function applySubtitle(art: ArtInstance, subtitleUrl: string | undefined, subtitleName: string | undefined) {
   if (!subtitleUrl) {
-    art.subtitle.show = false;
+    try {
+      art.subtitle.show = false;
+    } catch {
+      // ignore
+    }
     return;
   }
   void Promise.resolve(
     art.subtitle.switch(subtitleUrl, {
       ...DEFAULT_SUBTITLE_OPTION,
-      name: subtitleName || "subtitle"
+      name: subtitleName || "subtitle",
+      style: DEFAULT_SUBTITLE_STYLE
     })
   )
     .then(() => {
       art.subtitle.show = true;
+      try {
+        art.subtitle.style?.(DEFAULT_SUBTITLE_STYLE);
+      } catch {
+        // ignore
+      }
     })
     .catch(() => {
       // ignore switch failures
@@ -83,17 +100,14 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
       }
 
       const initialSubtitle = subtitleUrlRef.current;
-      // Web fullscreen reparents player to document.body (Artplayer.FULLSCREEN_WEB_IN_BODY).
-      // Native fullscreen is unreliable inside Radix Dialog (CSS transform + often no
-      // loadedmetadata yet for remux streams), so we use web fullscreen as the primary control.
-      // ArtPlayer option validator requires subtitle to be an object (never undefined).
       const ArtplayerCtor = Artplayer as typeof Artplayer & { FULLSCREEN_WEB_IN_BODY?: boolean };
       ArtplayerCtor.FULLSCREEN_WEB_IN_BODY = true;
 
       const art = new Artplayer({
         container: containerRef.current,
         url,
-        volume: 0.8,
+        volume: 1,
+        muted: false,
         autoplay: false,
         autoSize: false,
         autoMini: false,
@@ -101,7 +115,6 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
         setting: true,
         playbackRate: true,
         aspectRatio: true,
-        // Prefer CSS/body fullscreen inside modal; keep native as secondary if metadata is ready.
         fullscreen: true,
         fullscreenWeb: true,
         pip: false,
@@ -110,9 +123,10 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
         playsInline: true,
         lang,
         theme: "#3b82f6",
+        // Same-origin stream; avoid crossOrigin so blob: VTT tracks attach reliably.
         moreVideoAttr: {
-          crossOrigin: "anonymous",
-          preload: "metadata"
+          preload: "auto",
+          playsInline: true
         },
         subtitle: {
           ...DEFAULT_SUBTITLE_OPTION,
@@ -132,10 +146,16 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
       }
 
       artRef.current = art;
-      // Re-apply from refs in case subtitle arrived during import.
+      try {
+        art.muted = false;
+        art.volume = 1;
+      } catch {
+        // ignore
+      }
+
       applySubtitle(art, subtitleUrlRef.current, subtitleNameRef.current);
 
-      function useWebFullscreenFallback() {
+      function enableWebFullscreenFallback() {
         if (generation !== generationRef.current) {
           return;
         }
@@ -146,8 +166,6 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
         }
       }
 
-      // Map native fullscreen control to web fullscreen until metadata arrives (ArtPlayer
-      // only installs native FS after video:loadedmetadata — before that the button no-ops).
       Object.defineProperty(art, "fullscreen", {
         configurable: true,
         enumerable: true,
@@ -159,11 +177,21 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
         }
       });
 
-      // After native FS is installed, wrap it so Dialog/transform failures fall back to web FS.
+      // Re-apply subtitle once media is ready (switch before metadata often no-ops).
       art.on("video:loadedmetadata", () => {
         if (generation !== generationRef.current) {
           return;
         }
+        applySubtitle(art, subtitleUrlRef.current, subtitleNameRef.current);
+        try {
+          art.muted = false;
+          if (art.volume <= 0) {
+            art.volume = 1;
+          }
+        } catch {
+          // ignore
+        }
+
         queueMicrotask(() => {
           if (generation !== generationRef.current) {
             return;
@@ -172,7 +200,6 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
           if (!native || typeof native.set !== "function" || typeof native.get !== "function") {
             return;
           }
-          // Skip if still our web-only stub (getter reads fullscreenWeb).
           Object.defineProperty(art, "fullscreen", {
             configurable: true,
             enumerable: true,
@@ -195,9 +222,9 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
               }
               try {
                 const result = native.set!.call(art, true) as unknown;
-                void Promise.resolve(result).catch(() => useWebFullscreenFallback());
+                void Promise.resolve(result).catch(() => enableWebFullscreenFallback());
               } catch {
-                useWebFullscreenFallback();
+                enableWebFullscreenFallback();
               }
             }
           });
@@ -205,7 +232,7 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
       });
 
       art.on("fullscreenError", () => {
-        useWebFullscreenFallback();
+        enableWebFullscreenFallback();
       });
       art.on("error", (...args: unknown[]) => {
         if (generation !== generationRef.current) {
@@ -218,7 +245,6 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
             : typeof first === "string"
               ? first
               : "Video playback failed (codec or container may be unsupported)";
-        // MediaError code 4 = MEDIA_ERR_SRC_NOT_SUPPORTED (common for broken remux / raw MKV).
         if (/DEMUXER_ERROR|MEDIA_ERR_SRC_NOT_SUPPORTED|no supported streams|open context failed/i.test(message)) {
           message =
             "Browser cannot decode this stream. For MKV, server remux may have failed (check ffmpeg / codec). Try an MP4 source.";

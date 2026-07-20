@@ -140,14 +140,24 @@ export function VideoSubtitlePreviewDialog({
     void loadSubtitle();
     return () => {
       controller.abort();
+      // Delay revoke so ArtPlayer can finish loading the blob track after unmount race.
       if (createdUrl) {
-        URL.revokeObjectURL(createdUrl);
+        const toRevoke = createdUrl;
+        window.setTimeout(() => URL.revokeObjectURL(toRevoke), 30_000);
       }
     };
   }, [open, videoId, selectedSubtitleKey]);
 
   const title = video?.title || video?.fileName || t("playback.previewTitle");
-  const showPlayer = open && streamStatus === "ready" && Boolean(streamUrl);
+  // Wait for subtitle settle (ready/empty/error/unsupported/none) so first paint can include VTT.
+  const subtitleSettled =
+    selectedSubtitleId === "__none__" ||
+    subtitleStatus === "ready" ||
+    subtitleStatus === "empty" ||
+    subtitleStatus === "error" ||
+    subtitleStatus === "unsupported" ||
+    subtitleStatus === "idle";
+  const showPlayer = open && streamStatus === "ready" && Boolean(streamUrl) && subtitleSettled;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
