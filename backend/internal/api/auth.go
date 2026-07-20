@@ -33,8 +33,9 @@ func (s *Server) withAdminAuth(next http.Handler) http.Handler {
 	})
 }
 
-// isPublicAPIPath allows unauthenticated access for health probes and poster
-// images (browser <img> cannot send Authorization headers).
+// isPublicAPIPath allows unauthenticated access for health probes, poster
+// images (browser <img> cannot send Authorization headers), and video streams
+// that carry a short-lived ticket query param (browser <video>/ArtPlayer).
 func isPublicAPIPath(method, path string) bool {
 	if method == http.MethodGet && path == "/api/health" {
 		return true
@@ -44,6 +45,13 @@ func isPublicAPIPath(method, path string) bool {
 		rest := strings.TrimPrefix(path, "/api/videos/")
 		parts := strings.Split(rest, "/")
 		return len(parts) == 2 && parts[0] != "" && parts[1] == "poster"
+	}
+	if (method == http.MethodGet || method == http.MethodHead) &&
+		strings.HasPrefix(path, "/api/videos/") && strings.HasSuffix(path, "/stream") {
+		// /api/videos/{id}/stream only; ticket validated in handler.
+		rest := strings.TrimPrefix(path, "/api/videos/")
+		parts := strings.Split(rest, "/")
+		return len(parts) == 2 && parts[0] != "" && parts[1] == "stream"
 	}
 	return false
 }

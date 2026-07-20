@@ -27,17 +27,7 @@ function decodeSubtitleBytes(bytes: Uint8Array, encoding: string, fatal: boolean
   }
 }
 
-function trimSubtitlePreviewText(text: string) {
-  if (text.length <= SUBTITLE_PREVIEW_CHAR_LIMIT) {
-    return { text, truncated: false };
-  }
-  return {
-    text: text.slice(0, SUBTITLE_PREVIEW_CHAR_LIMIT),
-    truncated: true
-  };
-}
-
-export function decodeSubtitlePreviewContent(buffer: ArrayBuffer) {
+function decodeSubtitleBuffer(buffer: ArrayBuffer, maxChars: number | null) {
   const bytes = new Uint8Array(buffer);
   if (bytes.length === 0) {
     return { text: "", encoding: "utf-8", truncated: false };
@@ -48,25 +38,38 @@ export function decodeSubtitlePreviewContent(buffer: ArrayBuffer) {
     if (decoded === null) {
       continue;
     }
-    const normalized = trimSubtitlePreviewText(decoded);
+    if (maxChars == null || decoded.length <= maxChars) {
+      return { text: decoded, encoding, truncated: false };
+    }
     return {
-      text: normalized.text,
+      text: decoded.slice(0, maxChars),
       encoding,
-      truncated: normalized.truncated
+      truncated: true
     };
   }
 
   const fallback = decodeSubtitleBytes(bytes, "utf-8", false);
   if (fallback !== null) {
-    const normalized = trimSubtitlePreviewText(fallback);
+    if (maxChars == null || fallback.length <= maxChars) {
+      return { text: fallback, encoding: "utf-8", truncated: false };
+    }
     return {
-      text: normalized.text,
+      text: fallback.slice(0, maxChars),
       encoding: "utf-8",
-      truncated: normalized.truncated
+      truncated: true
     };
   }
 
   throw new Error("unable to decode subtitle content");
+}
+
+export function decodeSubtitlePreviewContent(buffer: ArrayBuffer) {
+  return decodeSubtitleBuffer(buffer, SUBTITLE_PREVIEW_CHAR_LIMIT);
+}
+
+/** Full decode for playback cue conversion (no char cap). */
+export function decodeSubtitleFullContent(buffer: ArrayBuffer) {
+  return decodeSubtitleBuffer(buffer, null);
 }
 
 export { SUBTITLE_PREVIEW_CHAR_LIMIT };

@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o
 FROM alpine:3.23
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates \
+RUN apk add --no-cache ca-certificates ffmpeg \
     && addgroup -S app \
     && adduser -S app -G app \
     && mkdir -p /app/frontend/out /data/media/movies /data/media/tv \

@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useState } from "react";
-import { CaseSensitive, Search, UploadCloud } from "lucide-react";
+import { CaseSensitive, Play, Search, UploadCloud } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import { SubtitlePreviewDialog } from "../subtitle/dialogs/subtitle-preview-dial
 import { TimingOffsetDialog } from "../subtitle/dialogs/timing-offset-dialog";
 import { NormalizeSubtitlesDialog, type NormalizeDialogScope } from "../subtitle/dialogs/normalize-subtitles-dialog";
 import { UploadSubtitleDialog } from "../subtitle/dialogs/upload-subtitle-dialog";
+import { VideoSubtitlePreviewDialog } from "../subtitle/dialogs/video-subtitle-preview-dialog";
 import { SubtitleTrackCard, subtitleRowActionIconClassName } from "../subtitle/subtitle-track-card";
 import {
   ACCEPTED_SUBTITLE_UPLOAD_TYPES,
@@ -74,6 +75,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [normalizeOpen, setNormalizeOpen] = useState(false);
   const [normalizeScope, setNormalizeScope] = useState<NormalizeDialogScope | null>(null);
+  const [playPreviewOpen, setPlayPreviewOpen] = useState(false);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
 
   const workflow = useSubtitleFileWorkflow({
@@ -122,6 +124,18 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
               ) : null}
               <MediaExternalLinks imdbId={selectedVideo.imdbId} tmdbId={selectedVideo.tmdbId} mediaType="movie" />
               <div className="flex flex-wrap items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className={subtitleRowActionIconClassName}
+                  disabled={busy || !selectedVideo}
+                  onClick={() => setPlayPreviewOpen(true)}
+                  title={t("common.playPreview")}
+                  aria-label={t("common.playPreview")}
+                >
+                  <Play className="h-3.5 w-3.5" />
+                </Button>
                 {canAutoDownload ? (
                   <Button
                     type="button"
@@ -358,6 +372,13 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
         previewContent={workflow.previewContent}
         previewEncoding={workflow.previewEncoding}
         previewTruncated={workflow.previewTruncated}
+      />
+
+      <VideoSubtitlePreviewDialog
+        open={playPreviewOpen}
+        onOpenChange={setPlayPreviewOpen}
+        video={selectedVideo}
+        onLoadSubtitleContent={onPreviewSubtitle}
       />
 
       {canAutoDownload && onSearchSubHD && onDownloadSubHD ? (

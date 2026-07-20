@@ -12,7 +12,7 @@ const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
 
-export type DialogSize = "sm" | "md" | "lg";
+export type DialogSize = "sm" | "md" | "lg" | "xl";
 export type DialogDrawerSize = "md" | "lg" | "xl";
 
 /** Fixed desktop width/height per size. Mobile stays bottom-sheet. */
@@ -25,7 +25,10 @@ const dialogSizeClassName: Record<DialogSize, string> = {
     "sm:h-[min(40rem,90vh)] sm:w-[min(42rem,94vw)] sm:max-h-[min(40rem,90vh)] sm:max-w-[42rem]",
   // Tables / batch / preview / logs: large fixed frame
   lg:
-    "sm:h-[min(52rem,90vh)] sm:w-[min(56rem,94vw)] sm:max-h-[min(52rem,90vh)] sm:max-w-[56rem]"
+    "sm:h-[min(52rem,90vh)] sm:w-[min(56rem,94vw)] sm:max-h-[min(52rem,90vh)] sm:max-w-[56rem]",
+  // Video playback preview
+  xl:
+    "sm:h-[min(90vh,56rem)] sm:w-[min(72rem,96vw)] sm:max-h-[min(90vh,56rem)] sm:max-w-[72rem]"
 };
 
 /** Side drawer desktop widths. Full-screen on mobile. */

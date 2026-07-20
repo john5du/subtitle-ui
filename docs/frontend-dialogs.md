@@ -1,6 +1,6 @@
 # Frontend dialog conventions
 
-All modal dialogs use `DialogContent` / `AlertDialogContent` with a **size** prop (`sm` | `md` | `lg`). Do not invent one-off `max-w-*` / `h-*` frames on individual dialogs unless the size tokens truly cannot fit (then update the tokens here and in `frontend/src/components/ui/dialog.tsx`).
+All modal dialogs use `DialogContent` / `AlertDialogContent` with a **size** prop (`sm` | `md` | `lg` | `xl`). Do not invent one-off `max-w-*` / `h-*` frames on individual dialogs unless the size tokens truly cannot fit (then update the tokens here and in `frontend/src/components/ui/dialog.tsx`).
 
 Side drawers use `DialogDrawerContent` with its own size scale (`md` | `lg` | `xl`) — see [Drawers](#drawers) below. Bottom sheets (`DialogSheetContent`) stay layout-specific.
 
@@ -12,7 +12,8 @@ Broader UI density / list shells: [`frontend-ui.md`](./frontend-ui.md).
 |------|---------------------|--------|----------|
 | **sm** | width `32rem` (max 94vw); height auto, max `90vh` | bottom sheet, max `92dvh` | Confirmations, simple forms (few fields) |
 | **md** | width `42rem`, height `min(40rem, 90vh)` fixed | bottom sheet, max `92dvh` | Search results, archive entry pickers, moderate lists |
-| **lg** | width `56rem`, height `min(52rem, 90vh)` fixed | bottom sheet, max `92dvh` | Dense tables, batch ops, preview, operation logs |
+| **lg** | width `56rem`, height `min(52rem, 90vh)` fixed | bottom sheet, max `92dvh` | Dense tables, batch ops, text preview, operation logs |
+| **xl** | width `72rem` (max 96vw); height `min(90vh, 56rem)` fixed | bottom sheet, max `92dvh` | Video playback + subtitle preview (ArtPlayer) |
 
 Tokens live in `dialogSizeClassName` (`frontend/src/components/ui/dialog.tsx`) and are shared by `AlertDialogContent`.
 
@@ -40,8 +41,12 @@ Tokens live in `dialogSizeClassName` (`frontend/src/components/ui/dialog.tsx`) a
 - Normalize subtitles
 - TV batch delete
 - TV season batch upload
-- Subtitle preview
+- Subtitle text preview
 - Operation logs (`DialogHeader` + `DialogBody`; header may include actions)
+
+**xl — media preview**
+
+- Video + subtitle playback preview (ArtPlayer)
 
 ## Drawers
 

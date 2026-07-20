@@ -58,9 +58,9 @@ func main() {
 		Addr:              cfg.ServerAddr,
 		Handler:           api.NewServerWithConfig(service, cfg).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      60 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		// ReadTimeout left 0 so long-lived Range/stream GETs are not cut mid-transfer.
+		// WriteTimeout 0: video stream (Range + optional remux) may exceed a fixed cap.
+		IdleTimeout: 120 * time.Second,
 	}
 
 	log.Printf("subtitle manager api listening on %s", cfg.ServerAddr)

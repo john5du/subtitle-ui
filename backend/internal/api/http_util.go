@@ -26,12 +26,14 @@ func (s *Server) writeAppError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, app.ErrNotFound):
 		writeError(w, http.StatusNotFound, err.Error())
-	case errors.Is(err, app.ErrProviderDisabled):
+	case errors.Is(err, app.ErrProviderDisabled), errors.Is(err, app.ErrRemuxUnavailable), errors.Is(err, app.ErrRemuxBusy):
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 	case errors.Is(err, app.ErrBadRequest), errors.Is(err, app.ErrInvalidFileType):
 		writeError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, app.ErrUnsafePath):
 		writeError(w, http.StatusForbidden, err.Error())
+	case errors.Is(err, app.ErrStreamTicketInvalid), errors.Is(err, app.ErrStreamTicketExpired):
+		writeError(w, http.StatusUnauthorized, err.Error())
 	default:
 		writeError(w, http.StatusInternalServerError, err.Error())
 	}

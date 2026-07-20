@@ -634,3 +634,112 @@ func TestAdminAuthProtectsAPI(t *testing.T) {
 		}
 	})
 }
+
+func TestVideoStreamTicketAndRange(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	movieDir := filepath.Join(movieRoot, "Movie")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte("0123456789abcdefghij")
+	if err := os.WriteFile(filepath.Join(movieDir, "clip.mp4"), payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "clip.nfo"), []byte("<movie><title>Clip</title><year>2025</year></movie>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	service, err := app.NewService(config.Config{
+		MovieMediaRoot:     movieRoot,
+		TVMediaRoot:        tvRoot,
+		DBPath:             filepath.Join(base, "test.sqlite3"),
+		AdminToken:         "stream-test-token",
+		StreamTicketSecret: "stream-secret",
+		StreamRemux:        "off",
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() { _ = service.Close() }()
+	if status := service.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatalf("scan: %s", status.Error)
+	}
+	page := service.ListVideosPage("", "movie", "", 1, 10, "", "")
+	if len(page.Items) != 1 {
+		t.Fatalf("expected 1 video, got %d", len(page.Items))
+	}
+	videoID := page.Items[0].ID
+	server := NewServerWithConfig(service, config.Config{
+		AdminToken:         "stream-test-token",
+		CORSAllowedOrigins: []string{"http://localhost:3300"},
+	})
+	handler := server.Handler()
+
+	// Ticket requires auth
+	unauthTicket := httptest.NewRequest(http.MethodPost, "/api/videos/"+videoID+"/stream-ticket", nil)
+	unauthRec := httptest.NewRecorder()
+	handler.ServeHTTP(unauthRec, unauthTicket)
+	if unauthRec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for ticket without auth, got %d", unauthRec.Code)
+	}
+
+	ticketReq := httptest.NewRequest(http.MethodPost, "/api/videos/"+videoID+"/stream-ticket", nil)
+	ticketReq.Header.Set("Authorization", "Bearer stream-test-token")
+	ticketRec := httptest.NewRecorder()
+	handler.ServeHTTP(ticketRec, ticketReq)
+	if ticketRec.Code != http.StatusOK {
+		t.Fatalf("ticket status %d body=%s", ticketRec.Code, ticketRec.Body.String())
+	}
+	var ticketBody struct {
+		Ticket string `json:"ticket"`
+		URL    string `json:"url"`
+	}
+	if err := json.Unmarshal(ticketRec.Body.Bytes(), &ticketBody); err != nil {
+		t.Fatalf("decode ticket: %v", err)
+	}
+	if ticketBody.Ticket == "" {
+		t.Fatal("empty ticket")
+	}
+
+	// Stream without ticket
+	noTicket := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/stream", nil)
+	noTicketRec := httptest.NewRecorder()
+	handler.ServeHTTP(noTicketRec, noTicket)
+	if noTicketRec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without ticket, got %d", noTicketRec.Code)
+	}
+
+	// Full stream with ticket
+	fullReq := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/stream?ticket="+ticketBody.Ticket+"&format=direct", nil)
+	fullRec := httptest.NewRecorder()
+	handler.ServeHTTP(fullRec, fullReq)
+	if fullRec.Code != http.StatusOK {
+		t.Fatalf("stream status %d body=%s", fullRec.Code, fullRec.Body.String())
+	}
+	if !bytes.Equal(fullRec.Body.Bytes(), payload) {
+		t.Fatalf("unexpected body %q", fullRec.Body.String())
+	}
+	if ct := fullRec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "video/") {
+		t.Fatalf("content-type %q", ct)
+	}
+
+	// Range request
+	rangeReq := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/stream?ticket="+ticketBody.Ticket+"&format=direct", nil)
+	rangeReq.Header.Set("Range", "bytes=0-3")
+	rangeRec := httptest.NewRecorder()
+	handler.ServeHTTP(rangeRec, rangeReq)
+	if rangeRec.Code != http.StatusPartialContent {
+		t.Fatalf("expected 206, got %d body=%s", rangeRec.Code, rangeRec.Body.String())
+	}
+	if got := rangeRec.Body.Bytes(); !bytes.Equal(got, payload[:4]) {
+		t.Fatalf("range body %q", string(got))
+	}
+	if cr := rangeRec.Header().Get("Content-Range"); !strings.HasPrefix(cr, "bytes 0-3/") {
+		t.Fatalf("content-range %q", cr)
+	}
+}

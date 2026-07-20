@@ -64,6 +64,14 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleVideoPoster(w, r, videoID)
 		return
 
+	case len(segments) == 2 && segments[1] == "stream-ticket" && r.Method == http.MethodPost:
+		s.handleStreamTicket(w, r, videoID)
+		return
+
+	case len(segments) == 2 && segments[1] == "stream" && (r.Method == http.MethodGet || r.Method == http.MethodHead):
+		s.handleVideoStream(w, r, videoID)
+		return
+
 	case len(segments) == 2 && segments[1] == "subtitles" && r.Method == http.MethodPost:
 		s.handleUploadSubtitle(w, r, videoID)
 		return

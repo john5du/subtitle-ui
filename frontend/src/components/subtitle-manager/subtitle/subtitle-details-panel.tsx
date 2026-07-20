@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, AlertTriangle, Clock, ExternalLink, Eye, FileCode2, Pencil, Search, Trash2, UploadCloud } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Clock, ExternalLink, Eye, FileCode2, Pencil, Play, Search, Trash2, UploadCloud } from "lucide-react";
 
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useI18n } from "@/lib/i18n";
@@ -29,6 +29,7 @@ import { SubHDDownloadDialog } from "./dialogs/subhd-download-dialog";
 import { SubtitlePreviewDialog } from "./dialogs/subtitle-preview-dialog";
 import { TimingOffsetDialog } from "./dialogs/timing-offset-dialog";
 import { UploadSubtitleDialog } from "./dialogs/upload-subtitle-dialog";
+import { VideoSubtitlePreviewDialog } from "./dialogs/video-subtitle-preview-dialog";
 import { SubtitleTrackCard } from "./subtitle-track-card";
 import {
   ACCEPTED_SUBTITLE_UPLOAD_TYPES,
@@ -78,6 +79,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   const [flashSubtitleList, setFlashSubtitleList] = useState(false);
   const [metaExpanded, setMetaExpanded] = useState(!metaCollapsedByDefault);
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  const [playPreviewOpen, setPlayPreviewOpen] = useState(false);
   const showHeader = showPanelTitle || showBack || (Boolean(selectedVideo) && !embedded);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
   const useCardLayout = !isMdUp;
@@ -126,6 +128,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
         ]
       : [];
   const hasActionToolbar =
+    Boolean(selectedVideo) ||
     showPrimaryUploadButton ||
     canAutoDownload ||
     searchActionItems.length > 0 ||
@@ -229,6 +232,19 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                 embedded ? "border-b border-border px-4 py-3" : "mb-4 flex flex-col gap-3 surface-subtle p-3"
               )}>
                 <div className="flex h-9 flex-wrap items-center gap-2">
+                  {selectedVideo ? (
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="outline"
+                      disabled={busy || !selectedVideo}
+                      onClick={() => setPlayPreviewOpen(true)}
+                      title={t("common.playPreview")}
+                      aria-label={t("common.playPreview")}
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                    </Button>
+                  ) : null}
                   {canAutoDownload ? (
                     <Button
                       type="button"
@@ -637,6 +653,13 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
         previewContent={workflow.previewContent}
         previewEncoding={workflow.previewEncoding}
         previewTruncated={workflow.previewTruncated}
+      />
+
+      <VideoSubtitlePreviewDialog
+        open={playPreviewOpen}
+        onOpenChange={setPlayPreviewOpen}
+        video={selectedVideo}
+        onLoadSubtitleContent={onPreviewSubtitle}
       />
 
       {canAutoDownload && onSearchSubHD && onDownloadSubHD ? (

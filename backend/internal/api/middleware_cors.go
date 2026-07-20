@@ -24,8 +24,9 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 			allowCORS = false
 		}
 
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS,HEAD")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Range")
+		w.Header().Set("Access-Control-Expose-Headers", "Accept-Ranges, Content-Range, Content-Length, Content-Type")
 
 		if r.Method == http.MethodOptions {
 			if !allowCORS {

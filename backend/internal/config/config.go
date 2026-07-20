@@ -31,6 +31,14 @@ type Config struct {
 	SonarrEnabled         bool
 	SonarrURL             string
 	SonarrAPIKey          string
+	// StreamTicketSecret signs short-lived video stream tickets. Empty → derive from AdminToken.
+	StreamTicketSecret string
+	// StreamTicketTTL is how long a stream ticket remains valid.
+	StreamTicketTTL time.Duration
+	// StreamRemux: "auto" remux mkv/avi to fMP4 when ffmpeg is available; "off" never remux.
+	StreamRemux string
+	// FFmpegPath is the ffmpeg binary for optional remux (empty → look up "ffmpeg" on PATH).
+	FFmpegPath string
 }
 
 // IsProduction reports whether APP_ENV/ENV is production (or prod).
@@ -79,6 +87,10 @@ func Load() Config {
 		SubHDSearchMaxPages:   parsePositiveInt(os.Getenv("SUBHD_SEARCH_MAX_PAGES"), 1),
 		SonarrURL:             strings.TrimRight(strings.TrimSpace(os.Getenv("SONARR_URL")), "/"),
 		SonarrAPIKey:          strings.TrimSpace(os.Getenv("SONARR_API_KEY")),
+		StreamTicketSecret:    strings.TrimSpace(os.Getenv("STREAM_TICKET_SECRET")),
+		StreamTicketTTL:       parseDuration(os.Getenv("STREAM_TICKET_TTL"), 15*time.Minute),
+		StreamRemux:           normalizeStreamRemux(os.Getenv("STREAM_REMUX")),
+		FFmpegPath:            strings.TrimSpace(os.Getenv("FFMPEG_PATH")),
 	}
 
 	// Sonarr: enabled when URL+key set, unless SONARR_ENABLED explicitly disables.
@@ -181,6 +193,15 @@ func parseDuration(raw string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return d
+}
+
+func normalizeStreamRemux(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "off", "0", "false", "no":
+		return "off"
+	default:
+		return "auto"
+	}
 }
 
 func parsePositiveInt(raw string, fallback int) int {

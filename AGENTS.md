@@ -27,6 +27,11 @@ cd frontend && bun run build   # static export → frontend/out
 - Local env: `dev-up` / `dev-restart` load `scripts/.env` then `scripts/.env.local` via `scripts/lib/load-env.sh` (shell-exported vars win). Real `scripts/.env` is gitignored; commit only `scripts/.env.example`.
 - Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300` when unset. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.
 - Optional FE API override: `NEXT_PUBLIC_API_BASE=http://localhost:9307`.
+- Video stream preview (ArtPlayer UI):
+  - `POST /api/videos/{id}/stream-ticket` (Bearer) → `{ ticket, expiresAt, url }`
+  - `GET /api/videos/{id}/stream?ticket=` (public; ticket-auth only; HTTP Range via `ServeContent`)
+  - Optional remux: `STREAM_REMUX=auto|off` (default auto); `FFMPEG_PATH`; `format=direct|fmp4|auto`
+  - `STREAM_TICKET_SECRET` (optional; else AdminToken), `STREAM_TICKET_TTL` (default 15m)
 - SubHD auto-download (backend, default **on**):
   - Env bootstrap: `SUBHD_ENABLED=false` to disable; `SUBHD_BASE_URL`; `SUBHD_PROXY=socks5://host:port`
   - Runtime config (DB overrides env, no restart): `GET/PUT /api/config/subhd` `{ enabled, baseUrl, proxy }`
