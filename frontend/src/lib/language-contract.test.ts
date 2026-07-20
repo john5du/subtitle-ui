@@ -24,7 +24,7 @@ describe("language contract fixtures (shared with Go)", () => {
   test("detect_type.json", () => {
     const rows = loadFixture<{ input: string; want: string }>("detect_type.json");
     for (const row of rows) {
-      expect(detectSubtitleLanguageType(row.input), row.input).toBe(row.want);
+      expect(detectSubtitleLanguageType(row.input) as string, row.input).toBe(row.want);
     }
   });
 
