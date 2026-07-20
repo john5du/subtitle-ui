@@ -286,9 +286,12 @@ func (s *Service) ffmpegBinary() string {
 
 // RemuxPreviewMaxSeconds limits optional remux length for preview (keeps temp output small).
 // 0 or negative means no limit (not recommended for large MKV).
+// Default comes from STREAM_PREVIEW_SECONDS (config: 5 minutes).
 func (s *Service) RemuxPreviewMaxSeconds() int {
-	// Fixed product default: first 20 minutes is enough to check subtitle sync.
-	return 20 * 60
+	if s == nil || s.cfg.StreamPreviewSeconds < 0 {
+		return 5 * 60
+	}
+	return s.cfg.StreamPreviewSeconds
 }
 
 // FFmpegRemuxToMP4Command builds a copy-remux command writing a seekable MP4 to outPath.

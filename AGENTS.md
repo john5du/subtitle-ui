@@ -31,6 +31,7 @@ cd frontend && bun run build   # static export → frontend/out
   - `POST /api/videos/{id}/stream-ticket` (Bearer) → `{ ticket, expiresAt, url }`
   - `GET /api/videos/{id}/stream?ticket=` (public; ticket-auth only; HTTP Range via `ServeContent`)
   - Optional remux: `STREAM_REMUX=auto|off` (default auto); `FFMPEG_PATH`; `format=direct|fmp4|auto`
+  - `STREAM_PREVIEW_SECONDS` (default `300` = 5m; `0` = unlimited remux length)
   - `STREAM_TICKET_SECRET` (optional; else AdminToken), `STREAM_TICKET_TTL` (default 15m)
 - SubHD auto-download (backend, default **on**):
   - Env bootstrap: `SUBHD_ENABLED=false` to disable; `SUBHD_BASE_URL`; `SUBHD_PROXY=socks5://host:port`

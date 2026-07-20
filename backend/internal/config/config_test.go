@@ -31,6 +31,18 @@ func TestParseDurationAndPositiveInt(t *testing.T) {
 	if parsePositiveInt("0", 2) != 2 || parsePositiveInt("x", 2) != 2 {
 		t.Fatal("invalid positive int fallback")
 	}
+	if parseNonNegativeInt("", 300) != 300 {
+		t.Fatal("empty non-negative int fallback")
+	}
+	if parseNonNegativeInt("0", 300) != 0 {
+		t.Fatal("0 should be allowed for unlimited")
+	}
+	if parseNonNegativeInt("300", 60) != 300 {
+		t.Fatal("parse 300 seconds")
+	}
+	if parseNonNegativeInt("x", 300) != 300 {
+		t.Fatal("invalid non-negative int fallback")
+	}
 }
 
 func TestSplitOrigins(t *testing.T) {

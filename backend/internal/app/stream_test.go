@@ -107,3 +107,33 @@ func TestRemuxSlotLimitsConcurrency(t *testing.T) {
 	svc.ReleaseRemuxSlot()
 	svc.ReleaseRemuxSlot()
 }
+
+func TestRemuxPreviewMaxSecondsFromConfig(t *testing.T) {
+	svc := &Service{cfg: config.Config{StreamPreviewSeconds: 300}}
+	if got := svc.RemuxPreviewMaxSeconds(); got != 300 {
+		t.Fatalf("expected 300, got %d", got)
+	}
+	svc.cfg.StreamPreviewSeconds = 0
+	if got := svc.RemuxPreviewMaxSeconds(); got != 0 {
+		t.Fatalf("expected 0 unlimited, got %d", got)
+	}
+	cmd := svc.FFmpegRemuxToMP4Command("/in.mkv", "/out.mp4")
+	// unlimited: no -t
+	for i, a := range cmd.Args {
+		if a == "-t" {
+			t.Fatalf("unexpected -t %v in unlimited remux args: %v", cmd.Args[i+1], cmd.Args)
+		}
+	}
+	svc.cfg.StreamPreviewSeconds = 300
+	cmd = svc.FFmpegRemuxToMP4Command("/in.mkv", "/out.mp4")
+	found := false
+	for i, a := range cmd.Args {
+		if a == "-t" && i+1 < len(cmd.Args) && cmd.Args[i+1] == "300" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected -t 300 in remux args, got %v", cmd.Args)
+	}
+}

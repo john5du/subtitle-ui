@@ -37,6 +37,8 @@ type Config struct {
 	StreamTicketTTL time.Duration
 	// StreamRemux: "auto" remux mkv/avi to fMP4 when ffmpeg is available; "off" never remux.
 	StreamRemux string
+	// StreamPreviewSeconds caps ffmpeg remux preview length (0 = no limit). Default 5 minutes.
+	StreamPreviewSeconds int
 	// FFmpegPath is the ffmpeg binary for optional remux (empty → look up "ffmpeg" on PATH).
 	FFmpegPath string
 }
@@ -90,6 +92,7 @@ func Load() Config {
 		StreamTicketSecret:    strings.TrimSpace(os.Getenv("STREAM_TICKET_SECRET")),
 		StreamTicketTTL:       parseDuration(os.Getenv("STREAM_TICKET_TTL"), 15*time.Minute),
 		StreamRemux:           normalizeStreamRemux(os.Getenv("STREAM_REMUX")),
+		StreamPreviewSeconds:  parseNonNegativeInt(os.Getenv("STREAM_PREVIEW_SECONDS"), 5*60),
 		FFmpegPath:            strings.TrimSpace(os.Getenv("FFMPEG_PATH")),
 	}
 
@@ -218,6 +221,22 @@ func parsePositiveInt(raw string, fallback int) int {
 	}
 	if n <= 0 {
 		return fallback
+	}
+	return n
+}
+
+// parseNonNegativeInt allows 0 (e.g. unlimited preview length); empty/invalid → fallback.
+func parseNonNegativeInt(raw string, fallback int) int {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return fallback
+	}
+	n := 0
+	for _, r := range trimmed {
+		if r < '0' || r > '9' {
+			return fallback
+		}
+		n = n*10 + int(r-'0')
 	}
 	return n
 }
