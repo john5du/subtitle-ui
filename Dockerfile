@@ -22,7 +22,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o
 FROM alpine:3.23
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates ffmpeg \
+# ca-certificates only — video preview proxies Jellyfin static streams (no local ffmpeg remux).
+RUN apk add --no-cache ca-certificates \
     && addgroup -S app \
     && adduser -S app -G app \
     && mkdir -p /app/frontend/out /data/media/movies /data/media/tv \
