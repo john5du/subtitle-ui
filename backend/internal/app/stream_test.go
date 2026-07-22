@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"subtitle-ui/backend/internal/config"
+	"subtitle-ui/backend/internal/provider/jellyfin"
 )
 
 func TestIssueStreamTicketRequiresJellyfin(t *testing.T) {
@@ -85,6 +86,7 @@ func TestIssueAndValidateStreamTicketWithJellyfin(t *testing.T) {
 
 	payload := []byte("0123456789abcdefghij")
 	var itemsHits atomic.Int32
+	var playbackHits atomic.Int32
 	jf := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("X-Emby-Token") != "jf-key" && !strings.Contains(r.Header.Get("Authorization"), "jf-key") {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -98,11 +100,15 @@ func TestIssueAndValidateStreamTicketWithJellyfin(t *testing.T) {
 					{"Id": "item-1", "Path": videoPath},
 				},
 			})
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/PlaybackInfo"):
+			playbackHits.Add(1)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"PlaySessionId": "ps-1",
+				"MediaSources": []map[string]any{
+					{"Id": "ms-1", "SupportsDirectPlay": true, "SupportsDirectStream": true},
+				},
+			})
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/Videos/") && strings.HasSuffix(r.URL.Path, "/stream"):
-			if !strings.Contains(r.URL.Path, "/Videos/item-1/") {
-				http.NotFound(w, r)
-				return
-			}
 			if r.Header.Get("Range") == "bytes=0-3" {
 				w.Header().Set("Content-Type", "video/mp4")
 				w.Header().Set("Content-Range", "bytes 0-3/20")
@@ -153,27 +159,32 @@ func TestIssueAndValidateStreamTicketWithJellyfin(t *testing.T) {
 	if issued.Ticket == "" || !strings.Contains(issued.URL, "ticket=") {
 		t.Fatalf("unexpected ticket payload: %+v", issued)
 	}
+	if issued.Kind != jellyfin.PlaybackModeProgressive {
+		t.Fatalf("kind=%s", issued.Kind)
+	}
 	if itemsHits.Load() != 1 {
 		t.Fatalf("expected 1 /Items lookup at issue, got %d", itemsHits.Load())
+	}
+	if playbackHits.Load() != 1 {
+		t.Fatalf("expected PlaybackInfo once, got %d", playbackHits.Load())
 	}
 
 	claims, err := svc.ValidateStreamTicket(videoID, issued.Ticket)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	if claims.ItemID != "item-1" || claims.VideoID != videoID {
+	if claims.ItemID != "item-1" || claims.VideoID != videoID || claims.Mode != jellyfin.PlaybackModeProgressive {
 		t.Fatalf("unexpected claims: %+v", claims)
 	}
-	if _, err := svc.ValidateStreamTicket(videoID, "v1.bad.item.1.x.dead"); err == nil {
+	if _, err := svc.ValidateStreamTicket(videoID, "v2.bad.h.1.x.dead.beef"); err == nil {
 		t.Fatal("expected invalid ticket error")
 	}
 	if _, err := svc.ValidateStreamTicket("other-id", issued.Ticket); err == nil {
 		t.Fatal("expected video id mismatch error")
 	}
 
-	// Stream must use embedded item id — no further /Items lookups on Range-like opens.
 	for i := 0; i < 3; i++ {
-		stream, err := svc.OpenJellyfinVideoStream(context.Background(), claims.ItemID, http.MethodGet, "")
+		stream, err := svc.OpenJellyfinUpstream(context.Background(), claims.UpstreamPath, http.MethodGet, "")
 		if err != nil {
 			t.Fatalf("open stream: %v", err)
 		}
@@ -189,15 +200,86 @@ func TestIssueAndValidateStreamTicketWithJellyfin(t *testing.T) {
 	if itemsHits.Load() != 1 {
 		t.Fatalf("stream path must not re-query /Items, hits=%d", itemsHits.Load())
 	}
-	if c := svc.jellyfinClient(); c == nil || !c.Enabled() {
-		t.Fatal("expected jellyfin client enabled")
+}
+
+func TestIssueStreamTicketHLSKind(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	movieDir := filepath.Join(movieRoot, "Movie")
+	_ = os.MkdirAll(movieDir, 0o755)
+	_ = os.MkdirAll(tvRoot, 0o755)
+	videoPath := filepath.Join(movieDir, "movie.mp4")
+	_ = os.WriteFile(videoPath, []byte("x"), 0o644)
+	_ = os.WriteFile(filepath.Join(movieDir, "movie.nfo"), []byte("<movie><title>M</title><year>2025</year></movie>"), 0o644)
+
+	jf := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Emby-Token") != "jf-key" && !strings.Contains(r.Header.Get("Authorization"), "jf-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/Items":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"Items": []map[string]string{{"Id": "item-h", "Path": videoPath}},
+			})
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "PlaybackInfo"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"PlaySessionId": "ps-h",
+				"MediaSources": []map[string]any{
+					{
+						"Id":            "ms-h",
+						"TranscodingUrl": "/Videos/item-h/master.m3u8?MediaSourceId=ms-h&api_key=secret",
+					},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer jf.Close()
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot, TVMediaRoot: tvRoot,
+		DBPath: filepath.Join(base, "h.sqlite3"), AdminToken: "tok",
+		StreamTicketSecret: "sec", StreamTicketTTL: time.Minute,
+		JellyfinEnabled: true, JellyfinURL: jf.URL, JellyfinAPIKey: "jf-key",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = svc.Close() }()
+	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatal(status.Error)
+	}
+	videoID := svc.ListVideosPage("", "movie", "", 1, 10, "", "").Items[0].ID
+	issued, err := svc.IssueStreamTicket(context.Background(), videoID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if issued.Kind != jellyfin.PlaybackModeHLS {
+		t.Fatalf("kind=%s", issued.Kind)
+	}
+	if !strings.Contains(issued.URL, "/hls/master?") {
+		t.Fatalf("url=%s", issued.URL)
+	}
+	claims, err := svc.ValidateStreamTicket(videoID, issued.Ticket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(claims.UpstreamPath, "api_key") {
+		t.Fatalf("api_key must be stripped: %s", claims.UpstreamPath)
+	}
+	rewritten := svc.RewriteHLSPlaylist("#EXTM3U\nseg0.mp4\n", videoID, issued.Ticket, claims.UpstreamPath)
+	if !strings.Contains(rewritten, "/hls/seg?ticket=") || !strings.Contains(rewritten, "u=") {
+		t.Fatalf("rewrite: %s", rewritten)
 	}
 }
 
 func TestStreamTicketExpired(t *testing.T) {
 	svc := &Service{cfg: config.Config{AdminToken: "tok", StreamTicketSecret: "sec"}}
 	exp := time.Now().UTC().Add(-time.Minute).Unix()
-	ticket, err := svc.signStreamTicket("vid", "item1", exp, "nonce")
+	ticket, err := svc.signStreamTicket("vid", "item1", streamModeProgressive, exp, "nonce", "/Videos/item1/stream?static=true")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,27 +288,42 @@ func TestStreamTicketExpired(t *testing.T) {
 	}
 }
 
+func TestStreamTicketFieldsWithDots(t *testing.T) {
+	svc := &Service{cfg: config.Config{AdminToken: "tok", StreamTicketSecret: "sec"}}
+	exp := time.Now().UTC().Add(time.Minute).Unix()
+	videoID := "vid.with.dots"
+	itemID := "item.with.dots"
+	ticket, err := svc.signStreamTicket(videoID, itemID, streamModeHLS, exp, "nonce", "/Videos/item.with.dots/master.m3u8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := svc.ValidateStreamTicket(videoID, ticket)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if claims.VideoID != videoID || claims.ItemID != itemID || claims.Mode != jellyfin.PlaybackModeHLS {
+		t.Fatalf("claims=%+v", claims)
+	}
+}
+
 func TestIssueStreamTicketMapsJellyfinErrors(t *testing.T) {
 	base := t.TempDir()
 	movieRoot := filepath.Join(base, "movies")
 	tvRoot := filepath.Join(base, "tv")
 	movieDir := filepath.Join(movieRoot, "Movie")
-	if err := os.MkdirAll(movieDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	_ = os.MkdirAll(movieDir, 0o755)
+	_ = os.MkdirAll(tvRoot, 0o755)
 	videoPath := filepath.Join(movieDir, "movie.mp4")
-	if err := os.WriteFile(videoPath, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(movieDir, "movie.nfo"), []byte("<movie><title>M</title><year>2025</year></movie>"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	_ = os.WriteFile(videoPath, []byte("x"), 0o644)
+	_ = os.WriteFile(filepath.Join(movieDir, "movie.nfo"), []byte("<movie><title>M</title><year>2025</year></movie>"), 0o644)
 
-	// Upstream 500 → not ErrNotFound
 	failJF := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/Items" {
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"Items": []map[string]string{{"Id": "i", "Path": videoPath}},
+			})
+			return
+		}
 		http.Error(w, "upstream down", http.StatusInternalServerError)
 	}))
 	t.Cleanup(failJF.Close)
@@ -249,7 +346,6 @@ func TestIssueStreamTicketMapsJellyfinErrors(t *testing.T) {
 		t.Fatalf("jellyfin 5xx must not be ErrNotFound, got %v", err)
 	}
 
-	// Empty library → ErrNotFound
 	emptyJF := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("X-Emby-Token") != "k" && !strings.Contains(r.Header.Get("Authorization"), "k") {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)

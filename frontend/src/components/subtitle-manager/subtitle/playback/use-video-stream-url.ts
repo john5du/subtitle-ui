@@ -5,10 +5,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { buildApiURL } from "@/lib/api";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
 
+import type { StreamKind } from "./artplayer-host";
+
 export interface StreamTicketResponse {
   ticket: string;
   expiresAt: string;
   url: string;
+  kind?: StreamKind;
 }
 
 const RENEW_BEFORE_MS = 90_000;
@@ -17,11 +20,15 @@ function buildStreamUrl(videoId: string, payload: StreamTicketResponse) {
   if (payload.url?.startsWith("/")) {
     return payload.url;
   }
+  if (payload.kind === "hls") {
+    return `/api/videos/${videoId}/hls/master?ticket=${encodeURIComponent(payload.ticket)}`;
+  }
   return `/api/videos/${videoId}/stream?ticket=${encodeURIComponent(payload.ticket)}`;
 }
 
 export function useVideoStreamUrl(videoId: string | null | undefined, enabled: boolean) {
   const [streamUrl, setStreamUrl] = useState<string>("");
+  const [streamKind, setStreamKind] = useState<StreamKind>("progressive");
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [error, setError] = useState("");
   const requestIdRef = useRef(0);
@@ -43,6 +50,7 @@ export function useVideoStreamUrl(videoId: string | null | undefined, enabled: b
         abortRef.current?.abort();
         abortRef.current = null;
         setStreamUrl("");
+        setStreamKind("progressive");
         setStatus("idle");
         setError("");
         return;
@@ -65,7 +73,9 @@ export function useVideoStreamUrl(videoId: string | null | undefined, enabled: b
         if (requestId !== requestIdRef.current || controller.signal.aborted) {
           return;
         }
-        setStreamUrl(buildApiURL(buildStreamUrl(videoId, payload)));
+        const kind: StreamKind = payload.kind === "hls" ? "hls" : "progressive";
+        setStreamKind(kind);
+        setStreamUrl(buildApiURL(buildStreamUrl(videoId, { ...payload, kind })));
         setStatus("ready");
         setError("");
 
@@ -83,6 +93,7 @@ export function useVideoStreamUrl(videoId: string | null | undefined, enabled: b
         }
         if (!opts?.silent) {
           setStreamUrl("");
+          setStreamKind("progressive");
           setStatus("error");
           setError(err instanceof Error ? err.message : String(err));
         }
@@ -103,5 +114,5 @@ export function useVideoStreamUrl(videoId: string | null | undefined, enabled: b
     };
   }, [reload, clearRenewTimer]);
 
-  return { streamUrl, status, error, reload };
+  return { streamUrl, streamKind, status, error, reload };
 }

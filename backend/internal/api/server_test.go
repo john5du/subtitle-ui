@@ -7,10 +7,12 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"subtitle-ui/backend/internal/app"
 	"subtitle-ui/backend/internal/config"
@@ -669,6 +671,13 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 					{"Id": "item-clip", "Path": videoPath},
 				},
 			})
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/PlaybackInfo"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"PlaySessionId": "ps-clip",
+				"MediaSources": []map[string]any{
+					{"Id": "ms-clip", "SupportsDirectPlay": true, "SupportsDirectStream": true},
+				},
+			})
 		case strings.HasPrefix(r.URL.Path, "/Videos/") && strings.HasSuffix(r.URL.Path, "/stream"):
 			if !strings.Contains(r.URL.Path, "/Videos/item-clip/") {
 				http.NotFound(w, r)
@@ -787,6 +796,137 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 	}
 	if itemsHits != 1 {
 		t.Fatalf("stream/Range must not re-query /Items, hits=%d", itemsHits)
+	}
+}
+
+func TestVideoHLSSegmentPathBinding(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	movieDir := filepath.Join(movieRoot, "Movie")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	videoPath := filepath.Join(movieDir, "clip.mp4")
+	if err := os.WriteFile(videoPath, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "clip.nfo"), []byte("<movie><title>Clip</title><year>2025</year></movie>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var forbiddenHits int
+	jf := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Emby-Token") != "jf-key" && !strings.Contains(r.Header.Get("Authorization"), "jf-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/Items":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"Items": []map[string]string{{"Id": "item-hls", "Path": videoPath}},
+			})
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/PlaybackInfo"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"PlaySessionId": "ps-hls",
+				"MediaSources": []map[string]any{
+					{
+						"Id":             "ms-hls",
+						"TranscodingUrl": "/Videos/item-hls/master.m3u8?MediaSourceId=ms-hls&api_key=secret",
+					},
+				},
+			})
+		case r.URL.Path == "/Videos/item-hls/master.m3u8":
+			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+			_, _ = w.Write([]byte("#EXTM3U\n#EXTINF:6.0,\nseg0.ts\n"))
+		case r.URL.Path == "/Videos/item-hls/seg0.ts":
+			w.Header().Set("Content-Type", "video/mp2t")
+			_, _ = w.Write([]byte("TSSEG"))
+		case r.URL.Path == "/System/Info" || strings.HasPrefix(r.URL.Path, "/Videos/other/"):
+			forbiddenHits++
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"leaked":true}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer jf.Close()
+
+	service, err := app.NewService(config.Config{
+		MovieMediaRoot:     movieRoot,
+		TVMediaRoot:        tvRoot,
+		DBPath:             filepath.Join(base, "hls.sqlite3"),
+		AdminToken:         "stream-test-token",
+		StreamTicketSecret: "stream-secret",
+		StreamTicketTTL:    time.Minute,
+		JellyfinEnabled:    true,
+		JellyfinURL:        jf.URL,
+		JellyfinAPIKey:     "jf-key",
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() { _ = service.Close() }()
+	if status := service.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatalf("scan: %s", status.Error)
+	}
+	videoID := service.ListVideosPage("", "movie", "", 1, 10, "", "").Items[0].ID
+	handler := NewServerWithConfig(service, config.Config{AdminToken: "stream-test-token"}).Handler()
+
+	ticketReq := httptest.NewRequest(http.MethodPost, "/api/videos/"+videoID+"/stream-ticket", nil)
+	ticketReq.Header.Set("Authorization", "Bearer stream-test-token")
+	ticketRec := httptest.NewRecorder()
+	handler.ServeHTTP(ticketRec, ticketReq)
+	if ticketRec.Code != http.StatusOK {
+		t.Fatalf("ticket status %d body=%s", ticketRec.Code, ticketRec.Body.String())
+	}
+	var ticketBody struct {
+		Ticket string `json:"ticket"`
+		Kind   string `json:"kind"`
+	}
+	if err := json.NewDecoder(ticketRec.Body).Decode(&ticketBody); err != nil {
+		t.Fatal(err)
+	}
+	if ticketBody.Kind != "hls" {
+		t.Fatalf("kind=%s", ticketBody.Kind)
+	}
+
+	masterReq := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/hls/master?ticket="+ticketBody.Ticket, nil)
+	masterRec := httptest.NewRecorder()
+	handler.ServeHTTP(masterRec, masterReq)
+	if masterRec.Code != http.StatusOK {
+		t.Fatalf("master status %d body=%s", masterRec.Code, masterRec.Body.String())
+	}
+	if !strings.Contains(masterRec.Body.String(), "/hls/seg?ticket=") || !strings.Contains(masterRec.Body.String(), "seg0.ts") {
+		t.Fatalf("master rewrite: %s", masterRec.Body.String())
+	}
+
+	// Legitimate segment for ticket item
+	okSeg := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/hls/seg?ticket="+ticketBody.Ticket+"&u="+url.QueryEscape("/Videos/item-hls/seg0.ts"), nil)
+	okRec := httptest.NewRecorder()
+	handler.ServeHTTP(okRec, okSeg)
+	if okRec.Code != http.StatusOK || okRec.Body.String() != "TSSEG" {
+		t.Fatalf("ok seg status=%d body=%q", okRec.Code, okRec.Body.String())
+	}
+
+	// Cross-item / system paths must not reach Jellyfin with API key
+	for _, badU := range []string{
+		"/Videos/other/stream?static=true",
+		"/System/Info",
+		"/Items",
+	} {
+		badReq := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/hls/seg?ticket="+ticketBody.Ticket+"&u="+url.QueryEscape(badU), nil)
+		badRec := httptest.NewRecorder()
+		handler.ServeHTTP(badRec, badReq)
+		if badRec.Code != http.StatusBadRequest {
+			t.Fatalf("bad u=%s expected 400, got %d body=%s", badU, badRec.Code, badRec.Body.String())
+		}
+	}
+	if forbiddenHits != 0 {
+		t.Fatalf("forbidden upstream should not be fetched, hits=%d", forbiddenHits)
 	}
 }
 

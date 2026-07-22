@@ -27,13 +27,14 @@ cd frontend && bun run build   # static export → frontend/out
 - Local env: `dev-up` / `dev-restart` load `scripts/.env` then `scripts/.env.local` via `scripts/lib/load-env.sh` (shell-exported vars win). Real `scripts/.env` is gitignored; commit only `scripts/.env.example`.
 - Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300` when unset. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.
 - Optional FE API override: `NEXT_PUBLIC_API_BASE=http://localhost:9307`.
-- Video stream preview (ArtPlayer UI; requires Jellyfin enabled):
-  - UI play-preview button only when Jellyfin is enabled (no local file/ffmpeg remux)
-  - `POST /api/videos/{id}/stream-ticket` (Bearer) → `{ ticket, expiresAt, url }` (503 if Jellyfin off / item not found)
-  - Ticket is signed `v1.videoID.itemID.exp.nonce.mac` (item resolved once via `FindItemIDByPath` + `JELLYFIN_PATH_MAP`)
-  - `FindItemIDByPath` matches **Path only** (paginated `/Items`, no `SearchTerm` — metadata titles ≠ filenames); missing item → 404; Jellyfin network/auth/5xx → 500
-  - `GET /api/videos/{id}/stream?ticket=` (public; ticket-auth only) proxies Jellyfin `GET /Videos/{itemId}/stream?static=true` with Range using **item id from ticket** (no per-Range path lookup)
-  - Upstream media statuses 2xx / 404 / 416 are passed through; no playback progress reporting
+- Video stream preview (ArtPlayer + optional hls.js; requires Jellyfin enabled):
+  - UI play-preview button only when Jellyfin is enabled (no local ffmpeg; audio via Jellyfin when needed)
+  - `POST /api/videos/{id}/stream-ticket` (Bearer) → `{ ticket, expiresAt, url, kind }` (`kind`: `progressive`|`hls`; 503 if Jellyfin off / item not found)
+  - Issue path: `FindItemIDByPath` (Path-only, paginated) → Jellyfin `POST /Items/{id}/PlaybackInfo` with AAC-preferring DeviceProfile → ticket **v2** embeds mode + upstream path
+  - `kind=progressive`: `GET /api/videos/{id}/stream?ticket=` proxies JF static/direct stream (Range)
+  - `kind=hls`: `GET /api/videos/{id}/hls/master?ticket=` + `/hls/seg?ticket=&u=` proxies JF HLS and rewrites m3u8 (API key never exposed to browser)
+  - Forces browser-friendly audio when needed (e.g. EAC3→AAC on Jellyfin); video may stay copy
+  - Upstream media statuses 2xx / 404 / 416 passed through on progressive/segments; no playback progress reporting
   - `STREAM_TICKET_SECRET` (optional; else AdminToken), `STREAM_TICKET_TTL` (default 15m)
 - SubHD auto-download (backend, default **on**):
   - Env bootstrap: `SUBHD_ENABLED=false` to disable; `SUBHD_BASE_URL`; `SUBHD_PROXY=socks5://host:port`

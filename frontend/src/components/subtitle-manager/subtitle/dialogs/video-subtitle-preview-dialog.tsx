@@ -56,7 +56,12 @@ export function VideoSubtitlePreviewDialog({
   const [playerError, setPlayerError] = useState("");
 
   const videoId = video?.id ?? null;
-  const { streamUrl, status: streamStatus, error: streamError } = useVideoStreamUrl(videoId, open && Boolean(videoId));
+  const {
+    streamUrl,
+    streamKind,
+    status: streamStatus,
+    error: streamError
+  } = useVideoStreamUrl(videoId, open && Boolean(videoId));
 
   const subtitles = useMemo(() => video?.subtitles ?? [], [video?.subtitles]);
   const selectedSubtitle = useMemo(
@@ -207,8 +212,9 @@ export function VideoSubtitlePreviewDialog({
             ) : null}
             {showPlayer ? (
               <ArtPlayerHost
-                key={streamUrl}
+                key={`${streamKind}:${streamUrl}`}
                 url={streamUrl}
+                streamKind={streamKind}
                 subtitleUrl={subtitleStatus === "ready" ? subtitleBlobUrl : undefined}
                 subtitleName={selectedSubtitle?.fileName}
                 lang={artLang}

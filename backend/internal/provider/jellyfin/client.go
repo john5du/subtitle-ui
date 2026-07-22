@@ -330,58 +330,16 @@ type StreamResponse struct {
 }
 
 // OpenVideoStream opens a static direct stream for an item (no transcoding, no play reporting).
-// method should be GET or HEAD. rangeHeader is optional "bytes=…" from the browser.
-// Body is non-nil when err is nil; caller must Close it.
-// Media-relevant statuses (2xx, 404, 416) are returned as StreamResponse so the API proxy can pass them through.
+// Prefer ResolvePlaybackPlan + OpenAuthenticatedPath for browser preview (audio may need AAC).
 func (c *Client) OpenVideoStream(ctx context.Context, method, itemID, rangeHeader string) (*StreamResponse, error) {
-	if !c.Enabled() {
-		return nil, ErrDisabled
-	}
 	itemID = strings.TrimSpace(itemID)
 	if itemID == "" {
 		return nil, fmt.Errorf("item id required")
 	}
-	method = strings.ToUpper(strings.TrimSpace(method))
-	if method == "" {
-		method = http.MethodGet
-	}
-	switch method {
-	case http.MethodGet, http.MethodHead:
-	default:
-		return nil, fmt.Errorf("unsupported method %s", method)
-	}
-
 	q := url.Values{}
 	q.Set("static", "true")
-	streamURL := c.baseURL + "/Videos/" + url.PathEscape(itemID) + "/stream?" + q.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, method, streamURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	c.setAuth(req)
-	if rangeHeader = strings.TrimSpace(rangeHeader); rangeHeader != "" {
-		req.Header.Set("Range", rangeHeader)
-	}
-
-	// Streaming must not use the API client's overall Timeout; reuse its Transport/Jar/redirect policy.
-	resp, err := c.streamHTTPClient().Do(req)
-	if err != nil {
-		log.Printf("jellyfin stream network failed itemId=%s err=%v", itemID, err)
-		return nil, err
-	}
-	if !isPassThroughStreamStatus(resp.StatusCode) {
-		defer resp.Body.Close()
-		sample, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		msg := jellyfinHTTPError(resp.StatusCode, truncate(string(sample), 200))
-		log.Printf("jellyfin stream failed itemId=%s status=%s bodySample=%q", itemID, resp.Status, truncate(string(sample), 200))
-		return nil, fmt.Errorf("jellyfin stream: %s", msg)
-	}
-	return &StreamResponse{
-		StatusCode: resp.StatusCode,
-		Header:     resp.Header.Clone(),
-		Body:       resp.Body,
-	}, nil
+	path := "/Videos/" + url.PathEscape(itemID) + "/stream?" + q.Encode()
+	return c.OpenAuthenticatedPath(ctx, method, path, rangeHeader)
 }
 
 // streamHTTPClient returns a client that shares the configured Transport but has no overall timeout

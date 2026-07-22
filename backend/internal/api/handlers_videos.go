@@ -72,6 +72,14 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleVideoStream(w, r, videoID)
 		return
 
+	case len(segments) == 3 && segments[1] == "hls" && segments[2] == "master" && (r.Method == http.MethodGet || r.Method == http.MethodHead):
+		s.handleVideoHLSMaster(w, r, videoID)
+		return
+
+	case len(segments) == 3 && segments[1] == "hls" && segments[2] == "seg" && (r.Method == http.MethodGet || r.Method == http.MethodHead):
+		s.handleVideoHLSSegment(w, r, videoID)
+		return
+
 	case len(segments) == 2 && segments[1] == "subtitles" && r.Method == http.MethodPost:
 		s.handleUploadSubtitle(w, r, videoID)
 		return

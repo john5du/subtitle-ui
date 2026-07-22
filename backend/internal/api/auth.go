@@ -46,12 +46,21 @@ func isPublicAPIPath(method, path string) bool {
 		parts := strings.Split(rest, "/")
 		return len(parts) == 2 && parts[0] != "" && parts[1] == "poster"
 	}
-	if (method == http.MethodGet || method == http.MethodHead) &&
-		strings.HasPrefix(path, "/api/videos/") && strings.HasSuffix(path, "/stream") {
-		// /api/videos/{id}/stream only; ticket validated in handler.
-		rest := strings.TrimPrefix(path, "/api/videos/")
-		parts := strings.Split(rest, "/")
-		return len(parts) == 2 && parts[0] != "" && parts[1] == "stream"
+	if method != http.MethodGet && method != http.MethodHead {
+		return false
+	}
+	if !strings.HasPrefix(path, "/api/videos/") {
+		return false
+	}
+	rest := strings.TrimPrefix(path, "/api/videos/")
+	parts := strings.Split(rest, "/")
+	// /api/videos/{id}/stream — progressive ticket stream
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "stream" {
+		return true
+	}
+	// /api/videos/{id}/hls/master | /api/videos/{id}/hls/seg — HLS ticket proxy
+	if len(parts) == 3 && parts[0] != "" && parts[1] == "hls" && (parts[2] == "master" || parts[2] == "seg") {
+		return true
 	}
 	return false
 }

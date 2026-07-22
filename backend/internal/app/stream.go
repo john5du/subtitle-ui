@@ -21,24 +21,30 @@ import (
 )
 
 const (
-	streamTicketVersion = "v1"
-	// v1.videoID.itemID.exp.nonce.mac
-	streamTicketParts = 6
+	streamTicketVersion = "v2"
+	// v2.videoID.itemID.mode.exp.nonce.upB64.mac
+	streamTicketParts = 8
+
+	streamModeHLS         = "h"
+	streamModeProgressive = "p"
 )
 
 // StreamTicket is a short-lived grant to stream one video without Bearer auth.
-// The signed ticket embeds the Jellyfin item id so Range requests do not re-resolve paths.
+// Ticket embeds Jellyfin item id, mode (hls/progressive), and upstream path (signed).
 type StreamTicket struct {
 	Ticket    string    `json:"ticket"`
 	ExpiresAt time.Time `json:"expiresAt"`
 	URL       string    `json:"url"`
+	Kind      string    `json:"kind"` // "hls" | "progressive"
 }
 
 // StreamTicketClaims is the verified payload of a stream ticket.
 type StreamTicketClaims struct {
-	VideoID string
-	ItemID  string
-	ExpUnix int64
+	VideoID      string
+	ItemID       string
+	Mode         string // hls | progressive
+	UpstreamPath string
+	ExpUnix      int64
 }
 
 var (
@@ -47,8 +53,7 @@ var (
 )
 
 // IssueStreamTicket issues a ticket for Jellyfin-proxied preview streaming.
-// Requires Jellyfin enabled and a resolvable library item for the video path.
-// The Jellyfin item id is embedded in the ticket (signed) so stream GETs skip path lookup.
+// Uses PlaybackInfo so Jellyfin can audio-transcode (EAC3→AAC) via HLS when needed.
 func (s *Service) IssueStreamTicket(ctx context.Context, videoID string) (StreamTicket, error) {
 	videoID = strings.TrimSpace(videoID)
 	if videoID == "" {
@@ -70,12 +75,32 @@ func (s *Service) IssueStreamTicket(ctx context.Context, videoID string) (Stream
 		if errors.Is(err, jellyfin.ErrItemNotFound) {
 			return StreamTicket{}, fmt.Errorf("%w: jellyfin item: %w", ErrNotFound, err)
 		}
-		// Network/auth/5xx/decode — keep as upstream failure (HTTP 500), not 404.
 		return StreamTicket{}, fmt.Errorf("jellyfin item lookup: %w", err)
 	}
 	itemID = strings.TrimSpace(itemID)
-	if itemID == "" || strings.Contains(itemID, ".") {
+	if itemID == "" {
 		return StreamTicket{}, fmt.Errorf("%w: jellyfin item id invalid", ErrNotFound)
+	}
+
+	plan, err := client.ResolvePlaybackPlan(ctx, itemID)
+	if err != nil {
+		if errors.Is(err, jellyfin.ErrDisabled) {
+			return StreamTicket{}, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
+		}
+		if errors.Is(err, jellyfin.ErrItemNotFound) {
+			return StreamTicket{}, fmt.Errorf("%w: jellyfin item: %w", ErrNotFound, err)
+		}
+		return StreamTicket{}, fmt.Errorf("jellyfin playback info: %w", err)
+	}
+	if err := jellyfin.ValidateUpstreamPath(plan.UpstreamPath); err != nil {
+		return StreamTicket{}, fmt.Errorf("jellyfin playback path: %w", err)
+	}
+
+	modeCode := streamModeProgressive
+	kind := jellyfin.PlaybackModeProgressive
+	if plan.Mode == jellyfin.PlaybackModeHLS {
+		modeCode = streamModeHLS
+		kind = jellyfin.PlaybackModeHLS
 	}
 
 	ttl := s.cfg.StreamTicketTTL
@@ -87,14 +112,20 @@ func (s *Service) IssueStreamTicket(ctx context.Context, videoID string) (Stream
 	if err != nil {
 		return StreamTicket{}, err
 	}
-	ticket, err := s.signStreamTicket(videoID, itemID, exp.Unix(), nonce)
+	ticket, err := s.signStreamTicket(videoID, itemID, modeCode, exp.Unix(), nonce, plan.UpstreamPath)
 	if err != nil {
 		return StreamTicket{}, err
+	}
+
+	publicURL := "/api/videos/" + url.PathEscape(videoID) + "/stream?ticket=" + url.QueryEscape(ticket)
+	if kind == jellyfin.PlaybackModeHLS {
+		publicURL = "/api/videos/" + url.PathEscape(videoID) + "/hls/master?ticket=" + url.QueryEscape(ticket)
 	}
 	return StreamTicket{
 		Ticket:    ticket,
 		ExpiresAt: exp,
-		URL:       "/api/videos/" + url.PathEscape(videoID) + "/stream?ticket=" + url.QueryEscape(ticket),
+		URL:       publicURL,
+		Kind:      kind,
 	}, nil
 }
 
@@ -118,18 +149,13 @@ func (s *Service) ResolveVideoForStream(videoID string) (domain.Video, error) {
 	return video, nil
 }
 
-// OpenJellyfinVideoStream opens a static Jellyfin stream for a known item id (from a verified ticket).
-// Does not re-resolve path → item. Caller must Close the returned Body.
-func (s *Service) OpenJellyfinVideoStream(ctx context.Context, itemID, method, rangeHeader string) (*jellyfin.StreamResponse, error) {
+// OpenJellyfinUpstream opens the Jellyfin URL embedded in a verified ticket (progressive or HLS segment).
+func (s *Service) OpenJellyfinUpstream(ctx context.Context, upstreamPath, method, rangeHeader string) (*jellyfin.StreamResponse, error) {
 	client := s.jellyfinClient()
 	if client == nil || !client.Enabled() {
 		return nil, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
 	}
-	itemID = strings.TrimSpace(itemID)
-	if itemID == "" {
-		return nil, fmt.Errorf("%w: jellyfin item id required", ErrBadRequest)
-	}
-	resp, err := client.OpenVideoStream(ctx, method, itemID, rangeHeader)
+	resp, err := client.OpenAuthenticatedPath(ctx, method, upstreamPath, rangeHeader)
 	if err != nil {
 		if errors.Is(err, jellyfin.ErrDisabled) {
 			return nil, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
@@ -139,7 +165,17 @@ func (s *Service) OpenJellyfinVideoStream(ctx context.Context, itemID, method, r
 	return resp, nil
 }
 
-// ValidateStreamTicket verifies the ticket for videoID and returns signed claims (including item id).
+// RewriteHLSPlaylist rewrites m3u8 body so segment URIs hit our ticket-gated proxy.
+func (s *Service) RewriteHLSPlaylist(playlist string, videoID, ticket, upstreamPlaylistPath string) string {
+	videoID = strings.TrimSpace(videoID)
+	ticket = strings.TrimSpace(ticket)
+	return jellyfin.RewriteM3U8(playlist, upstreamPlaylistPath, func(up string) string {
+		return "/api/videos/" + url.PathEscape(videoID) + "/hls/seg?ticket=" + url.QueryEscape(ticket) +
+			"&u=" + url.QueryEscape(up)
+	})
+}
+
+// ValidateStreamTicket verifies the ticket for videoID and returns signed claims.
 func (s *Service) ValidateStreamTicket(videoID string, ticket string) (StreamTicketClaims, error) {
 	videoID = strings.TrimSpace(videoID)
 	ticket = strings.TrimSpace(ticket)
@@ -153,57 +189,99 @@ func (s *Service) ValidateStreamTicket(videoID string, ticket string) (StreamTic
 	if parts[0] != streamTicketVersion {
 		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
-	if parts[1] != videoID {
+	ticketVideoID, err := decodeTicketField(parts[1])
+	if err != nil || ticketVideoID != videoID {
 		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
-	itemID := parts[2]
-	if itemID == "" || strings.Contains(itemID, ".") {
+	itemID, err := decodeTicketField(parts[2])
+	if err != nil || itemID == "" {
 		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
-	expUnix, err := strconv.ParseInt(parts[3], 10, 64)
+	modeCode := parts[3]
+	var mode string
+	switch modeCode {
+	case streamModeHLS:
+		mode = jellyfin.PlaybackModeHLS
+	case streamModeProgressive:
+		mode = jellyfin.PlaybackModeProgressive
+	default:
+		return StreamTicketClaims{}, ErrStreamTicketInvalid
+	}
+	expUnix, err := strconv.ParseInt(parts[4], 10, 64)
 	if err != nil || expUnix <= 0 {
 		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
 	if time.Now().UTC().Unix() > expUnix {
 		return StreamTicketClaims{}, ErrStreamTicketExpired
 	}
-	nonce := parts[4]
-	macHex := parts[5]
-	expected, err := s.streamTicketMAC(videoID, itemID, expUnix, nonce)
+	nonce := parts[5]
+	upB64 := parts[6]
+	macHex := parts[7]
+	expected, err := s.streamTicketMAC(videoID, itemID, modeCode, expUnix, nonce, upB64)
 	if err != nil {
 		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
 	if !hmac.Equal([]byte(macHex), []byte(expected)) {
 		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
+	upRaw, err := base64.RawURLEncoding.DecodeString(upB64)
+	if err != nil || len(upRaw) == 0 {
+		return StreamTicketClaims{}, ErrStreamTicketInvalid
+	}
+	upstreamPath := string(upRaw)
+	if err := jellyfin.ValidateUpstreamPath(upstreamPath); err != nil {
+		return StreamTicketClaims{}, ErrStreamTicketInvalid
+	}
 	return StreamTicketClaims{
-		VideoID: videoID,
-		ItemID:  itemID,
-		ExpUnix: expUnix,
+		VideoID:      videoID,
+		ItemID:       itemID,
+		Mode:         mode,
+		UpstreamPath: upstreamPath,
+		ExpUnix:      expUnix,
 	}, nil
 }
 
-func (s *Service) signStreamTicket(videoID, itemID string, expUnix int64, nonce string) (string, error) {
-	mac, err := s.streamTicketMAC(videoID, itemID, expUnix, nonce)
+func (s *Service) signStreamTicket(videoID, itemID, modeCode string, expUnix int64, nonce, upstreamPath string) (string, error) {
+	upB64 := base64.RawURLEncoding.EncodeToString([]byte(upstreamPath))
+	mac, err := s.streamTicketMAC(videoID, itemID, modeCode, expUnix, nonce, upB64)
 	if err != nil {
 		return "", err
 	}
+	// videoID/itemID are base64 so '.' inside them cannot break field splitting.
 	return strings.Join([]string{
 		streamTicketVersion,
-		videoID,
-		itemID,
+		encodeTicketField(videoID),
+		encodeTicketField(itemID),
+		modeCode,
 		strconv.FormatInt(expUnix, 10),
 		nonce,
+		upB64,
 		mac,
 	}, "."), nil
 }
 
-func (s *Service) streamTicketMAC(videoID, itemID string, expUnix int64, nonce string) (string, error) {
+func encodeTicketField(s string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(s))
+}
+
+func decodeTicketField(s string) (string, error) {
+	raw, err := base64.RawURLEncoding.DecodeString(s)
+	if err != nil {
+		return "", err
+	}
+	if len(raw) == 0 {
+		return "", fmt.Errorf("empty ticket field")
+	}
+	return string(raw), nil
+}
+
+func (s *Service) streamTicketMAC(videoID, itemID, modeCode string, expUnix int64, nonce, upB64 string) (string, error) {
 	secret := s.streamTicketSecret()
 	if secret == "" {
 		return "", fmt.Errorf("%w: stream ticket secret empty", ErrBadRequest)
 	}
-	payload := streamTicketVersion + "|" + videoID + "|" + itemID + "|" + strconv.FormatInt(expUnix, 10) + "|" + nonce
+	payload := streamTicketVersion + "|" + videoID + "|" + itemID + "|" + modeCode + "|" +
+		strconv.FormatInt(expUnix, 10) + "|" + nonce + "|" + upB64
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(payload))
 	return hex.EncodeToString(mac.Sum(nil)), nil

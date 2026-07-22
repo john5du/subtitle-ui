@@ -4,8 +4,12 @@ import { useEffect, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
+export type StreamKind = "progressive" | "hls";
+
 export interface ArtPlayerHostProps {
   url: string;
+  /** progressive = direct progressive/static; hls = m3u8 via hls.js (Jellyfin audio transcode path). */
+  streamKind?: StreamKind;
   subtitleUrl?: string;
   subtitleName?: string;
   lang?: "en" | "zh-cn";
@@ -73,11 +77,20 @@ function applySubtitle(art: ArtInstance, subtitleUrl: string | undefined, subtit
 
 /**
  * Client-only ArtPlayer mount. Destroys on unmount / url change so stream stops.
- * Progress scrubbing relies on HTTP Range from the stream URL.
+ * Progressive: HTTP Range scrubbing. HLS: hls.js against ticket-proxied Jellyfin playlists.
  */
-export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", className, onError }: ArtPlayerHostProps) {
+export function ArtPlayerHost({
+  url,
+  streamKind = "progressive",
+  subtitleUrl,
+  subtitleName,
+  lang = "en",
+  className,
+  onError
+}: ArtPlayerHostProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const artRef = useRef<ArtInstance | null>(null);
+  const hlsRef = useRef<{ destroy: () => void } | null>(null);
   const generationRef = useRef(0);
   const onErrorRef = useRef(onError);
   const subtitleUrlRef = useRef(subtitleUrl);
@@ -102,6 +115,15 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
       const ArtplayerCtor = Artplayer as typeof Artplayer & { FULLSCREEN_WEB_IN_BODY?: boolean };
       ArtplayerCtor.FULLSCREEN_WEB_IN_BODY = true;
 
+      const useHls = streamKind === "hls";
+      let HlsCtor: (typeof import("hls.js"))["default"] | null = null;
+      if (useHls) {
+        HlsCtor = (await import("hls.js")).default;
+      }
+      if (generation !== generationRef.current || !containerRef.current) {
+        return;
+      }
+
       const art = new Artplayer({
         container: containerRef.current,
         url,
@@ -122,6 +144,38 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
         playsInline: true,
         lang,
         theme: "#3b82f6",
+        type: useHls ? "m3u8" : undefined,
+        customType: useHls
+          ? {
+              m3u8(video: HTMLVideoElement, src: string) {
+                if (!HlsCtor) {
+                  return;
+                }
+                if (HlsCtor.isSupported()) {
+                  const hls = new HlsCtor({
+                    enableWorker: true,
+                    lowLatencyMode: false
+                  });
+                  hlsRef.current?.destroy();
+                  hlsRef.current = hls;
+                  hls.loadSource(src);
+                  hls.attachMedia(video);
+                  hls.on(HlsCtor.Events.ERROR, (_event, data) => {
+                    if (data?.fatal) {
+                      onErrorRef.current?.(
+                        typeof data.type === "string"
+                          ? `HLS error: ${data.type}`
+                          : "HLS playback failed"
+                      );
+                    }
+                  });
+                  return;
+                }
+                // Safari native HLS
+                video.src = src;
+              }
+            }
+          : undefined,
         // Same-origin stream; avoid crossOrigin so blob: VTT tracks attach reliably.
         moreVideoAttr: {
           preload: "auto",
@@ -138,6 +192,8 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
         } catch {
           // ignore
         }
+        hlsRef.current?.destroy();
+        hlsRef.current = null;
         return;
       }
 
@@ -259,7 +315,7 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
               : "Video playback failed (codec or container may be unsupported)";
         if (/DEMUXER_ERROR|MEDIA_ERR_SRC_NOT_SUPPORTED|no supported streams|open context failed/i.test(message)) {
           message =
-            "Browser cannot decode this stream (container/codec). Jellyfin serves a direct file; try a browser-friendly format or open in Jellyfin.";
+            "Browser cannot decode this stream (container/codec). If audio is missing, ensure Jellyfin can transcode audio to AAC for preview.";
         }
         onErrorRef.current?.(message);
       });
@@ -268,6 +324,15 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
     return () => {
       generationRef.current += 1;
       syncSubtitleRef.current = () => {};
+      const hls = hlsRef.current;
+      hlsRef.current = null;
+      if (hls) {
+        try {
+          hls.destroy();
+        } catch {
+          // ignore
+        }
+      }
       const current = artRef.current;
       artRef.current = null;
       if (current) {
@@ -278,7 +343,7 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
         }
       }
     };
-  }, [url, lang]);
+  }, [url, streamKind, lang]);
 
   useEffect(() => {
     syncSubtitleRef.current();
