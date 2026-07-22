@@ -356,6 +356,58 @@ func TestFindItemIDByPathNotFoundVsUpstreamError(t *testing.T) {
 	}
 }
 
+func TestResolvePlaybackPlanDeviceProfileJSON(t *testing.T) {
+	// Regression: DeviceProfile.Id is Guid? on Jellyfin; non-GUID Id → ASP.NET 400 "The supplied value is invalid."
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !authOK(r, "test-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodPost || !strings.Contains(r.URL.Path, "/PlaybackInfo") {
+			http.NotFound(w, r)
+			return
+		}
+		raw, _ := io.ReadAll(r.Body)
+		if err := json.Unmarshal(raw, &gotBody); err != nil {
+			t.Errorf("body: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"PlaySessionId": "ps",
+			"MediaSources": []map[string]any{
+				{"Id": "ms", "SupportsDirectPlay": true, "SupportsDirectStream": true},
+			},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c := jellyfin.New(jellyfin.Options{
+		Enabled: true, BaseURL: srv.URL, APIKey: "test-key", HTTPClient: srv.Client(),
+	})
+	plan, err := c.ResolvePlaybackPlan(context.Background(), "item-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Mode != jellyfin.PlaybackModeProgressive {
+		t.Fatalf("mode=%s", plan.Mode)
+	}
+	dp, _ := gotBody["DeviceProfile"].(map[string]any)
+	if dp == nil {
+		t.Fatalf("missing DeviceProfile: %#v", gotBody)
+	}
+	if id, ok := dp["Id"]; ok && id != nil {
+		t.Fatalf("DeviceProfile.Id must be omitted or null (Guid?), got %#v", id)
+	}
+	tps, _ := dp["TranscodingProfiles"].([]any)
+	if len(tps) == 0 {
+		t.Fatal("expected TranscodingProfiles")
+	}
+	tp, _ := tps[0].(map[string]any)
+	if tp["Protocol"] != "hls" {
+		t.Fatalf("protocol=%v", tp["Protocol"])
+	}
+}
+
 func TestValidatePathMaps(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("X-Emby-Token") != "test-key" {

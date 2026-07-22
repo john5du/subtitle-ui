@@ -276,6 +276,7 @@ func stripSecretQuery(q url.Values) {
 }
 
 func previewDeviceProfile() map[string]any {
+	// Matches Jellyfin DeviceProfile (MediaBrowser.Model.Dlna): Id is Guid? — never send a free-form string.
 	directPlayProfiles := []map[string]any{
 		{"Type": "Video", "Container": "mp4,m4v", "VideoCodec": "h264,hevc,av1", "AudioCodec": "aac,mp3,opus"},
 		{"Type": "Video", "Container": "webm", "VideoCodec": "vp8,vp9,av1", "AudioCodec": "opus,vorbis"},
@@ -283,14 +284,13 @@ func previewDeviceProfile() map[string]any {
 	transcodingProfiles := []map[string]any{
 		{
 			"Type":                      "Video",
-			"Container":                 "mp4",
+			"Container":                 "ts",
 			"Protocol":                  "hls",
 			"VideoCodec":                "h264,hevc",
 			"AudioCodec":                "aac",
 			"Context":                   "Streaming",
 			"MaxAudioChannels":          "2",
-			"MinSegments":               "1",
-			"BreakOnNonKeyFrames":       true,
+			"MinSegments":               1,
 			"SegmentLength":             6,
 			"CopyTimestamps":            true,
 			"EnableSubtitlesInManifest": false,
@@ -298,7 +298,6 @@ func previewDeviceProfile() map[string]any {
 	}
 	return map[string]any{
 		"Name":                             "subtitle-ui preview",
-		"Id":                               previewDeviceID,
 		"MaxStreamingBitrate":              80_000_000,
 		"MaxStaticBitrate":                 80_000_000,
 		"MusicStreamingTranscodingBitrate": 384000,
@@ -316,9 +315,6 @@ func previewDeviceProfile() map[string]any {
 		"SubtitleProfiles": []map[string]any{
 			{"Format": "vtt", "Method": "External"},
 			{"Format": "srt", "Method": "External"},
-		},
-		"ResponseProfiles": []map[string]any{
-			{"Type": "Video", "Container": "m4v", "MimeType": "video/mp4"},
 		},
 	}
 }
