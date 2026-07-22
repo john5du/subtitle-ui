@@ -159,15 +159,42 @@ var (
 
 // SolveSVG recognizes svg-captcha default-font challenges.
 func SolveSVG(svg string) string {
+	return solveSVGDetailed(svg).Code
+}
+
+// captchaSolveDiag is diagnostic detail from SVG captcha recognition.
+type captchaSolveDiag struct {
+	Code        string
+	PathCount   int
+	PathLens    []int
+	UnknownLens []int
+	EmptyChars  int // recognized empty for a path (unknown length or empty mapping)
+}
+
+func solveSVGDetailed(svg string) captchaSolveDiag {
 	letters := extractLetterPaths(svg)
 	if len(letters) == 0 {
-		return ""
+		return captchaSolveDiag{}
+	}
+	diag := captchaSolveDiag{
+		PathCount: len(letters),
+		PathLens:  make([]int, 0, len(letters)),
 	}
 	var b strings.Builder
 	for _, d := range letters {
-		b.WriteString(recognizePath(d))
+		n := len(d)
+		diag.PathLens = append(diag.PathLens, n)
+		ch := recognizePath(d)
+		if ch == "" {
+			diag.EmptyChars++
+			if len(lengthMap[n]) == 0 {
+				diag.UnknownLens = append(diag.UnknownLens, n)
+			}
+		}
+		b.WriteString(ch)
 	}
-	return b.String()
+	diag.Code = b.String()
+	return diag
 }
 
 func extractLetterPaths(svg string) []string {

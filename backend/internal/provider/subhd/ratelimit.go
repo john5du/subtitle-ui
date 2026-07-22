@@ -1,6 +1,7 @@
 package subhd
 
 import (
+	"log"
 	"sync"
 	"time"
 )
@@ -45,6 +46,9 @@ func (l *limiter) wait() {
 	}
 	l.mu.Unlock()
 	if sleep > 0 {
+		if sleep >= 5*time.Second {
+			log.Printf("subhd limiter wait sleep_s=%.1f", sleep.Seconds())
+		}
 		time.Sleep(sleep)
 	}
 	l.mu.Lock()
@@ -79,6 +83,12 @@ func (l *limiter) markRateLimited() {
 			l.backoffStep = l.maxBackoff
 		}
 	}
+	remaining := time.Until(l.backoffUntil)
+	if remaining < 0 {
+		remaining = 0
+	}
+	log.Printf("subhd limiter backoff remaining_s=%.0f step_s=%.0f",
+		remaining.Seconds(), l.backoffStep.Seconds())
 }
 
 func (l *limiter) markSuccess() {

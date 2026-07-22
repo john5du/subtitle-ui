@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -290,26 +291,32 @@ func (c *Client) getJSON(ctx context.Context, path string, query url.Values, des
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
+		log.Printf("sonarr GET failed path=%s err=%v", path, err)
 		return err
 	}
 	req.Header.Set("X-Api-Key", c.apiKey)
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.client.Do(req)
 	if err != nil {
+		log.Printf("sonarr GET network failed path=%s err=%v", path, err)
 		return err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
+		log.Printf("sonarr GET read failed path=%s err=%v", path, err)
 		return err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("sonarr GET %s: %s: %s", path, resp.Status, truncate(string(body), 200))
+		sample := truncate(string(body), 200)
+		log.Printf("sonarr GET failed path=%s status=%s bodySample=%q", path, resp.Status, sample)
+		return fmt.Errorf("sonarr GET %s: %s: %s", path, resp.Status, sample)
 	}
 	if dest == nil {
 		return nil
 	}
 	if err := json.Unmarshal(body, dest); err != nil {
+		log.Printf("sonarr decode failed method=GET path=%s bodyBytes=%d err=%v", path, len(body), err)
 		return fmt.Errorf("sonarr decode %s: %w", path, err)
 	}
 	return nil
@@ -318,10 +325,12 @@ func (c *Client) getJSON(ctx context.Context, path string, query url.Values, des
 func (c *Client) postJSON(ctx context.Context, path string, payload any, dest any) error {
 	raw, err := json.Marshal(payload)
 	if err != nil {
+		log.Printf("sonarr POST marshal failed path=%s err=%v", path, err)
 		return err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(raw))
 	if err != nil {
+		log.Printf("sonarr POST request failed path=%s err=%v", path, err)
 		return err
 	}
 	req.Header.Set("X-Api-Key", c.apiKey)
@@ -329,20 +338,25 @@ func (c *Client) postJSON(ctx context.Context, path string, payload any, dest an
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.client.Do(req)
 	if err != nil {
+		log.Printf("sonarr POST network failed path=%s err=%v", path, err)
 		return err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	if err != nil {
+		log.Printf("sonarr POST read failed path=%s err=%v", path, err)
 		return err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("sonarr POST %s: %s: %s", path, resp.Status, truncate(string(body), 200))
+		sample := truncate(string(body), 200)
+		log.Printf("sonarr POST failed path=%s status=%s bodySample=%q", path, resp.Status, sample)
+		return fmt.Errorf("sonarr POST %s: %s: %s", path, resp.Status, sample)
 	}
 	if dest == nil || len(body) == 0 {
 		return nil
 	}
 	if err := json.Unmarshal(body, dest); err != nil {
+		log.Printf("sonarr decode failed method=POST path=%s bodyBytes=%d err=%v", path, len(body), err)
 		return fmt.Errorf("sonarr decode %s: %w", path, err)
 	}
 	return nil

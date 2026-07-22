@@ -62,6 +62,7 @@ func (s *Server) handleVideoStream(w http.ResponseWriter, r *http.Request, video
 func (s *Server) streamDirect(w http.ResponseWriter, r *http.Request, src app.VideoStreamSource) {
 	file, err := os.Open(src.Path)
 	if err != nil {
+		log.Printf("stream open failed videoID=%s file=%s err=%v", src.VideoID, path.Base(src.Path), err)
 		if errors.Is(err, os.ErrNotExist) {
 			writeError(w, http.StatusNotFound, "video file not found")
 			return
@@ -73,10 +74,12 @@ func (s *Server) streamDirect(w http.ResponseWriter, r *http.Request, src app.Vi
 
 	info, err := file.Stat()
 	if err != nil {
+		log.Printf("stream stat failed videoID=%s file=%s err=%v", src.VideoID, path.Base(src.Path), err)
 		writeError(w, http.StatusInternalServerError, "failed to stat video")
 		return
 	}
 	if info.IsDir() {
+		log.Printf("stream open failed videoID=%s file=%s reason=is_dir", src.VideoID, path.Base(src.Path))
 		writeError(w, http.StatusNotFound, "video file not found")
 		return
 	}
@@ -185,12 +188,14 @@ func (s *Server) streamRemuxPipe(w http.ResponseWriter, r *http.Request, src app
 	cmd := s.service.FFmpegRemuxCommand(src.Path)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		log.Printf("stream remux pipe failed videoID=%s reason=stdout_pipe err=%v", src.VideoID, err)
 		writeError(w, http.StatusInternalServerError, "failed to start remux")
 		return
 	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Start(); err != nil {
+		log.Printf("stream remux pipe failed videoID=%s reason=start err=%v", src.VideoID, err)
 		writeError(w, http.StatusInternalServerError, "ffmpeg remux failed to start")
 		return
 	}
@@ -220,6 +225,8 @@ func (s *Server) streamRemuxPipe(w http.ResponseWriter, r *http.Request, src app
 		if msg == "" {
 			msg = "ffmpeg remux produced no output"
 		}
+		log.Printf("stream remux pipe failed videoID=%s reason=no_output stderr=%q",
+			src.VideoID, truncateStreamLog(msg, 300))
 		writeError(w, http.StatusServiceUnavailable, "ffmpeg remux failed: "+msg)
 		return
 	}
@@ -254,4 +261,12 @@ func (fw flushingWriter) Write(p []byte) (int, error) {
 		f.Flush()
 	}
 	return n, err
+}
+
+func truncateStreamLog(s string, max int) string {
+	s = strings.TrimSpace(s)
+	if max <= 0 || len(s) <= max {
+		return s
+	}
+	return s[:max] + "…"
 }

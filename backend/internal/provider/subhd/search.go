@@ -140,6 +140,7 @@ func looksLikeSubHDShell(body string) bool {
 func (c *Client) getHTML(ctx context.Context, path, referer string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.absURL(path), nil)
 	if err != nil {
+		log.Printf("subhd html request failed path=%s err=%v", path, err)
 		return "", wrapProvider(err)
 	}
 	c.setCommonHeaders(req, referer)
@@ -147,14 +148,18 @@ func (c *Client) getHTML(ctx context.Context, path, referer string) (string, err
 
 	res, err := c.client.Do(req)
 	if err != nil {
+		log.Printf("subhd html network failed path=%s err=%v", path, err)
 		return "", wrapProvider(err)
 	}
 	defer res.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(res.Body, 8<<20))
 	if err != nil {
+		log.Printf("subhd html read failed path=%s err=%v", path, err)
 		return "", wrapProvider(err)
 	}
 	if res.StatusCode != http.StatusOK {
+		log.Printf("subhd html failed path=%s http=%d bodyBytes=%d bodySample=%q",
+			path, res.StatusCode, len(data), truncateForLog(string(data), 200))
 		return "", fmt.Errorf("%w: search http %d", ErrProvider, res.StatusCode)
 	}
 	return string(data), nil

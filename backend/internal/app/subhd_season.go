@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -137,6 +138,8 @@ func (s *Service) PrepareSubHDSeasonPack(ctx context.Context, opts SubHDSeasonPr
 	if archive.IsArchive(dl.Data, fileName) {
 		entries, err = archive.ListSubtitleEntries(dl.Data, fileName)
 		if err != nil {
+			log.Printf("subhd season prepare failed sid=%s reason=list_entries fileName=%q bytes=%d err=%v",
+				sid, fileName, len(dl.Data), err)
 			return SubHDSeasonPrepareResult{}, mapArchiveError(err)
 		}
 	} else if archive.IsAllowedSubtitleExt(strings.ToLower(path.Ext(fileName))) {
@@ -146,13 +149,19 @@ func (s *Service) PrepareSubHDSeasonPack(ctx context.Context, opts SubHDSeasonPr
 			Size:     int64(len(dl.Data)),
 		}}
 	} else if archive.IsUnsupportedArchive(dl.Data, fileName) {
+		log.Printf("subhd season prepare failed sid=%s reason=unsupported_archive fileName=%q bytes=%d",
+			sid, fileName, len(dl.Data))
 		return SubHDSeasonPrepareResult{}, fmt.Errorf("%w: unsupported archive", ErrBadRequest)
 	} else {
+		log.Printf("subhd season prepare failed sid=%s reason=not_installable fileName=%q bytes=%d",
+			sid, fileName, len(dl.Data))
 		return SubHDSeasonPrepareResult{}, fmt.Errorf("%w: not an installable subtitle pack", ErrInvalidFileType)
 	}
 
 	token, cacheErr := s.subhdPackCache.put(sid, fileName, strings.TrimSpace(dl.URL), dl.Data)
 	if cacheErr != nil {
+		log.Printf("subhd season prepare failed sid=%s reason=pack_cache fileName=%q bytes=%d err=%v",
+			sid, fileName, len(dl.Data), cacheErr)
 		return SubHDSeasonPrepareResult{}, fmt.Errorf("%w: pack cache: %v", ErrBadRequest, cacheErr)
 	}
 	langPref := strings.TrimSpace(strings.ToLower(opts.LanguagePreference))
