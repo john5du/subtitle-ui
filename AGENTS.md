@@ -27,11 +27,11 @@ cd frontend && bun run build   # static export → frontend/out
 - Local env: `dev-up` / `dev-restart` load `scripts/.env` then `scripts/.env.local` via `scripts/lib/load-env.sh` (shell-exported vars win). Real `scripts/.env` is gitignored; commit only `scripts/.env.example`.
 - Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300` when unset. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.
 - Optional FE API override: `NEXT_PUBLIC_API_BASE=http://localhost:9307`.
-- Video stream preview (ArtPlayer UI):
-  - `POST /api/videos/{id}/stream-ticket` (Bearer) → `{ ticket, expiresAt, url }`
-  - `GET /api/videos/{id}/stream?ticket=` (public; ticket-auth only; HTTP Range via `ServeContent`)
-  - Optional remux: `STREAM_REMUX=auto|off` (default auto); `FFMPEG_PATH`; `format=direct|fmp4|auto`
-  - `STREAM_PREVIEW_SECONDS` (default `300` = 5m; `0` = unlimited remux length)
+- Video stream preview (ArtPlayer UI; requires Jellyfin enabled):
+  - UI play-preview button only when Jellyfin is enabled (no local file/ffmpeg remux)
+  - `POST /api/videos/{id}/stream-ticket` (Bearer) → `{ ticket, expiresAt, url }` (503 if Jellyfin off / item not found)
+  - `GET /api/videos/{id}/stream?ticket=` (public; ticket-auth only) proxies Jellyfin `GET /Videos/{itemId}/stream?static=true` with Range
+  - Path → item via `FindItemIDByPath` + `JELLYFIN_PATH_MAP`; no playback progress reporting
   - `STREAM_TICKET_SECRET` (optional; else AdminToken), `STREAM_TICKET_TTL` (default 15m)
 - SubHD auto-download (backend, default **on**):
   - Env bootstrap: `SUBHD_ENABLED=false` to disable; `SUBHD_BASE_URL`; `SUBHD_PROXY=socks5://host:port`
@@ -51,13 +51,14 @@ cd frontend && bun run build   # static export → frontend/out
   - `POST /api/tv/series/sonarr/search` JSON `{ path|key, season, episodes?, allMissing? }` — queues Sonarr `EpisodeSearch`
   - Match order: series path → `series_tmdb_id` → `series_imdb_id`
   - Present set is local scan (not Sonarr `hasFile`). UI: TV season/episode panel only.
-- Jellyfin subtitle notify (optional):
+- Jellyfin (optional; subtitle notify + video play-preview stream proxy):
   - Env bootstrap: `JELLYFIN_URL` (e.g. `http://127.0.0.1:8096`), `JELLYFIN_API_KEY`, optional `JELLYFIN_ENABLED=false`, `JELLYFIN_PATH_MAP=local:jellyfin,...`
   - Runtime config (DB overrides env, no restart): `GET/PUT /api/config/jellyfin` `{ enabled, url, apiKey, pathMap }`
   - Settings UI on dashboard config page
   - Enabled when URL+key set (unless explicitly disabled)
   - After subtitle upload/replace/delete/convert/offset/normalize (and SubHD install via those paths): async `POST /Library/Media/Updated` with mapped video path; on failure fallback `Items/{id}/Refresh?metadataRefreshMode=ValidationOnly`
   - Path map required when subtitle-ui and Jellyfin see different bind-mount roots; failures only log (`jellyfin_notify` op), never fail the subtitle write
+  - Video preview: backend proxies static stream only (see stream-ticket above); no Sessions/Playing progress
 
 ## Layout
 

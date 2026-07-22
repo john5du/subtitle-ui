@@ -3,6 +3,7 @@
 import { forwardRef, useState } from "react";
 import { CaseSensitive, Play, Search, UploadCloud } from "lucide-react";
 
+import { useJellyfinEnabled } from "@/hooks/use-jellyfin-enabled";
 import { useI18n } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,11 +73,13 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   ref
 ) {
   const { t } = useI18n();
+  const { enabled: jellyfinEnabled } = useJellyfinEnabled();
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [normalizeOpen, setNormalizeOpen] = useState(false);
   const [normalizeScope, setNormalizeScope] = useState<NormalizeDialogScope | null>(null);
   const [playPreviewOpen, setPlayPreviewOpen] = useState(false);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
+  const canPlayPreview = jellyfinEnabled && Boolean(selectedVideo);
 
   const workflow = useSubtitleFileWorkflow({
     selectedVideo,
@@ -124,18 +127,20 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
               ) : null}
               <MediaExternalLinks imdbId={selectedVideo.imdbId} tmdbId={selectedVideo.tmdbId} mediaType="movie" />
               <div className="flex flex-wrap items-center gap-1.5">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  className={subtitleRowActionIconClassName}
-                  disabled={busy || !selectedVideo}
-                  onClick={() => setPlayPreviewOpen(true)}
-                  title={t("common.playPreview")}
-                  aria-label={t("common.playPreview")}
-                >
-                  <Play className="h-3.5 w-3.5" />
-                </Button>
+                {canPlayPreview ? (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className={subtitleRowActionIconClassName}
+                    disabled={busy || !selectedVideo}
+                    onClick={() => setPlayPreviewOpen(true)}
+                    title={t("common.playPreview")}
+                    aria-label={t("common.playPreview")}
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                  </Button>
+                ) : null}
                 {canAutoDownload ? (
                   <Button
                     type="button"
@@ -374,12 +379,14 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
         previewTruncated={workflow.previewTruncated}
       />
 
-      <VideoSubtitlePreviewDialog
-        open={playPreviewOpen}
-        onOpenChange={setPlayPreviewOpen}
-        video={selectedVideo}
-        onLoadSubtitleContent={onPreviewSubtitle}
-      />
+      {canPlayPreview ? (
+        <VideoSubtitlePreviewDialog
+          open={playPreviewOpen}
+          onOpenChange={setPlayPreviewOpen}
+          video={selectedVideo}
+          onLoadSubtitleContent={onPreviewSubtitle}
+        />
+      ) : null}
 
       {canAutoDownload && onSearchSubHD && onDownloadSubHD ? (
         <SubHDDownloadDialog

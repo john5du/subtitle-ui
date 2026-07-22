@@ -247,7 +247,7 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
               : "Video playback failed (codec or container may be unsupported)";
         if (/DEMUXER_ERROR|MEDIA_ERR_SRC_NOT_SUPPORTED|no supported streams|open context failed/i.test(message)) {
           message =
-            "Browser cannot decode this stream. For MKV, server remux may have failed (check ffmpeg / codec). Try an MP4 source.";
+            "Browser cannot decode this stream (container/codec). Jellyfin serves a direct file; try a browser-friendly format or open in Jellyfin.";
         }
         onErrorRef.current?.(message);
       });

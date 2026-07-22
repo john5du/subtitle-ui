@@ -647,12 +647,44 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 		t.Fatal(err)
 	}
 	payload := []byte("0123456789abcdefghij")
-	if err := os.WriteFile(filepath.Join(movieDir, "clip.mp4"), payload, 0o644); err != nil {
+	videoPath := filepath.Join(movieDir, "clip.mp4")
+	if err := os.WriteFile(videoPath, payload, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(movieDir, "clip.nfo"), []byte("<movie><title>Clip</title><year>2025</year></movie>"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+
+	jf := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Emby-Token") != "jf-key" && !strings.Contains(r.Header.Get("Authorization"), "jf-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/Items":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"Items": []map[string]string{
+					{"Id": "item-clip", "Path": videoPath},
+				},
+			})
+		case strings.HasPrefix(r.URL.Path, "/Videos/") && strings.HasSuffix(r.URL.Path, "/stream"):
+			if r.Header.Get("Range") == "bytes=0-3" {
+				w.Header().Set("Content-Type", "video/mp4")
+				w.Header().Set("Content-Range", "bytes 0-3/20")
+				w.Header().Set("Accept-Ranges", "bytes")
+				w.WriteHeader(http.StatusPartialContent)
+				_, _ = w.Write(payload[:4])
+				return
+			}
+			w.Header().Set("Content-Type", "video/mp4")
+			w.Header().Set("Accept-Ranges", "bytes")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(payload)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer jf.Close()
 
 	service, err := app.NewService(config.Config{
 		MovieMediaRoot:     movieRoot,
@@ -660,7 +692,9 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 		DBPath:             filepath.Join(base, "test.sqlite3"),
 		AdminToken:         "stream-test-token",
 		StreamTicketSecret: "stream-secret",
-		StreamRemux:        "off",
+		JellyfinEnabled:    true,
+		JellyfinURL:        jf.URL,
+		JellyfinAPIKey:     "jf-key",
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -714,8 +748,8 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 		t.Fatalf("expected 401 without ticket, got %d", noTicketRec.Code)
 	}
 
-	// Full stream with ticket
-	fullReq := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/stream?ticket="+ticketBody.Ticket+"&format=direct", nil)
+	// Full stream with ticket (Jellyfin proxy)
+	fullReq := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/stream?ticket="+ticketBody.Ticket, nil)
 	fullRec := httptest.NewRecorder()
 	handler.ServeHTTP(fullRec, fullReq)
 	if fullRec.Code != http.StatusOK {
@@ -729,7 +763,7 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 	}
 
 	// Range request
-	rangeReq := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/stream?ticket="+ticketBody.Ticket+"&format=direct", nil)
+	rangeReq := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/stream?ticket="+ticketBody.Ticket, nil)
 	rangeReq.Header.Set("Range", "bytes=0-3")
 	rangeRec := httptest.NewRecorder()
 	handler.ServeHTTP(rangeRec, rangeReq)
@@ -741,5 +775,52 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 	}
 	if cr := rangeRec.Header().Get("Content-Range"); !strings.HasPrefix(cr, "bytes 0-3/") {
 		t.Fatalf("content-range %q", cr)
+	}
+}
+
+func TestVideoStreamTicketDisabledWithoutJellyfin(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	movieDir := filepath.Join(movieRoot, "Movie")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "clip.mp4"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "clip.nfo"), []byte("<movie><title>Clip</title><year>2025</year></movie>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	service, err := app.NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+		AdminToken:     "stream-test-token",
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() { _ = service.Close() }()
+	if status := service.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatalf("scan: %s", status.Error)
+	}
+	page := service.ListVideosPage("", "movie", "", 1, 10, "", "")
+	if len(page.Items) != 1 {
+		t.Fatalf("expected 1 video, got %d", len(page.Items))
+	}
+	videoID := page.Items[0].ID
+	handler := NewServerWithConfig(service, config.Config{AdminToken: "stream-test-token"}).Handler()
+
+	ticketReq := httptest.NewRequest(http.MethodPost, "/api/videos/"+videoID+"/stream-ticket", nil)
+	ticketReq.Header.Set("Authorization", "Bearer stream-test-token")
+	ticketRec := httptest.NewRecorder()
+	handler.ServeHTTP(ticketRec, ticketReq)
+	if ticketRec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 without jellyfin, got %d body=%s", ticketRec.Code, ticketRec.Body.String())
 	}
 }

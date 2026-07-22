@@ -67,9 +67,6 @@ type Service struct {
 
 	dirScanMu   sync.RWMutex
 	lastDirScan domain.DirectoryScanResult
-
-	// remuxSem limits concurrent ffmpeg remux processes (capacity set in NewService).
-	remuxSem chan struct{}
 }
 
 // SubHDParseStats returns HTML parse telemetry when the live SubHD client is in use.
@@ -114,7 +111,6 @@ func NewService(cfg config.Config) (*Service, error) {
 			BaseURL: cfg.SonarrURL,
 			APIKey:  cfg.SonarrAPIKey,
 		}),
-		remuxSem: make(chan struct{}, 2),
 	}
 	{
 		var maps []jellyfin.PathMap

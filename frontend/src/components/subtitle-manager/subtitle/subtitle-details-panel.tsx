@@ -3,6 +3,7 @@
 import { forwardRef, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, AlertTriangle, Clock, ExternalLink, Eye, FileCode2, Pencil, Play, Search, Trash2, UploadCloud } from "lucide-react";
 
+import { useJellyfinEnabled } from "@/hooks/use-jellyfin-enabled";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useI18n } from "@/lib/i18n";
 import { subtitleLanguageDisplayText } from "@/lib/subtitle-language";
@@ -76,12 +77,14 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 ) {
   const { t } = useI18n();
   const isMdUp = useMediaQuery("(min-width: 768px)", true);
+  const { enabled: jellyfinEnabled } = useJellyfinEnabled();
   const [flashSubtitleList, setFlashSubtitleList] = useState(false);
   const [metaExpanded, setMetaExpanded] = useState(!metaCollapsedByDefault);
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [playPreviewOpen, setPlayPreviewOpen] = useState(false);
   const showHeader = showPanelTitle || showBack || (Boolean(selectedVideo) && !embedded);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
+  const canPlayPreview = jellyfinEnabled && Boolean(selectedVideo);
   const useCardLayout = !isMdUp;
 
   function triggerSubtitleListFlash() {
@@ -232,7 +235,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                 embedded ? "border-b border-border px-4 py-3" : "mb-4 flex flex-col gap-3 surface-subtle p-3"
               )}>
                 <div className="flex h-9 flex-wrap items-center gap-2">
-                  {selectedVideo ? (
+                  {canPlayPreview ? (
                     <Button
                       type="button"
                       size="icon-sm"
@@ -655,12 +658,14 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
         previewTruncated={workflow.previewTruncated}
       />
 
-      <VideoSubtitlePreviewDialog
-        open={playPreviewOpen}
-        onOpenChange={setPlayPreviewOpen}
-        video={selectedVideo}
-        onLoadSubtitleContent={onPreviewSubtitle}
-      />
+      {canPlayPreview ? (
+        <VideoSubtitlePreviewDialog
+          open={playPreviewOpen}
+          onOpenChange={setPlayPreviewOpen}
+          video={selectedVideo}
+          onLoadSubtitleContent={onPreviewSubtitle}
+        />
+      ) : null}
 
       {canAutoDownload && onSearchSubHD && onDownloadSubHD ? (
         <SubHDDownloadDialog

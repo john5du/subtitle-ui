@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -9,14 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/provider/jellyfin"
 	"subtitle-ui/backend/internal/subtitle"
 )
 
@@ -32,57 +32,31 @@ type StreamTicket struct {
 	URL       string    `json:"url"`
 }
 
-// VideoStreamSource describes how to serve a video file to the client.
-type VideoStreamSource struct {
-	VideoID    string
-	Path       string
-	FileName   string
-	ModTime    time.Time
-	Size       int64
-	// ContentType for direct file serve (empty when Remux).
-	ContentType string
-	// Remux means pipe through ffmpeg to fMP4 (no reliable HTTP Range).
-	Remux bool
-}
-
 var (
 	ErrStreamTicketInvalid = errors.New("invalid stream ticket")
 	ErrStreamTicketExpired = errors.New("stream ticket expired")
-	ErrRemuxUnavailable    = errors.New("ffmpeg remux unavailable")
-	ErrRemuxBusy           = errors.New("ffmpeg remux busy, try again later")
 )
 
-// TryAcquireRemuxSlot reserves a concurrent remux slot. Caller must ReleaseRemuxSlot.
-func (s *Service) TryAcquireRemuxSlot() bool {
-	if s == nil || s.remuxSem == nil {
-		return true
-	}
-	select {
-	case s.remuxSem <- struct{}{}:
-		return true
-	default:
-		return false
-	}
-}
-
-// ReleaseRemuxSlot frees a slot acquired via TryAcquireRemuxSlot.
-func (s *Service) ReleaseRemuxSlot() {
-	if s == nil || s.remuxSem == nil {
-		return
-	}
-	select {
-	case <-s.remuxSem:
-	default:
-	}
-}
-
-func (s *Service) IssueStreamTicket(videoID string) (StreamTicket, error) {
+// IssueStreamTicket issues a ticket for Jellyfin-proxied preview streaming.
+// Requires Jellyfin enabled and a resolvable library item for the video path.
+func (s *Service) IssueStreamTicket(ctx context.Context, videoID string) (StreamTicket, error) {
 	videoID = strings.TrimSpace(videoID)
 	if videoID == "" {
 		return StreamTicket{}, fmt.Errorf("%w: video id required", ErrBadRequest)
 	}
-	if _, err := s.ResolveVideoStreamPath(videoID); err != nil {
+	client := s.jellyfinClient()
+	if client == nil || !client.Enabled() {
+		return StreamTicket{}, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
+	}
+	video, err := s.ResolveVideoForStream(videoID)
+	if err != nil {
 		return StreamTicket{}, err
+	}
+	if _, err := client.FindItemIDByPath(ctx, video.Path); err != nil {
+		if errors.Is(err, jellyfin.ErrDisabled) {
+			return StreamTicket{}, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
+		}
+		return StreamTicket{}, fmt.Errorf("%w: jellyfin item: %v", ErrNotFound, err)
 	}
 
 	ttl := s.cfg.StreamTicketTTL
@@ -105,8 +79,8 @@ func (s *Service) IssueStreamTicket(videoID string) (StreamTicket, error) {
 	}, nil
 }
 
-// ResolveVideoStreamPath returns the on-disk path for a video if it is safe and present.
-func (s *Service) ResolveVideoStreamPath(videoID string) (domain.Video, error) {
+// ResolveVideoForStream returns library video metadata for streaming (path need not exist on disk).
+func (s *Service) ResolveVideoForStream(videoID string) (domain.Video, error) {
 	video, found, err := s.store.GetVideo(videoID)
 	if err != nil {
 		return domain.Video{}, err
@@ -121,73 +95,33 @@ func (s *Service) ResolveVideoStreamPath(videoID string) (domain.Video, error) {
 	if !s.isSafeMediaPath(cleanPath) {
 		return domain.Video{}, ErrUnsafePath
 	}
-	info, err := os.Stat(cleanPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return domain.Video{}, ErrNotFound
-		}
-		return domain.Video{}, err
-	}
-	if info.IsDir() {
-		return domain.Video{}, ErrNotFound
-	}
 	video.Path = cleanPath
-	video.FileSize = info.Size()
-	video.FileModTime = info.ModTime()
 	return video, nil
 }
 
-// ResolveVideoStreamSource picks direct Range serve vs optional ffmpeg remux.
-// formatQuery: "", "auto", "direct", "fmp4".
-func (s *Service) ResolveVideoStreamSource(videoID string, formatQuery string) (VideoStreamSource, error) {
-	video, err := s.ResolveVideoStreamPath(videoID)
+// OpenJellyfinVideoStream resolves the video to a Jellyfin item and opens a static stream.
+// Caller must Close the returned Body.
+func (s *Service) OpenJellyfinVideoStream(ctx context.Context, videoID, method, rangeHeader string) (*jellyfin.StreamResponse, error) {
+	client := s.jellyfinClient()
+	if client == nil || !client.Enabled() {
+		return nil, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
+	}
+	video, err := s.ResolveVideoForStream(videoID)
 	if err != nil {
-		return VideoStreamSource{}, err
+		return nil, err
 	}
-
-	ext := strings.ToLower(filepath.Ext(video.Path))
-	fileName := strings.TrimSpace(video.FileName)
-	if fileName == "" {
-		fileName = filepath.Base(video.Path)
-	}
-
-	wantRemux := false
-	switch strings.ToLower(strings.TrimSpace(formatQuery)) {
-	case "fmp4", "mp4", "remux":
-		wantRemux = true
-	case "direct":
-		wantRemux = false
-	default: // auto / empty
-		if s.cfg.StreamRemux != "off" && needsContainerRemux(ext) {
-			wantRemux = true
+	itemID, err := client.FindItemIDByPath(ctx, video.Path)
+	if err != nil {
+		if errors.Is(err, jellyfin.ErrDisabled) {
+			return nil, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
 		}
+		return nil, fmt.Errorf("%w: jellyfin item: %v", ErrNotFound, err)
 	}
-
-	src := VideoStreamSource{
-		VideoID:     video.ID,
-		Path:        video.Path,
-		FileName:    fileName,
-		ModTime:     video.FileModTime,
-		Size:        video.FileSize,
-		ContentType: videoContentType(ext),
+	resp, err := client.OpenVideoStream(ctx, method, itemID, rangeHeader)
+	if err != nil {
+		return nil, fmt.Errorf("jellyfin stream: %w", err)
 	}
-
-	if !wantRemux {
-		return src, nil
-	}
-	if !s.ffmpegAvailable() {
-		if strings.EqualFold(strings.TrimSpace(formatQuery), "fmp4") ||
-			strings.EqualFold(strings.TrimSpace(formatQuery), "mp4") ||
-			strings.EqualFold(strings.TrimSpace(formatQuery), "remux") {
-			return VideoStreamSource{}, ErrRemuxUnavailable
-		}
-		// auto: fall back to direct
-		return src, nil
-	}
-	src.Remux = true
-	src.ContentType = "video/mp4"
-	src.FileName = strings.TrimSuffix(fileName, filepath.Ext(fileName)) + ".mp4"
-	return src, nil
+	return resp, nil
 }
 
 func (s *Service) ValidateStreamTicket(videoID string, ticket string) error {
@@ -262,130 +196,6 @@ func (s *Service) isSafeMediaPath(targetPath string) bool {
 		return true
 	}
 	return subtitle.EnsureWithinRoot(s.cfg.TVMediaRoot, targetPath)
-}
-
-func (s *Service) ffmpegAvailable() bool {
-	bin := s.ffmpegBinary()
-	if bin == "" {
-		return false
-	}
-	if filepath.IsAbs(bin) {
-		info, err := os.Stat(bin)
-		return err == nil && !info.IsDir()
-	}
-	_, err := exec.LookPath(bin)
-	return err == nil
-}
-
-func (s *Service) ffmpegBinary() string {
-	if p := strings.TrimSpace(s.cfg.FFmpegPath); p != "" {
-		return p
-	}
-	return "ffmpeg"
-}
-
-// RemuxPreviewMaxSeconds limits optional remux length for preview (keeps temp output small).
-// 0 or negative means no limit (not recommended for large MKV).
-// Default comes from STREAM_PREVIEW_SECONDS (config: 5 minutes).
-func (s *Service) RemuxPreviewMaxSeconds() int {
-	if s == nil || s.cfg.StreamPreviewSeconds < 0 {
-		return 5 * 60
-	}
-	return s.cfg.StreamPreviewSeconds
-}
-
-// FFmpegRemuxToMP4Command builds a copy-remux command writing a seekable MP4 to outPath.
-// Used for MKV/AVI preview: moov at front (+faststart) so browsers can Range-seek.
-func (s *Service) FFmpegRemuxToMP4Command(inputPath string, outPath string) *exec.Cmd {
-	bin := s.ffmpegBinary()
-	args := []string{
-		"-hide_banner",
-		"-nostdin",
-		"-y",
-		"-loglevel", "error",
-	}
-	if maxSec := s.RemuxPreviewMaxSeconds(); maxSec > 0 {
-		args = append(args, "-t", strconv.Itoa(maxSec))
-	}
-	args = append(args,
-		"-i", inputPath,
-		// Only first video + optional first audio; drop subs/data/chapters that break remux.
-		"-map", "0:v:0",
-		"-map", "0:a:0?",
-		// Video copy; re-encode audio to AAC so browsers can play (DTS/TrueHD/etc. copy is silent/unplayable).
-		"-c:v", "copy",
-		"-c:a", "aac",
-		"-ac", "2",
-		"-b:a", "192k",
-		"-sn",
-		"-dn",
-		"-map_chapters", "-1",
-		"-map_metadata", "-1",
-		"-f", "mp4",
-		"-movflags", "+faststart",
-		outPath,
-	)
-	return exec.Command(bin, args...)
-}
-
-// FFmpegRemuxCommand builds a progressive fMP4 pipe remux (legacy / fallback).
-func (s *Service) FFmpegRemuxCommand(inputPath string) *exec.Cmd {
-	bin := s.ffmpegBinary()
-	args := []string{
-		"-hide_banner",
-		"-nostdin",
-		"-loglevel", "error",
-	}
-	if maxSec := s.RemuxPreviewMaxSeconds(); maxSec > 0 {
-		args = append(args, "-t", strconv.Itoa(maxSec))
-	}
-	args = append(args,
-		"-i", inputPath,
-		"-map", "0:v:0",
-		"-map", "0:a:0?",
-		"-c:v", "copy",
-		"-c:a", "aac",
-		"-ac", "2",
-		"-b:a", "192k",
-		"-sn",
-		"-dn",
-		"-map_chapters", "-1",
-		"-map_metadata", "-1",
-		"-f", "mp4",
-		"-movflags", "frag_keyframe+empty_moov+default_base_moof",
-		"pipe:1",
-	)
-	return exec.Command(bin, args...)
-}
-
-func needsContainerRemux(ext string) bool {
-	switch ext {
-	case ".mkv", ".avi", ".ts", ".m2ts", ".mts", ".wmv", ".flv":
-		return true
-	default:
-		return false
-	}
-}
-
-func videoContentType(ext string) string {
-	switch strings.ToLower(ext) {
-	case ".mp4", ".m4v":
-		return "video/mp4"
-	case ".webm":
-		return "video/webm"
-	case ".ogg", ".ogv":
-		return "video/ogg"
-	case ".mkv":
-		return "video/x-matroska"
-	case ".avi":
-		return "video/x-msvideo"
-	case ".mov":
-		return "video/quicktime"
-	case ".ts", ".m2ts", ".mts":
-		return "video/mp2t"
-	default:
-		return "application/octet-stream"
-	}
 }
 
 func randomNonce(n int) (string, error) {

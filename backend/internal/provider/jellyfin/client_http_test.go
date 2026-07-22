@@ -167,6 +167,66 @@ func TestPing(t *testing.T) {
 	}
 }
 
+func TestOpenVideoStreamStaticAndRange(t *testing.T) {
+	payload := []byte("0123456789abcdefghij")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !authOK(r, "test-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodGet || !strings.HasPrefix(r.URL.Path, "/Videos/") || !strings.HasSuffix(r.URL.Path, "/stream") {
+			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Query().Get("static") != "true" && r.URL.Query().Get("Static") != "true" {
+			http.Error(w, "expected static=true", http.StatusBadRequest)
+			return
+		}
+		if r.Header.Get("Range") == "bytes=0-3" {
+			w.Header().Set("Content-Type", "video/mp4")
+			w.Header().Set("Content-Range", "bytes 0-3/20")
+			w.WriteHeader(http.StatusPartialContent)
+			_, _ = w.Write(payload[:4])
+			return
+		}
+		w.Header().Set("Content-Type", "video/mp4")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(payload)
+	}))
+	t.Cleanup(srv.Close)
+
+	c := jellyfin.New(jellyfin.Options{
+		Enabled: true,
+		BaseURL: srv.URL,
+		APIKey:  "test-key",
+	})
+	full, err := c.OpenVideoStream(context.Background(), http.MethodGet, "item-1", "")
+	if err != nil {
+		t.Fatalf("full stream: %v", err)
+	}
+	defer full.Body.Close()
+	if full.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", full.StatusCode)
+	}
+	body, _ := io.ReadAll(full.Body)
+	if string(body) != string(payload) {
+		t.Fatalf("body %q", body)
+	}
+
+	partial, err := c.OpenVideoStream(context.Background(), http.MethodGet, "item-1", "bytes=0-3")
+	if err != nil {
+		t.Fatalf("range stream: %v", err)
+	}
+	defer partial.Body.Close()
+	if partial.StatusCode != http.StatusPartialContent {
+		t.Fatalf("status %d", partial.StatusCode)
+	}
+	body, _ = io.ReadAll(partial.Body)
+	if string(body) != string(payload[:4]) {
+		t.Fatalf("range body %q", body)
+	}
+}
+
 func TestValidatePathMaps(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("X-Emby-Token") != "test-key" {

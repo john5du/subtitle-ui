@@ -39,12 +39,6 @@ type Config struct {
 	StreamTicketSecret string
 	// StreamTicketTTL is how long a stream ticket remains valid.
 	StreamTicketTTL time.Duration
-	// StreamRemux: "auto" remux mkv/avi to fMP4 when ffmpeg is available; "off" never remux.
-	StreamRemux string
-	// StreamPreviewSeconds caps ffmpeg remux preview length (0 = no limit). Default 5 minutes.
-	StreamPreviewSeconds int
-	// FFmpegPath is the ffmpeg binary for optional remux (empty → look up "ffmpeg" on PATH).
-	FFmpegPath string
 }
 
 // IsProduction reports whether APP_ENV/ENV is production (or prod).
@@ -98,9 +92,6 @@ func Load() Config {
 		JellyfinPathMap:       strings.TrimSpace(os.Getenv("JELLYFIN_PATH_MAP")),
 		StreamTicketSecret:    strings.TrimSpace(os.Getenv("STREAM_TICKET_SECRET")),
 		StreamTicketTTL:       parseDuration(os.Getenv("STREAM_TICKET_TTL"), 15*time.Minute),
-		StreamRemux:           normalizeStreamRemux(os.Getenv("STREAM_REMUX")),
-		StreamPreviewSeconds:  parseNonNegativeInt(os.Getenv("STREAM_PREVIEW_SECONDS"), 5*60),
-		FFmpegPath:            strings.TrimSpace(os.Getenv("FFMPEG_PATH")),
 	}
 
 	// Sonarr: enabled when URL+key set, unless SONARR_ENABLED explicitly disables.
@@ -210,15 +201,6 @@ func parseDuration(raw string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return d
-}
-
-func normalizeStreamRemux(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "off", "0", "false", "no":
-		return "off"
-	default:
-		return "auto"
-	}
 }
 
 func parsePositiveInt(raw string, fallback int) int {

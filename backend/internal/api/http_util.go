@@ -26,7 +26,7 @@ func (s *Server) writeAppError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, app.ErrNotFound):
 		writeError(w, http.StatusNotFound, err.Error())
-	case errors.Is(err, app.ErrProviderDisabled), errors.Is(err, app.ErrRemuxUnavailable), errors.Is(err, app.ErrRemuxBusy):
+	case errors.Is(err, app.ErrProviderDisabled):
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 	case errors.Is(err, app.ErrBadRequest), errors.Is(err, app.ErrInvalidFileType):
 		writeError(w, http.StatusBadRequest, err.Error())

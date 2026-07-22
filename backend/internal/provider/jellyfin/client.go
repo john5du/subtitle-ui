@@ -315,6 +315,69 @@ func (c *Client) RefreshItem(ctx context.Context, itemID string) error {
 	return c.postJSON(ctx, "/Items/"+url.PathEscape(itemID)+"/Refresh?"+q.Encode(), nil, nil)
 }
 
+// StreamResponse is a live Jellyfin video stream (caller must Close Body).
+type StreamResponse struct {
+	StatusCode int
+	Header     http.Header
+	Body       io.ReadCloser
+}
+
+// OpenVideoStream opens a static direct stream for an item (no transcoding, no play reporting).
+// method should be GET or HEAD. rangeHeader is optional "bytes=…" from the browser.
+// Body is non-nil for successful responses; caller must Close it.
+func (c *Client) OpenVideoStream(ctx context.Context, method, itemID, rangeHeader string) (*StreamResponse, error) {
+	if !c.Enabled() {
+		return nil, ErrDisabled
+	}
+	itemID = strings.TrimSpace(itemID)
+	if itemID == "" {
+		return nil, fmt.Errorf("item id required")
+	}
+	method = strings.ToUpper(strings.TrimSpace(method))
+	if method == "" {
+		method = http.MethodGet
+	}
+	switch method {
+	case http.MethodGet, http.MethodHead:
+	default:
+		return nil, fmt.Errorf("unsupported method %s", method)
+	}
+
+	q := url.Values{}
+	q.Set("static", "true")
+	q.Set("Static", "true")
+	streamURL := c.baseURL + "/Videos/" + url.PathEscape(itemID) + "/stream?" + q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, method, streamURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.setAuth(req)
+	if rangeHeader = strings.TrimSpace(rangeHeader); rangeHeader != "" {
+		req.Header.Set("Range", rangeHeader)
+	}
+
+	// Streaming: no overall client timeout; rely on ctx cancel when the browser disconnects.
+	hc := &http.Client{Timeout: 0}
+	resp, err := hc.Do(req)
+	if err != nil {
+		log.Printf("jellyfin stream network failed itemId=%s err=%v", itemID, err)
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		defer resp.Body.Close()
+		sample, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		msg := jellyfinHTTPError(resp.StatusCode, truncate(string(sample), 200))
+		log.Printf("jellyfin stream failed itemId=%s status=%s bodySample=%q", itemID, resp.Status, truncate(string(sample), 200))
+		return nil, fmt.Errorf("jellyfin stream: %s", msg)
+	}
+	return &StreamResponse{
+		StatusCode: resp.StatusCode,
+		Header:     resp.Header.Clone(),
+		Body:       resp.Body,
+	}, nil
+}
+
 // FindItemIDByPath looks up a Movie/Episode id by filesystem path.
 func (c *Client) FindItemIDByPath(ctx context.Context, localOrMappedPath string) (string, error) {
 	if !c.Enabled() {

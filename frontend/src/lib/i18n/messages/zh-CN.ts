@@ -447,7 +447,7 @@ export const zhCNMessages: MessageDictionary = {
   "playback.subtitleFailed": "字幕加载失败：{error}",
   "playback.subtitleEmpty": "该字幕没有可用时间轴。",
   "playback.subtitleUnsupported": "此字幕格式暂不支持播放叠加。",
-  "playback.streamLoading": "正在准备视频流…",
+  "playback.streamLoading": "正在准备 Jellyfin 视频流…",
   "playback.streamFailed": "无法开始播放：{error}",
   "playback.playerError": "播放问题：{error}",
   "details.noArchiveEntries": "没有字幕条目。",

@@ -46,7 +46,7 @@ Tokens live in `dialogSizeClassName` (`frontend/src/components/ui/dialog.tsx`) a
 
 **xl — media preview**
 
-- Video + subtitle playback preview (ArtPlayer)
+- Video + subtitle playback preview (ArtPlayer; Jellyfin stream proxy; button hidden if Jellyfin disabled)
 
 ## Drawers
 

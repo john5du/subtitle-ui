@@ -59,7 +59,7 @@ func main() {
 		Handler:           api.NewServerWithConfig(service, cfg).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		// ReadTimeout left 0 so long-lived Range/stream GETs are not cut mid-transfer.
-		// WriteTimeout 0: video stream (Range + optional remux) may exceed a fixed cap.
+		// WriteTimeout 0: Jellyfin-proxied video stream (Range) may exceed a fixed cap.
 		IdleTimeout: 120 * time.Second,
 	}
 

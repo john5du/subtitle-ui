@@ -14,10 +14,10 @@ export interface StreamTicketResponse {
 const RENEW_BEFORE_MS = 90_000;
 
 function buildStreamUrl(videoId: string, payload: StreamTicketResponse) {
-  const path = payload.url?.startsWith("/")
-    ? payload.url
-    : `/api/videos/${videoId}/stream?ticket=${encodeURIComponent(payload.ticket)}`;
-  return path.includes("format=") ? path : `${path}${path.includes("?") ? "&" : "?"}format=auto`;
+  if (payload.url?.startsWith("/")) {
+    return payload.url;
+  }
+  return `/api/videos/${videoId}/stream?ticket=${encodeURIComponent(payload.ticket)}`;
 }
 
 export function useVideoStreamUrl(videoId: string | null | undefined, enabled: boolean) {

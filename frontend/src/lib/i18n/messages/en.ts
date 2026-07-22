@@ -445,7 +445,7 @@ export const enMessages = {
   "playback.subtitleFailed": "Subtitle load failed: {error}",
   "playback.subtitleEmpty": "No timed cues in this subtitle.",
   "playback.subtitleUnsupported": "This subtitle format is not supported for playback overlay.",
-  "playback.streamLoading": "Preparing video stream…",
+  "playback.streamLoading": "Preparing Jellyfin stream…",
   "playback.streamFailed": "Could not start stream: {error}",
   "playback.playerError": "Playback issue: {error}",
   "details.noArchiveEntries": "No subtitle entries.",
