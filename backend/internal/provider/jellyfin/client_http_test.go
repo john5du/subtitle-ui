@@ -358,16 +358,25 @@ func TestFindItemIDByPathNotFoundVsUpstreamError(t *testing.T) {
 
 func TestResolvePlaybackPlanDeviceProfileJSON(t *testing.T) {
 	// Regression: DeviceProfile.Id is Guid? on Jellyfin; non-GUID Id → ASP.NET 400 "The supplied value is invalid."
+	// Also UserId is required for DeviceProfile path (API key has no user claim).
 	var gotBody map[string]any
+	var gotUserQuery string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !authOK(r, "test-key") {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == "/Users" {
+			_ = json.NewEncoder(w).Encode([]map[string]any{
+				{"Id": "user-admin", "Name": "admin", "Policy": map[string]any{"IsAdministrator": true, "IsDisabled": false}},
+			})
 			return
 		}
 		if r.Method != http.MethodPost || !strings.Contains(r.URL.Path, "/PlaybackInfo") {
 			http.NotFound(w, r)
 			return
 		}
+		gotUserQuery = r.URL.Query().Get("UserId")
 		raw, _ := io.ReadAll(r.Body)
 		if err := json.Unmarshal(raw, &gotBody); err != nil {
 			t.Errorf("body: %v", err)
@@ -391,6 +400,12 @@ func TestResolvePlaybackPlanDeviceProfileJSON(t *testing.T) {
 	if plan.Mode != jellyfin.PlaybackModeProgressive {
 		t.Fatalf("mode=%s", plan.Mode)
 	}
+	if gotUserQuery != "user-admin" {
+		t.Fatalf("UserId query=%q", gotUserQuery)
+	}
+	if gotBody["UserId"] != "user-admin" {
+		t.Fatalf("UserId body=%v", gotBody["UserId"])
+	}
 	dp, _ := gotBody["DeviceProfile"].(map[string]any)
 	if dp == nil {
 		t.Fatalf("missing DeviceProfile: %#v", gotBody)
@@ -405,6 +420,38 @@ func TestResolvePlaybackPlanDeviceProfileJSON(t *testing.T) {
 	tp, _ := tps[0].(map[string]any)
 	if tp["Protocol"] != "hls" {
 		t.Fatalf("protocol=%v", tp["Protocol"])
+	}
+}
+
+func TestResolvePlaybackPlanConfiguredUserID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !authOK(r, "test-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.URL.Path == "/Users" {
+			t.Error("configured UserID must not list /Users")
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/PlaybackInfo") {
+			if r.URL.Query().Get("UserId") != "fixed-user" {
+				t.Errorf("UserId=%q", r.URL.Query().Get("UserId"))
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"PlaySessionId": "ps",
+				"MediaSources":  []map[string]any{{"Id": "ms", "SupportsDirectPlay": true}},
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	c := jellyfin.New(jellyfin.Options{
+		Enabled: true, BaseURL: srv.URL, APIKey: "test-key", UserID: "fixed-user", HTTPClient: srv.Client(),
+	})
+	if _, err := c.ResolvePlaybackPlan(context.Background(), "item-1"); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -52,7 +52,15 @@ func (c *Client) ResolvePlaybackPlan(ctx context.Context, itemID string) (Playba
 		return PlaybackPlan{}, fmt.Errorf("item id required")
 	}
 
+	// DeviceProfile path calls SetDeviceSpecificData which requires a real UserId
+	// (API-key auth has no user claim → empty Guid → "Guid can't be empty").
+	userID, err := c.resolvePlaybackUserID(ctx)
+	if err != nil {
+		return PlaybackPlan{}, err
+	}
+
 	body := map[string]any{
+		"UserId":               userID,
 		"DeviceProfile":        previewDeviceProfile(),
 		"EnableDirectPlay":     true,
 		"EnableDirectStream":   true,
@@ -67,6 +75,7 @@ func (c *Client) ResolvePlaybackPlan(ctx context.Context, itemID string) (Playba
 	var resp playbackInfoResponse
 	q := url.Values{}
 	q.Set("DeviceId", previewDeviceID)
+	q.Set("UserId", userID)
 	path := "/Items/" + url.PathEscape(itemID) + "/PlaybackInfo?" + q.Encode()
 	if err := c.postJSON(ctx, path, body, &resp); err != nil {
 		return PlaybackPlan{}, err
@@ -102,6 +111,52 @@ func (c *Client) ResolvePlaybackPlan(ctx context.Context, itemID string) (Playba
 		MediaSourceID: mediaSourceID,
 		UpstreamPath:  up,
 	}, nil
+}
+
+type jellyfinUserDTO struct {
+	ID     string `json:"Id"`
+	Name   string `json:"Name"`
+	Policy struct {
+		IsAdministrator bool `json:"IsAdministrator"`
+		IsDisabled      bool `json:"IsDisabled"`
+	} `json:"Policy"`
+}
+
+// resolvePlaybackUserID returns a Jellyfin user GUID for PlaybackInfo.
+// Prefer configured UserID; otherwise list /Users and pick admin, then any enabled user.
+func (c *Client) resolvePlaybackUserID(ctx context.Context) (string, error) {
+	if id := strings.TrimSpace(c.userID); id != "" {
+		return id, nil
+	}
+	c.userIDMu.Lock()
+	defer c.userIDMu.Unlock()
+	if c.cachedUserID != "" {
+		return c.cachedUserID, nil
+	}
+	var users []jellyfinUserDTO
+	if err := c.getJSON(ctx, "/Users", nil, &users); err != nil {
+		return "", fmt.Errorf("jellyfin list users for playback: %w", err)
+	}
+	pick := ""
+	for _, u := range users {
+		id := strings.TrimSpace(u.ID)
+		if id == "" || u.Policy.IsDisabled {
+			continue
+		}
+		if u.Policy.IsAdministrator {
+			pick = id
+			break
+		}
+		if pick == "" {
+			pick = id
+		}
+	}
+	if pick == "" {
+		return "", fmt.Errorf("jellyfin: no enabled user for PlaybackInfo (set JELLYFIN_USER_ID)")
+	}
+	c.cachedUserID = pick
+	log.Printf("jellyfin playback user auto-selected id=%s", pick)
+	return pick, nil
 }
 
 // OpenAuthenticatedPath GETs/HEADs path+query on the Jellyfin base URL with API auth.
@@ -213,10 +268,25 @@ func ValidateHLSSegmentPath(pathAndQuery, itemID string) error {
 	if err != nil {
 		segItem = segments[1]
 	}
-	if !strings.EqualFold(segItem, itemID) {
+	// Jellyfin may use GUID with or without hyphens in different endpoints.
+	if !jellyfinItemIDsEqual(segItem, itemID) {
 		return fmt.Errorf("upstream path item mismatch")
 	}
 	return nil
+}
+
+func jellyfinItemIDsEqual(a, b string) bool {
+	a = strings.TrimSpace(a)
+	b = strings.TrimSpace(b)
+	if a == "" || b == "" {
+		return false
+	}
+	if strings.EqualFold(a, b) {
+		return true
+	}
+	na := strings.ReplaceAll(strings.ToLower(a), "-", "")
+	nb := strings.ReplaceAll(strings.ToLower(b), "-", "")
+	return na == nb
 }
 
 // IsM3U8Path reports whether pathAndQuery's URL path ends with .m3u8.

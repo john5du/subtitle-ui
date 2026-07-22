@@ -35,6 +35,8 @@ type Config struct {
 	JellyfinURL           string
 	JellyfinAPIKey        string
 	JellyfinPathMap       string
+	// JellyfinUserID optional GUID for PlaybackInfo (API key has no user claim). Empty → auto-pick.
+	JellyfinUserID string
 	// StreamTicketSecret signs short-lived video stream tickets. Empty → derive from AdminToken.
 	StreamTicketSecret string
 	// StreamTicketTTL is how long a stream ticket remains valid.
@@ -90,6 +92,7 @@ func Load() Config {
 		JellyfinURL:           strings.TrimRight(strings.TrimSpace(os.Getenv("JELLYFIN_URL")), "/"),
 		JellyfinAPIKey:        strings.TrimSpace(os.Getenv("JELLYFIN_API_KEY")),
 		JellyfinPathMap:       strings.TrimSpace(os.Getenv("JELLYFIN_PATH_MAP")),
+		JellyfinUserID:        strings.TrimSpace(os.Getenv("JELLYFIN_USER_ID")),
 		StreamTicketSecret:    strings.TrimSpace(os.Getenv("STREAM_TICKET_SECRET")),
 		StreamTicketTTL:       parseDuration(os.Getenv("STREAM_TICKET_TTL"), 15*time.Minute),
 	}

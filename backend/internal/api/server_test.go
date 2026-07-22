@@ -710,6 +710,7 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 		JellyfinEnabled:    true,
 		JellyfinURL:        jf.URL,
 		JellyfinAPIKey:     "jf-key",
+		JellyfinUserID:     "user-1",
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -865,6 +866,7 @@ func TestVideoHLSSegmentPathBinding(t *testing.T) {
 		JellyfinEnabled:    true,
 		JellyfinURL:        jf.URL,
 		JellyfinAPIKey:     "jf-key",
+		JellyfinUserID:     "user-1",
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)

@@ -55,7 +55,7 @@ cd frontend && bun run build   # static export → frontend/out
   - Match order: series path → `series_tmdb_id` → `series_imdb_id`
   - Present set is local scan (not Sonarr `hasFile`). UI: TV season/episode panel only.
 - Jellyfin (optional; subtitle notify + video play-preview stream proxy):
-  - Env bootstrap: `JELLYFIN_URL` (e.g. `http://127.0.0.1:8096`), `JELLYFIN_API_KEY`, optional `JELLYFIN_ENABLED=false`, `JELLYFIN_PATH_MAP=local:jellyfin,...`
+  - Env bootstrap: `JELLYFIN_URL` (e.g. `http://127.0.0.1:8096`), `JELLYFIN_API_KEY`, optional `JELLYFIN_ENABLED=false`, `JELLYFIN_PATH_MAP=local:jellyfin,...`, optional `JELLYFIN_USER_ID` (PlaybackInfo user; empty auto-picks admin via `GET /Users`)
   - Runtime config (DB overrides env, no restart): `GET/PUT /api/config/jellyfin` `{ enabled, url, apiKey, pathMap }`
   - Settings UI on dashboard config page
   - Enabled when URL+key set (unless explicitly disabled)

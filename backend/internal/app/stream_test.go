@@ -137,6 +137,7 @@ func TestIssueAndValidateStreamTicketWithJellyfin(t *testing.T) {
 		JellyfinEnabled:    true,
 		JellyfinURL:        jf.URL,
 		JellyfinAPIKey:     "jf-key",
+		JellyfinUserID:     "user-1",
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -244,6 +245,7 @@ func TestIssueStreamTicketHLSKind(t *testing.T) {
 		DBPath: filepath.Join(base, "h.sqlite3"), AdminToken: "tok",
 		StreamTicketSecret: "sec", StreamTicketTTL: time.Minute,
 		JellyfinEnabled: true, JellyfinURL: jf.URL, JellyfinAPIKey: "jf-key",
+		JellyfinUserID: "user-1",
 	})
 	if err != nil {
 		t.Fatal(err)

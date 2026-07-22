@@ -171,6 +171,7 @@ func (s *Service) rebuildJellyfinClient(enabled bool, baseURL, apiKey string, pa
 		Enabled:  enabled,
 		BaseURL:  baseURL,
 		APIKey:   apiKey,
+		UserID:   strings.TrimSpace(s.cfg.JellyfinUserID),
 		PathMaps: pathMaps,
 	})
 	s.jellyfinMu.Lock()
@@ -213,6 +214,7 @@ func (s *Service) TestJellyfinConfig(ctx context.Context, req domain.JellyfinCon
 		Enabled:  true,
 		BaseURL:  normalized,
 		APIKey:   apiKey,
+		UserID:   strings.TrimSpace(s.cfg.JellyfinUserID),
 		PathMaps: pathMaps,
 	})
 	if err := client.Ping(ctx); err != nil {

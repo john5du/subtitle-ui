@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,6 +21,9 @@ type Options struct {
 	Enabled    bool
 	BaseURL    string
 	APIKey     string
+	// UserID is optional; used for PlaybackInfo (DeviceProfile requires a real user).
+	// When empty, the client auto-picks an admin/non-disabled user via GET /Users.
+	UserID     string
 	PathMaps   []PathMap
 	HTTPClient *http.Client
 }
@@ -32,11 +36,14 @@ type PathMap struct {
 
 // Client talks to the Jellyfin HTTP API.
 type Client struct {
-	enabled  bool
-	baseURL  string
-	apiKey   string
-	pathMaps []PathMap
-	client   *http.Client
+	enabled      bool
+	baseURL      string
+	apiKey       string
+	userID       string // configured override
+	pathMaps     []PathMap
+	client       *http.Client
+	userIDMu     sync.Mutex
+	cachedUserID string // auto-resolved when userID empty
 }
 
 // ErrDisabled is returned when Jellyfin is not configured.
@@ -145,6 +152,7 @@ func New(opts Options) *Client {
 		enabled:  opts.Enabled && base != "" && strings.TrimSpace(opts.APIKey) != "",
 		baseURL:  base,
 		apiKey:   strings.TrimSpace(opts.APIKey),
+		userID:   strings.TrimSpace(opts.UserID),
 		pathMaps: maps,
 		client:   hc,
 	}

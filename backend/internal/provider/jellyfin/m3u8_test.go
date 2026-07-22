@@ -65,6 +65,12 @@ func TestValidateHLSSegmentPath(t *testing.T) {
 			t.Fatalf("expected ok for %q: %v", p, err)
 		}
 	}
+	// GUID with/without hyphens
+	guid := "a422806f3f08a807ed050c9d3229fe7d"
+	dashed := "/videos/a422806f-3f08-a807-ed05-0c9d3229fe7d/master.m3u8"
+	if err := jellyfin.ValidateHLSSegmentPath(dashed, guid); err != nil {
+		t.Fatalf("guid hyphen form: %v", err)
+	}
 	bad := []string{
 		"/Videos/other/stream?static=true",
 		"/System/Info",

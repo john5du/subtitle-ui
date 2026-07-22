@@ -121,6 +121,7 @@ func NewService(cfg config.Config) (*Service, error) {
 			Enabled:  cfg.JellyfinEnabled,
 			BaseURL:  cfg.JellyfinURL,
 			APIKey:   cfg.JellyfinAPIKey,
+			UserID:   cfg.JellyfinUserID,
 			PathMaps: maps,
 		})
 	}
