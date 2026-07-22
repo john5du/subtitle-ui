@@ -18,6 +18,8 @@ func TestClientListAndSearch(t *testing.T) {
 			return
 		}
 		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v3/system/status":
+			_ = json.NewEncoder(w).Encode(map[string]any{"version": "4.0.0", "appName": "Sonarr"})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v3/series":
 			_ = json.NewEncoder(w).Encode([]map[string]any{
 				{"id": 10, "title": "Show", "path": "/tv/Show", "tmdbId": 99, "imdbId": "tt1", "status": "continuing"},
@@ -52,5 +54,8 @@ func TestClientListAndSearch(t *testing.T) {
 	}
 	if gotCommand["name"] != "EpisodeSearch" {
 		t.Fatalf("command name: %#v", gotCommand)
+	}
+	if err := c.Ping(context.Background()); err != nil {
+		t.Fatalf("Ping: %v", err)
 	}
 }

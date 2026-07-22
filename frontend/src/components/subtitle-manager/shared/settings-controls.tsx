@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, RotateCcw, Save } from "lucide-react";
+import { Eye, EyeOff, PlugZap, RotateCcw, Save } from "lucide-react";
 
 import { useI18n, type Locale, type MessageKey } from "@/lib/i18n";
 import { emitToast } from "@/lib/toast";
-import type { JellyfinConfig, SonarrConfig, SubHDConfig, SubtitleConversionConfig, SubtitleSourceEncoding } from "@/lib/types";
+import type {
+  ConnectionTestResult,
+  JellyfinConfig,
+  SonarrConfig,
+  SubHDConfig,
+  SubtitleConversionConfig,
+  SubtitleSourceEncoding
+} from "@/lib/types";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +51,39 @@ function SaveSettingsButton({
       </span>
       <span className="absolute inset-0 flex items-center justify-center">
         {saving ? <SpinnerIcon className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+      </span>
+    </Button>
+  );
+}
+
+function TestConnectionButton({
+  testing,
+  disabled,
+  label,
+  testingLabel,
+  onClick
+}: {
+  testing: boolean;
+  disabled: boolean;
+  label: string;
+  testingLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      className="relative h-9 min-w-0 px-3"
+      disabled={disabled}
+      onClick={onClick}
+      aria-label={testing ? testingLabel : label}
+      title={testing ? testingLabel : label}
+    >
+      <span className="invisible select-none" aria-hidden>
+        检查
+      </span>
+      <span className="absolute inset-0 flex items-center justify-center">
+        {testing ? <SpinnerIcon className="h-4 w-4" /> : <PlugZap className="h-4 w-4" />}
       </span>
     </Button>
   );
@@ -404,6 +444,7 @@ export function SonarrSettingsPanel() {
   const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [draftUrl, setDraftUrl] = useState("");
   const [draftApiKey, setDraftApiKey] = useState("");
@@ -481,6 +522,49 @@ export function SonarrSettingsPanel() {
     }
   }
 
+  async function testConnection() {
+    setTesting(true);
+    setError("");
+    try {
+      const result = await requestPayload<ConnectionTestResult>("/api/config/sonarr/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: true,
+          url: draftUrl.trim(),
+          apiKey: draftApiKey.trim()
+        })
+      });
+      if (result.ok) {
+        emitToast({
+          level: "success",
+          message: t("sonarr.testConnectionOk")
+        });
+      } else {
+        const detail = result.message || t("sonarr.testConnectionFailed");
+        setError(detail);
+        emitToast({
+          level: "error",
+          message: t("sonarr.testConnectionFailed"),
+          detail
+        });
+      }
+    } catch (testError) {
+      const message = testError instanceof Error ? testError.message : String(testError);
+      setError(message);
+      emitToast({
+        level: "error",
+        message: t("sonarr.testConnectionFailed"),
+        detail: message
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  const busy = loading || saving || testing;
+  const canTest = Boolean(draftUrl.trim() && draftApiKey.trim());
+
   return (
     <div className="surface-panel space-y-4 p-3 sm:p-4">
 
@@ -490,7 +574,7 @@ export function SonarrSettingsPanel() {
           <Switch
             checked={draftEnabled}
             onCheckedChange={setDraftEnabled}
-            disabled={loading || saving}
+            disabled={busy}
             aria-label={t("sonarr.enabled")}
             title={draftEnabled ? t("sonarr.enabledOn") : t("sonarr.enabledOff")}
           />
@@ -502,7 +586,7 @@ export function SonarrSettingsPanel() {
             size="sm"
             value={draftUrl}
             placeholder={t("sonarr.urlPlaceholder")}
-            disabled={loading || saving || !draftEnabled}
+            disabled={busy || !draftEnabled}
             onChange={(event) => {
               setDraftUrl(event.target.value);
               setError("");
@@ -520,7 +604,7 @@ export function SonarrSettingsPanel() {
             autoComplete="off"
             value={draftApiKey}
             placeholder={t("sonarr.apiKeyPlaceholder")}
-            disabled={loading || saving || !draftEnabled}
+            disabled={busy || !draftEnabled}
             className="pr-10"
             onChange={(event) => {
               setDraftApiKey(event.target.value);
@@ -532,7 +616,7 @@ export function SonarrSettingsPanel() {
             variant="ghost"
             size="icon"
             className="absolute right-0.5 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            disabled={loading || saving || !draftEnabled}
+            disabled={busy || !draftEnabled}
             onClick={() => setApiKeyVisible((prev) => !prev)}
             aria-label={apiKeyVisible ? t("common.hide") : t("common.show")}
             title={apiKeyVisible ? t("common.hide") : t("common.show")}
@@ -550,10 +634,17 @@ export function SonarrSettingsPanel() {
       )}
       {error && <p className="break-words text-sm text-destructive">{error}</p>}
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <TestConnectionButton
+          testing={testing}
+          disabled={busy || !canTest}
+          label={t("sonarr.testConnection")}
+          testingLabel={t("sonarr.testingConnection")}
+          onClick={() => void testConnection()}
+        />
         <SaveSettingsButton
           saving={saving}
-          disabled={loading || saving}
+          disabled={busy}
           label={t("sonarr.saveSettings")}
           savingLabel={t("common.saving")}
           onClick={() => void saveConfig()}
@@ -567,6 +658,7 @@ export function JellyfinSettingsPanel() {
   const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [draftUrl, setDraftUrl] = useState("");
   const [draftApiKey, setDraftApiKey] = useState("");
@@ -648,6 +740,51 @@ export function JellyfinSettingsPanel() {
     }
   }
 
+  async function testConnection() {
+    setTesting(true);
+    setError("");
+    try {
+      const result = await requestPayload<ConnectionTestResult>("/api/config/jellyfin/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: true,
+          url: draftUrl.trim(),
+          apiKey: draftApiKey.trim(),
+          pathMap: draftPathMap.trim()
+        })
+      });
+      if (result.ok) {
+        emitToast({
+          level: "success",
+          message: t("jellyfin.testConnectionOk"),
+          detail: result.message && result.message !== "ok" ? result.message : undefined
+        });
+      } else {
+        const detail = result.message || t("jellyfin.testConnectionFailed");
+        setError(detail);
+        emitToast({
+          level: "error",
+          message: t("jellyfin.testConnectionFailed"),
+          detail
+        });
+      }
+    } catch (testError) {
+      const message = testError instanceof Error ? testError.message : String(testError);
+      setError(message);
+      emitToast({
+        level: "error",
+        message: t("jellyfin.testConnectionFailed"),
+        detail: message
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  const busy = loading || saving || testing;
+  const canTest = Boolean(draftUrl.trim() && draftApiKey.trim());
+
   return (
     <div className="surface-panel space-y-4 p-3 sm:p-4">
       <p className="text-sm text-muted-foreground">{t("jellyfin.settingsDescription")}</p>
@@ -658,7 +795,7 @@ export function JellyfinSettingsPanel() {
           <Switch
             checked={draftEnabled}
             onCheckedChange={setDraftEnabled}
-            disabled={loading || saving}
+            disabled={busy}
             aria-label={t("jellyfin.enabled")}
             title={draftEnabled ? t("jellyfin.enabledOn") : t("jellyfin.enabledOff")}
           />
@@ -670,7 +807,7 @@ export function JellyfinSettingsPanel() {
             size="sm"
             value={draftUrl}
             placeholder={t("jellyfin.urlPlaceholder")}
-            disabled={loading || saving || !draftEnabled}
+            disabled={busy || !draftEnabled}
             onChange={(event) => {
               setDraftUrl(event.target.value);
               setError("");
@@ -688,7 +825,7 @@ export function JellyfinSettingsPanel() {
             autoComplete="off"
             value={draftApiKey}
             placeholder={t("jellyfin.apiKeyPlaceholder")}
-            disabled={loading || saving || !draftEnabled}
+            disabled={busy || !draftEnabled}
             className="pr-10"
             onChange={(event) => {
               setDraftApiKey(event.target.value);
@@ -700,7 +837,7 @@ export function JellyfinSettingsPanel() {
             variant="ghost"
             size="icon"
             className="absolute right-0.5 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            disabled={loading || saving || !draftEnabled}
+            disabled={busy || !draftEnabled}
             onClick={() => setApiKeyVisible((prev) => !prev)}
             aria-label={apiKeyVisible ? t("common.hide") : t("common.show")}
             title={apiKeyVisible ? t("common.hide") : t("common.show")}
@@ -717,7 +854,7 @@ export function JellyfinSettingsPanel() {
           size="sm"
           value={draftPathMap}
           placeholder={t("jellyfin.pathMapPlaceholder")}
-          disabled={loading || saving || !draftEnabled}
+          disabled={busy || !draftEnabled}
           onChange={(event) => {
             setDraftPathMap(event.target.value);
             setError("");
@@ -733,10 +870,17 @@ export function JellyfinSettingsPanel() {
       )}
       {error && <p className="break-words text-sm text-destructive">{error}</p>}
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <TestConnectionButton
+          testing={testing}
+          disabled={busy || !canTest}
+          label={t("jellyfin.testConnection")}
+          testingLabel={t("jellyfin.testingConnection")}
+          onClick={() => void testConnection()}
+        />
         <SaveSettingsButton
           saving={saving}
-          disabled={loading || saving}
+          disabled={busy}
           label={t("jellyfin.saveSettings")}
           savingLabel={t("common.saving")}
           onClick={() => void saveConfig()}

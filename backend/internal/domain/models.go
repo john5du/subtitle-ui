@@ -140,6 +140,12 @@ type JellyfinConfigUpdate struct {
 	PathMap string `json:"pathMap"`
 }
 
+// ConnectionTestResult is the outcome of a provider connectivity check.
+type ConnectionTestResult struct {
+	OK      bool   `json:"ok"`
+	Message string `json:"message,omitempty"`
+}
+
 type ScanDirectory struct {
 	ID                string `json:"id"`
 	Path              string `json:"path"`

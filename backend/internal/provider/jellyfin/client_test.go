@@ -93,3 +93,22 @@ func TestDisabledClient(t *testing.T) {
 		t.Fatalf("expected disabled without key")
 	}
 }
+
+func TestPathMapTargetMatchesLibrary(t *testing.T) {
+	physical := []string{"/data/movies", "/data/tv"}
+	if !pathMapTargetMatchesLibrary("/data/movies", physical) {
+		t.Fatalf("exact match")
+	}
+	if !pathMapTargetMatchesLibrary("/data/movies/extra", physical) {
+		t.Fatalf("under library root")
+	}
+	if !pathMapTargetMatchesLibrary("/data", physical) {
+		t.Fatalf("parent of library root")
+	}
+	if pathMapTargetMatchesLibrary("/media/movies", physical) {
+		t.Fatalf("unrelated path should not match")
+	}
+	if pathMapTargetMatchesLibrary("", physical) {
+		t.Fatalf("empty should not match")
+	}
+}

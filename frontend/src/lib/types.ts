@@ -215,6 +215,11 @@ export interface JellyfinConfig {
   updatedAt?: string;
 }
 
+export interface ConnectionTestResult {
+  ok: boolean;
+  message?: string;
+}
+
 export interface BatchSubtitleUploadResult {
   total: number;
   success: number;

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -187,4 +188,58 @@ func (s *Service) jellyfinClient() *jellyfin.Client {
 func (s *Service) JellyfinEnabled() bool {
 	c := s.jellyfinClient()
 	return c != nil && c.Enabled()
+}
+
+// TestJellyfinConfig probes connectivity with the provided draft settings (does not save).
+func (s *Service) TestJellyfinConfig(ctx context.Context, req domain.JellyfinConfigUpdate) (domain.ConnectionTestResult, error) {
+	baseURL := strings.TrimSpace(req.URL)
+	apiKey := strings.TrimSpace(req.APIKey)
+	pathMapRaw := strings.TrimSpace(req.PathMap)
+	if baseURL == "" {
+		return domain.ConnectionTestResult{}, fmt.Errorf("%w: jellyfin url is required", ErrBadRequest)
+	}
+	if apiKey == "" {
+		return domain.ConnectionTestResult{}, fmt.Errorf("%w: jellyfin api key is required", ErrBadRequest)
+	}
+	normalized, err := jellyfin.NormalizeBaseURL(baseURL)
+	if err != nil {
+		return domain.ConnectionTestResult{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
+	}
+	pathMaps, err := jellyfin.ParsePathMaps(pathMapRaw)
+	if err != nil {
+		return domain.ConnectionTestResult{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
+	}
+	client := jellyfin.New(jellyfin.Options{
+		Enabled:  true,
+		BaseURL:  normalized,
+		APIKey:   apiKey,
+		PathMaps: pathMaps,
+	})
+	if err := client.Ping(ctx); err != nil {
+		s.recordOp("config_jellyfin_test", systemOperationVideoID, normalized, "", "error", err.Error())
+		return domain.ConnectionTestResult{
+			OK:      false,
+			Message: err.Error(),
+		}, nil
+	}
+	if len(pathMaps) > 0 {
+		if err := client.ValidatePathMaps(ctx); err != nil {
+			s.recordOp("config_jellyfin_test", systemOperationVideoID, normalized, "", "error", err.Error())
+			return domain.ConnectionTestResult{
+				OK:      false,
+				Message: err.Error(),
+			}, nil
+		}
+		msg := fmt.Sprintf("ok; path map verified (%d)", len(pathMaps))
+		s.recordOp("config_jellyfin_test", systemOperationVideoID, normalized, "", "ok", msg)
+		return domain.ConnectionTestResult{
+			OK:      true,
+			Message: msg,
+		}, nil
+	}
+	s.recordOp("config_jellyfin_test", systemOperationVideoID, normalized, "", "ok", "ping ok")
+	return domain.ConnectionTestResult{
+		OK:      true,
+		Message: "ok",
+	}, nil
 }

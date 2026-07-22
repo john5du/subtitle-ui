@@ -149,6 +149,100 @@ func (c *Client) Enabled() bool {
 	return c != nil && c.enabled
 }
 
+// Ping checks URL + API key via GET /System/Info.
+func (c *Client) Ping(ctx context.Context) error {
+	if !c.Enabled() {
+		return ErrDisabled
+	}
+	var info map[string]any
+	if err := c.getJSON(ctx, "/System/Info", nil, &info); err != nil {
+		return err
+	}
+	return nil
+}
+
+// PhysicalPaths returns library physical roots from GET /Library/PhysicalPaths.
+func (c *Client) PhysicalPaths(ctx context.Context) ([]string, error) {
+	if !c.Enabled() {
+		return nil, ErrDisabled
+	}
+	var paths []string
+	if err := c.getJSON(ctx, "/Library/PhysicalPaths", nil, &paths); err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// ValidatePathMaps checks configured map targets against Jellyfin library roots.
+// When no path maps are set, returns nil. When maps are set but none match, returns an error.
+func (c *Client) ValidatePathMaps(ctx context.Context) error {
+	if !c.Enabled() {
+		return ErrDisabled
+	}
+	if len(c.pathMaps) == 0 {
+		return nil
+	}
+	physical, err := c.PhysicalPaths(ctx)
+	if err != nil {
+		return fmt.Errorf("list library paths: %w", err)
+	}
+	if len(physical) == 0 {
+		return fmt.Errorf("jellyfin returned no library physical paths")
+	}
+	unmatched := make([]string, 0)
+	for _, m := range c.pathMaps {
+		if !pathMapTargetMatchesLibrary(m.To, physical) {
+			unmatched = append(unmatched, m.From+":"+m.To)
+		}
+	}
+	if len(unmatched) == 0 {
+		return nil
+	}
+	known := make([]string, 0, len(physical))
+	for _, p := range physical {
+		known = append(known, normalizeMapPath(p))
+	}
+	return fmt.Errorf("path map target(s) not under any Jellyfin library root: %s (library roots: %s)",
+		strings.Join(unmatched, ", "),
+		strings.Join(known, ", "))
+}
+
+// pathMapTargetMatchesLibrary reports whether mapTo equals, contains, or is contained by a library root.
+func pathMapTargetMatchesLibrary(mapTo string, physical []string) bool {
+	to := normalizeMapPath(mapTo)
+	if to == "" {
+		return false
+	}
+	for _, p := range physical {
+		root := normalizeMapPath(p)
+		if root == "" {
+			continue
+		}
+		if to == root || pathHasPrefix(to, root) || pathHasPrefix(root, to) {
+			return true
+		}
+	}
+	return false
+}
+
+// PathMaps returns a copy of configured path maps.
+func (c *Client) PathMaps() []PathMap {
+	if c == nil || len(c.pathMaps) == 0 {
+		return nil
+	}
+	out := make([]PathMap, len(c.pathMaps))
+	copy(out, c.pathMaps)
+	return out
+}
+
 // MapPath rewrites a local path using configured path maps.
 func (c *Client) MapPath(localPath string) string {
 	if c == nil {

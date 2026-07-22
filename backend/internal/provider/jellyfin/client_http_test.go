@@ -133,3 +133,81 @@ func TestDisabledNotify(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestPing(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Emby-Token") != "test-key" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == "/System/Info" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"ServerName": "jf", "Version": "10.9.0"})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
+	c := jellyfin.New(jellyfin.Options{
+		Enabled:    true,
+		BaseURL:    srv.URL,
+		APIKey:     "test-key",
+		HTTPClient: srv.Client(),
+	})
+	if err := c.Ping(context.Background()); err != nil {
+		t.Fatalf("Ping: %v", err)
+	}
+}
+
+func TestValidatePathMaps(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Emby-Token") != "test-key" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/Library/PhysicalPaths":
+			_ = json.NewEncoder(w).Encode([]string{"/data/movies", "/data/tv"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	okClient := jellyfin.New(jellyfin.Options{
+		Enabled: true,
+		BaseURL: srv.URL,
+		APIKey:  "test-key",
+		PathMaps: []jellyfin.PathMap{
+			{From: "/host/movies", To: "/data/movies"},
+			{From: "/host/tv", To: "/data/tv"},
+		},
+		HTTPClient: srv.Client(),
+	})
+	if err := okClient.ValidatePathMaps(context.Background()); err != nil {
+		t.Fatalf("expected path maps ok: %v", err)
+	}
+
+	badClient := jellyfin.New(jellyfin.Options{
+		Enabled: true,
+		BaseURL: srv.URL,
+		APIKey:  "test-key",
+		PathMaps: []jellyfin.PathMap{
+			{From: "/host/movies", To: "/wrong/movies"},
+		},
+		HTTPClient: srv.Client(),
+	})
+	if err := badClient.ValidatePathMaps(context.Background()); err == nil {
+		t.Fatalf("expected path map mismatch")
+	}
+
+	emptyClient := jellyfin.New(jellyfin.Options{
+		Enabled:    true,
+		BaseURL:    srv.URL,
+		APIKey:     "test-key",
+		HTTPClient: srv.Client(),
+	})
+	if err := emptyClient.ValidatePathMaps(context.Background()); err != nil {
+		t.Fatalf("empty maps should skip: %v", err)
+	}
+}

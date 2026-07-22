@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -149,4 +150,37 @@ func (s *Service) rebuildSonarrClient(enabled bool, baseURL, apiKey string) {
 	s.sonarrMu.Lock()
 	s.sonarr = client
 	s.sonarrMu.Unlock()
+}
+
+// TestSonarrConfig probes connectivity with the provided draft settings (does not save).
+func (s *Service) TestSonarrConfig(ctx context.Context, req domain.SonarrConfigUpdate) (domain.ConnectionTestResult, error) {
+	baseURL := strings.TrimSpace(req.URL)
+	apiKey := strings.TrimSpace(req.APIKey)
+	if baseURL == "" {
+		return domain.ConnectionTestResult{}, fmt.Errorf("%w: sonarr url is required", ErrBadRequest)
+	}
+	if apiKey == "" {
+		return domain.ConnectionTestResult{}, fmt.Errorf("%w: sonarr api key is required", ErrBadRequest)
+	}
+	normalized, err := sonarr.NormalizeBaseURL(baseURL)
+	if err != nil {
+		return domain.ConnectionTestResult{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
+	}
+	client := sonarr.New(sonarr.Options{
+		Enabled: true,
+		BaseURL: normalized,
+		APIKey:  apiKey,
+	})
+	if err := client.Ping(ctx); err != nil {
+		s.recordOp("config_sonarr_test", systemOperationVideoID, normalized, "", "error", err.Error())
+		return domain.ConnectionTestResult{
+			OK:      false,
+			Message: err.Error(),
+		}, nil
+	}
+	s.recordOp("config_sonarr_test", systemOperationVideoID, normalized, "", "ok", "ping ok")
+	return domain.ConnectionTestResult{
+		OK:      true,
+		Message: "ok",
+	}, nil
 }

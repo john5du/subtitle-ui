@@ -123,6 +123,18 @@ func (c *Client) Enabled() bool {
 // ErrDisabled is returned when Sonarr is not configured.
 var ErrDisabled = fmt.Errorf("sonarr disabled")
 
+// Ping checks URL + API key via GET /api/v3/system/status.
+func (c *Client) Ping(ctx context.Context) error {
+	if !c.Enabled() {
+		return ErrDisabled
+	}
+	var status map[string]any
+	if err := c.getJSON(ctx, "/api/v3/system/status", nil, &status); err != nil {
+		return err
+	}
+	return nil
+}
+
 // ListSeries returns all series (cached).
 func (c *Client) ListSeries(ctx context.Context) ([]Series, error) {
 	if !c.Enabled() {

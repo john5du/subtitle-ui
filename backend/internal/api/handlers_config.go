@@ -7,6 +7,17 @@ import (
 	appdomain "subtitle-ui/backend/internal/domain"
 )
 
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, dest any) bool {
+	if r.Body != nil {
+		defer r.Body.Close()
+	}
+	if err := json.NewDecoder(r.Body).Decode(dest); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return false
+	}
+	return true
+}
+
 func (s *Server) handleSubtitleConversionConfig(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -47,11 +58,7 @@ func (s *Server) handleSonarrConfig(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, cfg)
 	case http.MethodPut:
 		var req appdomain.SonarrConfigUpdate
-		if r.Body != nil {
-			defer r.Body.Close()
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid json body")
+		if !decodeJSONBody(w, r, &req) {
 			return
 		}
 		cfg, err := s.service.UpdateSonarrConfig(req)
@@ -65,6 +72,23 @@ func (s *Server) handleSonarrConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) handleSonarrConfigTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req appdomain.SonarrConfigUpdate
+	if !decodeJSONBody(w, r, &req) {
+		return
+	}
+	result, err := s.service.TestSonarrConfig(r.Context(), req)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 func (s *Server) handleJellyfinConfig(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -76,11 +100,7 @@ func (s *Server) handleJellyfinConfig(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, cfg)
 	case http.MethodPut:
 		var req appdomain.JellyfinConfigUpdate
-		if r.Body != nil {
-			defer r.Body.Close()
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid json body")
+		if !decodeJSONBody(w, r, &req) {
 			return
 		}
 		cfg, err := s.service.UpdateJellyfinConfig(req)
@@ -92,4 +112,21 @@ func (s *Server) handleJellyfinConfig(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+func (s *Server) handleJellyfinConfigTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req appdomain.JellyfinConfigUpdate
+	if !decodeJSONBody(w, r, &req) {
+		return
+	}
+	result, err := s.service.TestJellyfinConfig(r.Context(), req)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
