@@ -107,14 +107,32 @@ func TestSolveSVGKnownLengths(t *testing.T) {
 
 func TestDownloadSuccessAndCaptcha(t *testing.T) {
 	var posts int
+	var prepared bool
+	var visitedDown bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case strings.HasPrefix(r.URL.Path, "/a/"):
+		case r.URL.Path == "/api/sub/prepare-download":
+			prepared = true
 			http.SetCookie(w, &http.Cookie{Name: "tk_1_abc", Value: "token", Path: "/", MaxAge: 300})
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"success": true,
+				"url":     "/down/bqpxFZ",
+			})
+		case r.URL.Path == "/down/bqpxFZ":
+			visitedDown = true
+			http.SetCookie(w, &http.Cookie{
+				Name:   "down_1_abc",
+				Value:  "session",
+				Path:   "/api/sub/down",
+				MaxAge: 300,
+			})
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("<html>ok</html>"))
+			_, _ = w.Write([]byte(`<html><button class="down" sid="bqpxFZ"></button></html>`))
 		case r.URL.Path == "/api/sub/down":
 			posts++
+			if cookie, err := r.Cookie("down_1_abc"); err != nil || cookie.Value != "session" {
+				t.Errorf("expected down_* cookie on /api/sub/down, err=%v cookie=%v", err, cookie)
+			}
 			var body map[string]string
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			if posts == 1 {
@@ -169,6 +187,9 @@ func TestDownloadSuccessAndCaptcha(t *testing.T) {
 	if err != nil {
 		t.Fatalf("download: %v", err)
 	}
+	if !prepared || !visitedDown {
+		t.Fatalf("expected prepare+down page flow, prepared=%v visitedDown=%v", prepared, visitedDown)
+	}
 	if !strings.Contains(string(dl.Data), "Script Info") {
 		t.Fatalf("data: %q", dl.Data)
 	}
@@ -177,22 +198,125 @@ func TestDownloadSuccessAndCaptcha(t *testing.T) {
 	}
 }
 
+func TestDownloadDirectWithoutCaptcha(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/sub/prepare-download":
+			_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "url": "/down/x"})
+		case "/down/x":
+			http.SetCookie(w, &http.Cookie{Name: "down_x", Value: "1", Path: "/api/sub/down", MaxAge: 300})
+			w.WriteHeader(200)
+		case "/api/sub/down":
+			url := "http://" + r.Host + "/file.ass"
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"success": true, "pass": true, "msg": "验证通过", "url": url,
+			})
+		case "/file.ass":
+			_, _ = w.Write([]byte("[Script Info]\n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c := New(Options{Enabled: true, BaseURL: srv.URL, MinInterval: time.Millisecond, HTTPClient: srv.Client()})
+	c.client = srv.Client()
+	dl, err := c.Download(context.Background(), "x")
+	if err != nil {
+		t.Fatalf("download: %v", err)
+	}
+	if !strings.Contains(string(dl.Data), "Script Info") {
+		t.Fatalf("data: %q", dl.Data)
+	}
+}
+
+func TestDownloadTokenExpiredReprime(t *testing.T) {
+	var prepares, downs int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/sub/prepare-download":
+			prepares++
+			_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "url": "/down/x"})
+		case r.URL.Path == "/down/x":
+			http.SetCookie(w, &http.Cookie{Name: "down_x", Value: fmt.Sprintf("v%d", prepares), Path: "/api/sub/down", MaxAge: 300})
+			w.WriteHeader(200)
+		case r.URL.Path == "/api/sub/down":
+			downs++
+			if downs == 1 {
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"success": false, "pass": false, "msg": "时间过长本临时页面已经失效", "url": nil,
+				})
+				return
+			}
+			url := "http://" + r.Host + "/file.ass"
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"success": true, "pass": true, "msg": "验证通过", "url": url,
+			})
+		case r.URL.Path == "/file.ass":
+			_, _ = w.Write([]byte("[Script Info]\n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c := New(Options{Enabled: true, BaseURL: srv.URL, MinInterval: time.Millisecond, HTTPClient: srv.Client()})
+	c.client = srv.Client()
+	dl, err := c.Download(context.Background(), "x")
+	if err != nil {
+		t.Fatalf("download: %v", err)
+	}
+	if prepares < 2 {
+		t.Fatalf("expected re-prepare, prepares=%d", prepares)
+	}
+	if !strings.Contains(string(dl.Data), "Script Info") {
+		t.Fatalf("data: %q", dl.Data)
+	}
+}
+
+func TestDownloadTokenExpiredExhausted(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/sub/prepare-download":
+			_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "url": "/down/x"})
+		case r.URL.Path == "/down/x":
+			w.WriteHeader(200)
+		case r.URL.Path == "/api/sub/down":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"success": false, "pass": false, "msg": "时间过长本临时页面已经失效", "url": nil,
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c := New(Options{Enabled: true, BaseURL: srv.URL, MinInterval: time.Millisecond, HTTPClient: srv.Client()})
+	c.client = srv.Client()
+	_, err := c.Download(context.Background(), "x")
+	if err != ErrTokenExpired {
+		t.Fatalf("want ErrTokenExpired, got %v", err)
+	}
+}
+
 func TestDownloadRateLimited(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/a/") {
+		switch r.URL.Path {
+		case "/api/sub/prepare-download":
+			_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "url": "/down/x"})
+		case "/down/x":
+			http.SetCookie(w, &http.Cookie{Name: "down_x", Value: "1", Path: "/api/sub/down", MaxAge: 300})
 			w.WriteHeader(200)
-			return
-		}
-		if r.URL.Path == "/api/sub/down" {
+		case "/api/sub/down":
 			w.WriteHeader(http.StatusInternalServerError)
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"success": false,
 				"error":   "Internal Server Error",
 				"message": "服务器内部错误，请稍后再试！",
 			})
-			return
+		default:
+			http.NotFound(w, r)
 		}
-		http.NotFound(w, r)
 	}))
 	defer srv.Close()
 

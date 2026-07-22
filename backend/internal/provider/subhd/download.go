@@ -24,7 +24,17 @@ type downAPIResponse struct {
 	Message string  `json:"message"`
 }
 
-// Download fetches a subtitle payload for sid (handles token cookie + captcha).
+type prepareDownloadResponse struct {
+	Success bool   `json:"success"`
+	URL     string `json:"url"`
+	Msg     string `json:"msg"`
+	Error   string `json:"error"`
+	Message string `json:"message"`
+}
+
+// Download fetches a subtitle payload for sid.
+// SubHD flow (as of 2026-07): prepare-download → temporary /down/{sid} page (sets down_* cookie)
+// → POST /api/sub/down (optional captcha) → CDN file URL.
 func (c *Client) Download(ctx context.Context, sid string) (*DownloadedFile, error) {
 	if err := c.requireEnabled(); err != nil {
 		return nil, err
@@ -47,16 +57,17 @@ func (c *Client) Download(ctx context.Context, sid string) (*DownloadedFile, err
 	}
 
 	detailURL := c.absURL("/a/" + sid)
-	if err := c.primeToken(ctx, httpClient, detailURL); err != nil {
-		return nil, err
-	}
-
-	fileURL, err := c.resolveDownloadURL(ctx, httpClient, sid, detailURL)
+	downPageURL, err := c.prepareDownloadSession(ctx, httpClient, sid, detailURL)
 	if err != nil {
 		return nil, err
 	}
 
-	data, fileName, err := c.fetchFile(ctx, httpClient, fileURL, detailURL)
+	fileURL, err := c.resolveDownloadURL(ctx, httpClient, sid, detailURL, downPageURL)
+	if err != nil {
+		return nil, err
+	}
+
+	data, fileName, err := c.fetchFile(ctx, httpClient, fileURL, downPageURL)
 	if err != nil {
 		return nil, err
 	}
@@ -72,34 +83,112 @@ func (c *Client) Download(ctx context.Context, sid string) (*DownloadedFile, err
 	}, nil
 }
 
-func (c *Client) primeToken(ctx context.Context, httpClient *http.Client, detailURL string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, detailURL, nil)
+// prepareDownloadSession calls prepare-download then loads the temporary /down page
+// so the Path=/api/sub/down cookie is stored in the jar.
+func (c *Client) prepareDownloadSession(ctx context.Context, httpClient *http.Client, sid, detailURL string) (string, error) {
+	payload, err := json.Marshal(map[string]string{"sid": sid})
 	if err != nil {
-		log.Printf("subhd prime token failed url=%s err=%v", truncateForLog(detailURL, 120), err)
+		log.Printf("subhd prepare-download marshal failed sid=%s err=%v", sid, err)
+		return "", wrapProvider(err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.absURL("/api/sub/prepare-download"), bytes.NewReader(payload))
+	if err != nil {
+		log.Printf("subhd prepare-download request failed sid=%s err=%v", sid, err)
+		return "", wrapProvider(err)
+	}
+	c.setCommonHeaders(req, detailURL)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", c.baseURL)
+	req.Header.Set("Accept", "application/json")
+
+	res, err := httpClient.Do(req)
+	if err != nil {
+		log.Printf("subhd prepare-download network failed sid=%s err=%v", sid, err)
+		return "", wrapProvider(err)
+	}
+	defer res.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if err != nil {
+		log.Printf("subhd prepare-download read failed sid=%s err=%v", sid, err)
+		return "", wrapProvider(err)
+	}
+	if res.StatusCode == http.StatusInternalServerError {
+		log.Printf("subhd prepare-download rate limited sid=%s http=%d bodySample=%q",
+			sid, res.StatusCode, truncateForLog(string(data), 200))
+		c.limiter.markRateLimited()
+		return "", ErrRateLimited
+	}
+	var parsed prepareDownloadResponse
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		log.Printf("subhd prepare-download json failed sid=%s http=%d bodySample=%q err=%v",
+			sid, res.StatusCode, truncateForLog(string(data), 200), err)
+		if res.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("%w: prepare-download http %d", ErrProvider, res.StatusCode)
+		}
+		return "", wrapProvider(err)
+	}
+	if res.StatusCode != http.StatusOK || !parsed.Success {
+		msg := firstNonEmpty(parsed.Msg, parsed.Message, parsed.Error)
+		log.Printf("subhd prepare-download rejected sid=%s http=%d success=%v msg=%q",
+			sid, res.StatusCode, parsed.Success, truncateForLog(msg, 200))
+		if msg != "" {
+			return "", fmt.Errorf("%w: %s", ErrProvider, msg)
+		}
+		return "", fmt.Errorf("%w: prepare-download rejected", ErrProvider)
+	}
+	downPath := strings.TrimSpace(parsed.URL)
+	if !strings.HasPrefix(downPath, "/down/") {
+		log.Printf("subhd prepare-download bad url sid=%s url=%q", sid, truncateForLog(downPath, 120))
+		return "", fmt.Errorf("%w: unexpected prepare-download url", ErrProvider)
+	}
+	downPageURL := c.absURL(downPath)
+	if err := c.visitDownPage(ctx, httpClient, downPageURL, detailURL); err != nil {
+		return "", err
+	}
+	return downPageURL, nil
+}
+
+func (c *Client) visitDownPage(ctx context.Context, httpClient *http.Client, downPageURL, referer string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downPageURL, nil)
+	if err != nil {
+		log.Printf("subhd down page request failed url=%s err=%v", truncateForLog(downPageURL, 120), err)
 		return wrapProvider(err)
 	}
-	c.setCommonHeaders(req, c.baseURL+"/")
+	c.setCommonHeaders(req, referer)
 	req.Header.Set("Accept", "text/html,application/xhtml+xml")
 	res, err := httpClient.Do(req)
 	if err != nil {
-		log.Printf("subhd prime token failed url=%s err=%v", truncateForLog(detailURL, 120), err)
+		log.Printf("subhd down page network failed url=%s err=%v", truncateForLog(downPageURL, 120), err)
 		return wrapProvider(err)
 	}
 	defer res.Body.Close()
-	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
+	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 2<<20))
 	if res.StatusCode != http.StatusOK {
-		log.Printf("subhd prime token failed url=%s http=%d", truncateForLog(detailURL, 120), res.StatusCode)
-		return fmt.Errorf("%w: detail http %d", ErrProvider, res.StatusCode)
+		log.Printf("subhd down page failed url=%s http=%d", truncateForLog(downPageURL, 120), res.StatusCode)
+		return fmt.Errorf("%w: down page http %d", ErrProvider, res.StatusCode)
+	}
+	cookieCount := 0
+	if httpClient.Jar != nil {
+		if u, err := url.Parse(c.absURL("/api/sub/down")); err == nil {
+			cookieCount = len(httpClient.Jar.Cookies(u))
+		}
+	}
+	if cookieCount == 0 {
+		log.Printf("subhd down page ok but no api cookies url=%s", truncateForLog(downPageURL, 120))
+	} else {
+		log.Printf("subhd down page ready url=%s apiCookies=%d", truncateForLog(downPageURL, 120), cookieCount)
 	}
 	return nil
 }
 
-func (c *Client) resolveDownloadURL(ctx context.Context, httpClient *http.Client, sid, referer string) (string, error) {
+func (c *Client) resolveDownloadURL(ctx context.Context, httpClient *http.Client, sid, detailURL, downPageURL string) (string, error) {
 	const maxCaptchaAttempts = 3
+	const maxTokenReprimes = 2
 	capCode := ""
 	var lastSubmittedCap string
+	tokenReprimes := 0
 	for attempt := 0; attempt < maxCaptchaAttempts; attempt++ {
-		apiRes, err := c.postDownAPI(ctx, httpClient, sid, capCode, referer)
+		apiRes, err := c.postDownAPI(ctx, httpClient, sid, capCode, downPageURL)
 		if err != nil {
 			return "", err
 		}
@@ -123,15 +212,23 @@ func (c *Client) resolveDownloadURL(ctx context.Context, httpClient *http.Client
 		}
 		msg := strings.TrimSpace(apiRes.Msg)
 		if strings.Contains(msg, "临时页面已经失效") || strings.Contains(msg, "时间过长") {
-			log.Printf("subhd download token expired sid=%s attempt=%d msg=%q submittedCap=%q; re-priming",
-				sid, attempt+1, truncateForLog(msg, 120), capCode)
-			// re-prime once
-			if err := c.primeToken(ctx, httpClient, referer); err != nil {
+			if tokenReprimes >= maxTokenReprimes {
+				log.Printf("subhd download token expired sid=%s attempt=%d reason=max_reprimes msg=%q",
+					sid, attempt+1, truncateForLog(msg, 120))
+				return "", ErrTokenExpired
+			}
+			tokenReprimes++
+			log.Printf("subhd download token expired sid=%s attempt=%d reprime=%d/%d msg=%q; re-preparing",
+				sid, attempt+1, tokenReprimes, maxTokenReprimes, truncateForLog(msg, 120))
+			newDownURL, err := c.prepareDownloadSession(ctx, httpClient, sid, detailURL)
+			if err != nil {
 				return "", err
 			}
-			// retry without counting as captcha failure fully
+			downPageURL = newDownURL
 			capCode = ""
 			lastSubmittedCap = ""
+			// Do not consume a captcha attempt for pure token expiry.
+			attempt--
 			continue
 		}
 		if !apiRes.Pass && looksLikeSVG(msg) {
@@ -177,8 +274,20 @@ func truncateForLog(s string, max int) string {
 	return s[:max] + "…"
 }
 
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if s := strings.TrimSpace(v); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
 func (c *Client) postDownAPI(ctx context.Context, httpClient *http.Client, sid, cap, referer string) (*downAPIResponse, error) {
-	payload := map[string]string{"sid": sid, "cap": cap}
+	payload := map[string]string{"sid": sid}
+	if strings.TrimSpace(cap) != "" {
+		payload["cap"] = cap
+	}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		log.Printf("subhd down api marshal failed sid=%s err=%v", sid, err)
