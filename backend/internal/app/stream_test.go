@@ -166,8 +166,9 @@ func TestIssueAndValidateStreamTicketWithJellyfin(t *testing.T) {
 	if itemsHits.Load() != 1 {
 		t.Fatalf("expected 1 /Items lookup at issue, got %d", itemsHits.Load())
 	}
-	if playbackHits.Load() != 1 {
-		t.Fatalf("expected PlaybackInfo once, got %d", playbackHits.Load())
+	// probe media source + profiled PlaybackInfo
+	if playbackHits.Load() != 2 {
+		t.Fatalf("expected PlaybackInfo twice (probe+profile), got %d", playbackHits.Load())
 	}
 
 	claims, err := svc.ValidateStreamTicket(videoID, issued.Ticket)

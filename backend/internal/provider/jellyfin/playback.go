@@ -59,17 +59,28 @@ func (c *Client) ResolvePlaybackPlan(ctx context.Context, itemID string) (Playba
 		return PlaybackPlan{}, err
 	}
 
+	// Jellyfin only applies Audio/SubtitleStreamIndex when MediaSourceId matches a source.
+	// Probe without DeviceProfile first to learn MediaSourceId, then request the plan.
+	mediaSourceID, err := c.probeMediaSourceID(ctx, itemID, userID)
+	if err != nil {
+		return PlaybackPlan{}, err
+	}
+
+	// SubtitleStreamIndex=-1: browser overlays our sidecar; never burn-in ASS (ffmpeg 187 with VAAPI).
 	body := map[string]any{
-		"UserId":               userID,
-		"DeviceProfile":        previewDeviceProfile(),
-		"EnableDirectPlay":     true,
-		"EnableDirectStream":   true,
-		"EnableTranscoding":    true,
-		"AllowVideoStreamCopy": true,
-		"AllowAudioStreamCopy": false,
-		"MaxStreamingBitrate":  80_000_000,
-		"MaxAudioChannels":     2,
-		"AutoOpenLiveStream":   false,
+		"UserId":                              userID,
+		"DeviceProfile":                       previewDeviceProfile(),
+		"EnableDirectPlay":                    true,
+		"EnableDirectStream":                  true,
+		"EnableTranscoding":                   true,
+		"AllowVideoStreamCopy":                true,
+		"AllowAudioStreamCopy":                false,
+		"MaxStreamingBitrate":                 80_000_000,
+		"MaxAudioChannels":                    2,
+		"MediaSourceId":                       mediaSourceID,
+		"SubtitleStreamIndex":                 -1,
+		"AutoOpenLiveStream":                  false,
+		"AlwaysBurnInSubtitleWhenTranscoding": false,
 	}
 
 	var resp playbackInfoResponse
@@ -84,7 +95,9 @@ func (c *Client) ResolvePlaybackPlan(ctx context.Context, itemID string) (Playba
 		return PlaybackPlan{}, fmt.Errorf("%w: no media sources", ErrItemNotFound)
 	}
 	src := resp.MediaSources[0]
-	mediaSourceID := strings.TrimSpace(src.ID)
+	if id := strings.TrimSpace(src.ID); id != "" {
+		mediaSourceID = id
+	}
 	playSessionID := strings.TrimSpace(resp.PlaySessionID)
 
 	if up := NormalizeUpstreamPath(src.TranscodingURL); up != "" {
@@ -111,6 +124,29 @@ func (c *Client) ResolvePlaybackPlan(ctx context.Context, itemID string) (Playba
 		MediaSourceID: mediaSourceID,
 		UpstreamPath:  up,
 	}, nil
+}
+
+// probeMediaSourceID fetches PlaybackInfo without a DeviceProfile to learn the default source id.
+func (c *Client) probeMediaSourceID(ctx context.Context, itemID, userID string) (string, error) {
+	body := map[string]any{
+		"UserId": userID,
+	}
+	var resp playbackInfoResponse
+	q := url.Values{}
+	q.Set("UserId", userID)
+	path := "/Items/" + url.PathEscape(itemID) + "/PlaybackInfo?" + q.Encode()
+	if err := c.postJSON(ctx, path, body, &resp); err != nil {
+		return "", err
+	}
+	if len(resp.MediaSources) == 0 {
+		return "", fmt.Errorf("%w: no media sources", ErrItemNotFound)
+	}
+	id := strings.TrimSpace(resp.MediaSources[0].ID)
+	if id == "" {
+		// File items often use the item id as the sole media source id.
+		return itemID, nil
+	}
+	return id, nil
 }
 
 type jellyfinUserDTO struct {
@@ -313,6 +349,10 @@ func NormalizeUpstreamPath(raw string) string {
 	if raw == "" {
 		return ""
 	}
+	// Jellyfin sometimes emits "?&key=..." which url.Parse treats poorly.
+	if i := strings.Index(raw, "?&"); i >= 0 {
+		raw = raw[:i+1] + raw[i+2:]
+	}
 	u, err := url.Parse(raw)
 	if err != nil {
 		return ""
@@ -382,9 +422,15 @@ func previewDeviceProfile() map[string]any {
 				},
 			},
 		},
+		// Drop embedded/sidecar burn-in; browser loads our own subtitle track.
 		"SubtitleProfiles": []map[string]any{
 			{"Format": "vtt", "Method": "External"},
 			{"Format": "srt", "Method": "External"},
+			{"Format": "ass", "Method": "Drop"},
+			{"Format": "ssa", "Method": "Drop"},
+			{"Format": "subrip", "Method": "Drop"},
+			{"Format": "pgssub", "Method": "Drop"},
+			{"Format": "dvdsub", "Method": "Drop"},
 		},
 	}
 }

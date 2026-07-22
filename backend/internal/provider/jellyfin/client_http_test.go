@@ -359,8 +359,9 @@ func TestFindItemIDByPathNotFoundVsUpstreamError(t *testing.T) {
 func TestResolvePlaybackPlanDeviceProfileJSON(t *testing.T) {
 	// Regression: DeviceProfile.Id is Guid? on Jellyfin; non-GUID Id → ASP.NET 400 "The supplied value is invalid."
 	// Also UserId is required for DeviceProfile path (API key has no user claim).
-	var gotBody map[string]any
+	var profileBodies []map[string]any
 	var gotUserQuery string
+	var playbackPosts int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !authOK(r, "test-key") {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -376,15 +377,20 @@ func TestResolvePlaybackPlanDeviceProfileJSON(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
+		playbackPosts++
 		gotUserQuery = r.URL.Query().Get("UserId")
 		raw, _ := io.ReadAll(r.Body)
-		if err := json.Unmarshal(raw, &gotBody); err != nil {
+		var body map[string]any
+		if err := json.Unmarshal(raw, &body); err != nil {
 			t.Errorf("body: %v", err)
+		}
+		if body["DeviceProfile"] != nil {
+			profileBodies = append(profileBodies, body)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"PlaySessionId": "ps",
 			"MediaSources": []map[string]any{
-				{"Id": "ms", "SupportsDirectPlay": true, "SupportsDirectStream": true},
+				{"Id": "ms-1", "SupportsDirectPlay": true, "SupportsDirectStream": true},
 			},
 		})
 	}))
@@ -400,11 +406,24 @@ func TestResolvePlaybackPlanDeviceProfileJSON(t *testing.T) {
 	if plan.Mode != jellyfin.PlaybackModeProgressive {
 		t.Fatalf("mode=%s", plan.Mode)
 	}
+	if playbackPosts < 2 {
+		t.Fatalf("expected probe+profile PlaybackInfo posts, got %d", playbackPosts)
+	}
 	if gotUserQuery != "user-admin" {
 		t.Fatalf("UserId query=%q", gotUserQuery)
 	}
+	if len(profileBodies) != 1 {
+		t.Fatalf("expected 1 profiled PlaybackInfo body, got %d", len(profileBodies))
+	}
+	gotBody := profileBodies[0]
 	if gotBody["UserId"] != "user-admin" {
 		t.Fatalf("UserId body=%v", gotBody["UserId"])
+	}
+	if gotBody["MediaSourceId"] != "ms-1" {
+		t.Fatalf("MediaSourceId=%v", gotBody["MediaSourceId"])
+	}
+	if v, ok := gotBody["SubtitleStreamIndex"].(float64); !ok || v != -1 {
+		t.Fatalf("SubtitleStreamIndex=%v want -1", gotBody["SubtitleStreamIndex"])
 	}
 	dp, _ := gotBody["DeviceProfile"].(map[string]any)
 	if dp == nil {
