@@ -528,6 +528,125 @@ func TestSonarrConfigDefaultsAndUpdate(t *testing.T) {
 	}
 }
 
+func TestJellyfinConfigDefaultsAndUpdate(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot:  movieRoot,
+		TVMediaRoot:     tvRoot,
+		DBPath:          filepath.Join(base, "test.sqlite3"),
+		JellyfinEnabled: true,
+		JellyfinURL:     "http://127.0.0.1:8096",
+		JellyfinAPIKey:  "env-key",
+		JellyfinPathMap: "/host/movies:/data/movies",
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	cfg, err := svc.GetJellyfinConfig()
+	if err != nil {
+		t.Fatalf("get default jellyfin config: %v", err)
+	}
+	if !cfg.Enabled {
+		t.Fatalf("expected jellyfin enabled from env")
+	}
+	if cfg.URL != "http://127.0.0.1:8096" {
+		t.Fatalf("unexpected url: %q", cfg.URL)
+	}
+	if cfg.APIKey != "env-key" {
+		t.Fatalf("unexpected api key: %q", cfg.APIKey)
+	}
+	if cfg.PathMap != "/host/movies:/data/movies" {
+		t.Fatalf("unexpected path map: %q", cfg.PathMap)
+	}
+	if !svc.JellyfinEnabled() {
+		t.Fatalf("expected client enabled from env")
+	}
+
+	saved, err := svc.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
+		Enabled: true,
+		URL:     "http://jellyfin.local:8096/",
+		APIKey:  "runtime-key",
+		PathMap: "/a:/b,/c:/d",
+	})
+	if err != nil {
+		t.Fatalf("update jellyfin config: %v", err)
+	}
+	if !saved.Enabled || saved.URL != "http://jellyfin.local:8096" || saved.APIKey != "runtime-key" {
+		t.Fatalf("unexpected saved config: %+v", saved)
+	}
+	if saved.PathMap != "/a:/b,/c:/d" {
+		t.Fatalf("unexpected path map: %q", saved.PathMap)
+	}
+	if !svc.JellyfinEnabled() {
+		t.Fatalf("expected client enabled after update")
+	}
+
+	_, err = svc.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
+		Enabled: true,
+		URL:     "ftp://bad.example",
+		APIKey:  "x",
+	})
+	if !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("expected bad request for invalid url, got %v", err)
+	}
+
+	_, err = svc.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
+		Enabled: true,
+		URL:     "http://jellyfin.local:8096",
+		APIKey:  "",
+	})
+	if !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("expected bad request for missing api key, got %v", err)
+	}
+
+	_, err = svc.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
+		Enabled: true,
+		URL:     "http://jellyfin.local:8096",
+		APIKey:  "k",
+		PathMap: "nocolon",
+	})
+	if !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("expected bad request for invalid path map, got %v", err)
+	}
+
+	disabled, err := svc.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
+		Enabled: false,
+		URL:     "http://jellyfin.local:8096",
+		APIKey:  "runtime-key",
+		PathMap: "/a:/b",
+	})
+	if err != nil {
+		t.Fatalf("disable jellyfin: %v", err)
+	}
+	if disabled.Enabled {
+		t.Fatalf("expected disabled config: %+v", disabled)
+	}
+	if svc.JellyfinEnabled() {
+		t.Fatalf("expected client disabled after update")
+	}
+
+	after, err := svc.GetJellyfinConfig()
+	if err != nil {
+		t.Fatalf("get after disable: %v", err)
+	}
+	if after.Enabled || after.URL != "http://jellyfin.local:8096" || after.APIKey != "runtime-key" || after.PathMap != "/a:/b" {
+		t.Fatalf("unexpected config after disable: %+v", after)
+	}
+}
+
 func TestSubtitleConversionConfigDefaultsAndRejectsInvalidTemplate(t *testing.T) {
 	base := t.TempDir()
 	movieRoot := filepath.Join(base, "movies")

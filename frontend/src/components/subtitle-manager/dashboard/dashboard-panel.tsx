@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import {
+  JellyfinSettingsPanel,
   LocaleSelect,
   SonarrSettingsPanel,
   SubHDSettingsPanel,
@@ -215,6 +216,10 @@ export function DashboardPanel({
 
               <SettingsSection title={t("settings.sonarr")}>
                 <SonarrSettingsPanel />
+              </SettingsSection>
+
+              <SettingsSection title={t("settings.jellyfin")}>
+                <JellyfinSettingsPanel />
               </SettingsSection>
 
               <SettingsSection title={t("settings.subtitleConversion")}>

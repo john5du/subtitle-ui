@@ -31,6 +31,10 @@ type Config struct {
 	SonarrEnabled         bool
 	SonarrURL             string
 	SonarrAPIKey          string
+	JellyfinEnabled       bool
+	JellyfinURL           string
+	JellyfinAPIKey        string
+	JellyfinPathMap       string
 	// StreamTicketSecret signs short-lived video stream tickets. Empty → derive from AdminToken.
 	StreamTicketSecret string
 	// StreamTicketTTL is how long a stream ticket remains valid.
@@ -89,6 +93,9 @@ func Load() Config {
 		SubHDSearchMaxPages:   parsePositiveInt(os.Getenv("SUBHD_SEARCH_MAX_PAGES"), 1),
 		SonarrURL:             strings.TrimRight(strings.TrimSpace(os.Getenv("SONARR_URL")), "/"),
 		SonarrAPIKey:          strings.TrimSpace(os.Getenv("SONARR_API_KEY")),
+		JellyfinURL:           strings.TrimRight(strings.TrimSpace(os.Getenv("JELLYFIN_URL")), "/"),
+		JellyfinAPIKey:        strings.TrimSpace(os.Getenv("JELLYFIN_API_KEY")),
+		JellyfinPathMap:       strings.TrimSpace(os.Getenv("JELLYFIN_PATH_MAP")),
 		StreamTicketSecret:    strings.TrimSpace(os.Getenv("STREAM_TICKET_SECRET")),
 		StreamTicketTTL:       parseDuration(os.Getenv("STREAM_TICKET_TTL"), 15*time.Minute),
 		StreamRemux:           normalizeStreamRemux(os.Getenv("STREAM_REMUX")),
@@ -101,6 +108,13 @@ func Load() Config {
 		cfg.SonarrEnabled = parseBoolDefaultTrue(os.Getenv("SONARR_ENABLED"))
 	} else {
 		cfg.SonarrEnabled = false
+	}
+
+	// Jellyfin: enabled when URL+key set, unless JELLYFIN_ENABLED explicitly disables.
+	if cfg.JellyfinURL != "" && cfg.JellyfinAPIKey != "" {
+		cfg.JellyfinEnabled = parseBoolDefaultTrue(os.Getenv("JELLYFIN_ENABLED"))
+	} else {
+		cfg.JellyfinEnabled = false
 	}
 
 	if abs, err := filepath.Abs(cfg.MovieMediaRoot); err == nil {

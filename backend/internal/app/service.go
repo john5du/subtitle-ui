@@ -8,6 +8,7 @@ import (
 
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/provider/jellyfin"
 	"subtitle-ui/backend/internal/provider/sonarr"
 	"subtitle-ui/backend/internal/provider/subhd"
 	"subtitle-ui/backend/internal/scanner"
@@ -34,6 +35,10 @@ const (
 	settingSonarrEnabled   = "sonarr.enabled"
 	settingSonarrURL       = "sonarr.url"
 	settingSonarrAPIKey    = "sonarr.api_key"
+	settingJellyfinEnabled = "jellyfin.enabled"
+	settingJellyfinURL     = "jellyfin.url"
+	settingJellyfinAPIKey  = "jellyfin.api_key"
+	settingJellyfinPathMap = "jellyfin.path_map"
 )
 
 type scanStatus struct {
@@ -53,6 +58,9 @@ type Service struct {
 
 	sonarrMu sync.RWMutex
 	sonarr   *sonarr.Client
+
+	jellyfinMu sync.RWMutex
+	jellyfin   *jellyfin.Client
 
 	scanRunMu sync.Mutex
 	scan      scanStatus
@@ -108,11 +116,27 @@ func NewService(cfg config.Config) (*Service, error) {
 		}),
 		remuxSem: make(chan struct{}, 2),
 	}
+	{
+		var maps []jellyfin.PathMap
+		if parsed, err := jellyfin.ParsePathMaps(cfg.JellyfinPathMap); err == nil {
+			maps = parsed
+		}
+		svc.jellyfin = jellyfin.New(jellyfin.Options{
+			Enabled:  cfg.JellyfinEnabled,
+			BaseURL:  cfg.JellyfinURL,
+			APIKey:   cfg.JellyfinAPIKey,
+			PathMaps: maps,
+		})
+	}
 	if err := svc.applyStoredSubHDConfig(); err != nil {
 		_ = st.Close()
 		return nil, err
 	}
 	if err := svc.applyStoredSonarrConfig(); err != nil {
+		_ = st.Close()
+		return nil, err
+	}
+	if err := svc.applyStoredJellyfinConfig(); err != nil {
 		_ = st.Close()
 		return nil, err
 	}

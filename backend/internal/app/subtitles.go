@@ -377,6 +377,7 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 		)
 	}
 
+	s.notifyJellyfinAfterSubtitleChange(updatedVideo.ID)
 	return updatedSub, nil
 }
 
@@ -423,6 +424,7 @@ func (s *Service) ConvertSubtitleToASS(videoID string, subtitleID string, option
 		fmt.Sprintf("generated from %s", existing.FileName),
 	)
 
+	s.notifyJellyfinAfterSubtitleChange(updatedVideo.ID)
 	return updatedSub, nil
 }
 
@@ -537,6 +539,7 @@ func (s *Service) OffsetSubtitleTiming(videoID string, subtitleID string, option
 		fmt.Sprintf("offset_ms=%d", offsetMS),
 	)
 
+	s.notifyJellyfinAfterSubtitleChange(updatedVideo.ID)
 	return updatedSub, nil
 }
 
@@ -571,6 +574,7 @@ func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {
 	}
 
 	s.recordOp("delete", videoID, existing.Path, backupPath, "ok", "")
+	s.notifyJellyfinAfterSubtitleChange(videoID)
 	return nil
 }
 

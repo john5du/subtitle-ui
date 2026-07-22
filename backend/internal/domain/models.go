@@ -123,6 +123,23 @@ type SonarrConfigUpdate struct {
 	APIKey  string `json:"apiKey"`
 }
 
+// JellyfinConfig is effective Jellyfin notify settings (DB overrides env).
+type JellyfinConfig struct {
+	Enabled   bool      `json:"enabled"`
+	URL       string    `json:"url"`
+	APIKey    string    `json:"apiKey"`
+	PathMap   string    `json:"pathMap"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// JellyfinConfigUpdate is the PUT body for Jellyfin settings.
+type JellyfinConfigUpdate struct {
+	Enabled bool   `json:"enabled"`
+	URL     string `json:"url"`
+	APIKey  string `json:"apiKey"`
+	PathMap string `json:"pathMap"`
+}
+
 type ScanDirectory struct {
 	ID                string `json:"id"`
 	Path              string `json:"path"`

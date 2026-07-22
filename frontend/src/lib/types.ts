@@ -207,6 +207,14 @@ export interface SonarrConfig {
   updatedAt?: string;
 }
 
+export interface JellyfinConfig {
+  enabled: boolean;
+  url: string;
+  apiKey: string;
+  pathMap: string;
+  updatedAt?: string;
+}
+
 export interface BatchSubtitleUploadResult {
   total: number;
   success: number;

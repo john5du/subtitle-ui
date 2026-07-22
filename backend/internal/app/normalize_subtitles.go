@@ -350,6 +350,8 @@ func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.Subt
 		}
 		if _, _, err := s.refreshVideoSubtitles(videoID, "", overrides); err != nil {
 			s.recordOp("normalize", videoID, "", "", "error", "refresh after rename: "+err.Error())
+		} else {
+			s.notifyJellyfinAfterSubtitleChange(videoID)
 		}
 		// Keep in-memory map fresh for later items in multi-video batches.
 		if loaded, found := s.GetVideo(videoID); found {

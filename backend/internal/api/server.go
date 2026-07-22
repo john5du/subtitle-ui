@@ -40,6 +40,7 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	s.mux.HandleFunc("/api/config/subtitle-conversion", s.handleSubtitleConversionConfig)
 	s.mux.HandleFunc("/api/config/subhd", s.handleSubHDConfig)
 	s.mux.HandleFunc("/api/config/sonarr", s.handleSonarrConfig)
+	s.mux.HandleFunc("/api/config/jellyfin", s.handleJellyfinConfig)
 	s.mux.HandleFunc("/api/videos", s.handleVideos)
 	s.mux.HandleFunc("/api/tv/series", s.handleTVSeries)
 	s.mux.HandleFunc("/api/tv/series/completeness", s.handleTVSeriesCompleteness)

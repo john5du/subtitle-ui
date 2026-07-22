@@ -5,7 +5,7 @@ import { Eye, EyeOff, RotateCcw, Save } from "lucide-react";
 
 import { useI18n, type Locale, type MessageKey } from "@/lib/i18n";
 import { emitToast } from "@/lib/toast";
-import type { SonarrConfig, SubHDConfig, SubtitleConversionConfig, SubtitleSourceEncoding } from "@/lib/types";
+import type { JellyfinConfig, SonarrConfig, SubHDConfig, SubtitleConversionConfig, SubtitleSourceEncoding } from "@/lib/types";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -555,6 +555,189 @@ export function SonarrSettingsPanel() {
           saving={saving}
           disabled={loading || saving}
           label={t("sonarr.saveSettings")}
+          savingLabel={t("common.saving")}
+          onClick={() => void saveConfig()}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function JellyfinSettingsPanel() {
+  const { t } = useI18n();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [draftEnabled, setDraftEnabled] = useState(false);
+  const [draftUrl, setDraftUrl] = useState("");
+  const [draftApiKey, setDraftApiKey] = useState("");
+  const [draftPathMap, setDraftPathMap] = useState("");
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadConfig() {
+      setLoading(true);
+      setError("");
+      try {
+        const next = await requestPayload<JellyfinConfig>("/api/config/jellyfin");
+        if (cancelled) {
+          return;
+        }
+        setDraftEnabled(Boolean(next.enabled));
+        setDraftUrl(next.url || "");
+        setDraftApiKey(next.apiKey || "");
+        setDraftPathMap(next.pathMap || "");
+      } catch (loadError) {
+        if (cancelled) {
+          return;
+        }
+        const message = loadError instanceof Error ? loadError.message : String(loadError);
+        setError(message);
+        emitToast({
+          level: "error",
+          message: t("jellyfin.settingsLoadFailed"),
+          detail: message
+        });
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, [t]);
+
+  async function saveConfig() {
+    setSaving(true);
+    setError("");
+    try {
+      const next = await requestPayload<JellyfinConfig>("/api/config/jellyfin", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: draftEnabled,
+          url: draftUrl.trim(),
+          apiKey: draftApiKey.trim(),
+          pathMap: draftPathMap.trim()
+        })
+      });
+      setDraftEnabled(Boolean(next.enabled));
+      setDraftUrl(next.url || "");
+      setDraftApiKey(next.apiKey || "");
+      setDraftPathMap(next.pathMap || "");
+      emitToast({
+        level: "success",
+        message: t("jellyfin.settingsSavedTitle")
+      });
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : String(saveError);
+      setError(message);
+      emitToast({
+        level: "error",
+        message: t("jellyfin.settingsSaveFailed"),
+        detail: message
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="surface-panel space-y-4 p-3 sm:p-4">
+      <p className="text-sm text-muted-foreground">{t("jellyfin.settingsDescription")}</p>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("jellyfin.enabled")}</p>
+          <Switch
+            checked={draftEnabled}
+            onCheckedChange={setDraftEnabled}
+            disabled={loading || saving}
+            aria-label={t("jellyfin.enabled")}
+            title={draftEnabled ? t("jellyfin.enabledOn") : t("jellyfin.enabledOff")}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("jellyfin.url")}</p>
+          <Input
+            size="sm"
+            value={draftUrl}
+            placeholder={t("jellyfin.urlPlaceholder")}
+            disabled={loading || saving || !draftEnabled}
+            onChange={(event) => {
+              setDraftUrl(event.target.value);
+              setError("");
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("jellyfin.apiKey")}</p>
+        <div className="relative">
+          <Input
+            size="sm"
+            type={apiKeyVisible ? "text" : "password"}
+            autoComplete="off"
+            value={draftApiKey}
+            placeholder={t("jellyfin.apiKeyPlaceholder")}
+            disabled={loading || saving || !draftEnabled}
+            className="pr-10"
+            onChange={(event) => {
+              setDraftApiKey(event.target.value);
+              setError("");
+            }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-0.5 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            disabled={loading || saving || !draftEnabled}
+            onClick={() => setApiKeyVisible((prev) => !prev)}
+            aria-label={apiKeyVisible ? t("common.hide") : t("common.show")}
+            title={apiKeyVisible ? t("common.hide") : t("common.show")}
+          >
+            {apiKeyVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">{t("jellyfin.apiKeyHint")}</p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("jellyfin.pathMap")}</p>
+        <Input
+          size="sm"
+          value={draftPathMap}
+          placeholder={t("jellyfin.pathMapPlaceholder")}
+          disabled={loading || saving || !draftEnabled}
+          onChange={(event) => {
+            setDraftPathMap(event.target.value);
+            setError("");
+          }}
+        />
+        <p className="text-xs text-muted-foreground">{t("jellyfin.pathMapHint")}</p>
+      </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <SpinnerIcon className="h-4 w-4" />
+        </div>
+      )}
+      {error && <p className="break-words text-sm text-destructive">{error}</p>}
+
+      <div className="flex justify-end">
+        <SaveSettingsButton
+          saving={saving}
+          disabled={loading || saving}
+          label={t("jellyfin.saveSettings")}
           savingLabel={t("common.saving")}
           onClick={() => void saveConfig()}
         />
