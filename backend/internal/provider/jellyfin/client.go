@@ -316,6 +316,7 @@ func (c *Client) RefreshItem(ctx context.Context, itemID string) error {
 }
 
 // StreamResponse is a live Jellyfin video stream (caller must Close Body).
+// StatusCode may be 2xx, 404, or 416 (media-relevant responses are passed through).
 type StreamResponse struct {
 	StatusCode int
 	Header     http.Header
@@ -324,7 +325,8 @@ type StreamResponse struct {
 
 // OpenVideoStream opens a static direct stream for an item (no transcoding, no play reporting).
 // method should be GET or HEAD. rangeHeader is optional "bytes=…" from the browser.
-// Body is non-nil for successful responses; caller must Close it.
+// Body is non-nil when err is nil; caller must Close it.
+// Media-relevant statuses (2xx, 404, 416) are returned as StreamResponse so the API proxy can pass them through.
 func (c *Client) OpenVideoStream(ctx context.Context, method, itemID, rangeHeader string) (*StreamResponse, error) {
 	if !c.Enabled() {
 		return nil, ErrDisabled
@@ -345,7 +347,6 @@ func (c *Client) OpenVideoStream(ctx context.Context, method, itemID, rangeHeade
 
 	q := url.Values{}
 	q.Set("static", "true")
-	q.Set("Static", "true")
 	streamURL := c.baseURL + "/Videos/" + url.PathEscape(itemID) + "/stream?" + q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, method, streamURL, nil)
@@ -357,14 +358,13 @@ func (c *Client) OpenVideoStream(ctx context.Context, method, itemID, rangeHeade
 		req.Header.Set("Range", rangeHeader)
 	}
 
-	// Streaming: no overall client timeout; rely on ctx cancel when the browser disconnects.
-	hc := &http.Client{Timeout: 0}
-	resp, err := hc.Do(req)
+	// Streaming must not use the API client's overall Timeout; reuse its Transport/Jar/redirect policy.
+	resp, err := c.streamHTTPClient().Do(req)
 	if err != nil {
 		log.Printf("jellyfin stream network failed itemId=%s err=%v", itemID, err)
 		return nil, err
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if !isPassThroughStreamStatus(resp.StatusCode) {
 		defer resp.Body.Close()
 		sample, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		msg := jellyfinHTTPError(resp.StatusCode, truncate(string(sample), 200))
@@ -376,6 +376,33 @@ func (c *Client) OpenVideoStream(ctx context.Context, method, itemID, rangeHeade
 		Header:     resp.Header.Clone(),
 		Body:       resp.Body,
 	}, nil
+}
+
+// streamHTTPClient returns a client that shares the configured Transport but has no overall timeout
+// (long Range transfers rely on request context cancellation when the browser disconnects).
+func (c *Client) streamHTTPClient() *http.Client {
+	base := c.client
+	if base == nil {
+		return &http.Client{Timeout: 0}
+	}
+	return &http.Client{
+		Transport:     base.Transport,
+		CheckRedirect: base.CheckRedirect,
+		Jar:           base.Jar,
+		Timeout:       0,
+	}
+}
+
+func isPassThroughStreamStatus(code int) bool {
+	if code >= 200 && code < 300 {
+		return true
+	}
+	switch code {
+	case http.StatusNotFound, http.StatusRequestedRangeNotSatisfiable:
+		return true
+	default:
+		return false
+	}
 }
 
 // FindItemIDByPath looks up a Movie/Episode id by filesystem path.

@@ -655,6 +655,7 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var itemsHits int
 	jf := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("X-Emby-Token") != "jf-key" && !strings.Contains(r.Header.Get("Authorization"), "jf-key") {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -662,12 +663,17 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 		}
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/Items":
+			itemsHits++
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"Items": []map[string]string{
 					{"Id": "item-clip", "Path": videoPath},
 				},
 			})
 		case strings.HasPrefix(r.URL.Path, "/Videos/") && strings.HasSuffix(r.URL.Path, "/stream"):
+			if !strings.Contains(r.URL.Path, "/Videos/item-clip/") {
+				http.NotFound(w, r)
+				return
+			}
 			if r.Header.Get("Range") == "bytes=0-3" {
 				w.Header().Set("Content-Type", "video/mp4")
 				w.Header().Set("Content-Range", "bytes 0-3/20")
@@ -739,6 +745,9 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 	if ticketBody.Ticket == "" {
 		t.Fatal("empty ticket")
 	}
+	if itemsHits != 1 {
+		t.Fatalf("expected 1 /Items lookup when issuing ticket, got %d", itemsHits)
+	}
 
 	// Stream without ticket
 	noTicket := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/stream", nil)
@@ -775,6 +784,9 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 	}
 	if cr := rangeRec.Header().Get("Content-Range"); !strings.HasPrefix(cr, "bytes 0-3/") {
 		t.Fatalf("content-range %q", cr)
+	}
+	if itemsHits != 1 {
+		t.Fatalf("stream/Range must not re-query /Items, hits=%d", itemsHits)
 	}
 }
 

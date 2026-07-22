@@ -169,6 +169,7 @@ func TestPing(t *testing.T) {
 
 func TestOpenVideoStreamStaticAndRange(t *testing.T) {
 	payload := []byte("0123456789abcdefghij")
+	var viaCustomTransport atomic.Bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !authOK(r, "test-key") {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -178,15 +179,24 @@ func TestOpenVideoStreamStaticAndRange(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		if r.URL.Query().Get("static") != "true" && r.URL.Query().Get("Static") != "true" {
+		if r.URL.Query().Get("static") != "true" {
 			http.Error(w, "expected static=true", http.StatusBadRequest)
 			return
 		}
-		if r.Header.Get("Range") == "bytes=0-3" {
+		if _, ok := r.URL.Query()["Static"]; ok {
+			http.Error(w, "unexpected Static query", http.StatusBadRequest)
+			return
+		}
+		switch r.Header.Get("Range") {
+		case "bytes=0-3":
 			w.Header().Set("Content-Type", "video/mp4")
 			w.Header().Set("Content-Range", "bytes 0-3/20")
 			w.WriteHeader(http.StatusPartialContent)
 			_, _ = w.Write(payload[:4])
+			return
+		case "bytes=999-1000":
+			w.Header().Set("Content-Range", "bytes */20")
+			w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
 			return
 		}
 		w.Header().Set("Content-Type", "video/mp4")
@@ -195,10 +205,20 @@ func TestOpenVideoStreamStaticAndRange(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
+	baseTransport := srv.Client().Transport
+	if baseTransport == nil {
+		baseTransport = http.DefaultTransport
+	}
 	c := jellyfin.New(jellyfin.Options{
 		Enabled: true,
 		BaseURL: srv.URL,
 		APIKey:  "test-key",
+		HTTPClient: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				viaCustomTransport.Store(true)
+				return baseTransport.RoundTrip(req)
+			}),
+		},
 	})
 	full, err := c.OpenVideoStream(context.Background(), http.MethodGet, "item-1", "")
 	if err != nil {
@@ -211,6 +231,9 @@ func TestOpenVideoStreamStaticAndRange(t *testing.T) {
 	body, _ := io.ReadAll(full.Body)
 	if string(body) != string(payload) {
 		t.Fatalf("body %q", body)
+	}
+	if !viaCustomTransport.Load() {
+		t.Fatal("expected OpenVideoStream to use Options.HTTPClient transport")
 	}
 
 	partial, err := c.OpenVideoStream(context.Background(), http.MethodGet, "item-1", "bytes=0-3")
@@ -225,7 +248,20 @@ func TestOpenVideoStreamStaticAndRange(t *testing.T) {
 	if string(body) != string(payload[:4]) {
 		t.Fatalf("range body %q", body)
 	}
+
+	unsat, err := c.OpenVideoStream(context.Background(), http.MethodGet, "item-1", "bytes=999-1000")
+	if err != nil {
+		t.Fatalf("416 should pass through, got err %v", err)
+	}
+	defer unsat.Body.Close()
+	if unsat.StatusCode != http.StatusRequestedRangeNotSatisfiable {
+		t.Fatalf("status %d", unsat.StatusCode)
+	}
 }
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestValidatePathMaps(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -7,6 +7,21 @@ import (
 	"strings"
 )
 
+var streamResponseHopHeaders = map[string]struct{}{
+	"Connection":           {},
+	"Keep-Alive":           {},
+	"Proxy-Authenticate":   {},
+	"Proxy-Authorization":  {},
+	"Te":                   {},
+	"Trailers":             {},
+	"Transfer-Encoding":    {},
+	"Upgrade":              {},
+	"Set-Cookie":           {},
+	"Authorization":        {},
+	"X-Emby-Token":         {},
+	"X-Mediabrowser-Token": {},
+}
+
 func (s *Server) handleStreamTicket(w http.ResponseWriter, r *http.Request, videoID string) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -27,7 +42,8 @@ func (s *Server) handleVideoStream(w http.ResponseWriter, r *http.Request, video
 	}
 
 	ticket := strings.TrimSpace(r.URL.Query().Get("ticket"))
-	if err := s.service.ValidateStreamTicket(videoID, ticket); err != nil {
+	claims, err := s.service.ValidateStreamTicket(videoID, ticket)
+	if err != nil {
 		writeError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
@@ -37,7 +53,8 @@ func (s *Server) handleVideoStream(w http.ResponseWriter, r *http.Request, video
 	w.Header().Add("Access-Control-Expose-Headers", "Accept-Ranges, Content-Range, Content-Length, Content-Type")
 
 	rangeHeader := r.Header.Get("Range")
-	upstream, err := s.service.OpenJellyfinVideoStream(r.Context(), videoID, r.Method, rangeHeader)
+	// Item id comes from the signed ticket — no path→item lookup on Range/seek.
+	upstream, err := s.service.OpenJellyfinVideoStream(r.Context(), claims.ItemID, r.Method, rangeHeader)
 	if err != nil {
 		s.writeAppError(w, err)
 		return
@@ -56,7 +73,7 @@ func (s *Server) handleVideoStream(w http.ResponseWriter, r *http.Request, video
 	}
 	if _, err := io.Copy(w, upstream.Body); err != nil {
 		// Client gone or upstream cut; avoid double-writing error after headers.
-		log.Printf("stream proxy copy failed videoID=%s err=%v", videoID, err)
+		log.Printf("stream proxy copy failed videoID=%s itemID=%s err=%v", videoID, claims.ItemID, err)
 	}
 }
 
@@ -64,24 +81,9 @@ func copyStreamResponseHeaders(w http.ResponseWriter, src http.Header) {
 	if src == nil {
 		return
 	}
-	// Hop-by-hop and auth must not leak to the browser.
-	skip := map[string]struct{}{
-		"Connection":           {},
-		"Keep-Alive":           {},
-		"Proxy-Authenticate":   {},
-		"Proxy-Authorization":  {},
-		"Te":                   {},
-		"Trailers":             {},
-		"Transfer-Encoding":    {},
-		"Upgrade":              {},
-		"Set-Cookie":           {},
-		"Authorization":        {},
-		"X-Emby-Token":         {},
-		"X-Mediabrowser-Token": {},
-	}
 	for key, values := range src {
 		ck := http.CanonicalHeaderKey(key)
-		if _, ok := skip[ck]; ok {
+		if _, ok := streamResponseHopHeaders[ck]; ok {
 			continue
 		}
 		for _, v := range values {

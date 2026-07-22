@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, PlugZap, RotateCcw, Save } from "lucide-react";
 
+import { setJellyfinEnabledCache } from "@/hooks/use-jellyfin-enabled";
 import { useI18n, type Locale, type MessageKey } from "@/lib/i18n";
 import { emitToast } from "@/lib/toast";
 import type {
@@ -723,6 +724,7 @@ export function JellyfinSettingsPanel() {
       setDraftUrl(next.url || "");
       setDraftApiKey(next.apiKey || "");
       setDraftPathMap(next.pathMap || "");
+      setJellyfinEnabledCache(Boolean(next.enabled));
       emitToast({
         level: "success",
         message: t("jellyfin.settingsSavedTitle")

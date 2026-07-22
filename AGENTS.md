@@ -30,8 +30,9 @@ cd frontend && bun run build   # static export → frontend/out
 - Video stream preview (ArtPlayer UI; requires Jellyfin enabled):
   - UI play-preview button only when Jellyfin is enabled (no local file/ffmpeg remux)
   - `POST /api/videos/{id}/stream-ticket` (Bearer) → `{ ticket, expiresAt, url }` (503 if Jellyfin off / item not found)
-  - `GET /api/videos/{id}/stream?ticket=` (public; ticket-auth only) proxies Jellyfin `GET /Videos/{itemId}/stream?static=true` with Range
-  - Path → item via `FindItemIDByPath` + `JELLYFIN_PATH_MAP`; no playback progress reporting
+  - Ticket is signed `v1.videoID.itemID.exp.nonce.mac` (item resolved once via `FindItemIDByPath` + `JELLYFIN_PATH_MAP`)
+  - `GET /api/videos/{id}/stream?ticket=` (public; ticket-auth only) proxies Jellyfin `GET /Videos/{itemId}/stream?static=true` with Range using **item id from ticket** (no per-Range path lookup)
+  - Upstream media statuses 2xx / 404 / 416 are passed through; no playback progress reporting
   - `STREAM_TICKET_SECRET` (optional; else AdminToken), `STREAM_TICKET_TTL` (default 15m)
 - SubHD auto-download (backend, default **on**):
   - Env bootstrap: `SUBHD_ENABLED=false` to disable; `SUBHD_BASE_URL`; `SUBHD_PROXY=socks5://host:port`

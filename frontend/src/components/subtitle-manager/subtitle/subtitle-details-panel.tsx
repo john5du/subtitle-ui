@@ -77,14 +77,14 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
 ) {
   const { t } = useI18n();
   const isMdUp = useMediaQuery("(min-width: 768px)", true);
-  const { enabled: jellyfinEnabled } = useJellyfinEnabled();
+  const { enabled: jellyfinEnabled, loaded: jellyfinLoaded } = useJellyfinEnabled();
   const [flashSubtitleList, setFlashSubtitleList] = useState(false);
   const [metaExpanded, setMetaExpanded] = useState(!metaCollapsedByDefault);
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [playPreviewOpen, setPlayPreviewOpen] = useState(false);
   const showHeader = showPanelTitle || showBack || (Boolean(selectedVideo) && !embedded);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
-  const canPlayPreview = jellyfinEnabled && Boolean(selectedVideo);
+  const canPlayPreview = jellyfinLoaded && jellyfinEnabled && Boolean(selectedVideo);
   const useCardLayout = !isMdUp;
 
   function triggerSubtitleListFlash() {

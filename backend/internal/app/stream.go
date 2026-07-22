@@ -22,14 +22,23 @@ import (
 
 const (
 	streamTicketVersion = "v1"
-	streamTicketParts   = 5 // v1|videoID|exp|nonce|mac
+	// v1.videoID.itemID.exp.nonce.mac
+	streamTicketParts = 6
 )
 
 // StreamTicket is a short-lived grant to stream one video without Bearer auth.
+// The signed ticket embeds the Jellyfin item id so Range requests do not re-resolve paths.
 type StreamTicket struct {
 	Ticket    string    `json:"ticket"`
 	ExpiresAt time.Time `json:"expiresAt"`
 	URL       string    `json:"url"`
+}
+
+// StreamTicketClaims is the verified payload of a stream ticket.
+type StreamTicketClaims struct {
+	VideoID string
+	ItemID  string
+	ExpUnix int64
 }
 
 var (
@@ -39,6 +48,7 @@ var (
 
 // IssueStreamTicket issues a ticket for Jellyfin-proxied preview streaming.
 // Requires Jellyfin enabled and a resolvable library item for the video path.
+// The Jellyfin item id is embedded in the ticket (signed) so stream GETs skip path lookup.
 func (s *Service) IssueStreamTicket(ctx context.Context, videoID string) (StreamTicket, error) {
 	videoID = strings.TrimSpace(videoID)
 	if videoID == "" {
@@ -52,11 +62,16 @@ func (s *Service) IssueStreamTicket(ctx context.Context, videoID string) (Stream
 	if err != nil {
 		return StreamTicket{}, err
 	}
-	if _, err := client.FindItemIDByPath(ctx, video.Path); err != nil {
+	itemID, err := client.FindItemIDByPath(ctx, video.Path)
+	if err != nil {
 		if errors.Is(err, jellyfin.ErrDisabled) {
 			return StreamTicket{}, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
 		}
-		return StreamTicket{}, fmt.Errorf("%w: jellyfin item: %v", ErrNotFound, err)
+		return StreamTicket{}, fmt.Errorf("%w: jellyfin item: %w", ErrNotFound, err)
+	}
+	itemID = strings.TrimSpace(itemID)
+	if itemID == "" || strings.Contains(itemID, ".") {
+		return StreamTicket{}, fmt.Errorf("%w: jellyfin item id invalid", ErrNotFound)
 	}
 
 	ttl := s.cfg.StreamTicketTTL
@@ -68,7 +83,7 @@ func (s *Service) IssueStreamTicket(ctx context.Context, videoID string) (Stream
 	if err != nil {
 		return StreamTicket{}, err
 	}
-	ticket, err := s.signStreamTicket(videoID, exp.Unix(), nonce)
+	ticket, err := s.signStreamTicket(videoID, itemID, exp.Unix(), nonce)
 	if err != nil {
 		return StreamTicket{}, err
 	}
@@ -99,86 +114,92 @@ func (s *Service) ResolveVideoForStream(videoID string) (domain.Video, error) {
 	return video, nil
 }
 
-// OpenJellyfinVideoStream resolves the video to a Jellyfin item and opens a static stream.
-// Caller must Close the returned Body.
-func (s *Service) OpenJellyfinVideoStream(ctx context.Context, videoID, method, rangeHeader string) (*jellyfin.StreamResponse, error) {
+// OpenJellyfinVideoStream opens a static Jellyfin stream for a known item id (from a verified ticket).
+// Does not re-resolve path → item. Caller must Close the returned Body.
+func (s *Service) OpenJellyfinVideoStream(ctx context.Context, itemID, method, rangeHeader string) (*jellyfin.StreamResponse, error) {
 	client := s.jellyfinClient()
 	if client == nil || !client.Enabled() {
 		return nil, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
 	}
-	video, err := s.ResolveVideoForStream(videoID)
-	if err != nil {
-		return nil, err
+	itemID = strings.TrimSpace(itemID)
+	if itemID == "" {
+		return nil, fmt.Errorf("%w: jellyfin item id required", ErrBadRequest)
 	}
-	itemID, err := client.FindItemIDByPath(ctx, video.Path)
+	resp, err := client.OpenVideoStream(ctx, method, itemID, rangeHeader)
 	if err != nil {
 		if errors.Is(err, jellyfin.ErrDisabled) {
 			return nil, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
 		}
-		return nil, fmt.Errorf("%w: jellyfin item: %v", ErrNotFound, err)
-	}
-	resp, err := client.OpenVideoStream(ctx, method, itemID, rangeHeader)
-	if err != nil {
 		return nil, fmt.Errorf("jellyfin stream: %w", err)
 	}
 	return resp, nil
 }
 
-func (s *Service) ValidateStreamTicket(videoID string, ticket string) error {
+// ValidateStreamTicket verifies the ticket for videoID and returns signed claims (including item id).
+func (s *Service) ValidateStreamTicket(videoID string, ticket string) (StreamTicketClaims, error) {
 	videoID = strings.TrimSpace(videoID)
 	ticket = strings.TrimSpace(ticket)
 	if videoID == "" || ticket == "" {
-		return ErrStreamTicketInvalid
+		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
 	parts := strings.Split(ticket, ".")
 	if len(parts) != streamTicketParts {
-		return ErrStreamTicketInvalid
+		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
 	if parts[0] != streamTicketVersion {
-		return ErrStreamTicketInvalid
+		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
 	if parts[1] != videoID {
-		return ErrStreamTicketInvalid
+		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
-	expUnix, err := strconv.ParseInt(parts[2], 10, 64)
+	itemID := parts[2]
+	if itemID == "" || strings.Contains(itemID, ".") {
+		return StreamTicketClaims{}, ErrStreamTicketInvalid
+	}
+	expUnix, err := strconv.ParseInt(parts[3], 10, 64)
 	if err != nil || expUnix <= 0 {
-		return ErrStreamTicketInvalid
+		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
 	if time.Now().UTC().Unix() > expUnix {
-		return ErrStreamTicketExpired
+		return StreamTicketClaims{}, ErrStreamTicketExpired
 	}
-	nonce := parts[3]
-	macHex := parts[4]
-	expected, err := s.streamTicketMAC(videoID, expUnix, nonce)
+	nonce := parts[4]
+	macHex := parts[5]
+	expected, err := s.streamTicketMAC(videoID, itemID, expUnix, nonce)
 	if err != nil {
-		return ErrStreamTicketInvalid
+		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
 	if !hmac.Equal([]byte(macHex), []byte(expected)) {
-		return ErrStreamTicketInvalid
+		return StreamTicketClaims{}, ErrStreamTicketInvalid
 	}
-	return nil
+	return StreamTicketClaims{
+		VideoID: videoID,
+		ItemID:  itemID,
+		ExpUnix: expUnix,
+	}, nil
 }
 
-func (s *Service) signStreamTicket(videoID string, expUnix int64, nonce string) (string, error) {
-	mac, err := s.streamTicketMAC(videoID, expUnix, nonce)
+func (s *Service) signStreamTicket(videoID, itemID string, expUnix int64, nonce string) (string, error) {
+	mac, err := s.streamTicketMAC(videoID, itemID, expUnix, nonce)
 	if err != nil {
 		return "", err
 	}
 	return strings.Join([]string{
 		streamTicketVersion,
 		videoID,
+		itemID,
 		strconv.FormatInt(expUnix, 10),
 		nonce,
 		mac,
 	}, "."), nil
 }
 
-func (s *Service) streamTicketMAC(videoID string, expUnix int64, nonce string) (string, error) {
+func (s *Service) streamTicketMAC(videoID, itemID string, expUnix int64, nonce string) (string, error) {
 	secret := s.streamTicketSecret()
 	if secret == "" {
 		return "", fmt.Errorf("%w: stream ticket secret empty", ErrBadRequest)
 	}
-	payload := streamTicketVersion + "|" + videoID + "|" + strconv.FormatInt(expUnix, 10) + "|" + nonce
+	payload := streamTicketVersion + "|" + videoID + "|" + itemID + "|" + strconv.FormatInt(expUnix, 10) + "|" + nonce
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(payload))
 	return hex.EncodeToString(mac.Sum(nil)), nil

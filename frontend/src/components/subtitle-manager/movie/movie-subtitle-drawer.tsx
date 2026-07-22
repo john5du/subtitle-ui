@@ -73,13 +73,13 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   ref
 ) {
   const { t } = useI18n();
-  const { enabled: jellyfinEnabled } = useJellyfinEnabled();
+  const { enabled: jellyfinEnabled, loaded: jellyfinLoaded } = useJellyfinEnabled();
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [normalizeOpen, setNormalizeOpen] = useState(false);
   const [normalizeScope, setNormalizeScope] = useState<NormalizeDialogScope | null>(null);
   const [playPreviewOpen, setPlayPreviewOpen] = useState(false);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
-  const canPlayPreview = jellyfinEnabled && Boolean(selectedVideo);
+  const canPlayPreview = jellyfinLoaded && jellyfinEnabled && Boolean(selectedVideo);
 
   const workflow = useSubtitleFileWorkflow({
     selectedVideo,
