@@ -13,19 +13,22 @@ import (
 	"subtitle-ui/backend/internal/provider/jellyfin"
 )
 
+func authOK(r *http.Request, key string) bool {
+	if r.Header.Get("X-Emby-Token") == key {
+		return true
+	}
+	return strings.Contains(r.Header.Get("Authorization"), `Token="`+key+`"`)
+}
+
 func TestReportMediaUpdatedAndFallbackRefresh(t *testing.T) {
 	var mediaUpdated atomic.Int32
 	var refresh atomic.Int32
 	var items atomic.Int32
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := r.Header.Get("X-Emby-Token")
-		if token != "test-key" {
-			// also accept Authorization
-			if !strings.Contains(r.Header.Get("Authorization"), "test-key") {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
+		if !authOK(r, "test-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
 		}
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/Library/Media/Updated":
@@ -136,8 +139,13 @@ func TestDisabledNotify(t *testing.T) {
 
 func TestPing(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-Emby-Token") != "test-key" {
+		auth := r.Header.Get("Authorization")
+		if !strings.Contains(auth, `Token="test-key"`) && r.Header.Get("X-Emby-Token") != "test-key" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if !strings.Contains(auth, "MediaBrowser") || !strings.Contains(auth, "Client=") {
+			http.Error(w, "missing full MediaBrowser auth", http.StatusUnauthorized)
 			return
 		}
 		if r.Method == http.MethodGet && r.URL.Path == "/System/Info" {

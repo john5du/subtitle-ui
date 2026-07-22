@@ -450,7 +450,7 @@ func (c *Client) getJSON(ctx context.Context, path string, query url.Values, des
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		sample := truncate(string(body), 200)
 		log.Printf("jellyfin GET failed path=%s status=%s bodySample=%q", path, resp.Status, sample)
-		return fmt.Errorf("jellyfin GET %s: %s: %s", path, resp.Status, sample)
+		return fmt.Errorf("jellyfin GET %s: %s", path, jellyfinHTTPError(resp.StatusCode, sample))
 	}
 	if dest == nil {
 		return nil
@@ -496,7 +496,7 @@ func (c *Client) postJSON(ctx context.Context, path string, payload any, dest an
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		sample := truncate(string(body), 200)
 		log.Printf("jellyfin POST failed path=%s status=%s bodySample=%q", path, resp.Status, sample)
-		return fmt.Errorf("jellyfin POST %s: %s: %s", path, resp.Status, sample)
+		return fmt.Errorf("jellyfin POST %s: %s", path, jellyfinHTTPError(resp.StatusCode, sample))
 	}
 	if dest == nil || len(body) == 0 {
 		return nil
@@ -508,11 +508,52 @@ func (c *Client) postJSON(ctx context.Context, path string, payload any, dest an
 	return nil
 }
 
-func (c *Client) setAuth(req *http.Request) {
-	token := c.apiKey
-	req.Header.Set("X-Emby-Token", token)
-	req.Header.Set("Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, token))
+func jellyfinHTTPError(statusCode int, sample string) string {
+	switch statusCode {
+	case http.StatusUnauthorized:
+		msg := "401 Unauthorized (check API key; create one in Dashboard → API Keys)"
+		if sample != "" {
+			return msg + ": " + sample
+		}
+		return msg
+	case http.StatusForbidden:
+		msg := "403 Forbidden (API key lacks permission)"
+		if sample != "" {
+			return msg + ": " + sample
+		}
+		return msg
+	default:
+		if sample != "" {
+			return fmt.Sprintf("%d: %s", statusCode, sample)
+		}
+		return fmt.Sprintf("%d", statusCode)
+	}
 }
+
+func (c *Client) setAuth(req *http.Request) {
+	token := strings.TrimSpace(c.apiKey)
+	// Full MediaBrowser header is required when Jellyfin has EnableLegacyAuthorization=false
+	// (X-Emby-Token alone is ignored in that mode). Token values are URL-encoded like official clients.
+	esc := url.QueryEscape
+	req.Header.Set("Authorization", fmt.Sprintf(
+		`MediaBrowser Client="%s", Device="%s", DeviceId="%s", Version="%s", Token="%s"`,
+		esc(clientName),
+		esc(clientDevice),
+		esc(clientDeviceID),
+		esc(clientVersion),
+		esc(token),
+	))
+	// Legacy headers for older servers / EnableLegacyAuthorization=true.
+	req.Header.Set("X-Emby-Token", token)
+	req.Header.Set("X-MediaBrowser-Token", token)
+}
+
+const (
+	clientName     = "subtitle-ui"
+	clientDevice   = "subtitle-ui"
+	clientDeviceID = "subtitle-ui"
+	clientVersion  = "1.0.0"
+)
 
 func splitPathMapPair(part string) (from, to string, ok bool) {
 	// Prefer last colon that still leaves a non-empty "to" (Windows drive letters: C:/a:D:/b).
