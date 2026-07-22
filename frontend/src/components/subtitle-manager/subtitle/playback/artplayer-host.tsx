@@ -37,7 +37,6 @@ const DEFAULT_SUBTITLE_STYLE: Partial<CSSStyleDeclaration> = {
 };
 
 const DEFAULT_SUBTITLE_OPTION = {
-  type: "vtt" as const,
   encoding: "utf-8",
   escape: false,
   style: DEFAULT_SUBTITLE_STYLE
@@ -83,6 +82,7 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
   const onErrorRef = useRef(onError);
   const subtitleUrlRef = useRef(subtitleUrl);
   const subtitleNameRef = useRef(subtitleName);
+  const syncSubtitleRef = useRef<() => void>(() => {});
   onErrorRef.current = onError;
   subtitleUrlRef.current = subtitleUrl;
   subtitleNameRef.current = subtitleName;
@@ -99,7 +99,6 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
         return;
       }
 
-      const initialSubtitle = subtitleUrlRef.current;
       const ArtplayerCtor = Artplayer as typeof Artplayer & { FULLSCREEN_WEB_IN_BODY?: boolean };
       ArtplayerCtor.FULLSCREEN_WEB_IN_BODY = true;
 
@@ -129,10 +128,7 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
           playsInline: true
         },
         subtitle: {
-          ...DEFAULT_SUBTITLE_OPTION,
-          ...(initialSubtitle
-            ? { url: initialSubtitle, name: subtitleNameRef.current || "subtitle" }
-            : {})
+          ...DEFAULT_SUBTITLE_OPTION
         }
       }) as unknown as ArtInstance;
 
@@ -146,14 +142,30 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
       }
 
       artRef.current = art;
+      let mediaReady = false;
+      let appliedSubtitleUrl: string | undefined;
+
+      // The source is already WebVTT. Apply it once after metadata is ready so
+      // ArtPlayer does not race multiple short-lived Blob tracks in Safari.
+      function syncSubtitle() {
+        if (!mediaReady || generation !== generationRef.current) {
+          return;
+        }
+        const nextUrl = subtitleUrlRef.current;
+        if (nextUrl === appliedSubtitleUrl) {
+          return;
+        }
+        appliedSubtitleUrl = nextUrl;
+        applySubtitle(art, nextUrl, subtitleNameRef.current);
+      }
+      syncSubtitleRef.current = syncSubtitle;
+
       try {
         art.muted = false;
         art.volume = 1;
       } catch {
         // ignore
       }
-
-      applySubtitle(art, subtitleUrlRef.current, subtitleNameRef.current);
 
       function enableWebFullscreenFallback() {
         if (generation !== generationRef.current) {
@@ -177,12 +189,12 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
         }
       });
 
-      // Re-apply subtitle once media is ready (switch before metadata often no-ops).
       art.on("video:loadedmetadata", () => {
         if (generation !== generationRef.current) {
           return;
         }
-        applySubtitle(art, subtitleUrlRef.current, subtitleNameRef.current);
+        mediaReady = true;
+        syncSubtitle();
         try {
           art.muted = false;
           if (art.volume <= 0) {
@@ -255,6 +267,7 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
 
     return () => {
       generationRef.current += 1;
+      syncSubtitleRef.current = () => {};
       const current = artRef.current;
       artRef.current = null;
       if (current) {
@@ -268,11 +281,7 @@ export function ArtPlayerHost({ url, subtitleUrl, subtitleName, lang = "en", cla
   }, [url, lang]);
 
   useEffect(() => {
-    const art = artRef.current;
-    if (!art) {
-      return;
-    }
-    applySubtitle(art, subtitleUrl, subtitleName);
+    syncSubtitleRef.current();
   }, [subtitleUrl, subtitleName]);
 
   return (
