@@ -442,6 +442,28 @@ func TestResolvePlaybackPlanDeviceProfileJSON(t *testing.T) {
 	}
 }
 
+func TestAssessBrowserPreviewHDR(t *testing.T) {
+	sdr := jellyfin.PlaybackPlan{
+		Mode: jellyfin.PlaybackModeHLS,
+		MediaStreams: []jellyfin.PlaybackMediaStream{
+			{Type: "Video", Codec: "hevc", VideoRange: "SDR", Width: 1920, Height: 1080},
+			{Type: "Audio", Codec: "eac3"},
+		},
+	}
+	if err := jellyfin.AssessBrowserPreview(sdr); err != nil {
+		t.Fatalf("SDR should be allowed: %v", err)
+	}
+	hdr := jellyfin.PlaybackPlan{
+		Mode: jellyfin.PlaybackModeHLS,
+		MediaStreams: []jellyfin.PlaybackMediaStream{
+			{Type: "Video", Codec: "hevc", VideoRangeType: "HDR10", ColorTransfer: "smpte2084", Width: 3840, Height: 2160},
+		},
+	}
+	if err := jellyfin.AssessBrowserPreview(hdr); !errors.Is(err, jellyfin.ErrPreviewUnplayable) {
+		t.Fatalf("HDR should be blocked, got %v", err)
+	}
+}
+
 func TestResolvePlaybackPlanConfiguredUserID(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !authOK(r, "test-key") {

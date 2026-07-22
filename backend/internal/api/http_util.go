@@ -28,6 +28,9 @@ func (s *Server) writeAppError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, app.ErrProviderDisabled):
 		writeError(w, http.StatusServiceUnavailable, err.Error())
+	case errors.Is(err, app.ErrPreviewUnavailable):
+		// 422: stream path known but not playable in browser preview (e.g. HDR tonemap fail).
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
 	case errors.Is(err, app.ErrBadRequest), errors.Is(err, app.ErrInvalidFileType):
 		writeError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, app.ErrUnsafePath):

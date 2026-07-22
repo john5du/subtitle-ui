@@ -230,11 +230,16 @@ func TestIssueStreamTicketHLSKind(t *testing.T) {
 				"PlaySessionId": "ps-h",
 				"MediaSources": []map[string]any{
 					{
-						"Id":            "ms-h",
+						"Id":             "ms-h",
 						"TranscodingUrl": "/Videos/item-h/master.m3u8?MediaSourceId=ms-h&api_key=secret",
 					},
 				},
 			})
+		case r.URL.Path == "/Videos/item-h/master.m3u8":
+			_, _ = w.Write([]byte("#EXTM3U\n#EXTINF:6,\nseg0.ts\n"))
+		case r.URL.Path == "/Videos/item-h/seg0.ts":
+			w.Header().Set("Content-Type", "video/mp2t")
+			_, _ = w.Write([]byte{0x47, 0x40, 0x00, 0x10, 0x00})
 		default:
 			http.NotFound(w, r)
 		}

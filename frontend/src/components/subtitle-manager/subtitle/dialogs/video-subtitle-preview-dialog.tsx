@@ -206,8 +206,15 @@ export function VideoSubtitlePreviewDialog({
               </div>
             ) : null}
             {streamStatus === "error" ? (
-              <div className="flex h-full min-h-[16rem] items-center justify-center p-4 text-center text-sm text-destructive">
-                {t("playback.streamFailed", { error: streamError || "-" })}
+              <div className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-2 p-4 text-center text-sm text-destructive">
+                <p>
+                  {/preview unavailable|unplayable|HDR|tonemap/i.test(streamError || "")
+                    ? t("playback.streamUnplayable")
+                    : t("playback.streamFailed", { error: streamError || "-" })}
+                </p>
+                {/preview unavailable|unplayable|HDR|tonemap/i.test(streamError || "") && streamError ? (
+                  <p className="max-w-lg text-xs text-muted-foreground">{streamError}</p>
+                ) : null}
               </div>
             ) : null}
             {showPlayer ? (

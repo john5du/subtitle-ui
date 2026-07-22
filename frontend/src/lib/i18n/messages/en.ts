@@ -447,6 +447,7 @@ export const enMessages = {
   "playback.subtitleUnsupported": "This subtitle format is not supported for playback overlay.",
   "playback.streamLoading": "Preparing Jellyfin stream…",
   "playback.streamFailed": "Could not start stream: {error}",
+  "playback.streamUnplayable": "This file cannot be previewed in the browser (based on media info; often HDR/4K HDR requiring tonemap). Play in Jellyfin instead.",
   "playback.playerError": "Playback issue: {error}",
   "details.noArchiveEntries": "No subtitle entries.",
   "details.uploadingSubtitlesTitle": "Uploading subtitles",

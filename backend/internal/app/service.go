@@ -20,7 +20,9 @@ var (
 	ErrBadRequest      = errors.New("bad request")
 	ErrUnsafePath      = errors.New("unsafe path")
 	ErrInvalidFileType = errors.New("invalid subtitle file extension")
-	ErrProviderDisabled = errors.New("provider disabled")
+	ErrProviderDisabled   = errors.New("provider disabled")
+	// ErrPreviewUnavailable: Jellyfin cannot produce a browser-playable preview for this file.
+	ErrPreviewUnavailable = errors.New("preview unavailable")
 )
 
 const (

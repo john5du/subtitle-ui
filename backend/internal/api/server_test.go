@@ -845,7 +845,8 @@ func TestVideoHLSSegmentPathBinding(t *testing.T) {
 			_, _ = w.Write([]byte("#EXTM3U\n#EXTINF:6.0,\nseg0.ts\n"))
 		case r.URL.Path == "/Videos/item-hls/seg0.ts":
 			w.Header().Set("Content-Type", "video/mp2t")
-			_, _ = w.Write([]byte("TSSEG"))
+			// MPEG-TS-ish payload for verify + proxy tests
+			_, _ = w.Write([]byte{0x47, 0x40, 0x00, 0x10, 'T', 'S', 'S', 'E', 'G'})
 		case r.URL.Path == "/System/Info" || strings.HasPrefix(r.URL.Path, "/Videos/other/"):
 			forbiddenHits++
 			w.Header().Set("Content-Type", "application/json")
@@ -910,7 +911,7 @@ func TestVideoHLSSegmentPathBinding(t *testing.T) {
 	okSeg := httptest.NewRequest(http.MethodGet, "/api/videos/"+videoID+"/hls/seg?ticket="+ticketBody.Ticket+"&u="+url.QueryEscape("/Videos/item-hls/seg0.ts"), nil)
 	okRec := httptest.NewRecorder()
 	handler.ServeHTTP(okRec, okSeg)
-	if okRec.Code != http.StatusOK || okRec.Body.String() != "TSSEG" {
+	if okRec.Code != http.StatusOK || !strings.Contains(okRec.Body.String(), "TSSEG") {
 		t.Fatalf("ok seg status=%d body=%q", okRec.Code, okRec.Body.String())
 	}
 

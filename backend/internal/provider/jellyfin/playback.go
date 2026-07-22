@@ -2,6 +2,7 @@ package jellyfin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -19,6 +20,10 @@ const (
 
 const previewDeviceID = "subtitle-ui-preview"
 
+// ErrPreviewUnplayable means metadata indicates the browser preview path is not supported
+// (e.g. HDR sources that require Jellyfin tonemap). No media bytes are fetched to decide this.
+var ErrPreviewUnplayable = errors.New("preview unplayable")
+
 // PlaybackPlan is how the browser should consume a Jellyfin item for preview.
 type PlaybackPlan struct {
 	Mode          string // progressive | hls
@@ -26,6 +31,21 @@ type PlaybackPlan struct {
 	MediaSourceID string
 	// UpstreamPath is path+query on the Jellyfin base URL (no scheme/host), secrets stripped.
 	UpstreamPath string
+	// MediaStreams from PlaybackInfo (used for browser-preview capability checks).
+	MediaStreams []PlaybackMediaStream
+}
+
+// PlaybackMediaStream is a subset of Jellyfin MediaStream for preview decisions.
+type PlaybackMediaStream struct {
+	Type            string `json:"Type"`
+	Codec           string `json:"Codec"`
+	VideoRange      string `json:"VideoRange"`
+	VideoRangeType  string `json:"VideoRangeType"`
+	ColorTransfer   string `json:"ColorTransfer"`
+	Width           int    `json:"Width"`
+	Height          int    `json:"Height"`
+	IsExternal      bool   `json:"IsExternal"`
+	IsTextSubtitle  bool   `json:"IsTextSubtitleStream"`
 }
 
 type playbackInfoResponse struct {
@@ -34,11 +54,12 @@ type playbackInfoResponse struct {
 }
 
 type playbackMediaSrc struct {
-	ID                   string `json:"Id"`
-	TranscodingURL       string `json:"TranscodingUrl"`
-	SupportsDirectPlay   bool   `json:"SupportsDirectPlay"`
-	SupportsDirectStream bool   `json:"SupportsDirectStream"`
-	SupportsTranscoding  bool   `json:"SupportsTranscoding"`
+	ID                   string                `json:"Id"`
+	TranscodingURL       string                `json:"TranscodingUrl"`
+	SupportsDirectPlay   bool                  `json:"SupportsDirectPlay"`
+	SupportsDirectStream bool                  `json:"SupportsDirectStream"`
+	SupportsTranscoding  bool                  `json:"SupportsTranscoding"`
+	MediaStreams         []PlaybackMediaStream `json:"MediaStreams"`
 }
 
 // ResolvePlaybackPlan asks Jellyfin how to stream an item for browser preview.
@@ -60,8 +81,8 @@ func (c *Client) ResolvePlaybackPlan(ctx context.Context, itemID string) (Playba
 	}
 
 	// Jellyfin only applies Audio/SubtitleStreamIndex when MediaSourceId matches a source.
-	// Probe without DeviceProfile first to learn MediaSourceId, then request the plan.
-	mediaSourceID, err := c.probeMediaSourceID(ctx, itemID, userID)
+	// Probe without DeviceProfile first to learn MediaSourceId (+ streams for capability checks).
+	mediaSourceID, probeStreams, err := c.probeMediaSource(ctx, itemID, userID)
 	if err != nil {
 		return PlaybackPlan{}, err
 	}
@@ -100,13 +121,22 @@ func (c *Client) ResolvePlaybackPlan(ctx context.Context, itemID string) (Playba
 	}
 	playSessionID := strings.TrimSpace(resp.PlaySessionID)
 
+	streams := append([]PlaybackMediaStream(nil), src.MediaStreams...)
+	if len(streams) == 0 {
+		streams = append([]PlaybackMediaStream(nil), probeStreams...)
+	}
 	if up := NormalizeUpstreamPath(src.TranscodingURL); up != "" {
-		return PlaybackPlan{
+		plan := PlaybackPlan{
 			Mode:          PlaybackModeHLS,
 			PlaySessionID: playSessionID,
 			MediaSourceID: mediaSourceID,
 			UpstreamPath:  up,
-		}, nil
+			MediaStreams:  streams,
+		}
+		if err := AssessBrowserPreview(plan); err != nil {
+			return PlaybackPlan{}, err
+		}
+		return plan, nil
 	}
 
 	qStream := url.Values{}
@@ -118,16 +148,79 @@ func (c *Client) ResolvePlaybackPlan(ctx context.Context, itemID string) (Playba
 		qStream.Set("PlaySessionId", playSessionID)
 	}
 	up := "/Videos/" + url.PathEscape(itemID) + "/stream?" + qStream.Encode()
-	return PlaybackPlan{
+	plan := PlaybackPlan{
 		Mode:          PlaybackModeProgressive,
 		PlaySessionID: playSessionID,
 		MediaSourceID: mediaSourceID,
 		UpstreamPath:  up,
-	}, nil
+		MediaStreams:  streams,
+	}
+	if err := AssessBrowserPreview(plan); err != nil {
+		return PlaybackPlan{}, err
+	}
+	return plan, nil
 }
 
-// probeMediaSourceID fetches PlaybackInfo without a DeviceProfile to learn the default source id.
-func (c *Client) probeMediaSourceID(ctx context.Context, itemID, userID string) (string, error) {
+// AssessBrowserPreview uses Jellyfin MediaStreams (+ planned mode) only — no byte-range/HLS fetch.
+// Blocks paths that reliably fail in subtitle-ui's browser player (notably HDR tonemap).
+func AssessBrowserPreview(plan PlaybackPlan) error {
+	video := firstVideoStream(plan.MediaStreams)
+	if video == nil {
+		// Some PlaybackInfo responses omit streams; allow and let player fail later.
+		return nil
+	}
+	if mediaStreamIsHDR(*video) {
+		// Browser preview uses hls.js / progressive; HDR almost always needs JF tonemap
+		// (OpenCL/VAAPI), which fails on many hosts (ffmpeg 237). Do not open the player.
+		w, h := video.Width, video.Height
+		detail := strings.TrimSpace(video.VideoRangeType)
+		if detail == "" {
+			detail = strings.TrimSpace(video.VideoRange)
+		}
+		if detail == "" {
+			detail = strings.TrimSpace(video.ColorTransfer)
+		}
+		if detail == "" {
+			detail = "HDR"
+		}
+		if w > 0 && h > 0 {
+			return fmt.Errorf("%w: %s %dx%d video needs HDR tonemap (not supported for browser preview)", ErrPreviewUnplayable, detail, w, h)
+		}
+		return fmt.Errorf("%w: %s video needs HDR tonemap (not supported for browser preview)", ErrPreviewUnplayable, detail)
+	}
+	return nil
+}
+
+func firstVideoStream(streams []PlaybackMediaStream) *PlaybackMediaStream {
+	for i := range streams {
+		if strings.EqualFold(strings.TrimSpace(streams[i].Type), "Video") {
+			return &streams[i]
+		}
+	}
+	return nil
+}
+
+func mediaStreamIsHDR(s PlaybackMediaStream) bool {
+	joined := strings.ToLower(strings.Join([]string{
+		s.VideoRangeType,
+		s.VideoRange,
+		s.ColorTransfer,
+	}, " "))
+	if strings.TrimSpace(joined) == "" {
+		return false
+	}
+	for _, key := range []string{
+		"hdr10", "hdr", "hlg", "dovi", "dolby", "smpte2084", "arib-std-b67",
+	} {
+		if strings.Contains(joined, key) {
+			return true
+		}
+	}
+	return false
+}
+
+// probeMediaSource fetches PlaybackInfo without a DeviceProfile for source id + MediaStreams.
+func (c *Client) probeMediaSource(ctx context.Context, itemID, userID string) (string, []PlaybackMediaStream, error) {
 	body := map[string]any{
 		"UserId": userID,
 	}
@@ -136,17 +229,19 @@ func (c *Client) probeMediaSourceID(ctx context.Context, itemID, userID string) 
 	q.Set("UserId", userID)
 	path := "/Items/" + url.PathEscape(itemID) + "/PlaybackInfo?" + q.Encode()
 	if err := c.postJSON(ctx, path, body, &resp); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if len(resp.MediaSources) == 0 {
-		return "", fmt.Errorf("%w: no media sources", ErrItemNotFound)
+		return "", nil, fmt.Errorf("%w: no media sources", ErrItemNotFound)
 	}
-	id := strings.TrimSpace(resp.MediaSources[0].ID)
+	src := resp.MediaSources[0]
+	id := strings.TrimSpace(src.ID)
 	if id == "" {
 		// File items often use the item id as the sole media source id.
-		return itemID, nil
+		id = itemID
 	}
-	return id, nil
+	streams := append([]PlaybackMediaStream(nil), src.MediaStreams...)
+	return id, streams, nil
 }
 
 type jellyfinUserDTO struct {

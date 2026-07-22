@@ -90,6 +90,10 @@ func (s *Service) IssueStreamTicket(ctx context.Context, videoID string) (Stream
 		if errors.Is(err, jellyfin.ErrItemNotFound) {
 			return StreamTicket{}, fmt.Errorf("%w: jellyfin item: %w", ErrNotFound, err)
 		}
+		// Metadata-based preview gate (HDR etc.) — no stream probe.
+		if errors.Is(err, jellyfin.ErrPreviewUnplayable) {
+			return StreamTicket{}, fmt.Errorf("%w: %s", ErrPreviewUnavailable, err.Error())
+		}
 		return StreamTicket{}, fmt.Errorf("jellyfin playback info: %w", err)
 	}
 	if err := jellyfin.ValidateUpstreamPath(plan.UpstreamPath); err != nil {

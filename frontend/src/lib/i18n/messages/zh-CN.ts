@@ -449,6 +449,7 @@ export const zhCNMessages: MessageDictionary = {
   "playback.subtitleUnsupported": "此字幕格式暂不支持播放叠加。",
   "playback.streamLoading": "正在准备 Jellyfin 视频流…",
   "playback.streamFailed": "无法开始播放：{error}",
+  "playback.streamUnplayable": "此文件暂不支持浏览器预览（根据媒体信息判断，常见于 HDR/4K HDR，需要色调映射）。请在 Jellyfin 中播放。",
   "playback.playerError": "播放问题：{error}",
   "details.noArchiveEntries": "没有字幕条目。",
   "details.uploadingSubtitlesTitle": "正在上传字幕",
