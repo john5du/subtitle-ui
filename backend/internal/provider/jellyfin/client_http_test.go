@@ -3,9 +3,12 @@ package jellyfin_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -262,6 +265,96 @@ func TestOpenVideoStreamStaticAndRange(t *testing.T) {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestFindItemIDByPathPaginatesWithoutSearchTerm(t *testing.T) {
+	// Path on disk does not match metadata title ("Pilot"); SearchTerm would miss it.
+	targetPath := "/data/tv/Show/Season 01/Show.S01E01.mkv"
+	var pages []int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !authOK(r, "test-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodGet || r.URL.Path != "/Items" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Query().Get("SearchTerm") != "" {
+			t.Errorf("SearchTerm must not be used for path lookup, got %q", r.URL.Query().Get("SearchTerm"))
+		}
+		start, _ := strconv.Atoi(r.URL.Query().Get("StartIndex"))
+		limit, _ := strconv.Atoi(r.URL.Query().Get("Limit"))
+		if limit != 100 {
+			t.Errorf("Limit=%d want 100", limit)
+		}
+		pages = append(pages, start)
+		// Page 0: fillers only; page 100: real path match.
+		items := make([]map[string]string, 0, limit)
+		if start == 0 {
+			for i := 0; i < limit; i++ {
+				items = append(items, map[string]string{
+					"Id":   fmt.Sprintf("fill-%d", i),
+					"Path": fmt.Sprintf("/data/movies/Other%d.mkv", i),
+				})
+			}
+		} else if start == 100 {
+			items = append(items, map[string]string{
+				"Id":   "ep-pilot",
+				"Path": targetPath,
+			})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"Items": items})
+	}))
+	t.Cleanup(srv.Close)
+
+	c := jellyfin.New(jellyfin.Options{
+		Enabled:    true,
+		BaseURL:    srv.URL,
+		APIKey:     "test-key",
+		HTTPClient: srv.Client(),
+	})
+	id, err := c.FindItemIDByPath(context.Background(), targetPath)
+	if err != nil {
+		t.Fatalf("FindItemIDByPath: %v", err)
+	}
+	if id != "ep-pilot" {
+		t.Fatalf("id=%q", id)
+	}
+	if len(pages) < 2 || pages[0] != 0 || pages[1] != 100 {
+		t.Fatalf("expected paginated StartIndex 0 then 100, got %v", pages)
+	}
+}
+
+func TestFindItemIDByPathNotFoundVsUpstreamError(t *testing.T) {
+	notFoundSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !authOK(r, "test-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []any{}})
+	}))
+	t.Cleanup(notFoundSrv.Close)
+
+	c := jellyfin.New(jellyfin.Options{
+		Enabled: true, BaseURL: notFoundSrv.URL, APIKey: "test-key", HTTPClient: notFoundSrv.Client(),
+	})
+	_, err := c.FindItemIDByPath(context.Background(), "/data/movies/Missing.mkv")
+	if !errors.Is(err, jellyfin.ErrItemNotFound) {
+		t.Fatalf("expected ErrItemNotFound, got %v", err)
+	}
+
+	failSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	t.Cleanup(failSrv.Close)
+	cFail := jellyfin.New(jellyfin.Options{
+		Enabled: true, BaseURL: failSrv.URL, APIKey: "test-key", HTTPClient: failSrv.Client(),
+	})
+	_, err = cFail.FindItemIDByPath(context.Background(), "/data/movies/X.mkv")
+	if err == nil || errors.Is(err, jellyfin.ErrItemNotFound) {
+		t.Fatalf("upstream 5xx must not map to ErrItemNotFound, got %v", err)
+	}
+}
 
 func TestValidatePathMaps(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

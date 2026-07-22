@@ -31,6 +31,7 @@ cd frontend && bun run build   # static export → frontend/out
   - UI play-preview button only when Jellyfin is enabled (no local file/ffmpeg remux)
   - `POST /api/videos/{id}/stream-ticket` (Bearer) → `{ ticket, expiresAt, url }` (503 if Jellyfin off / item not found)
   - Ticket is signed `v1.videoID.itemID.exp.nonce.mac` (item resolved once via `FindItemIDByPath` + `JELLYFIN_PATH_MAP`)
+  - `FindItemIDByPath` matches **Path only** (paginated `/Items`, no `SearchTerm` — metadata titles ≠ filenames); missing item → 404; Jellyfin network/auth/5xx → 500
   - `GET /api/videos/{id}/stream?ticket=` (public; ticket-auth only) proxies Jellyfin `GET /Videos/{itemId}/stream?static=true` with Range using **item id from ticket** (no per-Range path lookup)
   - Upstream media statuses 2xx / 404 / 416 are passed through; no playback progress reporting
   - `STREAM_TICKET_SECRET` (optional; else AdminToken), `STREAM_TICKET_TTL` (default 15m)

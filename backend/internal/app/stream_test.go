@@ -205,3 +205,75 @@ func TestStreamTicketExpired(t *testing.T) {
 		t.Fatalf("expected expired, got %v", err)
 	}
 }
+
+func TestIssueStreamTicketMapsJellyfinErrors(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	movieDir := filepath.Join(movieRoot, "Movie")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	videoPath := filepath.Join(movieDir, "movie.mp4")
+	if err := os.WriteFile(videoPath, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie.nfo"), []byte("<movie><title>M</title><year>2025</year></movie>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Upstream 500 → not ErrNotFound
+	failJF := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "upstream down", http.StatusInternalServerError)
+	}))
+	t.Cleanup(failJF.Close)
+
+	svcFail, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot, TVMediaRoot: tvRoot,
+		DBPath: filepath.Join(base, "fail.sqlite3"), AdminToken: "tok",
+		StreamTicketSecret: "sec", JellyfinEnabled: true, JellyfinURL: failJF.URL, JellyfinAPIKey: "k",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = svcFail.Close() })
+	if status := svcFail.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatal(status.Error)
+	}
+	videoID := svcFail.ListVideosPage("", "movie", "", 1, 10, "", "").Items[0].ID
+	_, err = svcFail.IssueStreamTicket(context.Background(), videoID)
+	if err == nil || errors.Is(err, ErrNotFound) {
+		t.Fatalf("jellyfin 5xx must not be ErrNotFound, got %v", err)
+	}
+
+	// Empty library → ErrNotFound
+	emptyJF := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Emby-Token") != "k" && !strings.Contains(r.Header.Get("Authorization"), "k") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"Items": []any{}})
+	}))
+	t.Cleanup(emptyJF.Close)
+
+	svcEmpty, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot, TVMediaRoot: tvRoot,
+		DBPath: filepath.Join(base, "empty.sqlite3"), AdminToken: "tok",
+		StreamTicketSecret: "sec", JellyfinEnabled: true, JellyfinURL: emptyJF.URL, JellyfinAPIKey: "k",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = svcEmpty.Close() })
+	if status := svcEmpty.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatal(status.Error)
+	}
+	videoID = svcEmpty.ListVideosPage("", "movie", "", 1, 10, "", "").Items[0].ID
+	_, err = svcEmpty.IssueStreamTicket(context.Background(), videoID)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing item should be ErrNotFound, got %v", err)
+	}
+}

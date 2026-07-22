@@ -10,9 +10,12 @@ type Snapshot = {
   loaded: boolean;
 };
 
+const RETRY_MS = 5_000;
+
 let snapshot: Snapshot = { enabled: false, loaded: false };
 let inflight: Promise<boolean> | null = null;
 let generation = 0;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -44,6 +47,25 @@ function getServerSnapshot(): Snapshot {
   return { enabled: false, loaded: false };
 }
 
+function clearRetryTimer() {
+  if (retryTimer != null) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+}
+
+function scheduleRetry() {
+  if (retryTimer != null || typeof window === "undefined") {
+    return;
+  }
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    if (!snapshot.loaded && listeners.size > 0) {
+      void ensureLoaded();
+    }
+  }, RETRY_MS);
+}
+
 function ensureLoaded(): Promise<boolean> {
   if (snapshot.loaded) {
     return Promise.resolve(snapshot.enabled);
@@ -57,6 +79,7 @@ function ensureLoaded(): Promise<boolean> {
       if (gen !== generation) {
         return snapshot.enabled;
       }
+      clearRetryTimer();
       const enabled = Boolean(cfg.enabled);
       setSnapshot({ enabled, loaded: true });
       inflight = null;
@@ -66,8 +89,12 @@ function ensureLoaded(): Promise<boolean> {
       if (gen !== generation) {
         return snapshot.enabled;
       }
-      setSnapshot({ enabled: false, loaded: true });
+      // Keep loaded=false so later mounts / scheduled retries can try again.
+      setSnapshot({ enabled: false, loaded: false });
       inflight = null;
+      if (listeners.size > 0) {
+        scheduleRetry();
+      }
       return false;
     });
   return inflight;
@@ -82,6 +109,7 @@ export function getJellyfinEnabledState(): Snapshot {
 export function setJellyfinEnabledCache(enabled: boolean) {
   generation += 1;
   inflight = null;
+  clearRetryTimer();
   setSnapshot({ enabled: Boolean(enabled), loaded: true });
 }
 
@@ -89,12 +117,14 @@ export function setJellyfinEnabledCache(enabled: boolean) {
 export function invalidateJellyfinEnabled() {
   generation += 1;
   inflight = null;
+  clearRetryTimer();
   setSnapshot({ enabled: false, loaded: false });
 }
 
 /**
  * Shared Jellyfin enabled flag for gating video play-preview.
- * Module-level cache: one config fetch per page session; settings save updates via setJellyfinEnabledCache.
+ * Module-level cache: one successful config fetch per session; failures leave
+ * loaded=false and retry while subscribers remain (or on remount / settings save).
  */
 export function useJellyfinEnabled() {
   const { enabled, loaded } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);

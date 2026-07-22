@@ -9,8 +9,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -41,6 +41,12 @@ type Client struct {
 
 // ErrDisabled is returned when Jellyfin is not configured.
 var ErrDisabled = fmt.Errorf("jellyfin disabled")
+
+// ErrItemNotFound is returned when no Movie/Episode matches the filesystem path.
+// Other lookup failures (network, auth, 5xx, decode) return plain errors.
+var ErrItemNotFound = fmt.Errorf("jellyfin item not found")
+
+const findItemPageSize = 100
 
 // NormalizeBaseURL validates and normalizes a Jellyfin base URL.
 func NormalizeBaseURL(raw string) (string, error) {
@@ -406,6 +412,10 @@ func isPassThroughStreamStatus(code int) bool {
 }
 
 // FindItemIDByPath looks up a Movie/Episode id by filesystem path.
+//
+// Matching is by Path only (not SearchTerm/metadata title). Jellyfin titles often
+// differ from filenames (e.g. Show.S01E01.mkv → "Pilot"), so name search would
+// drop the real item. Results are paged until a path match or the library is exhausted.
 func (c *Client) FindItemIDByPath(ctx context.Context, localOrMappedPath string) (string, error) {
 	if !c.Enabled() {
 		return "", ErrDisabled
@@ -414,37 +424,44 @@ func (c *Client) FindItemIDByPath(ctx context.Context, localOrMappedPath string)
 	if target == "" {
 		return "", fmt.Errorf("empty path")
 	}
-	base := filepath.Base(target)
-	searchTerm := strings.TrimSuffix(base, filepath.Ext(base))
-	if searchTerm == "" {
-		searchTerm = base
-	}
-
-	q := url.Values{}
-	q.Set("Recursive", "true")
-	q.Set("IncludeItemTypes", "Movie,Episode")
-	q.Set("Fields", "Path")
-	q.Set("EnableImages", "false")
-	q.Set("EnableTotalRecordCount", "false")
-	if searchTerm != "" {
-		q.Set("SearchTerm", searchTerm)
-	}
-	q.Set("Limit", "50")
-
-	var result itemQueryResult
-	if err := c.getJSON(ctx, "/Items", q, &result); err != nil {
-		return "", err
-	}
 	want := normalizeComparePath(target)
-	for _, item := range result.items() {
-		if normalizeComparePath(item.path()) == want {
+	if want == "" {
+		return "", fmt.Errorf("empty path")
+	}
+
+	for start := 0; ; start += findItemPageSize {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		q := url.Values{}
+		q.Set("Recursive", "true")
+		q.Set("IncludeItemTypes", "Movie,Episode")
+		q.Set("Fields", "Path")
+		q.Set("EnableImages", "false")
+		q.Set("EnableTotalRecordCount", "false")
+		q.Set("StartIndex", strconv.Itoa(start))
+		q.Set("Limit", strconv.Itoa(findItemPageSize))
+
+		var result itemQueryResult
+		if err := c.getJSON(ctx, "/Items", q, &result); err != nil {
+			// Preserve upstream/network/auth errors; do not mask as not-found.
+			return "", err
+		}
+		items := result.items()
+		for _, item := range items {
+			if normalizeComparePath(item.path()) != want {
+				continue
+			}
 			id := item.id()
 			if id != "" {
 				return id, nil
 			}
 		}
+		if len(items) < findItemPageSize {
+			break
+		}
 	}
-	return "", fmt.Errorf("item not found for path %s", target)
+	return "", fmt.Errorf("%w for path %s", ErrItemNotFound, target)
 }
 
 // NotifyVideoChanged reports a video path change; falls back to item refresh.

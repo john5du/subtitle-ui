@@ -19,7 +19,7 @@ describe("jellyfin enabled cache", () => {
     expect(getJellyfinEnabledState()).toEqual({ enabled: false, loaded: true });
   });
 
-  test("invalidateJellyfinEnabled clears loaded flag", () => {
+  test("invalidateJellyfinEnabled clears loaded flag so fetch can retry", () => {
     setJellyfinEnabledCache(true);
     invalidateJellyfinEnabled();
     expect(getJellyfinEnabledState()).toEqual({ enabled: false, loaded: false });
