@@ -283,12 +283,14 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                   )}
                   {workflow.zipLoading && <InlinePending label={t("details.parsingArchive")} />}
                   {selectedVideo && embedded ? (
-                    <Badge variant="secondary" className="shrink-0">
-                      {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
-                    </Badge>
-                  ) : null}
-                  {selectedVideo && embedded && canShowEmbedded ? (
-                    <EmbeddedSubtitlesSummary videoId={selectedVideo.id} jellyfinEnabled compact />
+                    <div className="flex shrink-0 flex-nowrap items-center gap-1.5">
+                      <Badge variant="secondary" className="shrink-0">
+                        {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
+                      </Badge>
+                      {canShowEmbedded ? (
+                        <EmbeddedSubtitlesSummary videoId={selectedVideo.id} jellyfinEnabled compact />
+                      ) : null}
+                    </div>
                   ) : null}
                   {searchActionItems.length > 0 && (
                     <div className="ml-auto flex h-9 flex-wrap items-center justify-end gap-1.5">

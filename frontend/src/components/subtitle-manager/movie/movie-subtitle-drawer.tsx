@@ -121,10 +121,10 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                 <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px] normal-case tracking-normal">
                   {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
                 </Badge>
+                {canShowEmbedded ? (
+                  <EmbeddedSubtitlesSummary videoId={selectedVideo.id} jellyfinEnabled compact />
+                ) : null}
               </div>
-              {canShowEmbedded ? (
-                <EmbeddedSubtitlesSummary videoId={selectedVideo.id} jellyfinEnabled compact />
-              ) : null}
               {selectedVideo.path ? (
                 <p className="truncate text-xs text-muted-foreground" title={selectedVideo.path}>
                   {selectedVideo.path}
