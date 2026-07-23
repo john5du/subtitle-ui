@@ -219,6 +219,8 @@ export interface SonarrConfig {
   enabled: boolean;
   url: string;
   apiKey: string;
+  /** True when a key is stored; apiKey is empty on GET (never returned in full). */
+  apiKeySet?: boolean;
   updatedAt?: string;
 }
 
@@ -226,6 +228,8 @@ export interface JellyfinConfig {
   enabled: boolean;
   url: string;
   apiKey: string;
+  /** True when a key is stored; apiKey is empty on GET (never returned in full). */
+  apiKeySet?: boolean;
   pathMap: string;
   updatedAt?: string;
 }

@@ -129,14 +129,33 @@ func Load() Config {
 
 // Validate returns a non-nil error when the config is unsafe for the current environment.
 func (c Config) Validate() error {
-	if c.AdminTokenIsDefault && IsProduction() {
+	if !c.AdminTokenIsDefault {
+		return nil
+	}
+	// Default token is never allowed in production.
+	if IsProduction() {
 		return errDefaultAdminTokenInProduction
+	}
+	// Outside production, still require an explicit opt-in so accidental
+	// exposure of change-me on a LAN/VPS is harder.
+	if !AllowInsecureDefaultAdminToken() {
+		return errDefaultAdminTokenRejected
 	}
 	return nil
 }
 
+// AllowInsecureDefaultAdminToken reports whether the insecure default ADMIN_TOKEN
+// is explicitly permitted (local dev only).
+func AllowInsecureDefaultAdminToken() bool {
+	return parseBool(os.Getenv("ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN"))
+}
+
 var errDefaultAdminTokenInProduction = &ConfigError{
-	Message: "ADMIN_TOKEN must be set to a strong secret in production (default \"change-me\" is not allowed; set APP_ENV/ENV away from production for local dev)",
+	Message: "ADMIN_TOKEN must be set to a strong secret in production (default \"change-me\" is not allowed)",
+}
+
+var errDefaultAdminTokenRejected = &ConfigError{
+	Message: "ADMIN_TOKEN is the insecure default \"change-me\"; set ADMIN_TOKEN to a strong secret, or set ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true for local development only",
 }
 
 // ConfigError is a user-facing configuration problem.

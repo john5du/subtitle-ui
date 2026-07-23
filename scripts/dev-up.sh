@@ -171,6 +171,10 @@ frontend_url="http://127.0.0.1:$frontend_port/"
 default_cors_allowed_origins="http://localhost:$frontend_port,http://127.0.0.1:$frontend_port"
 backend_cors_allowed_origins="${CORS_ALLOWED_ORIGINS:-$default_cors_allowed_origins}"
 export CORS_ALLOWED_ORIGINS="$backend_cors_allowed_origins"
+# Local dev: allow default ADMIN_TOKEN=change-me unless already set in .env / shell.
+if [ -z "${ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN+x}" ]; then
+  export ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true
+fi
 
 if [ ! -d "$frontend_dir" ]; then
   die "frontend directory not found: $frontend_dir"

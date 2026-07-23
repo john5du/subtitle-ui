@@ -57,6 +57,8 @@ func (s *Server) handleVideoStream(w http.ResponseWriter, r *http.Request, video
 	// Allow browser media element / ArtPlayer to read Range responses cross-origin.
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Add("Access-Control-Expose-Headers", "Accept-Ranges, Content-Range, Content-Length, Content-Type")
+	// Ticket is in the query string; avoid leaking it via Referer to third parties.
+	w.Header().Set("Referrer-Policy", "no-referrer")
 
 	rangeHeader := r.Header.Get("Range")
 	upstream, err := s.service.OpenJellyfinUpstream(r.Context(), claims.UpstreamPath, r.Method, rangeHeader)
@@ -103,6 +105,7 @@ func (s *Server) handleVideoHLSMaster(w http.ResponseWriter, r *http.Request, vi
 	rewritten := s.service.RewriteHLSPlaylist(string(body), videoID, ticket, claims.UpstreamPath)
 	w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.WriteHeader(http.StatusOK)
 	if r.Method == http.MethodHead {
 		return
@@ -175,6 +178,7 @@ func (s *Server) handleVideoHLSSegment(w http.ResponseWriter, r *http.Request, v
 func proxyStreamResponse(w http.ResponseWriter, r *http.Request, upstream *jellyfin.StreamResponse, videoID, itemID string) {
 	copyStreamResponseHeaders(w, upstream.Header)
 	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	if w.Header().Get("Accept-Ranges") == "" {
 		w.Header().Set("Accept-Ranges", "bytes")
 	}

@@ -114,6 +114,8 @@ type SonarrConfig struct {
 	Enabled   bool      `json:"enabled"`
 	URL       string    `json:"url"`
 	APIKey    string    `json:"apiKey"`
+	// APIKeySet is true when a key is stored; APIKey is never returned in full on GET.
+	APIKeySet bool      `json:"apiKeySet"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
@@ -128,6 +130,8 @@ type JellyfinConfig struct {
 	Enabled   bool      `json:"enabled"`
 	URL       string    `json:"url"`
 	APIKey    string    `json:"apiKey"`
+	// APIKeySet is true when a key is stored; APIKey is never returned in full on GET.
+	APIKeySet bool      `json:"apiKeySet"`
 	PathMap   string    `json:"pathMap"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }

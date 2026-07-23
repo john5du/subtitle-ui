@@ -11,11 +11,17 @@ import (
 )
 
 // GetSonarrConfig returns effective Sonarr settings (DB overrides env).
+// API keys are never returned in full; use APIKeySet to detect presence.
 func (s *Service) GetSonarrConfig() (domain.SonarrConfig, error) {
-	return s.resolveSonarrConfig()
+	cfg, err := s.resolveSonarrConfig()
+	if err != nil {
+		return domain.SonarrConfig{}, err
+	}
+	return redactSonarrConfig(cfg), nil
 }
 
 // UpdateSonarrConfig persists Sonarr settings and hot-reloads the client.
+// Empty APIKey keeps the previously stored key (so masked GET + save without retyping works).
 func (s *Service) UpdateSonarrConfig(req domain.SonarrConfigUpdate) (domain.SonarrConfig, error) {
 	baseURL := strings.TrimSpace(req.URL)
 	apiKey := strings.TrimSpace(req.APIKey)
@@ -27,6 +33,14 @@ func (s *Service) UpdateSonarrConfig(req domain.SonarrConfigUpdate) (domain.Sona
 			return domain.SonarrConfig{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
 		}
 		normalizedURL = normalized
+	}
+
+	existing, err := s.resolveSonarrConfig()
+	if err != nil {
+		return domain.SonarrConfig{}, err
+	}
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(existing.APIKey)
 	}
 
 	if req.Enabled {
@@ -67,12 +81,18 @@ func (s *Service) UpdateSonarrConfig(req domain.SonarrConfigUpdate) (domain.Sona
 		fmt.Sprintf("enabled=%s url=%s api_key=%s", enabledValue, normalizedURL, apiKeyState),
 	)
 
-	return domain.SonarrConfig{
+	return redactSonarrConfig(domain.SonarrConfig{
 		Enabled:   req.Enabled && normalizedURL != "" && apiKey != "",
 		URL:       normalizedURL,
 		APIKey:    apiKey,
 		UpdatedAt: updatedAt,
-	}, nil
+	}), nil
+}
+
+func redactSonarrConfig(cfg domain.SonarrConfig) domain.SonarrConfig {
+	cfg.APIKeySet = strings.TrimSpace(cfg.APIKey) != ""
+	cfg.APIKey = ""
+	return cfg
 }
 
 // applyStoredSonarrConfig reloads DB overrides onto the Sonarr client (startup).
@@ -153,9 +173,15 @@ func (s *Service) rebuildSonarrClient(enabled bool, baseURL, apiKey string) {
 }
 
 // TestSonarrConfig probes connectivity with the provided draft settings (does not save).
+// Empty APIKey reuses the stored key so the settings UI can test without retyping a masked secret.
 func (s *Service) TestSonarrConfig(ctx context.Context, req domain.SonarrConfigUpdate) (domain.ConnectionTestResult, error) {
 	baseURL := strings.TrimSpace(req.URL)
 	apiKey := strings.TrimSpace(req.APIKey)
+	if apiKey == "" {
+		if existing, err := s.resolveSonarrConfig(); err == nil {
+			apiKey = strings.TrimSpace(existing.APIKey)
+		}
+	}
 	if baseURL == "" {
 		return domain.ConnectionTestResult{}, fmt.Errorf("%w: sonarr url is required", ErrBadRequest)
 	}

@@ -464,8 +464,8 @@ func TestSonarrConfigDefaultsAndUpdate(t *testing.T) {
 	if cfg.URL != "http://127.0.0.1:8989" {
 		t.Fatalf("unexpected url: %q", cfg.URL)
 	}
-	if cfg.APIKey != "env-key" {
-		t.Fatalf("unexpected api key: %q", cfg.APIKey)
+	if cfg.APIKey != "" || !cfg.APIKeySet {
+		t.Fatalf("api key must be redacted on GET, got key=%q set=%v", cfg.APIKey, cfg.APIKeySet)
 	}
 	if !svc.SonarrEnabled() {
 		t.Fatalf("expected client enabled from env")
@@ -479,7 +479,7 @@ func TestSonarrConfigDefaultsAndUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("update sonarr config: %v", err)
 	}
-	if !saved.Enabled || saved.URL != "http://sonarr.local:8989" || saved.APIKey != "runtime-key" {
+	if !saved.Enabled || saved.URL != "http://sonarr.local:8989" || saved.APIKey != "" || !saved.APIKeySet {
 		t.Fatalf("unexpected saved config: %+v", saved)
 	}
 	if !svc.SonarrEnabled() {
@@ -495,13 +495,21 @@ func TestSonarrConfigDefaultsAndUpdate(t *testing.T) {
 		t.Fatalf("expected bad request for invalid url, got %v", err)
 	}
 
-	_, err = svc.UpdateSonarrConfig(domain.SonarrConfigUpdate{
+	// Empty api key preserves the stored key.
+	kept, err := svc.UpdateSonarrConfig(domain.SonarrConfigUpdate{
 		Enabled: true,
 		URL:     "http://sonarr.local:8989",
 		APIKey:  "",
 	})
-	if !errors.Is(err, ErrBadRequest) {
-		t.Fatalf("expected bad request for missing api key, got %v", err)
+	if err != nil {
+		t.Fatalf("update with empty api key should keep existing: %v", err)
+	}
+	if !kept.Enabled || !kept.APIKeySet || kept.APIKey != "" {
+		t.Fatalf("expected key preserved (redacted): %+v", kept)
+	}
+	resolved, err := svc.resolveSonarrConfig()
+	if err != nil || resolved.APIKey != "runtime-key" {
+		t.Fatalf("stored key should remain runtime-key, got %+v err=%v", resolved, err)
 	}
 
 	disabled, err := svc.UpdateSonarrConfig(domain.SonarrConfigUpdate{
@@ -523,7 +531,7 @@ func TestSonarrConfigDefaultsAndUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get after disable: %v", err)
 	}
-	if after.Enabled || after.URL != "http://sonarr.local:8989" || after.APIKey != "runtime-key" {
+	if after.Enabled || after.URL != "http://sonarr.local:8989" || after.APIKey != "" || !after.APIKeySet {
 		t.Fatalf("unexpected config after disable: %+v", after)
 	}
 }
@@ -565,8 +573,8 @@ func TestJellyfinConfigDefaultsAndUpdate(t *testing.T) {
 	if cfg.URL != "http://127.0.0.1:8096" {
 		t.Fatalf("unexpected url: %q", cfg.URL)
 	}
-	if cfg.APIKey != "env-key" {
-		t.Fatalf("unexpected api key: %q", cfg.APIKey)
+	if cfg.APIKey != "" || !cfg.APIKeySet {
+		t.Fatalf("api key must be redacted on GET, got key=%q set=%v", cfg.APIKey, cfg.APIKeySet)
 	}
 	if cfg.PathMap != "/host/movies:/data/movies" {
 		t.Fatalf("unexpected path map: %q", cfg.PathMap)
@@ -584,7 +592,7 @@ func TestJellyfinConfigDefaultsAndUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("update jellyfin config: %v", err)
 	}
-	if !saved.Enabled || saved.URL != "http://jellyfin.local:8096" || saved.APIKey != "runtime-key" {
+	if !saved.Enabled || saved.URL != "http://jellyfin.local:8096" || saved.APIKey != "" || !saved.APIKeySet {
 		t.Fatalf("unexpected saved config: %+v", saved)
 	}
 	if saved.PathMap != "/a:/b,/c:/d" {
@@ -603,13 +611,22 @@ func TestJellyfinConfigDefaultsAndUpdate(t *testing.T) {
 		t.Fatalf("expected bad request for invalid url, got %v", err)
 	}
 
-	_, err = svc.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
+	// Empty api key preserves the stored key.
+	kept, err := svc.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
 		Enabled: true,
 		URL:     "http://jellyfin.local:8096",
 		APIKey:  "",
+		PathMap: "/a:/b,/c:/d",
 	})
-	if !errors.Is(err, ErrBadRequest) {
-		t.Fatalf("expected bad request for missing api key, got %v", err)
+	if err != nil {
+		t.Fatalf("update with empty api key should keep existing: %v", err)
+	}
+	if !kept.Enabled || !kept.APIKeySet || kept.APIKey != "" {
+		t.Fatalf("expected key preserved (redacted): %+v", kept)
+	}
+	resolved, err := svc.resolveJellyfinConfig()
+	if err != nil || resolved.APIKey != "runtime-key" {
+		t.Fatalf("stored key should remain runtime-key, got %+v err=%v", resolved, err)
 	}
 
 	_, err = svc.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
@@ -642,7 +659,7 @@ func TestJellyfinConfigDefaultsAndUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get after disable: %v", err)
 	}
-	if after.Enabled || after.URL != "http://jellyfin.local:8096" || after.APIKey != "runtime-key" || after.PathMap != "/a:/b" {
+	if after.Enabled || after.URL != "http://jellyfin.local:8096" || after.APIKey != "" || !after.APIKeySet || after.PathMap != "/a:/b" {
 		t.Fatalf("unexpected config after disable: %+v", after)
 	}
 }
@@ -902,6 +919,69 @@ func TestDeleteSubtitleBacksUpAndLogs(t *testing.T) {
 	}
 	if len(updated.Subtitles) != 0 {
 		t.Fatalf("expected no subtitles after delete, got %+v", updated.Subtitles)
+	}
+}
+
+func TestRunFileScanErrorDoesNotWipeOtherMediaType(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	movieDir := filepath.Join(movieRoot, "Movie A")
+	tvDir := filepath.Join(tvRoot, "Show A", "Season 1")
+	for _, dir := range []string{movieDir, tvDir} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write movie: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.nfo"), []byte(sampleNFO("Movie A", "2025")), 0o644); err != nil {
+		t.Fatalf("write movie nfo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tvDir, "show-a-s01e01.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write tv: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tvDir, "show-a-s01e01.nfo"), []byte(sampleNFO("Show A", "2024")), 0o644); err != nil {
+		t.Fatalf("write tv nfo: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatalf("initial scan: %s", status.Error)
+	}
+	if total := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "").Total; total != 1 {
+		t.Fatalf("expected 1 movie, got %d", total)
+	}
+	if total := svc.ListVideosPage("", domain.MediaTypeTV, "", 1, 20, "", "").Total; total != 1 {
+		t.Fatalf("expected 1 tv, got %d", total)
+	}
+
+	// Remove TV root so the next full scan fails on TV while movies still succeed.
+	if err := os.RemoveAll(tvRoot); err != nil {
+		t.Fatalf("remove tv root: %v", err)
+	}
+
+	status := svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error == "" {
+		t.Fatal("expected scan error after tv root removed")
+	}
+	if total := svc.ListVideosPage("", domain.MediaTypeTV, "", 1, 20, "", "").Total; total != 1 {
+		t.Fatalf("tv library must not be wiped on partial scan failure, got total=%d err=%q", total, status.Error)
+	}
+	if total := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "").Total; total != 1 {
+		t.Fatalf("movie library should remain, got total=%d", total)
 	}
 }
 

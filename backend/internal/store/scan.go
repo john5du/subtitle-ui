@@ -26,6 +26,9 @@ func (s *Store) SaveScanResult(videos []domain.Video, startedAt time.Time, finis
 //   - found defines the complete set of video paths still present on disk (in scope)
 //   - rebuilt are upserted (metadata/subtitles rewritten); skipped found videos are left untouched
 //   - videos in scope that are not in found are deleted
+//
+// When scanErr is non-empty, only the scan_runs row is written — no deletes or upserts.
+// Partial scan failures must not wipe half the library (e.g. TV root down while movies scan OK).
 func (s *Store) SaveScanReconcile(found []domain.Video, rebuilt []domain.Video, startedAt time.Time, finishedAt time.Time, scanErr string, replaceScopes []string) error {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -49,7 +52,12 @@ func (s *Store) SaveScanReconcile(found []domain.Video, rebuilt []domain.Video, 
 		return err
 	}
 
-	if scanErr == "" || len(found) > 0 || len(rebuilt) > 0 {
+	// Never mutate the library when the scan reported an error: found/rebuilt may be incomplete.
+	if strings.TrimSpace(scanErr) != "" {
+		return tx.Commit()
+	}
+
+	{
 		foundPaths := make(map[string]struct{}, len(found))
 		for _, video := range found {
 			foundPaths[normalizeScanPath(video.Path)] = struct{}{}

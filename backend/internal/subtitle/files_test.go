@@ -111,3 +111,51 @@ func TestBuildNewSubtitlePathAvoidsCollision(t *testing.T) {
 		t.Fatalf("unexpected collision fallback path: %s", filepath.Base(target))
 	}
 }
+
+func TestEnsureWithinRootRejectsSymlinkEscape(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	secret := filepath.Join(outside, "secret.txt")
+	if err := os.WriteFile(secret, []byte("leak"), 0o644); err != nil {
+		t.Fatalf("write secret: %v", err)
+	}
+	link := filepath.Join(root, "poster.jpg")
+	if err := os.Symlink(secret, link); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+	if EnsureWithinRoot(root, link) {
+		t.Fatal("symlink escaping media root should be rejected")
+	}
+	if !IsSymlink(link) {
+		t.Fatal("expected IsSymlink")
+	}
+	inner := filepath.Join(root, "movie.zh.srt")
+	if !EnsureWithinRoot(root, inner) {
+		t.Fatal("non-existent path under root should still be allowed for writes")
+	}
+}
+
+func TestBackupFileUsesUniquePaths(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "movie.zh.srt")
+	if err := os.WriteFile(path, []byte("sub"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	a, err := BackupFile(path)
+	if err != nil {
+		t.Fatalf("backup a: %v", err)
+	}
+	b, err := BackupFile(path)
+	if err != nil {
+		t.Fatalf("backup b: %v", err)
+	}
+	if a == b {
+		t.Fatalf("expected unique backup paths, both %q", a)
+	}
+	if _, err := os.Stat(a); err != nil {
+		t.Fatalf("backup a missing: %v", err)
+	}
+	if _, err := os.Stat(b); err != nil {
+		t.Fatalf("backup b missing: %v", err)
+	}
+}

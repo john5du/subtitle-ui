@@ -76,7 +76,7 @@ func main() {
 	}
 	log.Printf("ui dist: %s", cfg.UIDist)
 	if cfg.AdminTokenIsDefault {
-		log.Printf("admin auth: using default token %q — set ADMIN_TOKEN to a strong secret and restart", cfg.AdminToken)
+		log.Printf("admin auth: using insecure default token %q (ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN) — set ADMIN_TOKEN to a strong secret", cfg.AdminToken)
 	} else {
 		log.Printf("admin auth: enabled (token from ADMIN_TOKEN)")
 	}

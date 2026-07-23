@@ -384,6 +384,57 @@ func TestListLogsPagesAndClear(t *testing.T) {
 	}
 }
 
+func TestSaveScanReconcileWithErrorDoesNotMutateLibrary(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "scan-err.sqlite3")
+	st, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() {
+		_ = st.Close()
+	}()
+
+	now := time.Now().UTC()
+	seed := domain.Video{
+		ID:             "TV1",
+		Path:           "/media/tv/show/ep.mkv",
+		Directory:      "/media/tv/show",
+		FileName:       "ep.mkv",
+		Title:          "Show",
+		Year:           "2024",
+		MediaType:      domain.MediaTypeTV,
+		MetadataSource: "nfo",
+		UpdatedAt:      now,
+	}
+	if err := st.SaveScanResult([]domain.Video{seed}, now, now.Add(time.Second), "", nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// Partial found (movies only) with error must not delete TV rows.
+	movieOnly := domain.Video{
+		ID:             "MOV1",
+		Path:           "/media/movies/a.mkv",
+		Directory:      "/media/movies",
+		FileName:       "a.mkv",
+		Title:          "Movie",
+		Year:           "2025",
+		MediaType:      domain.MediaTypeMovie,
+		MetadataSource: "nfo",
+		UpdatedAt:      now.Add(time.Second),
+	}
+	if err := st.SaveScanReconcile([]domain.Video{movieOnly}, []domain.Video{movieOnly}, now.Add(2*time.Second), now.Add(3*time.Second), "tv scan: root missing", nil); err != nil {
+		t.Fatalf("error scan: %v", err)
+	}
+
+	videos, total, err := st.ListVideos("", "", "", 1, 20, "", "")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if total != 1 || len(videos) != 1 || videos[0].ID != "TV1" {
+		t.Fatalf("library should be unchanged after error scan, total=%d videos=%+v", total, videos)
+	}
+}
+
 func TestSaveScanResultScopedReplaceKeepsOutOfScopeVideos(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "scoped.sqlite3")
 	st, err := Open(dbPath)

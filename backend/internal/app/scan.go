@@ -157,14 +157,17 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	}
 
 	var saveErr error
-	if !canceled && !wipeGuardTripped {
-		saveErr = s.store.SaveScanReconcile(result.found, result.rebuilt, started, finished, errorString(result.err), result.replaceScopes)
+	if canceled {
+		// Do not persist partial canceled walks as a successful reconcile.
+	} else if wipeGuardTripped || result.err != nil {
+		// Record the failed run without mutating library rows.
+		// SaveScanReconcile also refuses mutation when scanErr is set (defense in depth).
+		saveErr = s.store.SaveScanReconcile(nil, nil, started, finished, errorString(result.err), result.replaceScopes)
 		if saveErr != nil {
 			result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
 		}
-	} else if !canceled && wipeGuardTripped {
-		// Record the failed run without mutating library rows.
-		saveErr = s.store.SaveScanReconcile(nil, nil, started, finished, errorString(result.err), result.replaceScopes)
+	} else {
+		saveErr = s.store.SaveScanReconcile(result.found, result.rebuilt, started, finished, "", result.replaceScopes)
 		if saveErr != nil {
 			result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
 		}
@@ -404,9 +407,8 @@ func (s *Service) resolveDirectoriesForType(mediaType string, requested []string
 		}
 		return nil, fmt.Errorf("no valid %s directories", mediaType)
 	}
-	if len(warnings) > 0 {
-		return out, fmt.Errorf("some %s directories were skipped: %s", mediaType, strings.Join(warnings, "; "))
-	}
+	// Partial invalid paths are skipped; do not return an error so a successful
+	// scan of the remaining directories can still reconcile (hard failures still error).
 	return out, nil
 }
 

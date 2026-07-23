@@ -235,6 +235,10 @@ func (e *ArchiveMultipleEntriesError) Unwrap() error {
 }
 
 func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadName string, label string, replaceID string, options SubtitleUploadOptions) (domain.Subtitle, error) {
+	mu := s.lockVideo(videoID)
+	mu.Lock()
+	defer mu.Unlock()
+
 	video, ok := s.GetVideo(videoID)
 	if !ok {
 		return domain.Subtitle{}, ErrNotFound
@@ -382,6 +386,10 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 }
 
 func (s *Service) ConvertSubtitleToASS(videoID string, subtitleID string, options SubtitleConvertOptions) (domain.Subtitle, error) {
+	mu := s.lockVideo(videoID)
+	mu.Lock()
+	defer mu.Unlock()
+
 	video, ok := s.GetVideo(videoID)
 	if !ok {
 		return domain.Subtitle{}, ErrNotFound
@@ -482,6 +490,10 @@ func (s *Service) OffsetSubtitleTiming(videoID string, subtitleID string, option
 		return domain.Subtitle{}, fmt.Errorf("%w: offsetMs must be between -%d and %d", ErrBadRequest, subtitle.MaxTimingOffsetMilliseconds, subtitle.MaxTimingOffsetMilliseconds)
 	}
 
+	mu := s.lockVideo(videoID)
+	mu.Lock()
+	defer mu.Unlock()
+
 	video, ok := s.GetVideo(videoID)
 	if !ok {
 		return domain.Subtitle{}, ErrNotFound
@@ -544,6 +556,10 @@ func (s *Service) OffsetSubtitleTiming(videoID string, subtitleID string, option
 }
 
 func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {
+	mu := s.lockVideo(videoID)
+	mu.Lock()
+	defer mu.Unlock()
+
 	video, ok := s.GetVideo(videoID)
 	if !ok {
 		return ErrNotFound

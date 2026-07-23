@@ -11,11 +11,17 @@ import (
 )
 
 // GetJellyfinConfig returns effective Jellyfin settings (DB overrides env).
+// API keys are never returned in full; use APIKeySet to detect presence.
 func (s *Service) GetJellyfinConfig() (domain.JellyfinConfig, error) {
-	return s.resolveJellyfinConfig()
+	cfg, err := s.resolveJellyfinConfig()
+	if err != nil {
+		return domain.JellyfinConfig{}, err
+	}
+	return redactJellyfinConfig(cfg), nil
 }
 
 // UpdateJellyfinConfig persists Jellyfin settings and hot-reloads the client.
+// Empty APIKey keeps the previously stored key (so masked GET + save without retyping works).
 func (s *Service) UpdateJellyfinConfig(req domain.JellyfinConfigUpdate) (domain.JellyfinConfig, error) {
 	baseURL := strings.TrimSpace(req.URL)
 	apiKey := strings.TrimSpace(req.APIKey)
@@ -35,6 +41,14 @@ func (s *Service) UpdateJellyfinConfig(req domain.JellyfinConfigUpdate) (domain.
 		return domain.JellyfinConfig{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
 	}
 	pathMapStored := jellyfin.FormatPathMaps(pathMaps)
+
+	existing, err := s.resolveJellyfinConfig()
+	if err != nil {
+		return domain.JellyfinConfig{}, err
+	}
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(existing.APIKey)
+	}
 
 	if req.Enabled {
 		if normalizedURL == "" {
@@ -75,13 +89,19 @@ func (s *Service) UpdateJellyfinConfig(req domain.JellyfinConfigUpdate) (domain.
 		fmt.Sprintf("enabled=%s url=%s api_key=%s path_map=%q", enabledValue, normalizedURL, apiKeyState, pathMapStored),
 	)
 
-	return domain.JellyfinConfig{
+	return redactJellyfinConfig(domain.JellyfinConfig{
 		Enabled:   req.Enabled && normalizedURL != "" && apiKey != "",
 		URL:       normalizedURL,
 		APIKey:    apiKey,
 		PathMap:   pathMapStored,
 		UpdatedAt: updatedAt,
-	}, nil
+	}), nil
+}
+
+func redactJellyfinConfig(cfg domain.JellyfinConfig) domain.JellyfinConfig {
+	cfg.APIKeySet = strings.TrimSpace(cfg.APIKey) != ""
+	cfg.APIKey = ""
+	return cfg
 }
 
 // applyStoredJellyfinConfig reloads DB overrides onto the Jellyfin client (startup).
@@ -192,10 +212,16 @@ func (s *Service) JellyfinEnabled() bool {
 }
 
 // TestJellyfinConfig probes connectivity with the provided draft settings (does not save).
+// Empty APIKey reuses the stored key so the settings UI can test without retyping a masked secret.
 func (s *Service) TestJellyfinConfig(ctx context.Context, req domain.JellyfinConfigUpdate) (domain.ConnectionTestResult, error) {
 	baseURL := strings.TrimSpace(req.URL)
 	apiKey := strings.TrimSpace(req.APIKey)
 	pathMapRaw := strings.TrimSpace(req.PathMap)
+	if apiKey == "" {
+		if existing, err := s.resolveJellyfinConfig(); err == nil {
+			apiKey = strings.TrimSpace(existing.APIKey)
+		}
+	}
 	if baseURL == "" {
 		return domain.ConnectionTestResult{}, fmt.Errorf("%w: jellyfin url is required", ErrBadRequest)
 	}

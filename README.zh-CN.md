@@ -301,7 +301,7 @@ volumes:
 - `DATABASE_URL` 可选 PostgreSQL DSN；设置后使用 PostgreSQL 而不是 SQLite
 - `UI_DIST` 默认 `./frontend/out`
 - `CORS_ALLOWED_ORIGINS` 逗号分隔的允许来源列表，用于跨来源写入类 API 请求
-- `ADMIN_TOKEN` 管理员 API 令牌（默认 `change-me`）；除 `GET /api/health` 与 `GET /api/videos/{id}/poster` 外的全部 `/api/*` 需 `Authorization: Bearer <token>`（海报对 `<img>` 公开，浏览器无法在图片请求上带鉴权头）。使用默认值时启动日志会打印该令牌并提示修改。前端会显示登录页，并将令牌保存在 `localStorage`。
+- `ADMIN_TOKEN` 管理员 API 令牌（未设置时默认 `change-me`）。不安全默认值会被拒绝，除非改为强密钥，或（仅非 production）设置 `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true`（`./scripts/dev-up.sh` 在未设置时会自动打开该开关）。除 `GET /api/health` 与 `GET /api/videos/{id}/poster` 外的全部 `/api/*` 需 `Authorization: Bearer <token>`（海报对 `<img>` 公开）。前端登录页会把令牌保存在 `localStorage`。
 - `TRUST_FORWARDED_HEADERS` 设置为 `1`、`true`、`yes` 或 `on` 后，会基于 `X-Forwarded-Proto` / `X-Forwarded-Host` 生成绝对海报 URL
 - `NEXT_PUBLIC_API_BASE`（前端开发）— 覆盖 API 主机地址，例如 `http://localhost:9307`
 

@@ -88,6 +88,7 @@ func TestIsProduction(t *testing.T) {
 func TestValidateDefaultAdminTokenInProduction(t *testing.T) {
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("ADMIN_TOKEN", "")
+	t.Setenv("ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN", "")
 	t.Setenv("MEDIA_ROOT", "")
 	t.Setenv("MOVIE_MEDIA_ROOT", t.TempDir())
 	t.Setenv("TV_MEDIA_ROOT", t.TempDir())
@@ -100,12 +101,27 @@ func TestValidateDefaultAdminTokenInProduction(t *testing.T) {
 	}
 
 	t.Setenv("APP_ENV", "development")
+	t.Setenv("ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN", "")
+	cfg = Load()
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("dev should still reject default without ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN")
+	}
+
+	t.Setenv("ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN", "true")
 	cfg = Load()
 	if err := cfg.Validate(); err != nil {
-		t.Fatalf("dev should allow default: %v", err)
+		t.Fatalf("dev with opt-in should allow default: %v", err)
 	}
 
 	t.Setenv("APP_ENV", "production")
+	t.Setenv("ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN", "true")
+	cfg = Load()
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("production must reject default even with opt-in")
+	}
+
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN", "")
 	t.Setenv("ADMIN_TOKEN", "super-secret-token")
 	cfg = Load()
 	if cfg.AdminTokenIsDefault {

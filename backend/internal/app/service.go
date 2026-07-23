@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -69,6 +70,10 @@ type Service struct {
 
 	dirScanMu   sync.RWMutex
 	lastDirScan domain.DirectoryScanResult
+
+	// Per-video mutexes serialize subtitle disk+DB mutations.
+	videoLocksMu sync.Mutex
+	videoLocks   map[string]*sync.Mutex
 }
 
 // SubHDParseStats returns HTML parse telemetry when the live SubHD client is in use.
@@ -101,6 +106,7 @@ func NewService(cfg config.Config) (*Service, error) {
 		scanner:        scanner.New(),
 		store:          st,
 		subhdPackCache: newSubHDPackCache(),
+		videoLocks:     make(map[string]*sync.Mutex),
 		subhd: subhd.New(subhd.Options{
 			Enabled:     cfg.SubHDEnabled,
 			BaseURL:     cfg.SubHDBaseURL,
@@ -175,6 +181,22 @@ func (s *Service) rebuildSubHDClient(enabled bool, baseURL, proxy string) {
 
 func (s *Service) Close() error {
 	return s.store.Close()
+}
+
+// lockVideo returns a per-video mutex for subtitle mutations (create-on-first-use).
+func (s *Service) lockVideo(videoID string) *sync.Mutex {
+	videoID = strings.TrimSpace(videoID)
+	s.videoLocksMu.Lock()
+	defer s.videoLocksMu.Unlock()
+	if s.videoLocks == nil {
+		s.videoLocks = make(map[string]*sync.Mutex)
+	}
+	if mu, ok := s.videoLocks[videoID]; ok {
+		return mu
+	}
+	mu := &sync.Mutex{}
+	s.videoLocks[videoID] = mu
+	return mu
 }
 
 func (s *Service) CheckMediaRootWritePermissions() []string {

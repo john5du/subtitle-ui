@@ -449,6 +449,7 @@ export function SonarrSettingsPanel() {
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [draftUrl, setDraftUrl] = useState("");
   const [draftApiKey, setDraftApiKey] = useState("");
+  const [apiKeySet, setApiKeySet] = useState(false);
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [error, setError] = useState("");
 
@@ -465,7 +466,8 @@ export function SonarrSettingsPanel() {
         }
         setDraftEnabled(Boolean(next.enabled));
         setDraftUrl(next.url || "");
-        setDraftApiKey(next.apiKey || "");
+        setDraftApiKey("");
+        setApiKeySet(Boolean(next.apiKeySet));
       } catch (loadError) {
         if (cancelled) {
           return;
@@ -505,7 +507,8 @@ export function SonarrSettingsPanel() {
       });
       setDraftEnabled(Boolean(next.enabled));
       setDraftUrl(next.url || "");
-      setDraftApiKey(next.apiKey || "");
+      setDraftApiKey("");
+      setApiKeySet(Boolean(next.apiKeySet));
       emitToast({
         level: "success",
         message: t("sonarr.settingsSavedTitle")
@@ -564,7 +567,7 @@ export function SonarrSettingsPanel() {
   }
 
   const busy = loading || saving || testing;
-  const canTest = Boolean(draftUrl.trim() && draftApiKey.trim());
+  const canTest = Boolean(draftUrl.trim() && (draftApiKey.trim() || apiKeySet));
 
   return (
     <div className="surface-panel space-y-4 p-3 sm:p-4">
@@ -604,7 +607,7 @@ export function SonarrSettingsPanel() {
             type={apiKeyVisible ? "text" : "password"}
             autoComplete="off"
             value={draftApiKey}
-            placeholder={t("sonarr.apiKeyPlaceholder")}
+            placeholder={apiKeySet ? t("sonarr.apiKeyConfiguredPlaceholder") : t("sonarr.apiKeyPlaceholder")}
             disabled={busy || !draftEnabled}
             className="pr-10"
             onChange={(event) => {
@@ -663,6 +666,7 @@ export function JellyfinSettingsPanel() {
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [draftUrl, setDraftUrl] = useState("");
   const [draftApiKey, setDraftApiKey] = useState("");
+  const [apiKeySet, setApiKeySet] = useState(false);
   const [draftPathMap, setDraftPathMap] = useState("");
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [error, setError] = useState("");
@@ -680,7 +684,8 @@ export function JellyfinSettingsPanel() {
         }
         setDraftEnabled(Boolean(next.enabled));
         setDraftUrl(next.url || "");
-        setDraftApiKey(next.apiKey || "");
+        setDraftApiKey("");
+        setApiKeySet(Boolean(next.apiKeySet));
         setDraftPathMap(next.pathMap || "");
       } catch (loadError) {
         if (cancelled) {
@@ -722,7 +727,8 @@ export function JellyfinSettingsPanel() {
       });
       setDraftEnabled(Boolean(next.enabled));
       setDraftUrl(next.url || "");
-      setDraftApiKey(next.apiKey || "");
+      setDraftApiKey("");
+      setApiKeySet(Boolean(next.apiKeySet));
       setDraftPathMap(next.pathMap || "");
       setJellyfinEnabledCache(Boolean(next.enabled));
       emitToast({
@@ -785,7 +791,7 @@ export function JellyfinSettingsPanel() {
   }
 
   const busy = loading || saving || testing;
-  const canTest = Boolean(draftUrl.trim() && draftApiKey.trim());
+  const canTest = Boolean(draftUrl.trim() && (draftApiKey.trim() || apiKeySet));
 
   return (
     <div className="surface-panel space-y-4 p-3 sm:p-4">
@@ -826,7 +832,7 @@ export function JellyfinSettingsPanel() {
             type={apiKeyVisible ? "text" : "password"}
             autoComplete="off"
             value={draftApiKey}
-            placeholder={t("jellyfin.apiKeyPlaceholder")}
+            placeholder={apiKeySet ? t("jellyfin.apiKeyConfiguredPlaceholder") : t("jellyfin.apiKeyPlaceholder")}
             disabled={busy || !draftEnabled}
             className="pr-10"
             onChange={(event) => {

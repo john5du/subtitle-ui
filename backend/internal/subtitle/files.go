@@ -1,6 +1,7 @@
 package subtitle
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io"
 	"os"
@@ -27,10 +28,14 @@ func EnsureWithinRoot(root string, target string) bool {
 	if err != nil {
 		return false
 	}
+	if resolved, err := filepath.EvalSymlinks(rootAbs); err == nil {
+		rootAbs = resolved
+	}
 	targetAbs, err := filepath.Abs(target)
 	if err != nil {
 		return false
 	}
+	targetAbs = resolvePathForContainment(targetAbs)
 	rel, err := filepath.Rel(rootAbs, targetAbs)
 	if err != nil {
 		return false
@@ -39,6 +44,38 @@ func EnsureWithinRoot(root string, target string) bool {
 		return true
 	}
 	return !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != ".."
+}
+
+// resolvePathForContainment EvalSymlinks the longest existing prefix, then
+// re-appends any non-existent suffix (for not-yet-created write targets).
+func resolvePathForContainment(targetAbs string) string {
+	existing := targetAbs
+	for {
+		if resolved, err := filepath.EvalSymlinks(existing); err == nil {
+			if existing == targetAbs {
+				return resolved
+			}
+			suffix, err := filepath.Rel(existing, targetAbs)
+			if err != nil || suffix == "." {
+				return resolved
+			}
+			return filepath.Join(resolved, suffix)
+		}
+		parent := filepath.Dir(existing)
+		if parent == existing {
+			return targetAbs
+		}
+		existing = parent
+	}
+}
+
+// IsSymlink reports whether path is a symbolic link (does not follow).
+func IsSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeSymlink != 0
 }
 
 func BuildNewSubtitlePath(videoPath string, label string, ext string) (string, error) {
@@ -146,14 +183,21 @@ func BackupFile(path string) (string, error) {
 	}
 	defer source.Close()
 
-	backupPath := path + ".bak." + time.Now().UTC().Format("20060102-150405")
-	target, err := os.Create(backupPath)
+	// Nanosecond + random suffix avoids same-second collisions overwriting backups.
+	suffix := time.Now().UTC().Format("20060102-150405.000000000")
+	var nonce [4]byte
+	if _, err := io.ReadFull(rand.Reader, nonce[:]); err == nil {
+		suffix += "-" + fmt.Sprintf("%x", nonce)
+	}
+	backupPath := path + ".bak." + suffix
+	target, err := os.OpenFile(backupPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return "", err
 	}
 	defer target.Close()
 
 	if _, err := io.Copy(target, source); err != nil {
+		_ = os.Remove(backupPath)
 		return "", err
 	}
 

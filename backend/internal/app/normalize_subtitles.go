@@ -302,8 +302,11 @@ func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.Subt
 			continue
 		}
 
+		mu := s.lockVideo(videoID)
+		mu.Lock()
 		backupPath, err := subtitle.BackupFile(existing.Path)
 		if err != nil {
+			mu.Unlock()
 			out.Error = fmt.Sprintf("backup failed: %v", err)
 			result.Failed++
 			result.Results = append(result.Results, out)
@@ -311,6 +314,7 @@ func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.Subt
 			continue
 		}
 		if err := os.Rename(existing.Path, toPath); err != nil {
+			mu.Unlock()
 			out.Error = fmt.Sprintf("rename failed: %v", err)
 			out.BackupPath = backupPath
 			result.Failed++
@@ -318,6 +322,7 @@ func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.Subt
 			s.recordOp("normalize", videoID, existing.Path, backupPath, "error", out.Error)
 			continue
 		}
+		mu.Unlock()
 
 		claimedTargets[targetKey] = struct{}{}
 		pendingByVideo[videoID] = append(pendingByVideo[videoID], pendingRename{
@@ -348,8 +353,12 @@ func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.Subt
 				SourceDetail: item.from.SourceDetail,
 			}
 		}
-		if _, _, err := s.refreshVideoSubtitles(videoID, "", overrides); err != nil {
-			s.recordOp("normalize", videoID, "", "", "error", "refresh after rename: "+err.Error())
+		mu := s.lockVideo(videoID)
+		mu.Lock()
+		_, _, refreshErr := s.refreshVideoSubtitles(videoID, "", overrides)
+		mu.Unlock()
+		if refreshErr != nil {
+			s.recordOp("normalize", videoID, "", "", "error", "refresh after rename: "+refreshErr.Error())
 		} else {
 			s.notifyJellyfinAfterSubtitleChange(videoID)
 		}

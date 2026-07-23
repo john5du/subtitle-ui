@@ -56,16 +56,23 @@ func (s *Service) ResolveVideoPosterPath(videoID string) (string, error) {
 	if !isAllowedPosterCandidate(video, cleanPosterPath, s.cfg.TVMediaRoot) {
 		return "", ErrUnsafePath
 	}
+	// Public poster endpoint: never follow symlinks out of media roots.
+	if subtitle.IsSymlink(cleanPosterPath) {
+		return "", ErrUnsafePath
+	}
+	if !s.isWithinMediaRoots(cleanPosterPath) {
+		return "", ErrUnsafePath
+	}
 
-	info, err := os.Stat(cleanPosterPath)
+	info, err := os.Lstat(cleanPosterPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return "", ErrNotFound
 		}
 		return "", err
 	}
-	if info.IsDir() {
-		return "", ErrNotFound
+	if info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return "", ErrUnsafePath
 	}
 
 	return cleanPosterPath, nil
