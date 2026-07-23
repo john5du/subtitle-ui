@@ -62,7 +62,7 @@ cd frontend && bun run build   # static export → frontend/out
   - After subtitle upload/replace/delete/convert/offset/normalize (and SubHD install via those paths): async `POST /Library/Media/Updated` with mapped video path; on failure fallback `Items/{id}/Refresh?metadataRefreshMode=ValidationOnly`
   - Path map required when subtitle-ui and Jellyfin see different bind-mount roots; failures only log (`jellyfin_notify` op), never fail the subtitle write
   - Video preview: backend proxies static stream only (see stream-ticket above); no Sessions/Playing progress
-  - Embedded subtitle languages (read-only): `GET /api/videos/{id}/subtitles/embedded` → `{ tracks: [{ index, language, title, displayTitle, codec, isForced, isDefault, isText }] }` via JF `MediaStreams` (`IsExternal=false`); 503 if Jellyfin off
+  - Embedded subtitle languages (read-only): `GET /api/videos/{id}/subtitles/embedded` → `{ tracks: [{ index, language, title, displayTitle, codec, isForced, isDefault, isText }] }` via JF `PlaybackInfo` MediaStreams (`IsExternal=false`); 503 if Jellyfin off
 
 ## Layout
 

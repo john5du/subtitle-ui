@@ -28,32 +28,37 @@ func TestListEmbeddedSubtitlesListsTracks(t *testing.T) {
 	var videoPath string
 	jf := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/Users":
+			_ = json.NewEncoder(w).Encode([]map[string]any{
+				{"Id": "user-1", "Name": "admin", "Policy": map[string]any{"IsAdministrator": true, "IsDisabled": false}},
+			})
 		case r.Method == http.MethodGet && r.URL.Path == "/Items" && r.URL.Query().Get("StartIndex") != "":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"Items": []map[string]string{
 					{"Id": "item-emb", "Path": videoPath},
 				},
 			})
-		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/Items/"):
-			if r.URL.Query().Get("Fields") != "MediaStreams" {
-				t.Errorf("Fields=%q", r.URL.Query().Get("Fields"))
-			}
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/PlaybackInfo"):
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"Id": "item-emb",
-				"MediaStreams": []map[string]any{
-					{"Index": 0, "Type": "Video", "Codec": "h264"},
+				"MediaSources": []map[string]any{
 					{
-						"Index": 2, "Type": "Subtitle", "Codec": "ass", "Language": "chi",
-						"Title": "简体", "DisplayTitle": "Chinese", "IsExternal": false,
-						"IsTextSubtitleStream": true, "IsDefault": true,
-					},
-					{
-						"Index": 3, "Type": "Subtitle", "Codec": "subrip", "Language": "eng",
-						"IsExternal": true, "IsTextSubtitleStream": true,
-					},
-					{
-						"Index": 4, "Type": "Subtitle", "Codec": "pgssub",
-						"IsExternal": false, "IsTextSubtitleStream": false,
+						"Id": "ms-emb",
+						"MediaStreams": []map[string]any{
+							{"Index": 0, "Type": "Video", "Codec": "h264"},
+							{
+								"Index": 2, "Type": "Subtitle", "Codec": "ass", "Language": "chi",
+								"Title": "简体", "DisplayTitle": "Chinese", "IsExternal": false,
+								"IsTextSubtitleStream": true, "IsDefault": true,
+							},
+							{
+								"Index": 3, "Type": "Subtitle", "Codec": "subrip", "Language": "eng",
+								"IsExternal": true, "IsTextSubtitleStream": true,
+							},
+							{
+								"Index": 4, "Type": "Subtitle", "Codec": "pgssub",
+								"IsExternal": false, "IsTextSubtitleStream": false,
+							},
+						},
 					},
 				},
 			})

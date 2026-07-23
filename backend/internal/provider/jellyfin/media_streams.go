@@ -9,34 +9,37 @@ import (
 
 // MediaStream is a subset of Jellyfin MediaStream used for subtitle track listing.
 type MediaStream struct {
-	Index              int    `json:"Index"`
-	Type               string `json:"Type"`
-	Codec              string `json:"Codec"`
-	Language           string `json:"Language"`
-	Title              string `json:"Title"`
-	DisplayTitle       string `json:"DisplayTitle"`
-	IsExternal         bool   `json:"IsExternal"`
-	IsTextSubtitle     bool   `json:"IsTextSubtitleStream"`
-	IsForced           bool   `json:"IsForced"`
-	IsDefault          bool   `json:"IsDefault"`
-	IsHearingImpaired  bool   `json:"IsHearingImpaired"`
+	Index             int    `json:"Index"`
+	Type              string `json:"Type"`
+	Codec             string `json:"Codec"`
+	Language          string `json:"Language"`
+	Title             string `json:"Title"`
+	DisplayTitle      string `json:"DisplayTitle"`
+	IsExternal        bool   `json:"IsExternal"`
+	IsTextSubtitle    bool   `json:"IsTextSubtitleStream"`
+	IsForced          bool   `json:"IsForced"`
+	IsDefault         bool   `json:"IsDefault"`
+	IsHearingImpaired bool   `json:"IsHearingImpaired"`
 }
 
-type itemWithStreamsDTO struct {
-	ID            string        `json:"Id"`
-	IDC           string        `json:"id"`
+type playbackStreamsResponse struct {
+	MediaSources []playbackStreamsSrc `json:"MediaSources"`
+}
+
+type playbackStreamsSrc struct {
 	MediaStreams  []MediaStream `json:"MediaStreams"`
 	MediaStreamsC []MediaStream `json:"mediaStreams"`
 }
 
-func (i itemWithStreamsDTO) streams() []MediaStream {
-	if len(i.MediaStreams) > 0 {
-		return i.MediaStreams
+func (s playbackStreamsSrc) streams() []MediaStream {
+	if len(s.MediaStreams) > 0 {
+		return s.MediaStreams
 	}
-	return i.MediaStreamsC
+	return s.MediaStreamsC
 }
 
-// ListMediaStreams returns media streams for a Jellyfin item (GET /Items/{id}?fields=MediaStreams).
+// ListMediaStreams returns media streams for a Jellyfin item.
+// Uses PlaybackInfo (same path as stream preview) — GET /Items/{id}?Fields=… returns 400 on some servers.
 func (c *Client) ListMediaStreams(ctx context.Context, itemID string) ([]MediaStream, error) {
 	if !c.Enabled() {
 		return nil, ErrDisabled
@@ -45,15 +48,24 @@ func (c *Client) ListMediaStreams(ctx context.Context, itemID string) ([]MediaSt
 	if itemID == "" {
 		return nil, fmt.Errorf("item id required")
 	}
-	q := url.Values{}
-	q.Set("Fields", "MediaStreams")
-	var item itemWithStreamsDTO
-	path := "/Items/" + url.PathEscape(itemID)
-	if err := c.getJSON(ctx, path, q, &item); err != nil {
+	userID, err := c.resolvePlaybackUserID(ctx)
+	if err != nil {
 		return nil, err
 	}
-	streams := append([]MediaStream(nil), item.streams()...)
-	return streams, nil
+	body := map[string]any{
+		"UserId": userID,
+	}
+	var resp playbackStreamsResponse
+	q := url.Values{}
+	q.Set("UserId", userID)
+	path := "/Items/" + url.PathEscape(itemID) + "/PlaybackInfo?" + q.Encode()
+	if err := c.postJSON(ctx, path, body, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.MediaSources) == 0 {
+		return nil, fmt.Errorf("%w: no media sources", ErrItemNotFound)
+	}
+	return append([]MediaStream(nil), resp.MediaSources[0].streams()...), nil
 }
 
 // EmbeddedSubtitleStreams filters to embedded (non-external) subtitle tracks.

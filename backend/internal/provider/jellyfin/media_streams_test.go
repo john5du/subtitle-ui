@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"subtitle-ui/backend/internal/provider/jellyfin"
@@ -13,32 +14,42 @@ import (
 
 func TestListMediaStreams(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Path != "/Items/item-1" {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/Users":
+			_ = json.NewEncoder(w).Encode([]map[string]any{
+				{"Id": "user-1", "Name": "admin", "Policy": map[string]any{"IsAdministrator": true, "IsDisabled": false}},
+			})
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/PlaybackInfo"):
+			if !strings.Contains(r.URL.Path, "/Items/item-1/") {
+				http.NotFound(w, r)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"MediaSources": []map[string]any{
+					{
+						"Id": "ms-1",
+						"MediaStreams": []map[string]any{
+							{"Index": 0, "Type": "Video", "Codec": "h264"},
+							{"Index": 1, "Type": "Audio", "Codec": "aac", "Language": "eng"},
+							{
+								"Index": 2, "Type": "Subtitle", "Codec": "ass", "Language": "chi",
+								"Title": "简体", "IsExternal": false, "IsTextSubtitleStream": true,
+							},
+							{
+								"Index": 3, "Type": "Subtitle", "Codec": "subrip", "Language": "eng",
+								"IsExternal": true, "IsTextSubtitleStream": true,
+							},
+							{
+								"Index": 4, "Type": "Subtitle", "Codec": "pgssub", "Language": "jpn",
+								"IsExternal": false, "IsTextSubtitleStream": false, "IsForced": true,
+							},
+						},
+					},
+				},
+			})
+		default:
 			http.NotFound(w, r)
-			return
 		}
-		if r.URL.Query().Get("Fields") != "MediaStreams" {
-			t.Errorf("Fields=%q want MediaStreams", r.URL.Query().Get("Fields"))
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"Id": "item-1",
-			"MediaStreams": []map[string]any{
-				{"Index": 0, "Type": "Video", "Codec": "h264"},
-				{"Index": 1, "Type": "Audio", "Codec": "aac", "Language": "eng"},
-				{
-					"Index": 2, "Type": "Subtitle", "Codec": "ass", "Language": "chi",
-					"Title": "简体", "IsExternal": false, "IsTextSubtitleStream": true,
-				},
-				{
-					"Index": 3, "Type": "Subtitle", "Codec": "subrip", "Language": "eng",
-					"IsExternal": true, "IsTextSubtitleStream": true,
-				},
-				{
-					"Index": 4, "Type": "Subtitle", "Codec": "pgssub", "Language": "jpn",
-					"IsExternal": false, "IsTextSubtitleStream": false, "IsForced": true,
-				},
-			},
-		})
 	}))
 	t.Cleanup(srv.Close)
 
