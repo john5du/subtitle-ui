@@ -23,6 +23,7 @@ import { TimingOffsetDialog } from "../subtitle/dialogs/timing-offset-dialog";
 import { NormalizeSubtitlesDialog, type NormalizeDialogScope } from "../subtitle/dialogs/normalize-subtitles-dialog";
 import { UploadSubtitleDialog } from "../subtitle/dialogs/upload-subtitle-dialog";
 import { VideoSubtitlePreviewDialog } from "../subtitle/dialogs/video-subtitle-preview-dialog";
+import { EmbeddedSubtitlesSummary } from "../subtitle/embedded-subtitles-summary";
 import { SubtitleTrackCard, subtitleRowActionIconClassName } from "../subtitle/subtitle-track-card";
 import {
   ACCEPTED_SUBTITLE_UPLOAD_TYPES,
@@ -80,6 +81,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
   const [playPreviewOpen, setPlayPreviewOpen] = useState(false);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
   const canPlayPreview = jellyfinLoaded && jellyfinEnabled && Boolean(selectedVideo);
+  const canShowEmbedded = jellyfinLoaded && jellyfinEnabled && Boolean(selectedVideo);
 
   const workflow = useSubtitleFileWorkflow({
     selectedVideo,
@@ -120,6 +122,9 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
                   {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
                 </Badge>
               </div>
+              {canShowEmbedded ? (
+                <EmbeddedSubtitlesSummary videoId={selectedVideo.id} jellyfinEnabled compact />
+              ) : null}
               {selectedVideo.path ? (
                 <p className="truncate text-xs text-muted-foreground" title={selectedVideo.path}>
                   {selectedVideo.path}

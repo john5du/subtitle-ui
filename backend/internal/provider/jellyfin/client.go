@@ -44,6 +44,14 @@ type Client struct {
 	client       *http.Client
 	userIDMu     sync.Mutex
 	cachedUserID string // auto-resolved when userID empty
+	pathIDMu     sync.Mutex
+	pathIDCache  map[string]pathIDCacheEntry // key: normalized compare path
+}
+
+type pathIDCacheEntry struct {
+	itemID string
+	miss   bool // true => cached ErrItemNotFound
+	at     time.Time
 }
 
 // ErrDisabled is returned when Jellyfin is not configured.
@@ -54,6 +62,8 @@ var ErrDisabled = fmt.Errorf("jellyfin disabled")
 var ErrItemNotFound = fmt.Errorf("jellyfin item not found")
 
 const findItemPageSize = 100
+const pathIDHitTTL = 2 * time.Minute
+const pathIDMissTTL = 30 * time.Second
 
 // NormalizeBaseURL validates and normalizes a Jellyfin base URL.
 func NormalizeBaseURL(raw string) (string, error) {
@@ -149,12 +159,13 @@ func New(opts Options) *Client {
 		return len(maps[i].From) > len(maps[j].From)
 	})
 	return &Client{
-		enabled:  opts.Enabled && base != "" && strings.TrimSpace(opts.APIKey) != "",
-		baseURL:  base,
-		apiKey:   strings.TrimSpace(opts.APIKey),
-		userID:   strings.TrimSpace(opts.UserID),
-		pathMaps: maps,
-		client:   hc,
+		enabled:     opts.Enabled && base != "" && strings.TrimSpace(opts.APIKey) != "",
+		baseURL:     base,
+		apiKey:      strings.TrimSpace(opts.APIKey),
+		userID:      strings.TrimSpace(opts.UserID),
+		pathMaps:    maps,
+		client:      hc,
+		pathIDCache: make(map[string]pathIDCacheEntry),
 	}
 }
 
@@ -382,6 +393,7 @@ func isPassThroughStreamStatus(code int) bool {
 // Matching is by Path only (not SearchTerm/metadata title). Jellyfin titles often
 // differ from filenames (e.g. Show.S01E01.mkv → "Pilot"), so name search would
 // drop the real item. Results are paged until a path match or the library is exhausted.
+// Successful and not-found results are cached briefly to avoid repeated full-library scans.
 func (c *Client) FindItemIDByPath(ctx context.Context, localOrMappedPath string) (string, error) {
 	if !c.Enabled() {
 		return "", ErrDisabled
@@ -393,6 +405,10 @@ func (c *Client) FindItemIDByPath(ctx context.Context, localOrMappedPath string)
 	want := normalizeComparePath(target)
 	if want == "" {
 		return "", fmt.Errorf("empty path")
+	}
+
+	if id, ok, err := c.lookupPathIDCache(want); ok {
+		return id, err
 	}
 
 	for start := 0; ; start += findItemPageSize {
@@ -420,6 +436,7 @@ func (c *Client) FindItemIDByPath(ctx context.Context, localOrMappedPath string)
 			}
 			id := item.id()
 			if id != "" {
+				c.storePathIDCache(want, id, false)
 				return id, nil
 			}
 		}
@@ -427,7 +444,41 @@ func (c *Client) FindItemIDByPath(ctx context.Context, localOrMappedPath string)
 			break
 		}
 	}
+	c.storePathIDCache(want, "", true)
 	return "", fmt.Errorf("%w for path %s", ErrItemNotFound, target)
+}
+
+func (c *Client) lookupPathIDCache(key string) (id string, ok bool, err error) {
+	c.pathIDMu.Lock()
+	defer c.pathIDMu.Unlock()
+	if c.pathIDCache == nil {
+		return "", false, nil
+	}
+	entry, found := c.pathIDCache[key]
+	if !found {
+		return "", false, nil
+	}
+	ttl := pathIDHitTTL
+	if entry.miss {
+		ttl = pathIDMissTTL
+	}
+	if time.Since(entry.at) > ttl {
+		delete(c.pathIDCache, key)
+		return "", false, nil
+	}
+	if entry.miss {
+		return "", true, ErrItemNotFound
+	}
+	return entry.itemID, true, nil
+}
+
+func (c *Client) storePathIDCache(key, itemID string, miss bool) {
+	c.pathIDMu.Lock()
+	defer c.pathIDMu.Unlock()
+	if c.pathIDCache == nil {
+		c.pathIDCache = make(map[string]pathIDCacheEntry)
+	}
+	c.pathIDCache[key] = pathIDCacheEntry{itemID: itemID, miss: miss, at: time.Now()}
 }
 
 // NotifyVideoChanged reports a video path change; falls back to item refresh.

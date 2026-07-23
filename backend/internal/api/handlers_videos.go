@@ -84,6 +84,10 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleUploadSubtitle(w, r, videoID)
 		return
 
+	case len(segments) == 3 && segments[1] == "subtitles" && segments[2] == "embedded" && r.Method == http.MethodGet:
+		s.handleEmbeddedSubtitles(w, r, videoID)
+		return
+
 	case len(segments) == 4 && segments[1] == "subtitles" && segments[2] == "normalize" && segments[3] == "plan" && r.Method == http.MethodPost:
 		s.handleVideoNormalizePlan(w, r, videoID)
 		return
@@ -247,6 +251,19 @@ func (s *Server) handleOffsetSubtitleTiming(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	writeJSON(w, http.StatusOK, subtitle)
+}
+
+func (s *Server) handleEmbeddedSubtitles(w http.ResponseWriter, r *http.Request, videoID string) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	list, err := s.service.ListEmbeddedSubtitles(r.Context(), videoID)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
 }
 
 func (s *Server) handleVideoNormalizePlan(w http.ResponseWriter, r *http.Request, videoID string) {

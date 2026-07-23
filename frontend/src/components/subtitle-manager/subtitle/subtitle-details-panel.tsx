@@ -31,6 +31,7 @@ import { SubtitlePreviewDialog } from "./dialogs/subtitle-preview-dialog";
 import { TimingOffsetDialog } from "./dialogs/timing-offset-dialog";
 import { UploadSubtitleDialog } from "./dialogs/upload-subtitle-dialog";
 import { VideoSubtitlePreviewDialog } from "./dialogs/video-subtitle-preview-dialog";
+import { EmbeddedSubtitlesSummary } from "./embedded-subtitles-summary";
 import { SubtitleTrackCard } from "./subtitle-track-card";
 import {
   ACCEPTED_SUBTITLE_UPLOAD_TYPES,
@@ -85,6 +86,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
   const showHeader = showPanelTitle || showBack || (Boolean(selectedVideo) && !embedded);
   const canAutoDownload = Boolean(onSearchSubHD && onDownloadSubHD);
   const canPlayPreview = jellyfinLoaded && jellyfinEnabled && Boolean(selectedVideo);
+  const canShowEmbedded = jellyfinLoaded && jellyfinEnabled && Boolean(selectedVideo);
   const useCardLayout = !isMdUp;
 
   function triggerSubtitleListFlash() {
@@ -175,6 +177,9 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                   <Badge variant="secondary">
                     {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
                   </Badge>
+                  {canShowEmbedded && !compactMeta ? (
+                    <EmbeddedSubtitlesSummary videoId={selectedVideo.id} jellyfinEnabled compact />
+                  ) : null}
                   <span className="text-xs text-muted-foreground">
                     {t("info.updated")}: {formatTime(selectedVideo.updatedAt)}
                   </span>
@@ -210,6 +215,9 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                       <Badge variant="secondary">
                         {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
                       </Badge>
+                      {canShowEmbedded ? (
+                        <EmbeddedSubtitlesSummary videoId={selectedVideo.id} jellyfinEnabled compact />
+                      ) : null}
                     </div>
                     <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setMetaExpanded((prev) => !prev)}>
                       {metaExpanded ? t("details.lessInfo") : t("details.moreInfo")}
@@ -278,6 +286,9 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
                     <Badge variant="secondary" className="shrink-0">
                       {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
                     </Badge>
+                  ) : null}
+                  {selectedVideo && embedded && canShowEmbedded ? (
+                    <EmbeddedSubtitlesSummary videoId={selectedVideo.id} jellyfinEnabled compact />
                   ) : null}
                   {searchActionItems.length > 0 && (
                     <div className="ml-auto flex h-9 flex-wrap items-center justify-end gap-1.5">

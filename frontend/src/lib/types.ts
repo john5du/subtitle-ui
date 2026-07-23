@@ -48,6 +48,21 @@ export interface SubtitleNormalizeApplyResult {
 export type SubtitleSourceEncoding = "auto" | "utf-8" | "utf-16le" | "utf-16be" | "gb18030" | "big5";
 export type SubtitleSource = "directory" | "upload" | "generated" | "download";
 
+export interface EmbeddedSubtitleTrack {
+  index: number;
+  language: string;
+  title?: string;
+  displayTitle?: string;
+  codec?: string;
+  isForced: boolean;
+  isDefault: boolean;
+  isText: boolean;
+}
+
+export interface EmbeddedSubtitleList {
+  tracks: EmbeddedSubtitleTrack[];
+}
+
 export interface Subtitle {
   id: string;
   path: string;
