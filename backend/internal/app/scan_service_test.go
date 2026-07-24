@@ -1,0 +1,621 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"subtitle-ui/backend/internal/config"
+	"subtitle-ui/backend/internal/domain"
+)
+
+func TestRunFileScanWritesScanLogWithChangeSummary(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	movieDir := filepath.Join(movieRoot, "Movie A")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatalf("mkdir movie dir: %v", err)
+	}
+	videoPath := filepath.Join(movieDir, "movie-a.mkv")
+	if err := os.WriteFile(videoPath, []byte("video"), 0o644); err != nil {
+		t.Fatalf("write video: %v", err)
+	}
+	nfoPath := filepath.Join(movieDir, "movie-a.nfo")
+	if err := os.WriteFile(nfoPath, []byte(sampleNFO("Movie A", "2025")), 0o644); err != nil {
+		t.Fatalf("write nfo: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	status := svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("scan status error: %s", status.Error)
+	}
+
+	firstScanLog, ok := latestLogByAction(svc.ListLogs(20), "scan")
+	if !ok {
+		t.Fatalf("expected scan operation log")
+	}
+	if firstScanLog.Status != "ok" {
+		t.Fatalf("expected scan log status ok, got %s", firstScanLog.Status)
+	}
+	if !strings.Contains(firstScanLog.Message, "added=1") {
+		t.Fatalf("expected added count in log message, got %q", firstScanLog.Message)
+	}
+
+	if err := os.WriteFile(nfoPath, []byte(sampleNFO("Movie A Updated", "2025")), 0o644); err != nil {
+		t.Fatalf("rewrite nfo: %v", err)
+	}
+
+	status = svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("second scan status error: %s", status.Error)
+	}
+
+	secondScanLog, ok := latestLogByAction(svc.ListLogs(20), "scan")
+	if !ok {
+		t.Fatalf("expected second scan operation log")
+	}
+	if !strings.Contains(secondScanLog.Message, "updated=1") {
+		t.Fatalf("expected updated count in log message, got %q", secondScanLog.Message)
+	}
+}
+
+func TestCheckMediaRootWritePermissionsWritesErrorLog(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "missing-movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	issues := svc.CheckMediaRootWritePermissions()
+	if len(issues) != 1 {
+		t.Fatalf("expected exactly 1 permission issue, got %d (%v)", len(issues), issues)
+	}
+	if !strings.Contains(issues[0], movieRoot) {
+		t.Fatalf("expected issue to include movie root, got %q", issues[0])
+	}
+
+	logEntry, ok := latestLogByAction(svc.ListLogs(10), "permission_check")
+	if !ok {
+		t.Fatalf("expected permission_check log entry")
+	}
+	if logEntry.Status != "error" {
+		t.Fatalf("expected permission_check status error, got %s", logEntry.Status)
+	}
+	if logEntry.VideoID != systemOperationVideoID {
+		t.Fatalf("expected video id %q, got %q", systemOperationVideoID, logEntry.VideoID)
+	}
+	if !strings.Contains(logEntry.TargetPath, movieRoot) {
+		t.Fatalf("expected target path to include movie root, got %q", logEntry.TargetPath)
+	}
+}
+
+func TestDirectoryScanResultIncludesIndexedMovieAndSeriesCounts(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	movieA := filepath.Join(movieRoot, "Movie A")
+	movieB := filepath.Join(movieRoot, "Movie B")
+	if err := os.MkdirAll(movieA, 0o755); err != nil {
+		t.Fatalf("mkdir movie A: %v", err)
+	}
+	if err := os.MkdirAll(movieB, 0o755); err != nil {
+		t.Fatalf("mkdir movie B: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieA, "movie-a.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write movie A: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieA, "movie-a.nfo"), []byte(sampleNFO("Movie A", "2024")), 0o644); err != nil {
+		t.Fatalf("write movie A nfo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieB, "movie-b.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write movie B: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieB, "movie-b.nfo"), []byte(sampleNFO("Movie B", "2025")), 0o644); err != nil {
+		t.Fatalf("write movie B nfo: %v", err)
+	}
+
+	seriesAEpisode := filepath.Join(tvRoot, "Series A", "Season 1", "series-a-s01e01.mkv")
+	seriesBEpisode := filepath.Join(tvRoot, "Series B", "Season 1", "series-b-s01e01.mkv")
+	if err := os.MkdirAll(filepath.Dir(seriesAEpisode), 0o755); err != nil {
+		t.Fatalf("mkdir series A: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(seriesBEpisode), 0o755); err != nil {
+		t.Fatalf("mkdir series B: %v", err)
+	}
+	if err := os.WriteFile(seriesAEpisode, []byte("video"), 0o644); err != nil {
+		t.Fatalf("write series A episode: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(seriesAEpisode), "series-a-s01e01.nfo"), []byte(sampleNFO("Series A", "2024")), 0o644); err != nil {
+		t.Fatalf("write series A nfo: %v", err)
+	}
+	if err := os.WriteFile(seriesBEpisode, []byte("video"), 0o644); err != nil {
+		t.Fatalf("write series B episode: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(seriesBEpisode), "series-b-s01e01.nfo"), []byte(sampleNFO("Series B", "2025")), 0o644); err != nil {
+		t.Fatalf("write series B nfo: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	status := svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("scan status error: %s", status.Error)
+	}
+
+	last := svc.LastDirectoryScan()
+	if last.MovieCount != 2 {
+		t.Fatalf("expected LastDirectoryScan movieCount=2, got %d", last.MovieCount)
+	}
+	if last.TVSeriesCount != 2 {
+		t.Fatalf("expected LastDirectoryScan tvSeriesCount=2, got %d", last.TVSeriesCount)
+	}
+
+	discovered := svc.DiscoverDirectories(context.Background())
+	if discovered.MovieCount != 2 {
+		t.Fatalf("expected DiscoverDirectories movieCount=2, got %d", discovered.MovieCount)
+	}
+	if discovered.TVSeriesCount != 2 {
+		t.Fatalf("expected DiscoverDirectories tvSeriesCount=2, got %d", discovered.TVSeriesCount)
+	}
+}
+
+func TestRunFileScanErrorDoesNotWipeOtherMediaType(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	movieDir := filepath.Join(movieRoot, "Movie A")
+	tvDir := filepath.Join(tvRoot, "Show A", "Season 1")
+	for _, dir := range []string{movieDir, tvDir} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write movie: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.nfo"), []byte(sampleNFO("Movie A", "2025")), 0o644); err != nil {
+		t.Fatalf("write movie nfo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tvDir, "show-a-s01e01.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write tv: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tvDir, "show-a-s01e01.nfo"), []byte(sampleNFO("Show A", "2024")), 0o644); err != nil {
+		t.Fatalf("write tv nfo: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatalf("initial scan: %s", status.Error)
+	}
+	if total := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "").Total; total != 1 {
+		t.Fatalf("expected 1 movie, got %d", total)
+	}
+	if total := svc.ListVideosPage("", domain.MediaTypeTV, "", 1, 20, "", "").Total; total != 1 {
+		t.Fatalf("expected 1 tv, got %d", total)
+	}
+
+	// Remove TV root so the next full scan fails on TV while movies still succeed.
+	if err := os.RemoveAll(tvRoot); err != nil {
+		t.Fatalf("remove tv root: %v", err)
+	}
+
+	status := svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error == "" {
+		t.Fatal("expected scan error after tv root removed")
+	}
+	if total := svc.ListVideosPage("", domain.MediaTypeTV, "", 1, 20, "", "").Total; total != 1 {
+		t.Fatalf("tv library must not be wiped on partial scan failure, got total=%d err=%q", total, status.Error)
+	}
+	if total := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "").Total; total != 1 {
+		t.Fatalf("movie library should remain, got total=%d", total)
+	}
+}
+
+func TestRunFileScanPartialScopeDoesNotWipeOtherVideos(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	keepDir := filepath.Join(movieRoot, "Keep Movie")
+	replaceDir := filepath.Join(movieRoot, "Replace Movie")
+	for _, dir := range []string{keepDir, replaceDir, tvRoot} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", dir, err)
+		}
+	}
+	writeMovie := func(dir, baseName, title string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, baseName+".mkv"), []byte("video"), 0o644); err != nil {
+			t.Fatalf("write video: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, baseName+".nfo"), []byte(sampleNFO(title, "2025")), 0o644); err != nil {
+			t.Fatalf("write nfo: %v", err)
+		}
+	}
+	writeMovie(keepDir, "keep", "Keep Movie")
+	writeMovie(replaceDir, "old", "Replace Movie Old")
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatalf("initial scan: %s", status.Error)
+	}
+	if total := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "").Total; total != 2 {
+		t.Fatalf("expected 2 movies after initial scan, got %d", total)
+	}
+
+	if err := os.Remove(filepath.Join(replaceDir, "old.mkv")); err != nil {
+		t.Fatalf("remove old video: %v", err)
+	}
+	if err := os.Remove(filepath.Join(replaceDir, "old.nfo")); err != nil {
+		t.Fatalf("remove old nfo: %v", err)
+	}
+	writeMovie(replaceDir, "new", "Replace Movie New")
+
+	if status := svc.RunFileScan(context.Background(), []string{replaceDir}, nil); status.Error != "" {
+		t.Fatalf("partial scan: %s", status.Error)
+	}
+	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	if page.Total != 2 {
+		t.Fatalf("expected 2 movies after partial scan, got %d", page.Total)
+	}
+	titles := map[string]bool{}
+	for _, item := range page.Items {
+		titles[item.Title] = true
+	}
+	if !titles["Keep Movie"] || !titles["Replace Movie New"] || titles["Replace Movie Old"] {
+		t.Fatalf("unexpected titles after partial scan: %+v", titles)
+	}
+}
+
+func TestRunFileScanPersistsPosterPaths(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	movieDir := filepath.Join(movieRoot, "Movie A")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatalf("mkdir movie dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write movie: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.nfo"), []byte(sampleNFO("Movie A", "2025")), 0o644); err != nil {
+		t.Fatalf("write movie nfo: %v", err)
+	}
+	moviePosterPath := filepath.Join(movieDir, "movie.png")
+	if err := os.WriteFile(moviePosterPath, []byte("movie-poster"), 0o644); err != nil {
+		t.Fatalf("write movie poster: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a-poster.bmp"), []byte("movie-poster-fallback"), 0o644); err != nil {
+		t.Fatalf("write movie poster fallback: %v", err)
+	}
+
+	tvEpisodePath := filepath.Join(tvRoot, "Series A", "Season 1", "series-a-s01e01.mkv")
+	if err := os.MkdirAll(filepath.Dir(tvEpisodePath), 0o755); err != nil {
+		t.Fatalf("mkdir tv dir: %v", err)
+	}
+	if err := os.WriteFile(tvEpisodePath, []byte("video"), 0o644); err != nil {
+		t.Fatalf("write tv episode: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(tvEpisodePath), "series-a-s01e01.nfo"), []byte(sampleNFO("Series A", "2024")), 0o644); err != nil {
+		t.Fatalf("write tv nfo: %v", err)
+	}
+	tvPosterPath := filepath.Join(tvRoot, "Series A", "folder.jpg")
+	if err := os.WriteFile(tvPosterPath, []byte("tv-poster"), 0o644); err != nil {
+		t.Fatalf("write tv poster: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tvRoot, "Series A", "fanart.png"), []byte("tv-poster-fallback"), 0o644); err != nil {
+		t.Fatalf("write tv poster fallback: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	status := svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("scan status error: %s", status.Error)
+	}
+
+	moviePage := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	if len(moviePage.Items) != 1 {
+		t.Fatalf("expected 1 movie, got %d", len(moviePage.Items))
+	}
+	if moviePage.Items[0].PosterPath != moviePosterPath {
+		t.Fatalf("expected movie poster %q, got %q", moviePosterPath, moviePage.Items[0].PosterPath)
+	}
+
+	tvPage := svc.ListVideosPage("", domain.MediaTypeTV, "", 1, 20, "", "")
+	if len(tvPage.Items) != 1 {
+		t.Fatalf("expected 1 tv episode, got %d", len(tvPage.Items))
+	}
+	if tvPage.Items[0].PosterPath != tvPosterPath {
+		t.Fatalf("expected tv poster %q, got %q", tvPosterPath, tvPage.Items[0].PosterPath)
+	}
+}
+
+func TestRunFileScanSkipsUnchangedVideos(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	movieDir := filepath.Join(movieRoot, "Movie A")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatalf("mkdir movie dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write video: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.nfo"), []byte(sampleNFO("Movie A", "2025")), 0o644); err != nil {
+		t.Fatalf("write nfo: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	status := svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("first scan status error: %s", status.Error)
+	}
+	firstLog, ok := latestLogByAction(svc.ListLogs(20), "scan")
+	if !ok {
+		t.Fatalf("expected first scan log")
+	}
+	if !strings.Contains(firstLog.Message, "added=1") {
+		t.Fatalf("expected added=1 on first scan, got %q", firstLog.Message)
+	}
+
+	status = svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("second scan status error: %s", status.Error)
+	}
+	secondLog, ok := latestLogByAction(svc.ListLogs(20), "scan")
+	if !ok {
+		t.Fatalf("expected second scan log")
+	}
+	if !strings.Contains(secondLog.Message, "skipped=1") {
+		t.Fatalf("expected skipped=1 on unchanged rescan, got %q", secondLog.Message)
+	}
+	if !strings.Contains(secondLog.Message, "added=0") || !strings.Contains(secondLog.Message, "updated=0") {
+		t.Fatalf("expected no add/update on unchanged rescan, got %q", secondLog.Message)
+	}
+
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.zh.srt"), []byte("1\n00:00:01,000 --> 00:00:02,000\nhi\n"), 0o644); err != nil {
+		t.Fatalf("write subtitle: %v", err)
+	}
+	status = svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("third scan status error: %s", status.Error)
+	}
+	thirdLog, ok := latestLogByAction(svc.ListLogs(20), "scan")
+	if !ok {
+		t.Fatalf("expected third scan log")
+	}
+	if !strings.Contains(thirdLog.Message, "updated=1") {
+		t.Fatalf("expected updated=1 after subtitle add, got %q", thirdLog.Message)
+	}
+
+	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	if len(page.Items) != 1 || len(page.Items[0].Subtitles) != 1 {
+		t.Fatalf("expected one video with one subtitle after rescan, got %+v", page.Items)
+	}
+}
+
+func TestRunFileScanMarksPosterChangesAsVideoUpdates(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	movieDir := filepath.Join(movieRoot, "Movie A")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatalf("mkdir movie dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write movie: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-a.nfo"), []byte(sampleNFO("Movie A", "2025")), 0o644); err != nil {
+		t.Fatalf("write nfo: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	status := svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("first scan status error: %s", status.Error)
+	}
+
+	if err := os.WriteFile(filepath.Join(movieDir, "cover.jpg"), []byte("poster"), 0o644); err != nil {
+		t.Fatalf("write poster: %v", err)
+	}
+
+	status = svc.RunFileScan(context.Background(), nil, nil)
+	if status.Error != "" {
+		t.Fatalf("second scan status error: %s", status.Error)
+	}
+
+	scanLog, ok := latestLogByAction(svc.ListLogs(20), "scan")
+	if !ok {
+		t.Fatalf("expected scan log")
+	}
+	if !strings.Contains(scanLog.Message, "updated=1") {
+		t.Fatalf("expected updated count in log message, got %q", scanLog.Message)
+	}
+}
+
+func TestResolveVideoPosterPathRejectsUnsafeCandidate(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	unsafeDir := filepath.Join(base, "outside")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+	if err := os.MkdirAll(unsafeDir, 0o755); err != nil {
+		t.Fatalf("mkdir unsafe dir: %v", err)
+	}
+
+	unsafePosterPath := filepath.Join(unsafeDir, "poster.jpg")
+	if err := os.WriteFile(unsafePosterPath, []byte("unsafe"), 0o644); err != nil {
+		t.Fatalf("write unsafe poster: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	now := time.Now().UTC()
+	video := domain.Video{
+		ID:             "MOVIE-UNSAFE",
+		Path:           filepath.Join(movieRoot, "Movie A", "movie-a.mkv"),
+		Directory:      filepath.Join(movieRoot, "Movie A"),
+		FileName:       "movie-a.mkv",
+		Title:          "Movie A",
+		Year:           "2025",
+		MediaType:      domain.MediaTypeMovie,
+		MetadataSource: "nfo",
+		PosterPath:     unsafePosterPath,
+		UpdatedAt:      now,
+	}
+	if err := os.MkdirAll(video.Directory, 0o755); err != nil {
+		t.Fatalf("mkdir video dir: %v", err)
+	}
+	if err := svc.store.SaveScanResult([]domain.Video{video}, now, now, "", nil); err != nil {
+		t.Fatalf("save scan result: %v", err)
+	}
+
+	_, err = svc.ResolveVideoPosterPath(video.ID)
+	if !errors.Is(err, ErrUnsafePath) {
+		t.Fatalf("expected ErrUnsafePath, got %v", err)
+	}
+}

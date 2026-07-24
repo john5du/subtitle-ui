@@ -37,15 +37,15 @@ type PlaybackPlan struct {
 
 // PlaybackMediaStream is a subset of Jellyfin MediaStream for preview decisions.
 type PlaybackMediaStream struct {
-	Type            string `json:"Type"`
-	Codec           string `json:"Codec"`
-	VideoRange      string `json:"VideoRange"`
-	VideoRangeType  string `json:"VideoRangeType"`
-	ColorTransfer   string `json:"ColorTransfer"`
-	Width           int    `json:"Width"`
-	Height          int    `json:"Height"`
-	IsExternal      bool   `json:"IsExternal"`
-	IsTextSubtitle  bool   `json:"IsTextSubtitleStream"`
+	Type           string `json:"Type"`
+	Codec          string `json:"Codec"`
+	VideoRange     string `json:"VideoRange"`
+	VideoRangeType string `json:"VideoRangeType"`
+	ColorTransfer  string `json:"ColorTransfer"`
+	Width          int    `json:"Width"`
+	Height         int    `json:"Height"`
+	IsExternal     bool   `json:"IsExternal"`
+	IsTextSubtitle bool   `json:"IsTextSubtitleStream"`
 }
 
 type playbackInfoResponse struct {

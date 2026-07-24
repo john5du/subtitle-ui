@@ -16,7 +16,7 @@ func RewriteM3U8(playlist string, basePath string, rewrite func(upstreamPath str
 		baseDir = baseDir[:i]
 	}
 	if i := strings.LastIndex(baseDir, "/"); i >= 0 {
-		baseDir = baseDir[: i+1]
+		baseDir = baseDir[:i+1]
 	} else {
 		baseDir = "/"
 	}

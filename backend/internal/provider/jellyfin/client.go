@@ -10,28 +10,28 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
+const (
+	clientName     = "subtitle-ui"
+	clientDevice   = "subtitle-ui"
+	clientDeviceID = "subtitle-ui"
+	clientVersion  = "1.0.0"
+)
+
 // Options configures the Jellyfin client.
 type Options struct {
-	Enabled    bool
-	BaseURL    string
-	APIKey     string
+	Enabled bool
+	BaseURL string
+	APIKey  string
 	// UserID is optional; used for PlaybackInfo (DeviceProfile requires a real user).
 	// When empty, the client auto-picks an admin/non-disabled user via GET /Users.
 	UserID     string
 	PathMaps   []PathMap
 	HTTPClient *http.Client
-}
-
-// PathMap rewrites local media paths to paths Jellyfin sees.
-type PathMap struct {
-	From string
-	To   string
 }
 
 // Client talks to the Jellyfin HTTP API.
@@ -48,22 +48,12 @@ type Client struct {
 	pathIDCache  map[string]pathIDCacheEntry // key: normalized compare path
 }
 
-type pathIDCacheEntry struct {
-	itemID string
-	miss   bool // true => cached ErrItemNotFound
-	at     time.Time
-}
-
 // ErrDisabled is returned when Jellyfin is not configured.
 var ErrDisabled = fmt.Errorf("jellyfin disabled")
 
 // ErrItemNotFound is returned when no Movie/Episode matches the filesystem path.
 // Other lookup failures (network, auth, 5xx, decode) return plain errors.
 var ErrItemNotFound = fmt.Errorf("jellyfin item not found")
-
-const findItemPageSize = 100
-const pathIDHitTTL = 2 * time.Minute
-const pathIDMissTTL = 30 * time.Second
 
 // NormalizeBaseURL validates and normalizes a Jellyfin base URL.
 func NormalizeBaseURL(raw string) (string, error) {
@@ -86,54 +76,6 @@ func NormalizeBaseURL(raw string) (string, error) {
 	u.Fragment = ""
 	u.RawQuery = ""
 	return strings.TrimRight(u.String(), "/"), nil
-}
-
-// ParsePathMaps parses "from:to,from2:to2" into path maps.
-// From/to may be absolute paths; longer From prefixes win when mapping.
-func ParsePathMaps(raw string) ([]PathMap, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil, nil
-	}
-	parts := strings.Split(raw, ",")
-	out := make([]PathMap, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		from, to, ok := splitPathMapPair(part)
-		if !ok {
-			return nil, fmt.Errorf("invalid path map entry %q (want from:to)", part)
-		}
-		from = normalizeMapPath(from)
-		to = normalizeMapPath(to)
-		if from == "" || to == "" {
-			return nil, fmt.Errorf("invalid path map entry %q (empty from/to)", part)
-		}
-		out = append(out, PathMap{From: from, To: to})
-	}
-	sort.SliceStable(out, func(i, j int) bool {
-		return len(out[i].From) > len(out[j].From)
-	})
-	return out, nil
-}
-
-// FormatPathMaps serializes path maps back to the env/DB string form.
-func FormatPathMaps(maps []PathMap) string {
-	if len(maps) == 0 {
-		return ""
-	}
-	parts := make([]string, 0, len(maps))
-	for _, m := range maps {
-		from := strings.TrimSpace(m.From)
-		to := strings.TrimSpace(m.To)
-		if from == "" || to == "" {
-			continue
-		}
-		parts = append(parts, from+":"+to)
-	}
-	return strings.Join(parts, ",")
 }
 
 // New creates a Jellyfin client. When disabled, methods return ErrDisabled.
@@ -184,368 +126,6 @@ func (c *Client) Ping(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-// PhysicalPaths returns library physical roots from GET /Library/PhysicalPaths.
-func (c *Client) PhysicalPaths(ctx context.Context) ([]string, error) {
-	if !c.Enabled() {
-		return nil, ErrDisabled
-	}
-	var paths []string
-	if err := c.getJSON(ctx, "/Library/PhysicalPaths", nil, &paths); err != nil {
-		return nil, err
-	}
-	out := make([]string, 0, len(paths))
-	for _, p := range paths {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		out = append(out, p)
-	}
-	return out, nil
-}
-
-// ValidatePathMaps checks configured map targets against Jellyfin library roots.
-// When no path maps are set, returns nil. When maps are set but none match, returns an error.
-func (c *Client) ValidatePathMaps(ctx context.Context) error {
-	if !c.Enabled() {
-		return ErrDisabled
-	}
-	if len(c.pathMaps) == 0 {
-		return nil
-	}
-	physical, err := c.PhysicalPaths(ctx)
-	if err != nil {
-		return fmt.Errorf("list library paths: %w", err)
-	}
-	if len(physical) == 0 {
-		return fmt.Errorf("jellyfin returned no library physical paths")
-	}
-	unmatched := make([]string, 0)
-	for _, m := range c.pathMaps {
-		if !pathMapTargetMatchesLibrary(m.To, physical) {
-			unmatched = append(unmatched, m.From+":"+m.To)
-		}
-	}
-	if len(unmatched) == 0 {
-		return nil
-	}
-	known := make([]string, 0, len(physical))
-	for _, p := range physical {
-		known = append(known, normalizeMapPath(p))
-	}
-	return fmt.Errorf("path map target(s) not under any Jellyfin library root: %s (library roots: %s)",
-		strings.Join(unmatched, ", "),
-		strings.Join(known, ", "))
-}
-
-// pathMapTargetMatchesLibrary reports whether mapTo equals, contains, or is contained by a library root.
-func pathMapTargetMatchesLibrary(mapTo string, physical []string) bool {
-	to := normalizeMapPath(mapTo)
-	if to == "" {
-		return false
-	}
-	for _, p := range physical {
-		root := normalizeMapPath(p)
-		if root == "" {
-			continue
-		}
-		if to == root || pathHasPrefix(to, root) || pathHasPrefix(root, to) {
-			return true
-		}
-	}
-	return false
-}
-
-// PathMaps returns a copy of configured path maps.
-func (c *Client) PathMaps() []PathMap {
-	if c == nil || len(c.pathMaps) == 0 {
-		return nil
-	}
-	out := make([]PathMap, len(c.pathMaps))
-	copy(out, c.pathMaps)
-	return out
-}
-
-// MapPath rewrites a local path using configured path maps.
-func (c *Client) MapPath(localPath string) string {
-	if c == nil {
-		return localPath
-	}
-	return MapPath(localPath, c.pathMaps)
-}
-
-// MapPath rewrites localPath using maps (longest From prefix wins).
-func MapPath(localPath string, maps []PathMap) string {
-	localPath = strings.TrimSpace(localPath)
-	if localPath == "" || len(maps) == 0 {
-		return localPath
-	}
-	normalized := normalizeMapPath(localPath)
-	for _, m := range maps {
-		if pathHasPrefix(normalized, m.From) {
-			rest := strings.TrimPrefix(normalized, m.From)
-			rest = strings.TrimPrefix(rest, "/")
-			if rest == "" {
-				return m.To
-			}
-			return joinMapped(m.To, rest)
-		}
-	}
-	return localPath
-}
-
-// ReportMediaUpdated notifies Jellyfin that media paths changed.
-func (c *Client) ReportMediaUpdated(ctx context.Context, paths []string) error {
-	if !c.Enabled() {
-		return ErrDisabled
-	}
-	updates := make([]mediaUpdatePath, 0, len(paths))
-	seen := make(map[string]struct{}, len(paths))
-	for _, p := range paths {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		mapped := c.MapPath(p)
-		if _, ok := seen[mapped]; ok {
-			continue
-		}
-		seen[mapped] = struct{}{}
-		updates = append(updates, mediaUpdatePath{
-			Path:       mapped,
-			UpdateType: "Modified",
-		})
-	}
-	if len(updates) == 0 {
-		return fmt.Errorf("no paths to report")
-	}
-	body := mediaUpdateInfo{Updates: updates}
-	return c.postJSON(ctx, "/Library/Media/Updated", body, nil)
-}
-
-// RefreshItem queues a ValidationOnly metadata refresh for one item.
-func (c *Client) RefreshItem(ctx context.Context, itemID string) error {
-	if !c.Enabled() {
-		return ErrDisabled
-	}
-	itemID = strings.TrimSpace(itemID)
-	if itemID == "" {
-		return fmt.Errorf("item id required")
-	}
-	q := url.Values{}
-	q.Set("metadataRefreshMode", "ValidationOnly")
-	q.Set("imageRefreshMode", "None")
-	return c.postJSON(ctx, "/Items/"+url.PathEscape(itemID)+"/Refresh?"+q.Encode(), nil, nil)
-}
-
-// StreamResponse is a live Jellyfin video stream (caller must Close Body).
-// StatusCode may be 2xx, 404, or 416 (media-relevant responses are passed through).
-type StreamResponse struct {
-	StatusCode int
-	Header     http.Header
-	Body       io.ReadCloser
-}
-
-// OpenVideoStream opens a static direct stream for an item (no transcoding, no play reporting).
-// Prefer ResolvePlaybackPlan + OpenAuthenticatedPath for browser preview (audio may need AAC).
-func (c *Client) OpenVideoStream(ctx context.Context, method, itemID, rangeHeader string) (*StreamResponse, error) {
-	itemID = strings.TrimSpace(itemID)
-	if itemID == "" {
-		return nil, fmt.Errorf("item id required")
-	}
-	q := url.Values{}
-	q.Set("static", "true")
-	path := "/Videos/" + url.PathEscape(itemID) + "/stream?" + q.Encode()
-	return c.OpenAuthenticatedPath(ctx, method, path, rangeHeader)
-}
-
-// streamHTTPClient returns a client that shares the configured Transport but has no overall timeout
-// (long Range transfers rely on request context cancellation when the browser disconnects).
-func (c *Client) streamHTTPClient() *http.Client {
-	base := c.client
-	if base == nil {
-		return &http.Client{Timeout: 0}
-	}
-	return &http.Client{
-		Transport:     base.Transport,
-		CheckRedirect: base.CheckRedirect,
-		Jar:           base.Jar,
-		Timeout:       0,
-	}
-}
-
-func isPassThroughStreamStatus(code int) bool {
-	if code >= 200 && code < 300 {
-		return true
-	}
-	switch code {
-	case http.StatusNotFound, http.StatusRequestedRangeNotSatisfiable:
-		return true
-	default:
-		return false
-	}
-}
-
-// FindItemIDByPath looks up a Movie/Episode id by filesystem path.
-//
-// Matching is by Path only (not SearchTerm/metadata title). Jellyfin titles often
-// differ from filenames (e.g. Show.S01E01.mkv → "Pilot"), so name search would
-// drop the real item. Results are paged until a path match or the library is exhausted.
-// Successful and not-found results are cached briefly to avoid repeated full-library scans.
-func (c *Client) FindItemIDByPath(ctx context.Context, localOrMappedPath string) (string, error) {
-	if !c.Enabled() {
-		return "", ErrDisabled
-	}
-	target := c.MapPath(strings.TrimSpace(localOrMappedPath))
-	if target == "" {
-		return "", fmt.Errorf("empty path")
-	}
-	want := normalizeComparePath(target)
-	if want == "" {
-		return "", fmt.Errorf("empty path")
-	}
-
-	if id, ok, err := c.lookupPathIDCache(want); ok {
-		return id, err
-	}
-
-	for start := 0; ; start += findItemPageSize {
-		if err := ctx.Err(); err != nil {
-			return "", err
-		}
-		q := url.Values{}
-		q.Set("Recursive", "true")
-		q.Set("IncludeItemTypes", "Movie,Episode")
-		q.Set("Fields", "Path")
-		q.Set("EnableImages", "false")
-		q.Set("EnableTotalRecordCount", "false")
-		q.Set("StartIndex", strconv.Itoa(start))
-		q.Set("Limit", strconv.Itoa(findItemPageSize))
-
-		var result itemQueryResult
-		if err := c.getJSON(ctx, "/Items", q, &result); err != nil {
-			// Preserve upstream/network/auth errors; do not mask as not-found.
-			return "", err
-		}
-		items := result.items()
-		for _, item := range items {
-			if normalizeComparePath(item.path()) != want {
-				continue
-			}
-			id := item.id()
-			if id != "" {
-				c.storePathIDCache(want, id, false)
-				return id, nil
-			}
-		}
-		if len(items) < findItemPageSize {
-			break
-		}
-	}
-	c.storePathIDCache(want, "", true)
-	return "", fmt.Errorf("%w for path %s", ErrItemNotFound, target)
-}
-
-func (c *Client) lookupPathIDCache(key string) (id string, ok bool, err error) {
-	c.pathIDMu.Lock()
-	defer c.pathIDMu.Unlock()
-	if c.pathIDCache == nil {
-		return "", false, nil
-	}
-	entry, found := c.pathIDCache[key]
-	if !found {
-		return "", false, nil
-	}
-	ttl := pathIDHitTTL
-	if entry.miss {
-		ttl = pathIDMissTTL
-	}
-	if time.Since(entry.at) > ttl {
-		delete(c.pathIDCache, key)
-		return "", false, nil
-	}
-	if entry.miss {
-		return "", true, ErrItemNotFound
-	}
-	return entry.itemID, true, nil
-}
-
-func (c *Client) storePathIDCache(key, itemID string, miss bool) {
-	c.pathIDMu.Lock()
-	defer c.pathIDMu.Unlock()
-	if c.pathIDCache == nil {
-		c.pathIDCache = make(map[string]pathIDCacheEntry)
-	}
-	c.pathIDCache[key] = pathIDCacheEntry{itemID: itemID, miss: miss, at: time.Now()}
-}
-
-// NotifyVideoChanged reports a video path change; falls back to item refresh.
-func (c *Client) NotifyVideoChanged(ctx context.Context, localVideoPath string) error {
-	if !c.Enabled() {
-		return ErrDisabled
-	}
-	localVideoPath = strings.TrimSpace(localVideoPath)
-	if localVideoPath == "" {
-		return fmt.Errorf("empty video path")
-	}
-	if err := c.ReportMediaUpdated(ctx, []string{localVideoPath}); err == nil {
-		return nil
-	} else {
-		log.Printf("jellyfin Media/Updated failed path=%s err=%v; trying Items/Refresh", localVideoPath, err)
-		mediaErr := err
-		itemID, findErr := c.FindItemIDByPath(ctx, localVideoPath)
-		if findErr != nil {
-			return fmt.Errorf("media updated: %v; find item: %w", mediaErr, findErr)
-		}
-		if err := c.RefreshItem(ctx, itemID); err != nil {
-			return fmt.Errorf("media updated: %v; refresh %s: %w", mediaErr, itemID, err)
-		}
-		return nil
-	}
-}
-
-type mediaUpdateInfo struct {
-	Updates []mediaUpdatePath `json:"Updates"`
-}
-
-type mediaUpdatePath struct {
-	Path       string `json:"Path"`
-	UpdateType string `json:"UpdateType"`
-}
-
-type itemQueryResult struct {
-	Items  []itemDTO `json:"Items"`
-	ItemsC []itemDTO `json:"items"`
-}
-
-func (r itemQueryResult) items() []itemDTO {
-	if len(r.Items) > 0 {
-		return r.Items
-	}
-	return r.ItemsC
-}
-
-type itemDTO struct {
-	ID    string `json:"Id"`
-	IDC   string `json:"id"`
-	Path  string `json:"Path"`
-	PathC string `json:"path"`
-}
-
-func (i itemDTO) id() string {
-	if strings.TrimSpace(i.ID) != "" {
-		return strings.TrimSpace(i.ID)
-	}
-	return strings.TrimSpace(i.IDC)
-}
-
-func (i itemDTO) path() string {
-	if strings.TrimSpace(i.Path) != "" {
-		return strings.TrimSpace(i.Path)
-	}
-	return strings.TrimSpace(i.PathC)
 }
 
 func (c *Client) getJSON(ctx context.Context, path string, query url.Values, dest any) error {
@@ -670,100 +250,6 @@ func (c *Client) setAuth(req *http.Request) {
 	// Legacy headers for older servers / EnableLegacyAuthorization=true.
 	req.Header.Set("X-Emby-Token", token)
 	req.Header.Set("X-MediaBrowser-Token", token)
-}
-
-const (
-	clientName     = "subtitle-ui"
-	clientDevice   = "subtitle-ui"
-	clientDeviceID = "subtitle-ui"
-	clientVersion  = "1.0.0"
-)
-
-func splitPathMapPair(part string) (from, to string, ok bool) {
-	// Prefer last colon that still leaves a non-empty "to" (Windows drive letters: C:/a:D:/b).
-	// Strategy: split on ":" but if from looks like Windows drive (X) and more remains, keep going.
-	idx := strings.Index(part, ":")
-	if idx <= 0 {
-		return "", "", false
-	}
-	// Handle "C:/movies:/data/movies" style: first segment is a Windows drive letter.
-	if len(part) > 2 && part[1] == ':' && (part[2] == '/' || part[2] == '\\') {
-		j := strings.Index(part[2:], ":")
-		if j < 0 {
-			return "", "", false
-		}
-		j += 2
-		from = part[:j]
-		to = part[j+1:]
-		if strings.TrimSpace(from) == "" || strings.TrimSpace(to) == "" {
-			return "", "", false
-		}
-		return from, to, true
-	}
-	// General: split on first ":" (POSIX paths don't contain colon).
-	from = part[:idx]
-	to = part[idx+1:]
-	if strings.TrimSpace(from) == "" || strings.TrimSpace(to) == "" {
-		return "", "", false
-	}
-	// If "to" also starts with Windows drive, keep as-is (first colon split is wrong only when from has drive).
-	return from, to, true
-}
-
-func normalizeMapPath(p string) string {
-	p = strings.TrimSpace(p)
-	if p == "" {
-		return ""
-	}
-	p = strings.ReplaceAll(p, "\\", "/")
-	for strings.Contains(p, "//") {
-		// Keep leading // for UNC? treat as single-host media paths.
-		if strings.HasPrefix(p, "//") {
-			rest := strings.TrimLeft(p[2:], "/")
-			p = "//" + rest
-			// collapse remaining
-			for strings.Contains(p[2:], "//") {
-				p = p[:2] + strings.ReplaceAll(p[2:], "//", "/")
-			}
-			break
-		}
-		p = strings.ReplaceAll(p, "//", "/")
-	}
-	if len(p) > 1 && strings.HasSuffix(p, "/") {
-		p = strings.TrimRight(p, "/")
-	}
-	return p
-}
-
-func pathHasPrefix(path, prefix string) bool {
-	if path == prefix {
-		return true
-	}
-	if !strings.HasPrefix(path, prefix) {
-		return false
-	}
-	if len(path) == len(prefix) {
-		return true
-	}
-	// boundary: next rune must be /
-	return path[len(prefix)] == '/'
-}
-
-func joinMapped(root, rest string) string {
-	root = strings.TrimRight(root, "/")
-	rest = strings.TrimLeft(rest, "/")
-	if root == "" {
-		return rest
-	}
-	if rest == "" {
-		return root
-	}
-	return root + "/" + rest
-}
-
-func normalizeComparePath(p string) string {
-	p = normalizeMapPath(p)
-	return strings.ToLower(p)
 }
 
 func truncate(s string, n int) string {

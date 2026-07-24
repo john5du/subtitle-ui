@@ -32,208 +32,119 @@ import { TvSubtitleDrawer } from "../tv/tv-subtitle-drawer";
 import { TvSeriesListPanel } from "../tv/tv-series-list-panel";
 
 const ActiveWorkspace = memo(function ActiveWorkspace({
-  activeTab,
-  operationLocked,
-  onRefresh,
-  refreshPending,
+  shell,
+  dashboard,
+  movie,
+  tv,
+  formatTime,
   refreshDisabled,
   refreshLabel,
-  sidebarCollapsed,
-  sidebarToggleLabel,
-  onToggleSidebar,
-  triggerScan,
-  formatTime,
-  dashboardScanStatus,
-  dashboardDirectoryScan,
-  dashboardLogs,
-  dashboardLogsPager,
-  dashboardVersionInfo,
-  dashboardSetLogsPage,
-  dashboardRefreshLogs,
-  dashboardClearLogs,
-  dashboardSetLogsDialogOpen,
-  dashboardPending,
-  dashboardFormatTime,
-  movieQuery,
-  movieSetQuery,
-  movieVideos,
-  moviePager,
-  movieViewMode,
-  movieSortBy,
-  movieSortOrder,
-  movieSetSortBy,
-  movieToggleSortOrder,
-  movieSetViewMode,
-  movieSetPage,
-  movieSetPageSize,
-  movieOpenManager,
-  moviePending,
-  tvQuery,
-  tvSetQuery,
-  tvRows,
-  tvPager,
-  tvViewMode,
-  tvSortBy,
-  tvSortOrder,
-  tvSetSortBy,
-  tvToggleSortOrder,
-  tvSetPage,
-  tvSetPageSize,
-  tvSetViewMode,
-  tvOpenManagerForSeries,
-  tvShowScanPrompt,
-  tvScanLoading,
-  tvPendingList
+  sidebarToggleLabel
 }: {
-  activeTab: SubtitleManagerScreenModel["shell"]["activeTab"];
-  operationLocked: boolean;
-  onRefresh: SubtitleManagerScreenModel["shell"]["refreshActiveTab"];
-  refreshPending: boolean;
+  shell: SubtitleManagerScreenModel["shell"];
+  dashboard: SubtitleManagerScreenModel["dashboard"];
+  movie: SubtitleManagerScreenModel["movie"];
+  tv: SubtitleManagerScreenModel["tv"];
+  formatTime: SubtitleManagerScreenModel["subtitleActions"]["formatTime"];
   refreshDisabled: boolean;
   refreshLabel: string;
-  sidebarCollapsed: boolean;
   sidebarToggleLabel: string;
-  onToggleSidebar: () => void;
-  triggerScan: SubtitleManagerScreenModel["shell"]["triggerScan"];
-  formatTime: SubtitleManagerScreenModel["subtitleActions"]["formatTime"];
-  dashboardScanStatus: SubtitleManagerScreenModel["dashboard"]["scanStatus"];
-  dashboardDirectoryScan: SubtitleManagerScreenModel["dashboard"]["directoryScan"];
-  dashboardLogs: SubtitleManagerScreenModel["dashboard"]["logs"];
-  dashboardLogsPager: SubtitleManagerScreenModel["dashboard"]["logsPager"];
-  dashboardVersionInfo: SubtitleManagerScreenModel["dashboard"]["versionInfo"];
-  dashboardSetLogsPage: SubtitleManagerScreenModel["dashboard"]["setLogsPage"];
-  dashboardRefreshLogs: SubtitleManagerScreenModel["dashboard"]["refreshLogs"];
-  dashboardClearLogs: SubtitleManagerScreenModel["dashboard"]["clearLogs"];
-  dashboardSetLogsDialogOpen: SubtitleManagerScreenModel["dashboard"]["setLogsDialogOpen"];
-  dashboardPending: SubtitleManagerScreenModel["dashboard"]["pending"];
-  dashboardFormatTime: SubtitleManagerScreenModel["dashboard"]["formatTime"];
-  movieQuery: SubtitleManagerScreenModel["movie"]["query"];
-  movieSetQuery: SubtitleManagerScreenModel["movie"]["setQuery"];
-  movieVideos: SubtitleManagerScreenModel["movie"]["videos"];
-  moviePager: SubtitleManagerScreenModel["movie"]["pager"];
-  movieViewMode: SubtitleManagerScreenModel["movie"]["viewMode"];
-  movieSortBy: SubtitleManagerScreenModel["movie"]["sortBy"];
-  movieSortOrder: SubtitleManagerScreenModel["movie"]["sortOrder"];
-  movieSetSortBy: SubtitleManagerScreenModel["movie"]["setSortBy"];
-  movieToggleSortOrder: SubtitleManagerScreenModel["movie"]["toggleSortOrder"];
-  movieSetViewMode: SubtitleManagerScreenModel["movie"]["setViewMode"];
-  movieSetPage: SubtitleManagerScreenModel["movie"]["setPage"];
-  movieSetPageSize: SubtitleManagerScreenModel["movie"]["setPageSize"];
-  movieOpenManager: SubtitleManagerScreenModel["movie"]["openManager"];
-  moviePending: SubtitleManagerScreenModel["movie"]["pending"];
-  tvQuery: SubtitleManagerScreenModel["tv"]["query"];
-  tvSetQuery: SubtitleManagerScreenModel["tv"]["setQuery"];
-  tvRows: SubtitleManagerScreenModel["tv"]["rows"];
-  tvPager: SubtitleManagerScreenModel["tv"]["pager"];
-  tvViewMode: SubtitleManagerScreenModel["tv"]["viewMode"];
-  tvSortBy: SubtitleManagerScreenModel["tv"]["sortBy"];
-  tvSortOrder: SubtitleManagerScreenModel["tv"]["sortOrder"];
-  tvSetSortBy: SubtitleManagerScreenModel["tv"]["setSortBy"];
-  tvToggleSortOrder: SubtitleManagerScreenModel["tv"]["toggleSortOrder"];
-  tvSetPage: SubtitleManagerScreenModel["tv"]["setPage"];
-  tvSetPageSize: SubtitleManagerScreenModel["tv"]["setPageSize"];
-  tvSetViewMode: SubtitleManagerScreenModel["tv"]["setViewMode"];
-  tvOpenManagerForSeries: SubtitleManagerScreenModel["tv"]["openManagerForSeries"];
-  tvShowScanPrompt: SubtitleManagerScreenModel["tv"]["showScanPrompt"];
-  tvScanLoading: SubtitleManagerScreenModel["tv"]["scanLoading"];
-  tvPendingList: SubtitleManagerScreenModel["tv"]["pendingList"];
 }) {
   const openTvManagerForRow = useCallback(
     (series: TvSeriesSummary) => {
-      tvOpenManagerForSeries(series.path);
+      tv.openManagerForSeries(series.path);
     },
-    [tvOpenManagerForSeries]
+    [tv]
   );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {activeTab === "dashboard" && (
+      {shell.activeTab === "dashboard" && (
         <div className="min-h-0 flex-1 lg:h-full">
           <DashboardPanel
-            scanStatus={dashboardScanStatus}
-            directoryScan={dashboardDirectoryScan}
-            pending={dashboardPending}
-            operationLocked={operationLocked}
-            scanPending={dashboardPending.scan}
-            triggerScan={triggerScan}
-            logs={dashboardLogs}
-            logsPager={dashboardLogsPager}
-            versionInfo={dashboardVersionInfo}
-            onSetLogsPage={dashboardSetLogsPage}
-            onRefreshLogs={dashboardRefreshLogs}
-            onClearLogs={dashboardClearLogs}
-            onLogsDialogOpenChange={dashboardSetLogsDialogOpen}
-            formatTime={dashboardFormatTime}
-            sidebarCollapsed={sidebarCollapsed}
+            scanStatus={dashboard.scanStatus}
+            directoryScan={dashboard.directoryScan}
+            pending={dashboard.pending}
+            operationLocked={shell.operationLocked}
+            scanPending={dashboard.pending.scan}
+            triggerScan={shell.triggerScan}
+            logs={dashboard.logs}
+            logsPager={dashboard.logsPager}
+            versionInfo={dashboard.versionInfo}
+            onSetLogsPage={dashboard.setLogsPage}
+            onRefreshLogs={dashboard.refreshLogs}
+            onClearLogs={dashboard.clearLogs}
+            onLogsDialogOpenChange={dashboard.setLogsDialogOpen}
+            formatTime={dashboard.formatTime}
+            sidebarCollapsed={shell.sidebarCollapsed}
             sidebarToggleLabel={sidebarToggleLabel}
-            onToggleSidebar={onToggleSidebar}
+            onToggleSidebar={shell.toggleSidebarCollapsed}
           />
         </div>
       )}
 
-      {activeTab === "movie" && (
+      {shell.activeTab === "movie" && (
         <div className="min-h-[var(--panel-min-h)] flex-1 lg:h-full">
           <MovieListPanel
-            query={movieQuery}
-            onQueryChange={movieSetQuery}
-            videos={movieVideos}
-            pager={moviePager}
-            viewMode={movieViewMode}
-            sortBy={movieSortBy}
-            sortOrder={movieSortOrder}
-            onSortByChange={movieSetSortBy}
-            onToggleSortOrder={movieToggleSortOrder}
-            onViewModeChange={movieSetViewMode}
-            onSetPage={movieSetPage}
-            onPageSizeChange={movieSetPageSize}
-            onOpenManager={movieOpenManager}
-            operationLocked={operationLocked}
-            onRefresh={onRefresh}
-            refreshing={refreshPending}
+            query={movie.query}
+            onQueryChange={movie.setQuery}
+            videos={movie.videos}
+            pager={movie.pager}
+            viewMode={movie.viewMode}
+            sortBy={movie.sortBy}
+            sortOrder={movie.sortOrder}
+            onSortByChange={movie.setSortBy}
+            onToggleSortOrder={movie.toggleSortOrder}
+            onViewModeChange={movie.setViewMode}
+            onSetPage={movie.setPage}
+            onPageSizeChange={movie.setPageSize}
+            onOpenManager={movie.openManager}
+            operationLocked={shell.operationLocked}
+            onRefresh={shell.refreshActiveTab}
+            refreshing={shell.refreshPending}
             refreshDisabled={refreshDisabled}
             refreshLabel={refreshLabel}
-            pending={moviePending}
+            pending={movie.pending}
             formatTime={formatTime}
-            sidebarCollapsed={sidebarCollapsed}
+            sidebarCollapsed={shell.sidebarCollapsed}
             sidebarToggleLabel={sidebarToggleLabel}
-            onToggleSidebar={onToggleSidebar}
+            onToggleSidebar={shell.toggleSidebarCollapsed}
           />
         </div>
       )}
 
-      {activeTab === "tv" && (
+      {shell.activeTab === "tv" && (
         <div className="min-h-[var(--panel-min-h)] flex-1 lg:h-full">
           <TvSeriesListPanel
-            query={tvQuery}
-            onQueryChange={tvSetQuery}
-            rows={tvRows}
-            pager={tvPager}
-            viewMode={tvViewMode}
-            sortBy={tvSortBy}
-            sortOrder={tvSortOrder}
-            onSortByChange={tvSetSortBy}
-            onToggleSortOrder={tvToggleSortOrder}
-            onSetPage={tvSetPage}
-            onPageSizeChange={tvSetPageSize}
-            onViewModeChange={tvSetViewMode}
+            query={tv.query}
+            onQueryChange={tv.setQuery}
+            rows={tv.rows}
+            pager={tv.pager}
+            viewMode={tv.viewMode}
+            sortBy={tv.sortBy}
+            sortOrder={tv.sortOrder}
+            onSortByChange={tv.setSortBy}
+            onToggleSortOrder={tv.toggleSortOrder}
+            onSetPage={tv.setPage}
+            onPageSizeChange={tv.setPageSize}
+            onViewModeChange={tv.setViewMode}
             onOpenManager={openTvManagerForRow}
-            operationLocked={operationLocked}
-            onRefresh={onRefresh}
-            refreshing={refreshPending}
+            operationLocked={shell.operationLocked}
+            onRefresh={shell.refreshActiveTab}
+            refreshing={shell.refreshPending}
             refreshDisabled={refreshDisabled}
             refreshLabel={refreshLabel}
-            showScanPrompt={tvShowScanPrompt}
-            onTriggerScan={triggerScan}
-            loading={tvScanLoading}
-            pending={tvPendingList}
+            showScanPrompt={tv.showScanPrompt}
+            onTriggerScan={shell.triggerScan}
+            loading={tv.scanLoading}
+            pending={tv.pendingList}
             formatTime={formatTime}
-            sidebarCollapsed={sidebarCollapsed}
+            sidebarCollapsed={shell.sidebarCollapsed}
             sidebarToggleLabel={sidebarToggleLabel}
-            onToggleSidebar={onToggleSidebar}
+            onToggleSidebar={shell.toggleSidebarCollapsed}
           />
         </div>
       )}
-
     </div>
   );
 });
@@ -572,58 +483,14 @@ export function SubtitleManagerShell({
 
         <div className="min-h-0 min-w-0 flex-1 lg:flex lg:h-full lg:flex-col">
           <ActiveWorkspace
-            activeTab={shell.activeTab}
-            operationLocked={shell.operationLocked}
-            onRefresh={shell.refreshActiveTab}
-            refreshPending={shell.refreshPending}
+            shell={shell}
+            dashboard={dashboard}
+            movie={movie}
+            tv={tv}
+            formatTime={subtitleActions.formatTime}
             refreshDisabled={refreshDisabled}
             refreshLabel={refreshLabel}
-            sidebarCollapsed={sidebarCollapsed}
             sidebarToggleLabel={sidebarToggleLabel}
-            onToggleSidebar={shell.toggleSidebarCollapsed}
-            triggerScan={shell.triggerScan}
-            formatTime={subtitleActions.formatTime}
-            dashboardScanStatus={dashboard.scanStatus}
-            dashboardDirectoryScan={dashboard.directoryScan}
-            dashboardLogs={dashboard.logs}
-            dashboardLogsPager={dashboard.logsPager}
-            dashboardVersionInfo={dashboard.versionInfo}
-            dashboardSetLogsPage={dashboard.setLogsPage}
-            dashboardRefreshLogs={dashboard.refreshLogs}
-            dashboardClearLogs={dashboard.clearLogs}
-            dashboardSetLogsDialogOpen={dashboard.setLogsDialogOpen}
-            dashboardPending={dashboard.pending}
-            dashboardFormatTime={dashboard.formatTime}
-            movieQuery={movie.query}
-            movieSetQuery={movie.setQuery}
-            movieVideos={movie.videos}
-            moviePager={movie.pager}
-            movieViewMode={movie.viewMode}
-            movieSortBy={movie.sortBy}
-            movieSortOrder={movie.sortOrder}
-            movieSetSortBy={movie.setSortBy}
-            movieToggleSortOrder={movie.toggleSortOrder}
-            movieSetViewMode={movie.setViewMode}
-            movieSetPage={movie.setPage}
-            movieSetPageSize={movie.setPageSize}
-            movieOpenManager={movie.openManager}
-            moviePending={movie.pending}
-            tvQuery={tv.query}
-            tvSetQuery={tv.setQuery}
-            tvRows={tv.rows}
-            tvPager={tv.pager}
-            tvViewMode={tv.viewMode}
-            tvSortBy={tv.sortBy}
-            tvSortOrder={tv.sortOrder}
-            tvSetSortBy={tv.setSortBy}
-            tvToggleSortOrder={tv.toggleSortOrder}
-            tvSetPage={tv.setPage}
-            tvSetPageSize={tv.setPageSize}
-            tvSetViewMode={tv.setViewMode}
-            tvOpenManagerForSeries={tv.openManagerForSeries}
-            tvShowScanPrompt={tv.showScanPrompt}
-            tvScanLoading={tv.scanLoading}
-            tvPendingList={tv.pendingList}
           />
         </div>
 
