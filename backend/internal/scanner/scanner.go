@@ -56,23 +56,6 @@ func New() *Scanner {
 	return &Scanner{}
 }
 
-func (s *Scanner) Scan(root string) ([]domain.Video, error) {
-	return s.ScanWithType(root, domain.MediaTypeMovie)
-}
-
-func (s *Scanner) ScanWithType(root string, mediaType string) ([]domain.Video, error) {
-	return s.ScanDirectoriesWithType([]string{root}, mediaType)
-}
-
-func (s *Scanner) ScanDirectoriesWithType(roots []string, mediaType string) ([]domain.Video, error) {
-	return s.ScanDirectoriesWithTypeCtx(context.Background(), roots, mediaType)
-}
-
-func (s *Scanner) ScanDirectoriesWithTypeCtx(ctx context.Context, roots []string, mediaType string) ([]domain.Video, error) {
-	result, err := s.ScanDirectoriesIncrementalCtx(ctx, roots, mediaType, nil, nil)
-	return result.Found, err
-}
-
 // ScanDirectoriesIncrementalCtx walks roots and reuses previous rows when
 // resolveFingerprint matches the stored ScanFingerprint. previous is keyed by
 // absolute path. resolveFingerprint must return the same fingerprint that will
@@ -182,10 +165,6 @@ func (s *Scanner) ScanDirectoriesIncrementalCtx(
 		return out, joinErrors(scanErrs)
 	}
 	return out, nil
-}
-
-func (s *Scanner) DiscoverDirectories(root string, mediaType string) ([]domain.ScanDirectory, error) {
-	return s.DiscoverDirectoriesCtx(context.Background(), root, mediaType)
 }
 
 func (s *Scanner) DiscoverDirectoriesCtx(ctx context.Context, root string, mediaType string) ([]domain.ScanDirectory, error) {

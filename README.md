@@ -53,10 +53,9 @@ git push origin main
 
 - `GET /api/health`
 - `GET /api/version`
-- `POST /api/scan` (compat: direct file scan)
 - `POST /api/scan/directories` (discover media subdirectories that contain video/metadata files)
 - `GET /api/scan/directories` (get last discovered directory result)
-- `POST /api/scan/files` (scan files from selected directories, body: `movieDirs[]`, `tvDirs[]`)
+- `POST /api/scan/files` (scan files from selected directories, body: `movieDirs[]`, `tvDirs[]`; empty body scans all)
 - `GET /api/scan/status`
 - `GET /api/config/subtitle-conversion`
   - response: `{ assTemplate, defaultAssTemplate, sourceEncodingDefault, updatedAt }`

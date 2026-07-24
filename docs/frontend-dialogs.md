@@ -2,7 +2,7 @@
 
 All modal dialogs use `DialogContent` / `AlertDialogContent` with a **size** prop (`sm` | `md` | `lg` | `xl`). Do not invent one-off `max-w-*` / `h-*` frames on individual dialogs unless the size tokens truly cannot fit (then update the tokens here and in `frontend/src/components/ui/dialog.tsx`).
 
-Side drawers use `DialogDrawerContent` with its own size scale (`md` | `lg` | `xl`) — see [Drawers](#drawers) below. Bottom sheets (`DialogSheetContent`) stay layout-specific.
+Side drawers use `DialogDrawerContent` with its own size scale (`md` | `lg` | `xl`) — see [Drawers](#drawers) below. Modal `DialogContent` is already a bottom sheet on mobile.
 
 Broader UI density / list shells: [`frontend-ui.md`](./frontend-ui.md).
 

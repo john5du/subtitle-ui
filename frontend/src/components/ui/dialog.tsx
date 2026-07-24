@@ -10,13 +10,12 @@ import { cn } from "@/lib/utils";
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
-const DialogClose = DialogPrimitive.Close;
 
 export type DialogSize = "sm" | "md" | "lg" | "xl";
-export type DialogDrawerSize = "md" | "lg" | "xl";
+type DialogDrawerSize = "md" | "lg" | "xl";
 
 /** Fixed desktop width/height per size. Mobile stays bottom-sheet. */
-const dialogSizeClassName: Record<DialogSize, string> = {
+export const dialogSizeClassName: Record<DialogSize, string> = {
   // Confirm + simple forms: fixed width, content height
   sm:
     "sm:h-auto sm:w-[min(32rem,94vw)] sm:max-w-[32rem] sm:max-h-[min(90vh,100%)]",
@@ -104,32 +103,6 @@ const DialogContent = React.forwardRef<
 ));
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
-/** Always bottom sheet (full-width, tall). Use for dense mobile-first flows. */
-const DialogSheetContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      data-dialog-content="true"
-      className={cn(
-        "fixed inset-x-0 bottom-0 z-50 flex max-h-[min(92dvh,100%)] w-full flex-col gap-4 overflow-hidden rounded-t-2xl border border-b-0 border-border bg-background p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] data-[state=open]:animate-slide-in-up data-[state=closed]:animate-slide-out-down sm:left-[50%] sm:right-auto sm:max-w-lg sm:translate-x-[-50%] sm:rounded-t-2xl",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close data-slot="close" className={dialogCloseClassName}>
-        <X className="h-4 w-4" />
-        <DialogCloseLabel />
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPortal>
-));
-DialogSheetContent.displayName = "DialogSheetContent";
-
 type DialogDrawerContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   size?: DialogDrawerSize;
 };
@@ -210,16 +183,11 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName;
 export {
   Dialog,
   DialogBody,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogDrawerContent,
   DialogFooter,
   DialogHeader,
-  DialogPortal,
-  DialogSheetContent,
   DialogTitle,
-  DialogTrigger,
-  dialogDrawerSizeClassName,
-  dialogSizeClassName
+  DialogTrigger
 };

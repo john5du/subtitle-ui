@@ -9,6 +9,15 @@ import (
 	"subtitle-ui/backend/internal/domain"
 )
 
+func scanFound(t *testing.T, sc *Scanner, root string, mediaType string) []domain.Video {
+	t.Helper()
+	result, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, mediaType, nil, nil)
+	if err != nil {
+		t.Fatalf("scan failed: %v", err)
+	}
+	return result.Found
+}
+
 func TestScanReadsVideoMetadataAndSubtitles(t *testing.T) {
 	root := t.TempDir()
 
@@ -28,10 +37,7 @@ func TestScanReadsVideoMetadataAndSubtitles(t *testing.T) {
 	}
 
 	sc := New()
-	videos, err := sc.Scan(root)
-	if err != nil {
-		t.Fatalf("scan failed: %v", err)
-	}
+	videos := scanFound(t, sc, root, domain.MediaTypeMovie)
 	if len(videos) != 1 {
 		t.Fatalf("expected 1 video, got %d", len(videos))
 	}
@@ -80,10 +86,7 @@ func TestScanTVReadsEpisodeAndSeriesMetadata(t *testing.T) {
 	}
 
 	sc := New()
-	videos, err := sc.ScanWithType(root, "tv")
-	if err != nil {
-		t.Fatalf("scan failed: %v", err)
-	}
+	videos := scanFound(t, sc, root, domain.MediaTypeTV)
 	if len(videos) != 1 {
 		t.Fatalf("expected 1 video, got %d", len(videos))
 	}
@@ -115,10 +118,7 @@ func TestScanSkipsVideoWithoutNFO(t *testing.T) {
 	}
 
 	sc := New()
-	videos, err := sc.Scan(root)
-	if err != nil {
-		t.Fatalf("scan failed: %v", err)
-	}
+	videos := scanFound(t, sc, root, domain.MediaTypeMovie)
 	if len(videos) != 0 {
 		t.Fatalf("expected 0 videos when nfo is missing, got %d", len(videos))
 	}
@@ -202,10 +202,11 @@ func TestScanDirectoriesIncrementalSkipsUnchanged(t *testing.T) {
 	}
 
 	sc := New()
-	first, err := sc.ScanDirectoriesWithTypeCtx(t.Context(), []string{root}, "movie")
+	firstResult, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, "movie", nil, nil)
 	if err != nil {
 		t.Fatalf("first scan: %v", err)
 	}
+	first := firstResult.Found
 	if len(first) != 1 {
 		t.Fatalf("expected 1 video, got %d", len(first))
 	}

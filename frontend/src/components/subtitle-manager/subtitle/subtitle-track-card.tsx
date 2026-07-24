@@ -22,8 +22,8 @@ import {
   isTimingOffsetSupported
 } from "./use-subtitle-file-workflow";
 
+/** Re-export for movie drawer bulk action buttons. */
 export const subtitleRowActionIconClassName = rowActionIconClassName;
-export const subtitleRowActionTextClassName = rowActionTextClassName;
 
 export interface SubtitleTrackCardProps {
   subtitle: Subtitle;
@@ -166,7 +166,7 @@ export function SubtitleTrackCard({
             type="button"
             variant="outline"
             size="sm"
-            className={cn(subtitleRowActionTextClassName, "hidden sm:inline-flex")}
+            className={cn(rowActionTextClassName, "hidden sm:inline-flex")}
             disabled={busy || rowBusy}
             onClick={onConvert}
           >

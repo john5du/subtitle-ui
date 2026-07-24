@@ -8,16 +8,14 @@ Shared control density, library shells, drawers, and empty states. Dialog modal 
 |---------|--------|--------|----------|
 | **default** | `h-10` | `Button` default / `size="icon"`; `Input` / `SelectTrigger` default | Primary form fields, login, dialog primary CTA row |
 | **toolbar** | `h-9` | `Button size="icon-sm"`; `Input size="sm"`; `SelectTrigger size="sm"` | List toolbars, sidebar, filter bars, settings rows, dense headers |
-| **row-action** | `h-10` → `sm:h-8` | `rowActionIconClassName` / `rowActionTextClassName` from `control-sizes.ts` (re-exported as `subtitleRowAction*`) | Subtitle track cards, touch-friendly row ops |
+| **row-action** | `h-10` → `sm:h-8` | `rowActionIconClassName` / `rowActionTextClassName` from `control-sizes.ts` (also `subtitleRowActionIconClassName` on track cards) | Subtitle track cards, touch-friendly row ops |
 | **micro** | `h-7`–`h-8` | one-off with comment | Pager jump input, chips, tertiary ghost |
 
-Do **not** sprinkle `className="h-9 w-9"` / `className="h-9"` when a size prop exists.
+Do **not** sprinkle `className="h-9 w-9"` / `className="h-9"` when a size prop exists. Prefer `Button size="icon-sm"` / `Input size="sm"` / `SelectTrigger size="sm"` for toolbar density.
 
 Tokens: `frontend/src/components/ui/control-sizes.ts`
 
 ```ts
-toolbarIconBtnClassName  // h-9 w-9 shrink-0
-toolbarControlClassName  // h-9
 rowActionIconClassName
 rowActionTextClassName
 settingsRowMinClassName  // min-h-[56px]

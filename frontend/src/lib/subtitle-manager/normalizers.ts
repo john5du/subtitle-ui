@@ -133,13 +133,6 @@ export function normalizeScanStatus(payload: unknown): ScanStatus | null {
   };
 }
 
-export function normalizeLogs(payload: unknown): OperationLog[] {
-  if (!Array.isArray(payload)) {
-    return [];
-  }
-  return payload as OperationLog[];
-}
-
 export function normalizeLogsPage(payload: unknown, fallbackPage: number, fallbackPageSize: number): OperationLogPage {
   if (Array.isArray(payload)) {
     return {

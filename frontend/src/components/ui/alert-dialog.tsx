@@ -8,7 +8,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { type DialogSize, dialogSizeClassName } from "@/components/ui/dialog";
 
 const AlertDialog = AlertDialogPrimitive.Root;
-const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 const AlertDialogPortal = AlertDialogPrimitive.Portal;
 
 const AlertDialogOverlay = React.forwardRef<
@@ -111,8 +110,5 @@ export {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogOverlay,
-  AlertDialogPortal,
-  AlertDialogTitle,
-  AlertDialogTrigger
+  AlertDialogTitle
 };

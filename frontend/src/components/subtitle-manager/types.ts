@@ -10,11 +10,6 @@ import type {
 } from "@/lib/types";
 import type { ZipSubtitleEntry } from "@/lib/subtitle-zip";
 
-export interface SeasonEpisodeInfo {
-  season: number;
-  episode: number;
-}
-
 export type DetectedBatchLanguageType =
   | "bilingual"
   | "simplified"

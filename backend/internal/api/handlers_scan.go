@@ -10,15 +10,6 @@ type fileScanRequest struct {
 	TvDirs    []string `json:"tvDirs"`
 }
 
-func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-	status := s.service.RunFileScan(r.Context(), nil, nil)
-	writeJSON(w, http.StatusOK, status)
-}
-
 func (s *Server) handleScanDirectories(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:

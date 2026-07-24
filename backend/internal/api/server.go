@@ -32,7 +32,6 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	}
 
 	s.mux.HandleFunc("/api/health", s.handleHealth)
-	s.mux.HandleFunc("/api/scan", s.handleScan)
 	s.mux.HandleFunc("/api/scan/directories", s.handleScanDirectories)
 	s.mux.HandleFunc("/api/scan/files", s.handleScanFiles)
 	s.mux.HandleFunc("/api/scan/status", s.handleScanStatus)

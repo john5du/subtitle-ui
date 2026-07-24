@@ -165,11 +165,6 @@ func (c *Client) getHTML(ctx context.Context, path, referer string) (string, err
 	return string(data), nil
 }
 
-func parseSearchHTML(html string) []SearchResult {
-	items, _ := parseSearchHTMLDetailed(html)
-	return items
-}
-
 func parseSearchCard(card string) (SearchResult, bool) {
 	sidMatch := reSID.FindStringSubmatch(card)
 	if len(sidMatch) < 2 {

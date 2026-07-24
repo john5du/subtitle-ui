@@ -1,8 +1,8 @@
-export const CARD_GRID_MIN_WIDTH = 176;
-export const CARD_GRID_GAP = 12;
+const CARD_GRID_MIN_WIDTH = 176;
+const CARD_GRID_GAP = 12;
 export const CARD_GRID_CLASS = "grid grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-3";
-export const CARD_PAGE_SIZE_TARGET = 30;
-export const CARD_PAGE_SIZE_MAX = 200;
+const CARD_PAGE_SIZE_TARGET = 30;
+const CARD_PAGE_SIZE_MAX = 200;
 
 export function cardGridColumnsFromWidth(width: number): number {
   if (!Number.isFinite(width) || width <= 0) {

@@ -159,24 +159,6 @@ export interface Pager {
   totalPages: number;
 }
 
-export interface TreeNode {
-  path: string;
-  label: string;
-  videoCount: number;
-  metadataCount: number;
-  children: TreeNode[];
-}
-
-export interface VisibleTreeNode {
-  path: string;
-  label: string;
-  depth: number;
-  hasChildren: boolean;
-  videoCount: number;
-  metadataCount: number;
-  expanded: boolean;
-}
-
 export interface BatchSubtitleUploadItem {
   video: Video;
   file: File;

@@ -53,10 +53,9 @@ git push origin main
 
 - `GET /api/health`
 - `GET /api/version`
-- `POST /api/scan`（兼容：直接文件扫描）
 - `POST /api/scan/directories`（发现包含视频/元数据文件的媒体子目录）
 - `GET /api/scan/directories`（获取最近一次目录发现结果）
-- `POST /api/scan/files`（从选定目录扫描文件，body: `movieDirs[]`, `tvDirs[]`）
+- `POST /api/scan/files`（从选定目录扫描文件，body: `movieDirs[]`, `tvDirs[]`；空 body 扫描全部）
 - `GET /api/scan/status`
 - `GET /api/config/subtitle-conversion`
   - 响应：`{ assTemplate, defaultAssTemplate, sourceEncodingDefault, updatedAt }`

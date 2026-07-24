@@ -25,7 +25,7 @@ interface TimingOffsetDialogProps {
   onConfirm: (offsetMs: number) => void;
 }
 
-export function parseOffsetSecondsToMilliseconds(value: string) {
+function parseOffsetSecondsToMilliseconds(value: string) {
   const trimmed = value.trim();
   if (trimmed === "") {
     return null;
