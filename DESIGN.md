@@ -1,5 +1,14 @@
 # Design System Inspired by xAI
 
+> **Not the product UI spec.** This file is historical / inspirational only (xAI-style monochrome notes).  
+> Authoritative frontend conventions for this repo:
+>
+> - [`docs/frontend-ui.md`](./docs/frontend-ui.md) — density, shells, drawers, empty/settings rows  
+> - [`docs/frontend-dialogs.md`](./docs/frontend-dialogs.md) — modal/drawer sizes, help tips  
+> - Implemented theme tokens: `frontend/src/app/globals.css` (light / dark / OLED)
+>
+> Do **not** treat the rules below (0 radius, pure monochrome, no light theme, etc.) as implementation requirements.
+
 ## 1. Visual Theme & Atmosphere
 
 xAI's website is a masterclass in dark-first, monospace-driven brutalist minimalism -- a design system that feels like it was built by engineers who understand that restraint is the ultimate form of sophistication. The entire experience is anchored to an almost-black background (`#1f2228`) with pure white text (`#ffffff`), creating a high-contrast, terminal-inspired aesthetic that signals deep technical credibility. There are no gradients, no decorative illustrations, no color accents competing for attention. This is a site that communicates through absence.

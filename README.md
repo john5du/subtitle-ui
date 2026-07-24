@@ -4,7 +4,7 @@
 
 # subtitle-ui
 
-A Go + Next.js web application for managing subtitle files alongside a Jellyfin-style media library. It is designed around Chinese subtitle workflows: browse movies and TV shows from sidecar NFO metadata, jump directly to Zimuku/SubHD subtitle searches, upload or replace subtitle files safely, convert SRT subtitles to ASS, and edit the global ASS template used for conversions.
+A Go + Next.js web application for managing subtitle files alongside a Jellyfin-style media library. It is designed around Chinese subtitle workflows: browse movies and TV shows from sidecar NFO metadata, search and download from SubHD in-app (or open Zimuku/SubHD in the browser), upload or replace subtitle files safely, convert SRT to ASS, normalize language labels, and optionally integrate Sonarr (missing episodes) and Jellyfin (library notify + play preview).
 
 中文文档：[`README.zh-CN.md`](./README.zh-CN.md)
 
@@ -13,15 +13,19 @@ A Go + Next.js web application for managing subtitle files alongside a Jellyfin-
 - **Movie and TV libraries** — split browsing for `movies/` and `tv/` roots, with per-series season and episode drilldowns.
 - **Card and list views** — toggleable poster grid or compact table, with pagination and year sort.
 - **Chinese subtitle workflow** — Chinese UI support plus quick links to common Chinese subtitle search sites.
-- **One-click subtitle search** — open Zimuku (`zimuku.org`) or SubHD (`subhd.tv`) searches from the selected title.
+- **One-click external search** — open Zimuku (`zimuku.org`) or SubHD (`subhd.tv`) in the browser from the selected title.
+- **SubHD in-app search/download** — backend provider (on by default): search, download, and install sidecars; TV season packs with prepare/install.
 - **Subtitle operations** — upload, replace (backup first), delete, preview stored subtitle content.
 - **Manual timing offset** — shift SRT, VTT, ASS, and SSA subtitle timelines in-place with backup.
+- **Subtitle language normalize** — plan/apply rename of sidecar language tags (single video or whole TV season).
 - **SRT to ASS conversion** — generate ASS while uploading a new SRT, or convert an existing SRT into an additional ASS file.
 - **ASS template editing** — edit the global ASS conversion template and default source encoding.
-- **Archive uploads** — accepts `.zip`, `.7z`, `.rar` payloads; entries are parsed client-side and you pick which subtitle inside to install.
+- **Archive uploads** — accepts `.zip`, `.7z`, `.rar`; entries are listed and extracted **server-side** (pure-Go), then you pick which subtitle to install.
 - **TV season batch upload** — match one archive against a whole season by episode number.
+- **Sonarr (optional)** — TV season completeness vs local files; queue missing EpisodeSearch.
+- **Jellyfin (optional)** — notify library after subtitle changes; embedded track list; video play-preview via stream-ticket proxy (progressive or HLS).
 - **Posters** — reads `poster.*` / `folder.*` / `fanart.*` / `<base>-poster.*` next to the video (or at series root for TV) in `.jpg` / `.png` / `.bmp`.
-- **Dashboard** — scan status, discovered directory summary, and recent operation log.
+- **Dashboard** — scan status, discovered directory summary, recent operation log, provider settings (SubHD / Sonarr / Jellyfin).
 - **i18n** — English and 简体中文; preference persisted in `localStorage`.
 - **Theme** — light / dark / follow system, persisted in `localStorage`.
 
@@ -51,35 +55,80 @@ git push origin main
 
 ## Backend API
 
+Auth: most `/api/*` routes need `Authorization: Bearer <token>`. **Public without Bearer:**
+
+- `GET /api/health`
+- `GET /api/videos/{id}/poster`
+- `GET|HEAD /api/videos/{id}/stream?ticket=`
+- `GET|HEAD /api/videos/{id}/hls/master?ticket=`
+- `GET|HEAD /api/videos/{id}/hls/seg?ticket=&u=`
+
+(`POST .../stream-ticket` still requires Bearer.)
+
+### Core
+
 - `GET /api/health`
 - `GET /api/version`
-- `POST /api/scan/directories` (discover media subdirectories that contain video/metadata files)
-- `GET /api/scan/directories` (get last discovered directory result)
-- `POST /api/scan/files` (scan files from selected directories, body: `movieDirs[]`, `tvDirs[]`; empty body scans all)
+- `POST /api/scan/directories` — discover media subdirectories that contain video/metadata files
+- `GET /api/scan/directories` — last discovered directory result
+- `POST /api/scan/files` — body: `movieDirs[]`, `tvDirs[]`; empty body scans all
 - `GET /api/scan/status`
-- `GET /api/config/subtitle-conversion`
-  - response: `{ assTemplate, defaultAssTemplate, sourceEncodingDefault, updatedAt }`
-- `PUT /api/config/subtitle-conversion` (body: `assTemplate`, `sourceEncodingDefault`)
-- `GET /api/videos` (query: `mediaType=movie|tv`, optional `q`, `dir`, `page`, `pageSize`, `sortBy`, `sortOrder`)
-  - response: `{ items: Video[], total, page, pageSize, totalPages }`
-- `GET /api/tv/series` (query: optional `q`, `page`, `pageSize`, `sortYear`, `sortOrder`)
-  - response: `{ items: TVSeriesSummary[], total, page, pageSize, totalPages }`
-- `GET /api/tv/series/completeness` (query: `path` or `key`, required `season`) — Sonarr completeness when configured
-- `POST /api/tv/series/sonarr/search` (body: `path`/`key`, `season`, optional `episodes[]` or `allMissing`) — queue Sonarr EpisodeSearch
+- `GET /api/logs` — query: optional `page`, `pageSize`
+- `DELETE /api/logs`
+
+### Config
+
+- `GET|PUT /api/config/subtitle-conversion` — `{ assTemplate, defaultAssTemplate, sourceEncodingDefault, updatedAt }`
+- `GET|PUT /api/config/subhd` — `{ enabled, baseUrl, proxy }`
+- `GET|PUT /api/config/sonarr` — `{ enabled, url, apiKey }` (`apiKey` empty on GET + `apiKeySet`; empty PUT keeps stored key)
+- `POST /api/config/sonarr/test`
+- `GET|PUT /api/config/jellyfin` — `{ enabled, url, apiKey, pathMap }` (same apiKey masking)
+- `POST /api/config/jellyfin/test`
+
+### Library
+
+- `GET /api/videos` — query: `mediaType=movie|tv`, optional `q`, `dir`, `page`, `pageSize`, `sortBy`, `sortOrder`
 - `GET /api/videos/{videoId}`
-- `GET /api/videos/{videoId}/poster` (serves poster image resolved under the video's media root)
-- `POST /api/videos/{videoId}/subtitles` (multipart `file`, optional `label`, optional `replaceId`; optional `convertTo=ass`, `sourceEncoding` for new SRT uploads)
-- `GET /api/videos/{videoId}/subtitles/{subtitleId}/content` (subtitle bytes for preview)
-- `POST /api/videos/{videoId}/subtitles/{subtitleId}/convert` (body: `targetFormat=ass`, optional `sourceEncoding`)
-- `POST /api/videos/{videoId}/subtitles/{subtitleId}/timing/offset` (body: `offsetMs`; supports SRT/VTT/ASS/SSA)
+- `GET /api/videos/{videoId}/poster`
+- `GET /api/tv/series` — optional `q`, `page`, `pageSize`, `sortYear`, `sortOrder`
+- `GET /api/tv/series/completeness` — query: `path` or `key`, required `season` (Sonarr)
+- `POST /api/tv/series/sonarr/search` — body: `path`/`key`, `season`, optional `episodes[]` or `allMissing`
+
+### Subtitles
+
+- `POST /api/videos/{videoId}/subtitles` — multipart `file`, optional `label`, `replaceId`; optional `convertTo=ass`, `sourceEncoding`
+- `GET /api/videos/{videoId}/subtitles/{subtitleId}/content`
+- `POST /api/videos/{videoId}/subtitles/{subtitleId}/convert` — body: `targetFormat=ass`, optional `sourceEncoding`
+- `POST /api/videos/{videoId}/subtitles/{subtitleId}/timing/offset` — body: `offsetMs`
 - `DELETE /api/videos/{videoId}/subtitles/{subtitleId}`
-- `GET /api/logs` (query: optional `page`, `pageSize`)
-  - response: `{ items: OperationLog[], total, page, pageSize, totalPages }`
-- `DELETE /api/logs` (clears all operation logs)
+- `POST /api/videos/{videoId}/subtitles/normalize/plan|apply`
+- `POST /api/tv/series/subtitles/normalize/plan|apply` — body scopes series + season
+- `GET /api/videos/{videoId}/subtitles/embedded` — Jellyfin embedded tracks (503 if off)
+
+### SubHD
+
+- `GET /api/videos/{videoId}/subtitles/providers/subhd/search?q=&page=`
+- `POST /api/videos/{videoId}/subtitles/providers/subhd/download` — JSON `{ sid, label?, replaceId?, archiveEntry? }`
+- `GET /api/videos/{videoId}/subtitles/providers/subhd/season-packs`
+- `POST /api/subtitles/providers/subhd/season-prepare`
+- `POST /api/subtitles/providers/subhd/season-install`
+
+### Archives
+
+- `POST /api/archives/subtitle-entries` — multipart `file` → `{ entries }`
+- `POST /api/archives/extract` — multipart `file` + `entry` / `archiveEntry`
+- `POST /api/subtitles/batch-from-archive` — multipart `file` + JSON `mappings`
+
+### Stream preview (Jellyfin)
+
+- `POST /api/videos/{videoId}/stream-ticket` → `{ ticket, expiresAt, url, kind }` (`progressive`|`hls`)
+- `GET|HEAD /api/videos/{videoId}/stream?ticket=`
+- `GET|HEAD /api/videos/{videoId}/hls/master?ticket=`
+- `GET|HEAD /api/videos/{videoId}/hls/seg?ticket=&u=`
 
 ## Media library layout
 
-Each scanned video needs a sidecar NFO with `<title>` / `<year>`. Posters are optional.
+Each scanned video needs a parseable sidecar NFO (or, for TV, a series `tvshow.nfo` reachable from the episode directory). Posters are optional. NFO is accepted if it has any of `<title>`, `<originaltitle>`, `<year>`, `<imdb_id>`, or `<tmdbid>` non-empty; empty title falls back to the video filename; **year is not required**.
 
 ### Movies
 
@@ -96,10 +145,11 @@ media/movies/
 ```
 media/tv/
   Chronicle of Lanterns/
+    tvshow.nfo                 # optional but recommended (series title / ids; also searched upward)
     poster.png                 # optional (poster / folder / fanart)
     Season 1/
       Chronicle of Lanterns S01E01.mkv
-      Chronicle of Lanterns S01E01.nfo
+      Chronicle of Lanterns S01E01.nfo   # and/or series tvshow.nfo
 ```
 
 Video extensions recognized: `.mp4 .mkv .avi .mov .wmv .flv .m4v .mpeg .mpg`.
@@ -291,23 +341,51 @@ volumes:
 
 ## Configuration
 
+Core:
+
 - `SERVER_ADDR` default `:9307`
 - `MOVIE_MEDIA_ROOT` default `./media/movies`
 - `TV_MEDIA_ROOT` default `./media/tv`
 - `MEDIA_ROOT` legacy fallback (if set and `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` not set, both use it)
-- `DB_PATH` default `./tmp/subtitle_manager.sqlite3`; SQLite database path, and the SQLite import source when `DATABASE_URL` is set
+- `DB_PATH` default `./tmp/subtitle_manager.sqlite3`; SQLite path and import source when `DATABASE_URL` is set
 - `DATABASE_URL` optional PostgreSQL DSN; when set, PostgreSQL is used instead of SQLite
 - `UI_DIST` default `./frontend/out`
 - `CORS_ALLOWED_ORIGINS` comma-separated allowed origins for mutating cross-origin API requests
-- `ADMIN_TOKEN` admin API token (default `change-me` when unset). The insecure default is rejected unless you set a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true` (`./scripts/dev-up.sh` sets the opt-in when unset). All `/api/*` routes except `GET /api/health` and `GET /api/videos/{id}/poster` require `Authorization: Bearer <token>` (poster images stay public because browsers cannot send auth headers on `<img>`). The UI shows a login page and stores the token in `localStorage`.
+- `ADMIN_TOKEN` admin API token (default `change-me` when unset). The insecure default is rejected unless you set a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true` (`./scripts/dev-up.sh` sets the opt-in when unset). Bearer required on `/api/*` except public paths listed under Backend API (health, poster, ticket stream/HLS). The UI stores the token in `localStorage`.
 - `TRUST_FORWARDED_HEADERS` set to `1`, `true`, `yes`, or `on` to build absolute poster URLs from `X-Forwarded-Proto` / `X-Forwarded-Host`
 - `NEXT_PUBLIC_API_BASE` (frontend dev) — overrides the API host, e.g. `http://localhost:9307`
 
+SubHD (default **on**; runtime `GET/PUT /api/config/subhd` overrides env without restart):
+
+- `SUBHD_ENABLED` — set `false` to disable
+- `SUBHD_BASE_URL` default `https://subhd.tv`
+- `SUBHD_PROXY` e.g. `socks5://host:port`
+- `SUBHD_MIN_INTERVAL` default `3s` (download throttle)
+- `SUBHD_SEARCH_MAX_PAGES` default `1`
+
+Sonarr (optional; enabled when URL+key set unless `SONARR_ENABLED=false`):
+
+- `SONARR_URL` e.g. `http://127.0.0.1:8989`
+- `SONARR_API_KEY`
+- `SONARR_ENABLED`
+
+Jellyfin (optional; subtitle notify + stream preview; enabled when URL+key set unless `JELLYFIN_ENABLED=false`):
+
+- `JELLYFIN_URL` e.g. `http://127.0.0.1:8096`
+- `JELLYFIN_API_KEY`
+- `JELLYFIN_ENABLED`
+- `JELLYFIN_PATH_MAP` `local:jellyfin,...` when bind-mount roots differ
+- `JELLYFIN_USER_ID` optional PlaybackInfo user GUID; empty auto-picks an admin
+- `STREAM_TICKET_SECRET` optional (else `ADMIN_TOKEN`)
+- `STREAM_TICKET_TTL` default `15m`
+
+See also `scripts/.env.example` and agent-oriented detail in [`AGENTS.md`](./AGENTS.md). Frontend UI conventions: [`docs/frontend-ui.md`](./docs/frontend-ui.md), [`docs/frontend-dialogs.md`](./docs/frontend-dialogs.md).
+
 ## Notes
 
-- Upload entry points accept subtitle files and archives (`.zip`, `.7z`, `.rar`); only subtitle files (`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`) inside archives are processed.
+- Upload entry points accept subtitle files and archives (`.zip`, `.7z`, `.rar`); archive listing/extraction is server-side; only subtitle files (`.srt`, `.ass`, `.ssa`, `.vtt`, `.sub`) inside archives are processed.
 - SRT to ASS conversion supports `auto`, `utf-8`, `utf-16le`, `utf-16be`, `gb18030`, and `big5` source encodings.
-- Scanner reads `<videoName>.nfo` and `movie.nfo` from the video's directory.
+- Scanner: movies use `{base}.nfo` / `movie.nfo`; TV also walks up for `tvshow.nfo`. Videos with no usable NFO are skipped.
 - Poster resolution order — movies: `poster`, `movie`, `folder`, `<base>-poster`, `<base>`, `cover`; TV (at series root): `poster`, `folder`, `fanart`.
 - Replace and delete operations back up the existing subtitle file before writing.
 - On the first PostgreSQL connection, existing SQLite data from `DB_PATH` is imported once. Before the SQLite source is opened or upgraded, the app creates a sibling backup named like `<db>.backup-<UTC timestamp>` and also copies `-wal`/`-shm` sidecar files when present. If the PostgreSQL business tables already contain data and no import marker exists, startup fails instead of merging or overwriting data.

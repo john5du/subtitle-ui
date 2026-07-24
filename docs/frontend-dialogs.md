@@ -63,13 +63,13 @@ Tokens: `dialogDrawerSizeClassName` in `dialog.tsx`. Prefer `size="…"` + optio
 ## Layout structure
 
 ```tsx
-<DialogContent size="md"> {/* or sm / lg */}
+<DialogContent size="md"> {/* or sm / lg / xl */}
   <DialogHeader>
     <DialogTitleWithHelp title={title} help={help} />
   </DialogHeader>
 
   <DialogBody>
-    {/* scrollable / flex-1 content for md & lg */}
+    {/* scrollable / flex-1 content for md / lg / xl */}
   </DialogBody>
 
   <DialogFooter>
@@ -80,7 +80,7 @@ Tokens: `dialogDrawerSizeClassName` in `dialog.tsx`. Prefer `size="…"` + optio
 ```
 
 - **Header**: title only (plus optional help tip). No long paragraphs under the title for functional explanations.
-- **Body** (`DialogBody`): required for **md/lg** so the frame scrolls inside a fixed height. Optional for short **sm** dialogs.
+- **Body** (`DialogBody`): required for **md/lg/xl** so the frame scrolls inside a fixed height. Optional for short **sm** dialogs.
 - **Footer** (`DialogFooter` / `AlertDialogFooter`): always at the bottom of the dialog frame.
   - Order: **Cancel/Close (outline) → primary action**
   - Mobile: stacked, primary on top (`flex-col-reverse`)
@@ -121,7 +121,7 @@ Trigger is a `CircleAlert` icon button; content opens in a floating bubble (port
 
 ## Checklist for new dialogs
 
-1. Pick **sm / md / lg** (modals) or **md / lg / xl** (drawers); pass `size="…"`.
+1. Pick **sm / md / lg / xl** (modals) or **md / lg / xl** (drawers); pass `size="…"`.
 2. Use shared `DialogHeader` / `DialogBody` / `DialogFooter` (or Alert equivalents).
 3. Footer buttons: cancel outline left of primary; no custom absolute-positioned action bars.
 4. Prefer `DialogTitleWithHelp` for functional help; keep critical confirm copy visible in Alert body.

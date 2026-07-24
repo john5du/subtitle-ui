@@ -44,7 +44,16 @@ cd frontend && bun run build   # static export → frontend/out
   - `SUBHD_SEARCH_MAX_PAGES=1`
   - `GET /api/videos/{id}/subtitles/providers/subhd/search?q=&page=`
   - `POST /api/videos/{id}/subtitles/providers/subhd/download` JSON `{ "sid", "label?", "replaceId?", "archiveEntry?" }`
-  - Installs sidecar next to video (`source=download`). Archives: zip/7z/rar (pure-Go). Rate-limit / captcha handled server-side.
+  - `GET /api/videos/{id}/subtitles/providers/subhd/season-packs`
+  - `POST /api/subtitles/providers/subhd/season-prepare` / `season-install` (TV season pack flow)
+  - Installs sidecar next to video (`source=download`). Archives: zip/7z/rar (pure-Go via `internal/archive`). Rate-limit / captcha handled server-side.
+- Archives (server-side list/extract; not client JS unzip):
+  - `POST /api/archives/subtitle-entries` multipart `file` → `{ entries }`
+  - `POST /api/archives/extract` multipart `file` + `entry`/`archiveEntry`
+  - `POST /api/subtitles/batch-from-archive` multipart `file` + JSON `mappings` (TV season batch)
+- Subtitle language normalize:
+  - `POST /api/videos/{id}/subtitles/normalize/plan|apply`
+  - `POST /api/tv/series/subtitles/normalize/plan|apply` (series path/key + season)
 - Sonarr TV completeness (optional):
   - Env bootstrap: `SONARR_URL` (e.g. `http://127.0.0.1:8989`), `SONARR_API_KEY`, optional `SONARR_ENABLED=false`
   - Runtime config (DB overrides env, no restart): `GET/PUT /api/config/sonarr` `{ enabled, url, apiKey }`
@@ -70,18 +79,19 @@ cd frontend && bun run build   # static export → frontend/out
 |------|------|
 | `backend/cmd/server` | Process entry |
 | `backend/internal/api` | HTTP routes/handlers |
-| `backend/internal/app` | Service / use-cases (scan, upload, convert, offset, logs, SubHD) |
+| `backend/internal/app` | Service / use-cases (scan, upload, convert, offset, normalize, archives, stream, logs, SubHD, Sonarr, Jellyfin) |
 | `backend/internal/store` | SQLite + Postgres, migrations, SQLite→PG one-shot import |
 | `backend/internal/scanner` | Disk scan (video + NFO + posters + subtitles) |
-| `backend/internal/subtitle` | Paths, ASS conversion, timing offset |
+| `backend/internal/subtitle` | Paths, ASS conversion, timing offset, language normalize |
+| `backend/internal/archive` | zip/7z/rar list + extract (pure-Go; used by upload/SubHD) |
 | `backend/internal/provider/subhd` | SubHD search/download client (on by default) |
 | `backend/internal/provider/sonarr` | Optional Sonarr client (series match, episode list, EpisodeSearch) |
-| `backend/internal/provider/jellyfin` | Optional Jellyfin client (media updated + item refresh after subtitle changes) |
+| `backend/internal/provider/jellyfin` | Optional Jellyfin client (media updated + item refresh + PlaybackInfo stream) |
 | `backend/internal/config` | Env config |
 | `backend/internal/version` | `const Value` — release source of truth (with FE package version) |
 | `frontend/src/app` | Next App Router shell |
 | `frontend/src/hooks/use-subtitle-manager` | Client state + controllers |
-| `frontend/src/lib` | API client, i18n, archive helpers |
+| `frontend/src/lib` | API client, i18n, archive helpers (call server; no client unzip) |
 | `frontend/src/components/subtitle-manager` | UI panels/dialogs |
 | `scripts/dev-*.sh` | Local process orchestration |
 | `media/` | Local media roots (gitignored); defaults `./media/movies`, `./media/tv` |
@@ -92,10 +102,10 @@ cd frontend && bun run build   # static export → frontend/out
 ## Config gotchas
 
 - DB: SQLite default `DB_PATH=./tmp/subtitle_manager.sqlite3`. Set `DATABASE_URL` for Postgres; first connect can import SQLite from `DB_PATH` once (backs up SQLite first; refuses non-empty PG without import marker).
-- `ADMIN_TOKEN`: admin API token (default `change-me` when unset). Rejected unless set to a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true`. `./scripts/dev-up.sh` sets the opt-in when unset. All `/api/*` except `GET /api/health` and `GET /api/videos/{id}/poster` need `Authorization: Bearer <token>` (posters stay public so `<img>` works). FE login page stores token in `localStorage` (`subtitle-ui:admin-token`).
+- `ADMIN_TOKEN`: admin API token (default `change-me` when unset). Rejected unless set to a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true`. `./scripts/dev-up.sh` sets the opt-in when unset. Bearer required on `/api/*` except public paths: `GET /api/health`, `GET /api/videos/{id}/poster`, and ticket media `GET|HEAD` `.../stream`, `.../hls/master`, `.../hls/seg` (ticket query param; `POST .../stream-ticket` still needs Bearer). FE login page stores token in `localStorage` (`subtitle-ui:admin-token`).
 - Sonarr/Jellyfin GET config never returns full API keys (`apiKey` empty + `apiKeySet`); empty `apiKey` on PUT/test keeps the stored key.
 - Media roots must be **writable** (subtitle write/replace/backup in place).
-- Videos without sidecar NFO (`<title>`/`<year>`) are skipped by the scanner.
+- Scanner requires a parseable NFO: movies `{base}.nfo` / `movie.nfo`; TV also walks up for `tvshow.nfo`. Accepts NFO if any of title / originaltitle / year / imdb / tmdb is non-empty; empty title → video basename; year optional. No usable NFO → video skipped.
 - Subtitle replace/delete/offset backup existing files before mutating.
 
 ## Release / version
@@ -111,5 +121,5 @@ cd frontend && bun run build   # static export → frontend/out
 - Prefer focused `go test` packages under `backend/internal/...` while iterating.
 - After FE changes that ship in the container, `bun run build` must succeed (static export).
 - Do not commit secrets, `tmp/`, `media/`, or `frontend/out`.
-- Frontend UI conventions: `docs/frontend-ui.md` (control density, library list shell, drawer sizes, empty/settings rows) and `docs/frontend-dialogs.md` (modal `sm|md|lg`, drawer `md|lg|xl`, `DialogTitleWithHelp` / `DialogHelpTip`).
+- Frontend UI conventions: `docs/frontend-ui.md` (control density, library list shell, drawer sizes, empty/settings rows) and `docs/frontend-dialogs.md` (modal `sm|md|lg|xl`, drawer `md|lg|xl`, `DialogTitleWithHelp` / `DialogHelpTip`). `DESIGN.md` is historical/inspirational only — not the product UI spec.
 - Language label contract: shared fixtures in `testdata/language/*.json` — update both Go (`backend/internal/subtitle/language_contract_test.go`) and FE (`frontend/src/lib/language-contract.test.ts`) when changing detection/normalization rules.
