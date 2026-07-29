@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -24,15 +26,23 @@ func registerScanTools(s *mcp.Server, svc *app.Service) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "scan_files",
-		Description: "Rescan media directories into the DB. May take a while on large libraries. Empty movieDirs/tvDirs means full scan of both roots.",
+		Description: "Rescan media directories into the DB. May take a while on large libraries. Empty movieDirs/tvDirs means full scan of both roots. On failure the tool returns IsError (also check status.error).",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in scanFilesIn) (*mcp.CallToolResult, domain.ScanStatus, error) {
-		return nil, svc.RunFileScan(ctx, in.MovieDirs, in.TVDirs), nil
+		status := svc.RunFileScan(ctx, in.MovieDirs, in.TVDirs)
+		if strings.TrimSpace(status.Error) != "" {
+			return nil, status, fmt.Errorf("%s", status.Error)
+		}
+		return nil, status, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "discover_directories",
-		Description: "Discover movie folders and TV series directories under media roots (does not rescan all files).",
+		Description: "Discover movie folders and TV series directories under media roots (does not rescan all files). On failure check result.errors.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, domain.DirectoryScanResult, error) {
-		return nil, svc.DiscoverDirectories(ctx), nil
+		result := svc.DiscoverDirectories(ctx)
+		if len(result.Errors) > 0 {
+			return nil, result, fmt.Errorf("%s", strings.Join(result.Errors, "; "))
+		}
+		return nil, result, nil
 	})
 }

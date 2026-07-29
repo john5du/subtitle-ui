@@ -31,6 +31,7 @@ func ParseSRTCues(data []byte) ([]Cue, error) {
 }
 
 // FormatSRTCues builds a UTF-8 SRT file from cues. Index is rewritten 1..n in order.
+// Empty lines inside a cue are dropped so they cannot end the block early on re-parse.
 func FormatSRTCues(cues []Cue) []byte {
 	var b strings.Builder
 	for i, cue := range cues {
@@ -41,13 +42,30 @@ func FormatSRTCues(cues []Cue) []byte {
 		b.WriteString(" --> ")
 		b.WriteString(formatSRTMilliseconds(cue.EndMS))
 		b.WriteByte('\n')
-		for _, line := range cue.Lines {
+		for _, line := range NormalizeCueLines(cue.Lines) {
 			b.WriteString(line)
 			b.WriteByte('\n')
 		}
 		b.WriteByte('\n')
 	}
 	return []byte(b.String())
+}
+
+// NormalizeCueLines flattens embedded newlines and drops blank lines (SRT block separators).
+func NormalizeCueLines(lines []string) []string {
+	if len(lines) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		for _, part := range strings.Split(normalizeNewlines(line), "\n") {
+			if strings.TrimSpace(part) == "" {
+				continue
+			}
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func formatSRTMilliseconds(ms int) string {

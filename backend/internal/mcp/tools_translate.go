@@ -43,11 +43,12 @@ func registerTranslateTools(s *mcp.Server, svc *app.Service) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "install_translated_cues",
-		Description: "Install a bilingual zh&en SRT from agent translations. " +
+		Description: "Install a bilingual zh&en SRT from agent translations. items must be non-empty. " +
 			"Timing always comes from sourceSubtitleId. Each item is {index, text} where text is the translation. " +
-			"Default targetLang=zh: lines are [Chinese translation, English original]. " +
-			"targetLang=en: lines are [Chinese original, English translation]. " +
-			"Untranslated indexes keep source text. Prefer one call after translating all pages. Label defaults to zh&en.",
+			"Default targetLang=zh (source should be English): lines are [Chinese translation, English original]. " +
+			"targetLang=en (source should be Chinese): lines are [Chinese original, English translation]. " +
+			"Blank lines inside text are stripped. Untranslated indexes keep source text. " +
+			"Prefer one call after translating all pages. Label defaults to zh&en.",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in installTranslatedIn) (*mcp.CallToolResult, domain.Subtitle, error) {
 		items := make([]app.TranslatedCueItem, 0, len(in.Items))
 		for _, it := range in.Items {

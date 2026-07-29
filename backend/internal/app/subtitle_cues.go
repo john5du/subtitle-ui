@@ -108,6 +108,9 @@ func (s *Service) InstallTranslatedCues(opts InstallTranslatedCuesOptions) (doma
 	if videoID == "" || sourceID == "" {
 		return domain.Subtitle{}, fmt.Errorf("%w: videoId and sourceSubtitleId are required", ErrBadRequest)
 	}
+	if len(opts.Items) == 0 {
+		return domain.Subtitle{}, fmt.Errorf("%w: items must not be empty (provide at least one translated cue)", ErrBadRequest)
+	}
 
 	data, _, err := s.readSubtitleSRTBytes(videoID, sourceID)
 	if err != nil {
@@ -126,7 +129,9 @@ func (s *Service) InstallTranslatedCues(opts InstallTranslatedCuesOptions) (doma
 		if _, dup := byIndex[item.Index]; dup {
 			return domain.Subtitle{}, fmt.Errorf("%w: duplicate cue index %d", ErrBadRequest, item.Index)
 		}
-		byIndex[item.Index] = strings.TrimSpace(item.Text)
+		// Drop blank-only segments so FormatSRTCues never emits mid-cue blank lines.
+		normalized := subtitle.NormalizeCueLines([]string{item.Text})
+		byIndex[item.Index] = strings.Join(normalized, "\n")
 	}
 
 	targetLang := strings.ToLower(strings.TrimSpace(opts.TargetLang))
@@ -151,11 +156,12 @@ func (s *Service) InstallTranslatedCues(opts InstallTranslatedCuesOptions) (doma
 		var lines []string
 		switch {
 		case targetLang == "en":
-			// Translation is English; Chinese (source) on top.
-			lines = []string{original, translated}
+			// Translation is English; Chinese (source) on top. Source should be Chinese.
+			lines = subtitle.NormalizeCueLines([]string{original, translated})
 		default:
 			// Translation is Chinese (default); Chinese on top, English (source) below.
-			lines = []string{translated, original}
+			// Source should be English (or other L2) for a true bilingual track.
+			lines = subtitle.NormalizeCueLines([]string{translated, original})
 		}
 		out = append(out, subtitle.Cue{
 			Index:   cue.Index,

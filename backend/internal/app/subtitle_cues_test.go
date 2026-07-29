@@ -78,3 +78,17 @@ func TestInstallTranslatedCuesBadIndex(t *testing.T) {
 		t.Fatal("expected bad index error")
 	}
 }
+
+func TestInstallTranslatedCuesEmptyItems(t *testing.T) {
+	base := t.TempDir()
+	svc, video := newMovieServiceFixture(t, base, "1\n00:00:01,000 --> 00:00:02,000\nHi\n")
+	defer func() { _ = svc.Close() }()
+	_, err := svc.InstallTranslatedCues(InstallTranslatedCuesOptions{
+		VideoID:          video.ID,
+		SourceSubtitleID: video.Subtitles[0].ID,
+		Items:            nil,
+	})
+	if err == nil {
+		t.Fatal("expected empty items error")
+	}
+}
