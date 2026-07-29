@@ -71,7 +71,8 @@ Streamable MCP on the same process (default **off**):
 
 - Endpoint: `/mcp` (Bearer `ADMIN_TOKEN` required; 503 when disabled)
 - Env bootstrap: `MCP_ENABLED=true`; runtime `GET|PUT /api/config/mcp` `{ enabled, endpoint }` (DB overrides env; Settings UI)
-- Tools (in-process `app.Service`): `list_videos`, `get_video`, `list_tv_series`, `version_info`, `scan_status`, `scan_files`, `discover_directories`, `read_subtitle_content`, `delete_subtitle`, `convert_subtitle_to_ass`, `offset_subtitle_timing`, `normalize_plan_video` / `normalize_apply_video`, `normalize_plan_season` / `normalize_apply_season`, `install_subtitle_from_path`, `subhd_search`, `subhd_download`, `subhd_season_packs`, `subhd_season_prepare`, `subhd_season_install`
+- Tools (in-process `app.Service`): `list_videos`, `get_video`, `list_tv_series`, `version_info`, `scan_status`, `scan_files`, `discover_directories`, `read_subtitle_content`, `delete_subtitle`, `convert_subtitle_to_ass`, `offset_subtitle_timing`, `normalize_plan_video` / `normalize_apply_video`, `normalize_plan_season` / `normalize_apply_season`, `install_subtitle_from_path`, `read_subtitle_cues`, `install_translated_cues` (agent bilingual SRT; timing locked to source), `subhd_search`, `subhd_download`, `subhd_season_packs`, `subhd_season_prepare`, `subhd_season_install`
+- Agent translate: `read_subtitle_cues` → translate texts → one `install_translated_cues` (`label` default `zh&en`)
 - Connect with URL `http://127.0.0.1:9307/mcp` and `Authorization: Bearer <ADMIN_TOKEN>`
 
 ### Core

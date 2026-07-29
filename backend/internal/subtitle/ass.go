@@ -49,12 +49,6 @@ var (
 	htmlTagPattern        = regexp.MustCompile(`(?s)<[^>]+>`)
 )
 
-type srtCue struct {
-	StartMS int
-	EndMS   int
-	Lines   []string
-}
-
 func ValidateASSTemplate(template string) error {
 	trimmed := strings.TrimSpace(template)
 	if trimmed == "" {
@@ -216,65 +210,6 @@ func assEventsFormatFields(template string) []string {
 		return fields
 	}
 	return nil
-}
-
-func parseSRTCues(raw string) ([]srtCue, error) {
-	lines := strings.Split(normalizeNewlines(strings.TrimPrefix(raw, "\ufeff")), "\n")
-	cues := make([]srtCue, 0, 64)
-	for i := 0; i < len(lines); {
-		for i < len(lines) && strings.TrimSpace(lines[i]) == "" {
-			i++
-		}
-		if i >= len(lines) {
-			break
-		}
-
-		timeLine := lines[i]
-		if !strings.Contains(timeLine, "-->") && i+1 < len(lines) && strings.Contains(lines[i+1], "-->") {
-			i++
-			timeLine = lines[i]
-		}
-		match := srtTimeRangePattern.FindStringSubmatch(timeLine)
-		if match == nil {
-			if len(cues) == 0 || isSRTSequenceNumberLine(timeLine) {
-				return nil, fmt.Errorf("invalid srt time range near line %d", i+1)
-			}
-			orphanLines := make([]string, 0, 1)
-			for i < len(lines) && strings.TrimSpace(lines[i]) != "" {
-				orphanLines = append(orphanLines, lines[i])
-				i++
-			}
-			if len(orphanLines) > 0 {
-				last := len(cues) - 1
-				cues[last].Lines = append(cues[last].Lines, "")
-				cues[last].Lines = append(cues[last].Lines, orphanLines...)
-			}
-			continue
-		}
-		startMS, err := parseSRTMilliseconds(match[1])
-		if err != nil {
-			return nil, fmt.Errorf("invalid srt start time near line %d: %w", i+1, err)
-		}
-		endMS, err := parseSRTMilliseconds(match[2])
-		if err != nil {
-			return nil, fmt.Errorf("invalid srt end time near line %d: %w", i+1, err)
-		}
-		if endMS <= startMS {
-			return nil, fmt.Errorf("invalid srt time range near line %d: end must be after start", i+1)
-		}
-		i++
-
-		textLines := make([]string, 0, 2)
-		for i < len(lines) && strings.TrimSpace(lines[i]) != "" {
-			textLines = append(textLines, lines[i])
-			i++
-		}
-		cues = append(cues, srtCue{StartMS: startMS, EndMS: endMS, Lines: textLines})
-	}
-	if len(cues) == 0 {
-		return nil, errors.New("srt file contains no subtitle cues")
-	}
-	return cues, nil
 }
 
 func isSRTSequenceNumberLine(raw string) bool {

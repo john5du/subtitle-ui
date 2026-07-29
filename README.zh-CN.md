@@ -71,7 +71,8 @@ git push origin main
 
 - 端点：`/mcp`（需 Bearer `ADMIN_TOKEN`；关闭时 503）
 - 环境变量引导：`MCP_ENABLED=true`；运行时 `GET|PUT /api/config/mcp` `{ enabled, endpoint }`（DB 覆盖 env；设置页可开关）
-- 工具（进程内调用 `app.Service`）：`list_videos`、`get_video`、`list_tv_series`、`version_info`、`scan_status`、`scan_files`、`discover_directories`、`read_subtitle_content`、`delete_subtitle`、`convert_subtitle_to_ass`、`offset_subtitle_timing`、`normalize_plan_video` / `normalize_apply_video`、`normalize_plan_season` / `normalize_apply_season`、`install_subtitle_from_path`、`subhd_search`、`subhd_download`、`subhd_season_packs`、`subhd_season_prepare`、`subhd_season_install`
+- 工具（进程内调用 `app.Service`）：`list_videos`、`get_video`、`list_tv_series`、`version_info`、`scan_status`、`scan_files`、`discover_directories`、`read_subtitle_content`、`delete_subtitle`、`convert_subtitle_to_ass`、`offset_subtitle_timing`、`normalize_plan_video` / `normalize_apply_video`、`normalize_plan_season` / `normalize_apply_season`、`install_subtitle_from_path`、`read_subtitle_cues`、`install_translated_cues`（agent 双语 SRT，时间轴锁定源轨）、`subhd_search`、`subhd_download`、`subhd_season_packs`、`subhd_season_prepare`、`subhd_season_install`
+- Agent 翻译：`read_subtitle_cues` → 只译正文 → 一次 `install_translated_cues`（默认 `label=zh&en`）
 - 连接示例：URL `http://127.0.0.1:9307/mcp`，Header `Authorization: Bearer <ADMIN_TOKEN>`
 
 ### 核心

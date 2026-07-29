@@ -30,11 +30,12 @@ cd frontend && bun run build   # static export → frontend/out
 - MCP (Streamable HTTP, default **off**): embedded in the Go process for AI agents.
   - Endpoint: `POST/GET http://host:9307/mcp` with `Authorization: Bearer <ADMIN_TOKEN>` (same token as REST); disabled → 503
   - Env bootstrap: `MCP_ENABLED=true` to start on; runtime `GET/PUT /api/config/mcp` `{ enabled, endpoint }` (DB overrides env, no restart); Settings UI
-  - Tools call `app.Service` in-process (library list/get, scan, subtitle read/delete/convert/offset/normalize, install from media-root path, SubHD search/download/season pack prepare+install)
+  - Tools call `app.Service` in-process (library list/get, scan, subtitle read/delete/convert/offset/normalize, install from media-root path, SubHD search/download/season pack prepare+install, agent bilingual translate via cues)
   - Package: `backend/internal/mcp`; tests: `go test ./backend/internal/mcp/...`
   - Client example (Cursor / remote MCP): URL `http://127.0.0.1:9307/mcp` + Bearer header
   - Prefer `normalize_plan_*` before `normalize_apply_*`; SubHD season: `subhd_season_prepare` → review mappings → `subhd_season_install`
   - `install_subtitle_from_path` only allows paths under movie/TV media roots
+  - Agent translate (SRT only, agent does translation): `read_subtitle_cues` (paginated) → translate `text` only → `install_translated_cues` once with all `{index,text}`; timing from source; default bilingual `zh&en` (中文上 / 原文下 when targetLang=zh); untranslated indexes keep source
 - Video stream preview (ArtPlayer + optional hls.js; requires Jellyfin enabled):
   - UI play-preview button only when Jellyfin is enabled (no local ffmpeg; audio via Jellyfin when needed)
   - `POST /api/videos/{id}/stream-ticket` (Bearer) → `{ ticket, expiresAt, url, kind }` (`kind`: `progressive`|`hls`; 503 if Jellyfin off / item not found)

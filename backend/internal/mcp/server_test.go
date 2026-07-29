@@ -105,6 +105,7 @@ func TestMCPListTools(t *testing.T) {
 		"read_subtitle_content": true, "delete_subtitle": true,
 		"normalize_plan_video": true, "subhd_search": true,
 		"install_subtitle_from_path": true, "version_info": true,
+		"read_subtitle_cues": true, "install_translated_cues": true,
 	}
 	got := map[string]bool{}
 	for _, tool := range tools.Tools {
@@ -234,5 +235,40 @@ func TestMCPNormalizePlanVideo(t *testing.T) {
 	// zh.srt already normalized may be noop; plan should still return.
 	if plan.Items == nil {
 		plan.Items = []domain.SubtitleNormalizeItem{}
+	}
+}
+
+func TestMCPReadAndInstallTranslatedCues(t *testing.T) {
+	svc, video := newTestService(t)
+	session := connectMCP(t, svc)
+	subID := video.Subtitles[0].ID
+
+	raw := callToolJSON(t, session, "read_subtitle_cues", map[string]any{
+		"videoId": video.ID, "subtitleId": subID, "limit": 50,
+	})
+	var page app.SubtitleCuePage
+	if err := json.Unmarshal(raw, &page); err != nil {
+		t.Fatalf("unmarshal page: %v raw=%s", err, raw)
+	}
+	if page.Total < 1 || len(page.Cues) < 1 {
+		t.Fatalf("expected cues: %+v", page)
+	}
+
+	items := []map[string]any{}
+	for _, c := range page.Cues {
+		items = append(items, map[string]any{"index": c.Index, "text": "译文" + c.Text})
+	}
+	raw = callToolJSON(t, session, "install_translated_cues", map[string]any{
+		"videoId":          video.ID,
+		"sourceSubtitleId": subID,
+		"items":            items,
+		"label":            "zh&en",
+	})
+	var sub domain.Subtitle
+	if err := json.Unmarshal(raw, &sub); err != nil {
+		t.Fatalf("unmarshal sub: %v", err)
+	}
+	if sub.ID == "" {
+		t.Fatal("expected installed bilingual subtitle")
 	}
 }
