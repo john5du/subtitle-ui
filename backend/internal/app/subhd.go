@@ -82,18 +82,18 @@ func (s *Service) InstallFromSubHD(ctx context.Context, videoID string, sid stri
 
 	dl, err := client.Download(ctx, sid)
 	if err != nil {
-		s.recordOp("download", videoID, "", "", "error", err.Error())
+		s.recordOpCtx(ctx, "download", videoID, "", "", "error", err.Error())
 		return domain.Subtitle{}, mapSubHDError(err)
 	}
 
 	resolved, err := subhd.ResolveInstallable(dl, opts.ArchiveEntry)
 	if err != nil {
-		s.recordOp("download", videoID, "", "", "error", err.Error())
+		s.recordOpCtx(ctx, "download", videoID, "", "", "error", err.Error())
 		return domain.Subtitle{}, mapSubHDError(err)
 	}
 
 	_ = video
-	return s.installResolvedSubHD(videoID, sid, resolved, opts)
+	return s.installResolvedSubHD(ctx, videoID, sid, resolved, opts)
 }
 
 // buildSubHDSourceDetail records SubHD provenance including the detail page URL.

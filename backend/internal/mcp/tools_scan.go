@@ -45,6 +45,7 @@ func registerScanTools(s *mcp.Server, svc *app.Service) {
 		if err := svc.ValidateMCPConfirmToken("scan_files", params, in.ConfirmToken); err != nil {
 			return nil, domain.ScanStatus{}, err
 		}
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "scan_files")
 		status := svc.RunFileScan(ctx, in.MovieDirs, in.TVDirs)
 		if strings.TrimSpace(status.Error) != "" {
 			return nil, status, fmt.Errorf("%s", status.Error)

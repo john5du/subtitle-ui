@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"mime/multipart"
 	"path"
@@ -69,7 +70,7 @@ func (s *Service) BatchUploadFromArchive(file multipart.File, header *multipart.
 		}
 		entryBase := path.Base(strings.ReplaceAll(item.ArchiveEntry, "\\", "/"))
 		uploadName := name + "/" + entryBase
-		sub, installErr := s.installSubtitleBytes(item.VideoID, data, uploadName, m.Label, "", SubtitleUploadOptions{
+		sub, installErr := s.installSubtitleBytes(context.Background(), item.VideoID, data, uploadName, m.Label, "", SubtitleUploadOptions{
 			ConvertTo:      m.ConvertTo,
 			SourceEncoding: m.SourceEncoding,
 		})

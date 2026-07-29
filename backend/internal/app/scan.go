@@ -204,7 +204,7 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	if result.err != nil {
 		scanStatus = "error"
 	}
-	s.recordOp("scan", systemOperationVideoID, "", "", scanStatus, scanMessage)
+	s.recordOpCtx(ctx, "scan", systemOperationVideoID, "", "", scanStatus, scanMessage)
 
 	s.scan.mu.Lock()
 	s.scan.running = false

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -103,6 +104,11 @@ func (s *Service) ReadSubtitleCues(videoID string, subtitleID string, offset int
 // InstallTranslatedCues merges agent translations into source timing and installs bilingual SRT.
 // Untranslated cue indexes keep the source text (single line). Prefer one call with all items.
 func (s *Service) InstallTranslatedCues(opts InstallTranslatedCuesOptions) (domain.Subtitle, error) {
+	return s.InstallTranslatedCuesCtx(context.Background(), opts)
+}
+
+// InstallTranslatedCuesCtx is InstallTranslatedCues with audit context.
+func (s *Service) InstallTranslatedCuesCtx(ctx context.Context, opts InstallTranslatedCuesOptions) (domain.Subtitle, error) {
 	videoID := strings.TrimSpace(opts.VideoID)
 	sourceID := strings.TrimSpace(opts.SourceSubtitleID)
 	if videoID == "" || sourceID == "" {
@@ -177,7 +183,7 @@ func (s *Service) InstallTranslatedCues(opts InstallTranslatedCuesOptions) (doma
 		label = "zh&en"
 	}
 	uploadName := "translated.zh&en.srt"
-	return s.installSubtitleBytes(videoID, payload, uploadName, label, strings.TrimSpace(opts.ReplaceID), SubtitleUploadOptions{})
+	return s.installSubtitleBytes(ctx, videoID, payload, uploadName, label, strings.TrimSpace(opts.ReplaceID), SubtitleUploadOptions{})
 }
 
 func (s *Service) readSubtitleSRTBytes(videoID string, subtitleID string) ([]byte, string, error) {

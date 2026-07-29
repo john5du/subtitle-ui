@@ -76,6 +76,7 @@ func registerSubHDTools(s *mcp.Server, svc *app.Service) {
 		if err := svc.ValidateMCPConfirmToken("subhd_download", params, in.ConfirmToken); err != nil {
 			return nil, domain.Subtitle{}, err
 		}
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "subhd_download")
 		sub, err := svc.InstallFromSubHD(ctx, in.VideoID, in.SID, app.SubHDInstallOptions{
 			Label: in.Label, ReplaceID: in.ReplaceID, ArchiveEntry: in.ArchiveEntry,
 		})
@@ -122,6 +123,7 @@ func registerSubHDTools(s *mcp.Server, svc *app.Service) {
 		if err := svc.ValidateMCPConfirmToken("subhd_season_install", params, in.ConfirmToken); err != nil {
 			return nil, app.SubHDSeasonInstallResult{}, err
 		}
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "subhd_season_install")
 		result, err := svc.InstallSubHDSeasonPack(ctx, app.SubHDSeasonInstallOptions{CacheToken: in.CacheToken, Mappings: in.Mappings})
 		return nil, result, err
 	})

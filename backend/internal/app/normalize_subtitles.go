@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,6 +35,11 @@ func (s *Service) PlanNormalizeSeasonSubtitles(path string, key string, season i
 
 // ApplyNormalizeVideoSubtitles applies selected renames for one video.
 func (s *Service) ApplyNormalizeVideoSubtitles(videoID string, items []domain.SubtitleNormalizeApplyItem) (domain.SubtitleNormalizeApplyResult, error) {
+	return s.ApplyNormalizeVideoSubtitlesCtx(context.Background(), videoID, items)
+}
+
+// ApplyNormalizeVideoSubtitlesCtx is ApplyNormalizeVideoSubtitles with audit context.
+func (s *Service) ApplyNormalizeVideoSubtitlesCtx(ctx context.Context, videoID string, items []domain.SubtitleNormalizeApplyItem) (domain.SubtitleNormalizeApplyResult, error) {
 	video, ok := s.GetVideo(videoID)
 	if !ok {
 		return domain.SubtitleNormalizeApplyResult{}, ErrNotFound
@@ -49,16 +55,21 @@ func (s *Service) ApplyNormalizeVideoSubtitles(videoID string, items []domain.Su
 			ToPath:     item.ToPath,
 		})
 	}
-	return s.applyNormalizeItems([]domain.Video{video}, filtered), nil
+	return s.applyNormalizeItems(ctx, []domain.Video{video}, filtered), nil
 }
 
 // ApplyNormalizeSeasonSubtitles applies selected renames across a TV season.
 func (s *Service) ApplyNormalizeSeasonSubtitles(path string, key string, season int, items []domain.SubtitleNormalizeApplyItem) (domain.SubtitleNormalizeApplyResult, error) {
+	return s.ApplyNormalizeSeasonSubtitlesCtx(context.Background(), path, key, season, items)
+}
+
+// ApplyNormalizeSeasonSubtitlesCtx is ApplyNormalizeSeasonSubtitles with audit context.
+func (s *Service) ApplyNormalizeSeasonSubtitlesCtx(ctx context.Context, path string, key string, season int, items []domain.SubtitleNormalizeApplyItem) (domain.SubtitleNormalizeApplyResult, error) {
 	videos, err := s.listSeasonVideos(path, key, season)
 	if err != nil {
 		return domain.SubtitleNormalizeApplyResult{}, err
 	}
-	return s.applyNormalizeItems(videos, items), nil
+	return s.applyNormalizeItems(ctx, videos, items), nil
 }
 
 func (s *Service) listSeasonVideos(path string, key string, season int) ([]domain.Video, error) {
@@ -193,7 +204,7 @@ func chooseNormalizeTargetLabel(baseLabel, detected string) string {
 	}
 }
 
-func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.SubtitleNormalizeApplyItem) domain.SubtitleNormalizeApplyResult {
+func (s *Service) applyNormalizeItems(ctx context.Context, videos []domain.Video, items []domain.SubtitleNormalizeApplyItem) domain.SubtitleNormalizeApplyResult {
 	videoByID := make(map[string]domain.Video, len(videos))
 	for _, video := range videos {
 		videoByID[video.ID] = video
@@ -310,7 +321,7 @@ func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.Subt
 			out.Error = fmt.Sprintf("backup failed: %v", err)
 			result.Failed++
 			result.Results = append(result.Results, out)
-			s.recordOp("normalize", videoID, existing.Path, "", "error", out.Error)
+			s.recordOpCtx(ctx, "normalize", videoID, existing.Path, "", "error", out.Error)
 			continue
 		}
 		if err := os.Rename(existing.Path, toPath); err != nil {
@@ -319,7 +330,7 @@ func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.Subt
 			out.BackupPath = backupPath
 			result.Failed++
 			result.Results = append(result.Results, out)
-			s.recordOp("normalize", videoID, existing.Path, backupPath, "error", out.Error)
+			s.recordOpCtx(ctx, "normalize", videoID, existing.Path, backupPath, "error", out.Error)
 			continue
 		}
 		mu.Unlock()
@@ -335,7 +346,7 @@ func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.Subt
 		out.BackupPath = backupPath
 		result.Renamed++
 		result.Results = append(result.Results, out)
-		s.recordOpEx(OpRecord{
+		s.recordOpExCtx(ctx, OpRecord{
 			Action:     "normalize",
 			VideoID:    videoID,
 			TargetPath: toPath,
@@ -362,7 +373,7 @@ func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.Subt
 		_, _, refreshErr := s.refreshVideoSubtitles(videoID, "", overrides)
 		mu.Unlock()
 		if refreshErr != nil {
-			s.recordOp("normalize", videoID, "", "", "error", "refresh after rename: "+refreshErr.Error())
+			s.recordOpCtx(ctx, "normalize", videoID, "", "", "error", "refresh after rename: "+refreshErr.Error())
 		} else {
 			s.notifyJellyfinAfterSubtitleChange(videoID)
 		}

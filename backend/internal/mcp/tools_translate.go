@@ -69,7 +69,8 @@ func registerTranslateTools(s *mcp.Server, svc *app.Service) {
 		for _, it := range in.Items {
 			items = append(items, app.TranslatedCueItem{Index: it.Index, Text: it.Text})
 		}
-		sub, err := svc.InstallTranslatedCues(app.InstallTranslatedCuesOptions{
+		ctx := app.WithOpAudit(context.Background(), domain.OpSourceMCP, "install_translated_cues")
+		sub, err := svc.InstallTranslatedCuesCtx(ctx, app.InstallTranslatedCuesOptions{
 			VideoID: in.VideoID, SourceSubtitleID: in.SourceSubtitleID, Items: items,
 			Label: in.Label, ReplaceID: in.ReplaceID, TargetLang: in.TargetLang,
 		})

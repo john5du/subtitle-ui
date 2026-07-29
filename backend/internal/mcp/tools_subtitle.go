@@ -213,7 +213,8 @@ func registerSubtitleTools(s *mcp.Server, svc *app.Service) {
 		if err := svc.ValidateMCPConfirmToken("normalize_apply_video", params, in.ConfirmToken); err != nil {
 			return nil, domain.SubtitleNormalizeApplyResult{}, err
 		}
-		result, err := svc.ApplyNormalizeVideoSubtitles(in.VideoID, in.Items)
+		ctx := app.WithOpAudit(context.Background(), domain.OpSourceMCP, "normalize_apply_video")
+		result, err := svc.ApplyNormalizeVideoSubtitlesCtx(ctx, in.VideoID, in.Items)
 		return nil, result, err
 	})
 
@@ -245,7 +246,8 @@ func registerSubtitleTools(s *mcp.Server, svc *app.Service) {
 		if err := svc.ValidateMCPConfirmToken("normalize_apply_season", params, in.ConfirmToken); err != nil {
 			return nil, domain.SubtitleNormalizeApplyResult{}, err
 		}
-		result, err := svc.ApplyNormalizeSeasonSubtitles(in.Path, in.Key, in.Season, in.Items)
+		ctx := app.WithOpAudit(context.Background(), domain.OpSourceMCP, "normalize_apply_season")
+		result, err := svc.ApplyNormalizeSeasonSubtitlesCtx(ctx, in.Path, in.Key, in.Season, in.Items)
 		return nil, result, err
 	})
 
@@ -269,7 +271,8 @@ func registerSubtitleTools(s *mcp.Server, svc *app.Service) {
 		if err := svc.ValidateMCPConfirmToken("install_subtitle_from_path", params, in.ConfirmToken); err != nil {
 			return nil, domain.Subtitle{}, err
 		}
-		sub, err := svc.InstallSubtitleFromPath(in.VideoID, in.Path, in.Label, in.ReplaceID, app.SubtitleUploadOptions{
+		ctx := app.WithOpAudit(context.Background(), domain.OpSourceMCP, "install_subtitle_from_path")
+		sub, err := svc.InstallSubtitleFromPathCtx(ctx, in.VideoID, in.Path, in.Label, in.ReplaceID, app.SubtitleUploadOptions{
 			ConvertTo: in.ConvertTo, SourceEncoding: in.SourceEncoding, ArchiveEntry: in.ArchiveEntry,
 		})
 		return nil, sub, err

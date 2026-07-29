@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -63,6 +64,11 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 
 // InstallSubtitleFromPath installs a subtitle file from a path under media roots (MCP / agent friendly).
 func (s *Service) InstallSubtitleFromPath(videoID string, filePath string, label string, replaceID string, options SubtitleUploadOptions) (domain.Subtitle, error) {
+	return s.InstallSubtitleFromPathCtx(context.Background(), videoID, filePath, label, replaceID, options)
+}
+
+// InstallSubtitleFromPathCtx is InstallSubtitleFromPath with audit context.
+func (s *Service) InstallSubtitleFromPathCtx(ctx context.Context, videoID string, filePath string, label string, replaceID string, options SubtitleUploadOptions) (domain.Subtitle, error) {
 	filePath = strings.TrimSpace(filePath)
 	if filePath == "" {
 		return domain.Subtitle{}, fmt.Errorf("%w: missing path", ErrBadRequest)
@@ -91,7 +97,7 @@ func (s *Service) InstallSubtitleFromPath(videoID string, filePath string, label
 	if err != nil {
 		return domain.Subtitle{}, err
 	}
-	return s.installSubtitleBytes(videoID, payload, filepath.Base(abs), label, replaceID, options)
+	return s.installSubtitleBytes(ctx, videoID, payload, filepath.Base(abs), label, replaceID, options)
 }
 
 func (s *Service) UploadSubtitleWithOptions(videoID string, file multipart.File, header *multipart.FileHeader, label string, replaceID string, options SubtitleUploadOptions) (domain.Subtitle, error) {
@@ -106,7 +112,7 @@ func (s *Service) UploadSubtitleWithOptions(videoID string, file multipart.File,
 	if header != nil {
 		uploadName = header.Filename
 	}
-	return s.installSubtitleBytes(videoID, payload, uploadName, label, replaceID, options)
+	return s.installSubtitleBytes(context.Background(), videoID, payload, uploadName, label, replaceID, options)
 }
 
 func readUploadPayload(file multipart.File, header *multipart.FileHeader) ([]byte, string, error) {
@@ -188,7 +194,7 @@ func (e *ArchiveMultipleEntriesError) Unwrap() error {
 	return ErrBadRequest
 }
 
-func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadName string, label string, replaceID string, options SubtitleUploadOptions) (domain.Subtitle, error) {
+func (s *Service) installSubtitleBytes(ctx context.Context, videoID string, payload []byte, uploadName string, label string, replaceID string, options SubtitleUploadOptions) (domain.Subtitle, error) {
 	mu := s.lockVideo(videoID)
 	mu.Lock()
 	defer mu.Unlock()
@@ -257,7 +263,7 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 		backupPath, err = subtitle.BackupFile(existing.Path)
 		if err != nil {
 			err = fmt.Errorf("backup before replace failed: %w", err)
-			s.recordOp("replace", videoID, existing.Path, "", "error", err.Error())
+			s.recordOpCtx(ctx, "replace", videoID, existing.Path, "", "error", err.Error())
 			return domain.Subtitle{}, err
 		}
 
@@ -283,13 +289,13 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 		return domain.Subtitle{}, ErrUnsafePath
 	}
 	if err := subtitle.WriteFileBytes(content, targetPath); err != nil {
-		s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
+		s.recordOpCtx(ctx, action, videoID, targetPath, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 	if replaceSourcePath != "" && !sameFilePath(targetPath, replaceSourcePath) {
 		if err := os.Remove(replaceSourcePath); err != nil {
 			err = fmt.Errorf("cleanup replaced subtitle failed: %w", err)
-			s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
+			s.recordOpCtx(ctx, action, videoID, targetPath, backupPath, "error", err.Error())
 			return domain.Subtitle{}, err
 		}
 	}
@@ -306,7 +312,7 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 		convertedTargetPath, err = s.convertSRTPathToASS(targetPath, options.SourceEncoding)
 		if err != nil {
 			_, _, _ = s.refreshVideoSubtitles(videoID, targetPath, sourceOverrides)
-			s.recordOp("convert", videoID, targetPath, "", "error", err.Error())
+			s.recordOpCtx(ctx, "convert", videoID, targetPath, "", "error", err.Error())
 			return domain.Subtitle{}, err
 		}
 		sourceOverrides[subtitleSourceOverrideKey(convertedTargetPath)] = subtitleSourceOverride{
@@ -318,7 +324,7 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 
 	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, selectedTargetPath, sourceOverrides)
 	if err != nil {
-		s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
+		s.recordOpCtx(ctx, action, videoID, targetPath, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
@@ -331,7 +337,7 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 	if replaceSourcePath != "" {
 		meta["fromPath"] = replaceSourcePath
 	}
-	s.recordOpEx(OpRecord{
+	s.recordOpExCtx(ctx, OpRecord{
 		Action:     action,
 		VideoID:    updatedVideo.ID,
 		TargetPath: targetPath,
@@ -341,7 +347,7 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 	})
 
 	if convertedTargetPath != "" {
-		s.recordOpEx(OpRecord{
+		s.recordOpExCtx(ctx, OpRecord{
 			Action:     "convert",
 			VideoID:    updatedVideo.ID,
 			TargetPath: targetPath,

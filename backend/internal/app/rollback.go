@@ -28,6 +28,14 @@ func (s *Service) RollbackOperation(opID string) (domain.RollbackResult, error) 
 		return domain.RollbackResult{}, fmt.Errorf("%w: cannot rollback a rollback entry", ErrBadRequest)
 	}
 
+	// Serialize with other subtitle disk+DB mutations for this video.
+	videoID := strings.TrimSpace(log.VideoID)
+	if videoID != "" && videoID != systemOperationVideoID {
+		mu := s.lockVideo(videoID)
+		mu.Lock()
+		defer mu.Unlock()
+	}
+
 	meta := parseOpMeta(log.Meta)
 	result := domain.RollbackResult{
 		OpID:       log.ID,
@@ -41,7 +49,6 @@ func (s *Service) RollbackOperation(opID string) (domain.RollbackResult, error) 
 			return result, err
 		}
 		result.RestoredPath = log.TargetPath
-		result.OK = true
 		result.Message = "restored deleted subtitle from backup"
 
 	case "offset":
@@ -49,46 +56,30 @@ func (s *Service) RollbackOperation(opID string) (domain.RollbackResult, error) 
 			return result, err
 		}
 		result.RestoredPath = log.TargetPath
-		result.OK = true
 		result.Message = "restored file content from backup"
 
 	case "replace", "download_replace":
-		// Backup holds pre-replace content; restore to fromPath (old path).
-		// TargetPath is the post-replace path (may differ on ext/label change).
-		fromPath := stringMeta(meta, "fromPath")
-		toPath := stringMeta(meta, "toPath")
-		if toPath == "" {
-			toPath = log.TargetPath
-		}
-		if fromPath == "" {
-			fromPath = log.TargetPath
-		}
+		fromPath, toPath := resolveReplacePaths(log, meta)
 		if err := s.rollbackFromBackupTo(log, fromPath); err != nil {
 			return result, err
 		}
 		if toPath != "" && toPath != fromPath && fileExists(toPath) {
-			if err := s.ensureWithinRoots(toPath); err == nil {
-				_ = os.Remove(toPath)
-				result.RemovedPath = toPath
+			if err := s.ensureWithinRoots(toPath); err != nil {
+				return result, err
 			}
+			if err := os.Remove(toPath); err != nil {
+				return result, fmt.Errorf("remove replaced path after rollback: %w", err)
+			}
+			result.RemovedPath = toPath
 		}
 		result.RestoredPath = fromPath
-		result.OK = true
 		result.Message = "restored replaced subtitle from backup"
 
 	case "normalize":
-		fromPath := stringMeta(meta, "fromPath")
-		toPath := stringMeta(meta, "toPath")
-		if fromPath == "" {
-			fromPath = log.TargetPath
-		}
-		if toPath == "" {
-			toPath = stringMeta(meta, "to")
-		}
+		fromPath, toPath := resolveNormalizePaths(log, meta)
 		if log.BackupPath == "" || !fileExists(log.BackupPath) {
 			return result, fmt.Errorf("%w: backup missing for normalize rollback", ErrNotFound)
 		}
-		// Prefer restore content to fromPath; remove toPath if different and still present.
 		if err := s.ensureWithinRoots(log.BackupPath); err != nil {
 			return result, err
 		}
@@ -102,17 +93,18 @@ func (s *Service) RollbackOperation(opID string) (domain.RollbackResult, error) 
 			return result, err
 		}
 		if toPath != "" && toPath != fromPath && fileExists(toPath) {
-			if err := s.ensureWithinRoots(toPath); err == nil {
-				_ = os.Remove(toPath)
+			if err := s.ensureWithinRoots(toPath); err != nil {
+				return result, err
 			}
+			if err := os.Remove(toPath); err != nil {
+				return result, fmt.Errorf("remove normalized path after rollback: %w", err)
+			}
+			result.RemovedPath = toPath
 		}
 		result.RestoredPath = fromPath
-		result.RemovedPath = toPath
-		result.OK = true
 		result.Message = "restored normalize rename from backup"
 
 	case "upload", "download":
-		// New file install: remove target if present.
 		if log.TargetPath == "" {
 			return result, fmt.Errorf("%w: missing target_path", ErrBadRequest)
 		}
@@ -125,24 +117,25 @@ func (s *Service) RollbackOperation(opID string) (domain.RollbackResult, error) 
 			}
 			result.RemovedPath = log.TargetPath
 		}
-		// If replace left a backup, also restore it to fromPath when known.
+		// Legacy/partial replace logs under upload/download with backup: restore original.
 		if log.BackupPath != "" && fileExists(log.BackupPath) {
 			restoreTo := stringMeta(meta, "fromPath")
 			if restoreTo == "" {
+				restoreTo = subtitle.SourcePathFromBackup(log.BackupPath)
+			}
+			if restoreTo == "" {
 				restoreTo = log.TargetPath
 			}
-			if err := s.rollbackFromBackupTo(log, restoreTo); err == nil {
-				result.RestoredPath = restoreTo
+			if err := s.rollbackFromBackupTo(log, restoreTo); err != nil {
+				return result, err
 			}
+			result.RestoredPath = restoreTo
 		}
-		result.OK = true
 		result.Message = "removed installed subtitle (rollback create)"
 
 	case "convert":
-		// Remove generated ASS; target_path is source srt in some logs — prefer meta generated path.
 		gen := stringMeta(meta, "generatedPath")
 		if gen == "" {
-			// convert log uses existing.Path as target (source); generated is sibling .ass
 			if strings.EqualFold(filepath.Ext(log.TargetPath), ".srt") {
 				gen = strings.TrimSuffix(log.TargetPath, filepath.Ext(log.TargetPath)) + ".ass"
 			} else {
@@ -161,19 +154,35 @@ func (s *Service) RollbackOperation(opID string) (domain.RollbackResult, error) 
 			}
 			result.RemovedPath = gen
 		}
-		result.OK = true
 		result.Message = "removed converted ASS"
 
 	default:
 		return result, fmt.Errorf("%w: rollback not supported for action %q", ErrBadRequest, log.Action)
 	}
 
-	videoID := log.VideoID
 	if videoID != "" && videoID != systemOperationVideoID {
-		_, _, _ = s.refreshVideoSubtitles(videoID, result.RestoredPath, nil)
+		if _, _, err := s.refreshVideoSubtitles(videoID, result.RestoredPath, nil); err != nil {
+			s.recordOpEx(OpRecord{
+				Action:     "rollback",
+				VideoID:    log.VideoID,
+				TargetPath: log.TargetPath,
+				BackupPath: log.BackupPath,
+				Status:     "error",
+				Message:    fmt.Sprintf("files restored but refresh failed: %v", err),
+				Source:     domain.OpSourceSystem,
+				Meta: map[string]any{
+					"refOpId":      log.ID,
+					"refAction":    log.Action,
+					"restoredPath": result.RestoredPath,
+					"removedPath":  result.RemovedPath,
+				},
+			})
+			return result, fmt.Errorf("rollback files applied but subtitle refresh failed: %w", err)
+		}
 		s.notifyJellyfinAfterSubtitleChange(videoID)
 	}
 
+	result.OK = true
 	rollbackID := s.recordOpEx(OpRecord{
 		Action:     "rollback",
 		VideoID:    log.VideoID,
@@ -193,8 +202,45 @@ func (s *Service) RollbackOperation(opID string) (domain.RollbackResult, error) 
 	return result, nil
 }
 
-func (s *Service) rollbackFromBackup(log domain.OperationLog) error {
-	return s.rollbackFromBackupTo(log, log.TargetPath)
+// resolveReplacePaths picks restore (from) and optional remove (to) paths for replace logs.
+func resolveReplacePaths(log domain.OperationLog, meta map[string]any) (fromPath, toPath string) {
+	fromPath = stringMeta(meta, "fromPath")
+	toPath = stringMeta(meta, "toPath")
+	if toPath == "" {
+		toPath = log.TargetPath
+	}
+	if fromPath == "" && log.BackupPath != "" {
+		fromPath = subtitle.SourcePathFromBackup(log.BackupPath)
+	}
+	if fromPath == "" {
+		fromPath = log.TargetPath
+	}
+	// When from was inferred from backup and differs from target, target is the post-replace path.
+	if toPath == "" {
+		toPath = log.TargetPath
+	}
+	return fromPath, toPath
+}
+
+// resolveNormalizePaths picks original and renamed paths for normalize logs.
+func resolveNormalizePaths(log domain.OperationLog, meta map[string]any) (fromPath, toPath string) {
+	fromPath = stringMeta(meta, "fromPath")
+	toPath = stringMeta(meta, "toPath")
+	if toPath == "" {
+		toPath = stringMeta(meta, "to")
+	}
+	// New logs: TargetPath is toPath. Old logs without meta: TargetPath is also toPath.
+	if toPath == "" {
+		toPath = log.TargetPath
+	}
+	if fromPath == "" && log.BackupPath != "" {
+		fromPath = subtitle.SourcePathFromBackup(log.BackupPath)
+	}
+	if fromPath == "" {
+		// Last resort: cannot rename back; restore content onto target only.
+		fromPath = log.TargetPath
+	}
+	return fromPath, toPath
 }
 
 func (s *Service) rollbackFromBackupTo(log domain.OperationLog, restorePath string) error {

@@ -125,7 +125,7 @@ func (s *Service) PrepareSubHDSeasonPack(ctx context.Context, opts SubHDSeasonPr
 
 	dl, err := client.Download(ctx, sid)
 	if err != nil {
-		s.recordOp("download", videos[0].ID, "", "", "error", err.Error())
+		s.recordOpCtx(ctx, "download", videos[0].ID, "", "", "error", err.Error())
 		return SubHDSeasonPrepareResult{}, mapSubHDError(err)
 	}
 
@@ -270,7 +270,7 @@ func (s *Service) InstallSubHDSeasonPack(ctx context.Context, opts SubHDSeasonIn
 			Source:   fileName,
 			URL:      downloadURL,
 		}
-		sub, installErr := s.installResolvedSubHD(item.VideoID, sid, resolved, SubHDInstallOptions{Label: label})
+		sub, installErr := s.installResolvedSubHD(ctx, item.VideoID, sid, resolved, SubHDInstallOptions{Label: label})
 		if installErr != nil {
 			item.Error = installErr.Error()
 			results = append(results, item)
@@ -285,7 +285,7 @@ func (s *Service) InstallSubHDSeasonPack(ctx context.Context, opts SubHDSeasonIn
 }
 
 // installResolvedSubHD writes an already-resolved SubHD subtitle (shared by single + season install).
-func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *subhd.ResolvedSubtitle, opts SubHDInstallOptions) (domain.Subtitle, error) {
+func (s *Service) installResolvedSubHD(ctx context.Context, videoID string, sid string, resolved *subhd.ResolvedSubtitle, opts SubHDInstallOptions) (domain.Subtitle, error) {
 	video, ok := s.GetVideo(videoID)
 	if !ok {
 		return domain.Subtitle{}, ErrNotFound
@@ -324,7 +324,7 @@ func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *sub
 		backupPath, err = subtitle.BackupFile(existing.Path)
 		if err != nil {
 			err = fmt.Errorf("backup before replace failed: %w", err)
-			s.recordOp("download_replace", videoID, existing.Path, "", "error", err.Error())
+			s.recordOpCtx(ctx, "download_replace", videoID, existing.Path, "", "error", err.Error())
 			return domain.Subtitle{}, err
 		}
 		targetPath = subtitle.BuildReplacementSubtitlePath(existing.Path, ext)
@@ -343,13 +343,13 @@ func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *sub
 		return domain.Subtitle{}, ErrUnsafePath
 	}
 	if err := subtitle.WriteFileBytes(resolved.Data, targetPath); err != nil {
-		s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
+		s.recordOpCtx(ctx, action, videoID, targetPath, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 	if replaceSourcePath != "" && !sameFilePath(targetPath, replaceSourcePath) {
 		if err := os.Remove(replaceSourcePath); err != nil {
 			err = fmt.Errorf("cleanup replaced subtitle failed: %w", err)
-			s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
+			s.recordOpCtx(ctx, action, videoID, targetPath, backupPath, "error", err.Error())
 			return domain.Subtitle{}, err
 		}
 	}
@@ -368,7 +368,7 @@ func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *sub
 	}
 	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, targetPath, sourceOverrides)
 	if err != nil {
-		s.recordOp(action, videoID, targetPath, backupPath, "error", err.Error())
+		s.recordOpCtx(ctx, action, videoID, targetPath, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
@@ -380,7 +380,7 @@ func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *sub
 	if replaceSourcePath != "" {
 		meta["fromPath"] = replaceSourcePath
 	}
-	s.recordOpEx(OpRecord{
+	s.recordOpExCtx(ctx, OpRecord{
 		Action:     action,
 		VideoID:    updatedVideo.ID,
 		TargetPath: targetPath,
