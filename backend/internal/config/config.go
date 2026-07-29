@@ -41,6 +41,9 @@ type Config struct {
 	StreamTicketSecret string
 	// StreamTicketTTL is how long a stream ticket remains valid.
 	StreamTicketTTL time.Duration
+	// MCPEnabled is the env bootstrap for Streamable MCP at /mcp (Bearer ADMIN_TOKEN).
+	// Default false; DB setting mcp.enabled overrides at runtime (settings UI).
+	MCPEnabled bool
 }
 
 // IsProduction reports whether APP_ENV/ENV is production (or prod).
@@ -95,6 +98,7 @@ func Load() Config {
 		JellyfinUserID:        strings.TrimSpace(os.Getenv("JELLYFIN_USER_ID")),
 		StreamTicketSecret:    strings.TrimSpace(os.Getenv("STREAM_TICKET_SECRET")),
 		StreamTicketTTL:       parseDuration(os.Getenv("STREAM_TICKET_TTL"), 15*time.Minute),
+		MCPEnabled:            parseBool(os.Getenv("MCP_ENABLED")),
 	}
 
 	// Sonarr: enabled when URL+key set, unless SONARR_ENABLED explicitly disables.

@@ -27,6 +27,14 @@ cd frontend && bun run build   # static export → frontend/out
 - Local env: `dev-up` / `dev-restart` load `scripts/.env` then `scripts/.env.local` via `scripts/lib/load-env.sh` (shell-exported vars win). Real `scripts/.env` is gitignored; commit only `scripts/.env.example`.
 - Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300` when unset. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.
 - Optional FE API override: `NEXT_PUBLIC_API_BASE=http://localhost:9307`.
+- MCP (Streamable HTTP, default **off**): embedded in the Go process for AI agents.
+  - Endpoint: `POST/GET http://host:9307/mcp` with `Authorization: Bearer <ADMIN_TOKEN>` (same token as REST); disabled → 503
+  - Env bootstrap: `MCP_ENABLED=true` to start on; runtime `GET/PUT /api/config/mcp` `{ enabled, endpoint }` (DB overrides env, no restart); Settings UI
+  - Tools call `app.Service` in-process (library list/get, scan, subtitle read/delete/convert/offset/normalize, install from media-root path, SubHD search/download/season pack prepare+install)
+  - Package: `backend/internal/mcp`; tests: `go test ./backend/internal/mcp/...`
+  - Client example (Cursor / remote MCP): URL `http://127.0.0.1:9307/mcp` + Bearer header
+  - Prefer `normalize_plan_*` before `normalize_apply_*`; SubHD season: `subhd_season_prepare` → review mappings → `subhd_season_install`
+  - `install_subtitle_from_path` only allows paths under movie/TV media roots
 - Video stream preview (ArtPlayer + optional hls.js; requires Jellyfin enabled):
   - UI play-preview button only when Jellyfin is enabled (no local ffmpeg; audio via Jellyfin when needed)
   - `POST /api/videos/{id}/stream-ticket` (Bearer) → `{ ticket, expiresAt, url, kind }` (`kind`: `progressive`|`hls`; 503 if Jellyfin off / item not found)
@@ -78,7 +86,8 @@ cd frontend && bun run build   # static export → frontend/out
 | Path | Role |
 |------|------|
 | `backend/cmd/server` | Process entry |
-| `backend/internal/api` | HTTP routes/handlers |
+| `backend/internal/api` | HTTP routes/handlers (+ mounts `/mcp`) |
+| `backend/internal/mcp` | MCP Streamable HTTP tools (library, scan, subtitles, SubHD) |
 | `backend/internal/app` | Service / use-cases (scan, upload, convert, offset, normalize, archives, stream, logs, SubHD, Sonarr, Jellyfin) |
 | `backend/internal/store` | SQLite + Postgres, migrations, SQLite→PG one-shot import |
 | `backend/internal/scanner` | Disk scan (video + NFO + posters + subtitles) |
@@ -102,7 +111,7 @@ cd frontend && bun run build   # static export → frontend/out
 ## Config gotchas
 
 - DB: SQLite default `DB_PATH=./tmp/subtitle_manager.sqlite3`. Set `DATABASE_URL` for Postgres; first connect can import SQLite from `DB_PATH` once (backs up SQLite first; refuses non-empty PG without import marker).
-- `ADMIN_TOKEN`: admin API token (default `change-me` when unset). Rejected unless set to a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true`. `./scripts/dev-up.sh` sets the opt-in when unset. Bearer required on `/api/*` except public paths: `GET /api/health`, `GET /api/videos/{id}/poster`, and ticket media `GET|HEAD` `.../stream`, `.../hls/master`, `.../hls/seg` (ticket query param; `POST .../stream-ticket` still needs Bearer). FE login page stores token in `localStorage` (`subtitle-ui:admin-token`).
+- `ADMIN_TOKEN`: admin API token (default `change-me` when unset). Rejected unless set to a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true`. `./scripts/dev-up.sh` sets the opt-in when unset. Bearer required on `/api/*` and `/mcp` except public paths: `GET /api/health`, `GET /api/videos/{id}/poster`, and ticket media `GET|HEAD` `.../stream`, `.../hls/master`, `.../hls/seg` (ticket query param; `POST .../stream-ticket` still needs Bearer). FE login page stores token in `localStorage` (`subtitle-ui:admin-token`).
 - Sonarr/Jellyfin GET config never returns full API keys (`apiKey` empty + `apiKeySet`); empty `apiKey` on PUT/test keeps the stored key.
 - Media roots must be **writable** (subtitle write/replace/backup in place).
 - Scanner requires a parseable NFO: movies `{base}.nfo` / `movie.nfo`; TV also walks up for `tvshow.nfo`. Accepts NFO if any of title / originaltitle / year / imdb / tmdb is non-empty; empty title → video basename; year optional. No usable NFO → video skipped.

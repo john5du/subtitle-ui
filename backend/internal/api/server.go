@@ -6,6 +6,7 @@ import (
 
 	"subtitle-ui/backend/internal/app"
 	"subtitle-ui/backend/internal/config"
+	mcpserver "subtitle-ui/backend/internal/mcp"
 )
 
 type Server struct {
@@ -42,6 +43,7 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	s.mux.HandleFunc("/api/config/sonarr/test", s.handleSonarrConfigTest)
 	s.mux.HandleFunc("/api/config/jellyfin", s.handleJellyfinConfig)
 	s.mux.HandleFunc("/api/config/jellyfin/test", s.handleJellyfinConfigTest)
+	s.mux.HandleFunc("/api/config/mcp", s.handleMCPConfig)
 	s.mux.HandleFunc("/api/videos", s.handleVideos)
 	s.mux.HandleFunc("/api/tv/series", s.handleTVSeries)
 	s.mux.HandleFunc("/api/tv/series/completeness", s.handleTVSeriesCompleteness)
@@ -55,8 +57,22 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	s.mux.HandleFunc("/api/subtitles/providers/subhd/season-prepare", s.handleSubHDSeasonPrepare)
 	s.mux.HandleFunc("/api/subtitles/providers/subhd/season-install", s.handleSubHDSeasonInstall)
 	s.mux.HandleFunc("/api/logs", s.handleLogs)
+	// Streamable MCP always mounted; runtime gate is service.MCPEnabled() (default off).
+	mcpHandler := s.withMCPEnabled(mcpserver.NewHTTPHandler(service))
+	s.mux.Handle("/mcp", mcpHandler)
+	s.mux.Handle("/mcp/", mcpHandler)
 	s.mux.HandleFunc("/", s.handleUI)
 	return s
+}
+
+func (s *Server) withMCPEnabled(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.service == nil || !s.service.MCPEnabled() {
+			writeError(w, http.StatusServiceUnavailable, "mcp disabled")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) Handler() http.Handler {

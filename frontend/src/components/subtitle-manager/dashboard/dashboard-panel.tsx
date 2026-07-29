@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import {
   JellyfinSettingsPanel,
   LocaleSelect,
+  MCPSettingsPanel,
   SonarrSettingsPanel,
   SubHDSettingsPanel,
   SubtitleConversionSettingsPanel
@@ -220,6 +221,10 @@ export function DashboardPanel({
 
               <SettingsSection title={t("settings.jellyfin")}>
                 <JellyfinSettingsPanel />
+              </SettingsSection>
+
+              <SettingsSection title={t("settings.mcp")}>
+                <MCPSettingsPanel />
               </SettingsSection>
 
               <SettingsSection title={t("settings.subtitleConversion")}>

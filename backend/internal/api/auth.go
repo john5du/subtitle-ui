@@ -17,7 +17,8 @@ func (s *Server) withAdminAuth(next http.Handler) http.Handler {
 			return
 		}
 		path := r.URL.Path
-		if !strings.HasPrefix(path, "/api/") {
+		// Protect REST (/api/*) and Streamable MCP (/mcp). Static UI is open.
+		if !strings.HasPrefix(path, "/api/") && !isMCPPath(path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -31,6 +32,10 @@ func (s *Server) withAdminAuth(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isMCPPath(path string) bool {
+	return path == "/mcp" || strings.HasPrefix(path, "/mcp/")
 }
 
 // isPublicAPIPath allows unauthenticated access for health probes, poster

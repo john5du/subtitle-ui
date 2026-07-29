@@ -189,6 +189,12 @@ export interface SubtitleConversionConfig {
   updatedAt: string;
 }
 
+export interface MCPConfig {
+  enabled: boolean;
+  endpoint: string;
+  updatedAt?: string;
+}
+
 export interface SubHDConfig {
   enabled: boolean;
   baseUrl: string;

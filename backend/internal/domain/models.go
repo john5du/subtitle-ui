@@ -96,6 +96,19 @@ type SubtitleConversionConfigUpdate struct {
 	SourceEncodingDefault string `json:"sourceEncodingDefault"`
 }
 
+// MCPConfig is effective Streamable MCP settings (DB overrides env).
+type MCPConfig struct {
+	Enabled bool `json:"enabled"`
+	// Endpoint is the relative path agents should connect to (same host as API).
+	Endpoint  string    `json:"endpoint"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// MCPConfigUpdate is the PUT body for MCP settings.
+type MCPConfigUpdate struct {
+	Enabled bool `json:"enabled"`
+}
+
 type SubHDConfig struct {
 	Enabled        bool      `json:"enabled"`
 	BaseURL        string    `json:"baseUrl"`
@@ -111,9 +124,9 @@ type SubHDConfigUpdate struct {
 }
 
 type SonarrConfig struct {
-	Enabled   bool      `json:"enabled"`
-	URL       string    `json:"url"`
-	APIKey    string    `json:"apiKey"`
+	Enabled bool   `json:"enabled"`
+	URL     string `json:"url"`
+	APIKey  string `json:"apiKey"`
 	// APIKeySet is true when a key is stored; APIKey is never returned in full on GET.
 	APIKeySet bool      `json:"apiKeySet"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -127,9 +140,9 @@ type SonarrConfigUpdate struct {
 
 // JellyfinConfig is effective Jellyfin notify settings (DB overrides env).
 type JellyfinConfig struct {
-	Enabled   bool      `json:"enabled"`
-	URL       string    `json:"url"`
-	APIKey    string    `json:"apiKey"`
+	Enabled bool   `json:"enabled"`
+	URL     string `json:"url"`
+	APIKey  string `json:"apiKey"`
 	// APIKeySet is true when a key is stored; APIKey is never returned in full on GET.
 	APIKeySet bool      `json:"apiKeySet"`
 	PathMap   string    `json:"pathMap"`
@@ -248,12 +261,12 @@ type VersionInfo struct {
 }
 
 const (
-	SubtitleNormalizeRename        = "rename"
-	SubtitleNormalizeNoop          = "noop"
-	SubtitleNormalizeSkipConflict  = "skip_conflict"
-	SubtitleNormalizeApplyOK       = "ok"
-	SubtitleNormalizeApplySkipped  = "skipped"
-	SubtitleNormalizeApplyFailed   = "failed"
+	SubtitleNormalizeRename       = "rename"
+	SubtitleNormalizeNoop         = "noop"
+	SubtitleNormalizeSkipConflict = "skip_conflict"
+	SubtitleNormalizeApplyOK      = "ok"
+	SubtitleNormalizeApplySkipped = "skipped"
+	SubtitleNormalizeApplyFailed  = "failed"
 )
 
 // SubtitleNormalizeItem is one planned rename for Jellyfin-style filenames.

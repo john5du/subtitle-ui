@@ -12,6 +12,61 @@ import (
 	"subtitle-ui/backend/internal/subtitle"
 )
 
+func TestMCPConfigDefaultsAndUpdate(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DBPath:         filepath.Join(base, "test.sqlite3"),
+		MCPEnabled:     false,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	cfg, err := svc.GetMCPConfig()
+	if err != nil {
+		t.Fatalf("get mcp config: %v", err)
+	}
+	if cfg.Enabled {
+		t.Fatalf("expected mcp disabled by default")
+	}
+	if cfg.Endpoint != "/mcp" {
+		t.Fatalf("unexpected endpoint: %q", cfg.Endpoint)
+	}
+	if svc.MCPEnabled() {
+		t.Fatalf("MCPEnabled should be false")
+	}
+
+	saved, err := svc.UpdateMCPConfig(domain.MCPConfigUpdate{Enabled: true})
+	if err != nil {
+		t.Fatalf("update mcp: %v", err)
+	}
+	if !saved.Enabled || !svc.MCPEnabled() {
+		t.Fatalf("expected enabled after update: %+v", saved)
+	}
+
+	saved, err = svc.UpdateMCPConfig(domain.MCPConfigUpdate{Enabled: false})
+	if err != nil {
+		t.Fatalf("disable mcp: %v", err)
+	}
+	if saved.Enabled || svc.MCPEnabled() {
+		t.Fatalf("expected disabled after update")
+	}
+}
+
 func TestSubHDConfigDefaultsAndUpdate(t *testing.T) {
 	base := t.TempDir()
 	movieRoot := filepath.Join(base, "movies")

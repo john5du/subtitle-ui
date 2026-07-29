@@ -63,7 +63,16 @@ Auth: most `/api/*` routes need `Authorization: Bearer <token>`. **Public withou
 - `GET|HEAD /api/videos/{id}/hls/master?ticket=`
 - `GET|HEAD /api/videos/{id}/hls/seg?ticket=&u=`
 
-(`POST .../stream-ticket` still requires Bearer.)
+(`POST .../stream-ticket` still needs Bearer.)
+
+### MCP (AI agents)
+
+Streamable MCP on the same process (default **off**):
+
+- Endpoint: `/mcp` (Bearer `ADMIN_TOKEN` required; 503 when disabled)
+- Env bootstrap: `MCP_ENABLED=true`; runtime `GET|PUT /api/config/mcp` `{ enabled, endpoint }` (DB overrides env; Settings UI)
+- Tools (in-process `app.Service`): `list_videos`, `get_video`, `list_tv_series`, `version_info`, `scan_status`, `scan_files`, `discover_directories`, `read_subtitle_content`, `delete_subtitle`, `convert_subtitle_to_ass`, `offset_subtitle_timing`, `normalize_plan_video` / `normalize_apply_video`, `normalize_plan_season` / `normalize_apply_season`, `install_subtitle_from_path`, `subhd_search`, `subhd_download`, `subhd_season_packs`, `subhd_season_prepare`, `subhd_season_install`
+- Connect with URL `http://127.0.0.1:9307/mcp` and `Authorization: Bearer <ADMIN_TOKEN>`
 
 ### Core
 
@@ -351,7 +360,8 @@ Core:
 - `DATABASE_URL` optional PostgreSQL DSN; when set, PostgreSQL is used instead of SQLite
 - `UI_DIST` default `./frontend/out`
 - `CORS_ALLOWED_ORIGINS` comma-separated allowed origins for mutating cross-origin API requests
-- `ADMIN_TOKEN` admin API token (default `change-me` when unset). The insecure default is rejected unless you set a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true` (`./scripts/dev-up.sh` sets the opt-in when unset). Bearer required on `/api/*` except public paths listed under Backend API (health, poster, ticket stream/HLS). The UI stores the token in `localStorage`.
+- `ADMIN_TOKEN` admin API token (default `change-me` when unset). The insecure default is rejected unless you set a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true` (`./scripts/dev-up.sh` sets the opt-in when unset). Bearer required on `/api/*` and `/mcp` except public paths listed under Backend API (health, poster, ticket stream/HLS). The UI stores the token in `localStorage`.
+- `MCP_ENABLED` default off; set `true` to enable Streamable MCP at `/mcp` on startup (also toggle via Settings / `PUT /api/config/mcp`)
 - `TRUST_FORWARDED_HEADERS` set to `1`, `true`, `yes`, or `on` to build absolute poster URLs from `X-Forwarded-Proto` / `X-Forwarded-Host`
 - `NEXT_PUBLIC_API_BASE` (frontend dev) — overrides the API host, e.g. `http://localhost:9307`
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"subtitle-ui/backend/internal/config"
@@ -17,11 +18,11 @@ import (
 )
 
 var (
-	ErrNotFound        = errors.New("not found")
-	ErrBadRequest      = errors.New("bad request")
-	ErrUnsafePath      = errors.New("unsafe path")
-	ErrInvalidFileType = errors.New("invalid subtitle file extension")
-	ErrProviderDisabled   = errors.New("provider disabled")
+	ErrNotFound         = errors.New("not found")
+	ErrBadRequest       = errors.New("bad request")
+	ErrUnsafePath       = errors.New("unsafe path")
+	ErrInvalidFileType  = errors.New("invalid subtitle file extension")
+	ErrProviderDisabled = errors.New("provider disabled")
 	// ErrPreviewUnavailable: Jellyfin cannot produce a browser-playable preview for this file.
 	ErrPreviewUnavailable = errors.New("preview unavailable")
 )
@@ -42,6 +43,7 @@ const (
 	settingJellyfinURL     = "jellyfin.url"
 	settingJellyfinAPIKey  = "jellyfin.api_key"
 	settingJellyfinPathMap = "jellyfin.path_map"
+	settingMCPEnabled      = "mcp.enabled"
 )
 
 type scanStatus struct {
@@ -74,6 +76,9 @@ type Service struct {
 	// Per-video mutexes serialize subtitle disk+DB mutations.
 	videoLocksMu sync.Mutex
 	videoLocks   map[string]*sync.Mutex
+
+	// mcpEnabled is hot-reloaded from DB (env bootstrap default false).
+	mcpEnabled atomic.Bool
 }
 
 // SubHDParseStats returns HTML parse telemetry when the live SubHD client is in use.
@@ -142,6 +147,10 @@ func NewService(cfg config.Config) (*Service, error) {
 		return nil, err
 	}
 	if err := svc.applyStoredJellyfinConfig(); err != nil {
+		_ = st.Close()
+		return nil, err
+	}
+	if err := svc.applyStoredMCPConfig(); err != nil {
 		_ = st.Close()
 		return nil, err
 	}

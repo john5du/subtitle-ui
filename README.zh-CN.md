@@ -65,6 +65,15 @@ git push origin main
 
 （`POST .../stream-ticket` 仍需 Bearer。）
 
+### MCP（AI agent）
+
+同一进程内嵌 Streamable MCP（默认**关闭**）：
+
+- 端点：`/mcp`（需 Bearer `ADMIN_TOKEN`；关闭时 503）
+- 环境变量引导：`MCP_ENABLED=true`；运行时 `GET|PUT /api/config/mcp` `{ enabled, endpoint }`（DB 覆盖 env；设置页可开关）
+- 工具（进程内调用 `app.Service`）：`list_videos`、`get_video`、`list_tv_series`、`version_info`、`scan_status`、`scan_files`、`discover_directories`、`read_subtitle_content`、`delete_subtitle`、`convert_subtitle_to_ass`、`offset_subtitle_timing`、`normalize_plan_video` / `normalize_apply_video`、`normalize_plan_season` / `normalize_apply_season`、`install_subtitle_from_path`、`subhd_search`、`subhd_download`、`subhd_season_packs`、`subhd_season_prepare`、`subhd_season_install`
+- 连接示例：URL `http://127.0.0.1:9307/mcp`，Header `Authorization: Bearer <ADMIN_TOKEN>`
+
 ### 核心
 
 - `GET /api/health`
@@ -352,7 +361,8 @@ volumes:
 - `DATABASE_URL` 可选 PostgreSQL DSN；设置后使用 PostgreSQL 而不是 SQLite
 - `UI_DIST` 默认 `./frontend/out`
 - `CORS_ALLOWED_ORIGINS` 逗号分隔的允许来源列表，用于跨来源写入类 API 请求
-- `ADMIN_TOKEN` 管理员 API 令牌（未设置时默认 `change-me`）。不安全默认值会被拒绝，除非改为强密钥，或（仅非 production）设置 `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true`（`./scripts/dev-up.sh` 在未设置时会自动打开该开关）。除「后端 API」一节列出的公开路径外，全部 `/api/*` 需 Bearer（health、poster、带 ticket 的 stream/HLS）。前端登录页会把令牌保存在 `localStorage`。
+- `ADMIN_TOKEN` 管理员 API 令牌（未设置时默认 `change-me`）。不安全默认值会被拒绝，除非改为强密钥，或（仅非 production）设置 `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true`（`./scripts/dev-up.sh` 在未设置时会自动打开该开关）。除「后端 API」一节列出的公开路径外，全部 `/api/*` 与 `/mcp` 需 Bearer（health、poster、带 ticket 的 stream/HLS）。前端登录页会把令牌保存在 `localStorage`。
+- `MCP_ENABLED` 默认关闭；设为 `true` 启动时开启 `/mcp`（也可在设置页 / `PUT /api/config/mcp` 开关）
 - `TRUST_FORWARDED_HEADERS` 设置为 `1`、`true`、`yes` 或 `on` 后，会基于 `X-Forwarded-Proto` / `X-Forwarded-Host` 生成绝对海报 URL
 - `NEXT_PUBLIC_API_BASE`（前端开发）— 覆盖 API 主机地址，例如 `http://localhost:9307`
 

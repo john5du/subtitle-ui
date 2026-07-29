@@ -3,5 +3,6 @@ export {
   SubtitleConversionSettingsPanel,
   SubHDSettingsPanel,
   SonarrSettingsPanel,
-  JellyfinSettingsPanel
+  JellyfinSettingsPanel,
+  MCPSettingsPanel
 } from "./settings";

@@ -61,6 +61,39 @@ func (s *Service) UploadSubtitle(videoID string, file multipart.File, header *mu
 	return s.UploadSubtitleWithOptions(videoID, file, header, label, replaceID, SubtitleUploadOptions{})
 }
 
+// InstallSubtitleFromPath installs a subtitle file from a path under media roots (MCP / agent friendly).
+func (s *Service) InstallSubtitleFromPath(videoID string, filePath string, label string, replaceID string, options SubtitleUploadOptions) (domain.Subtitle, error) {
+	filePath = strings.TrimSpace(filePath)
+	if filePath == "" {
+		return domain.Subtitle{}, fmt.Errorf("%w: missing path", ErrBadRequest)
+	}
+	abs, err := filepath.Abs(filePath)
+	if err != nil {
+		return domain.Subtitle{}, fmt.Errorf("%w: invalid path", ErrBadRequest)
+	}
+	if !s.isWithinMediaRoots(abs) {
+		return domain.Subtitle{}, ErrUnsafePath
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return domain.Subtitle{}, fmt.Errorf("%w: file not found", ErrNotFound)
+		}
+		return domain.Subtitle{}, err
+	}
+	if info.IsDir() {
+		return domain.Subtitle{}, fmt.Errorf("%w: path is a directory", ErrBadRequest)
+	}
+	if info.Size() > 64<<20 {
+		return domain.Subtitle{}, fmt.Errorf("%w: file too large", ErrBadRequest)
+	}
+	payload, err := os.ReadFile(abs)
+	if err != nil {
+		return domain.Subtitle{}, err
+	}
+	return s.installSubtitleBytes(videoID, payload, filepath.Base(abs), label, replaceID, options)
+}
+
 func (s *Service) UploadSubtitleWithOptions(videoID string, file multipart.File, header *multipart.FileHeader, label string, replaceID string, options SubtitleUploadOptions) (domain.Subtitle, error) {
 	payload, err := io.ReadAll(io.LimitReader(file, 64<<20+1))
 	if err != nil {
