@@ -20,6 +20,7 @@ func NewServer(svc *app.Service) *mcp.Server {
 	registerSubtitleTools(s, svc)
 	registerTranslateTools(s, svc)
 	registerSubHDTools(s, svc)
+	registerSafetyTools(s, svc)
 	return s
 }
 

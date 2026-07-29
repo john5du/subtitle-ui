@@ -12,8 +12,9 @@ import (
 )
 
 type scanFilesIn struct {
-	MovieDirs []string `json:"movieDirs,omitempty" jsonschema:"optional movie subdirs; empty = full movie root"`
-	TVDirs    []string `json:"tvDirs,omitempty" jsonschema:"optional TV subdirs; empty = full TV root"`
+	MovieDirs    []string `json:"movieDirs,omitempty"`
+	TVDirs       []string `json:"tvDirs,omitempty"`
+	ConfirmToken string   `json:"confirmToken,omitempty" jsonschema:"required for scan_files apply; from scan_files_preview"`
 }
 
 func registerScanTools(s *mcp.Server, svc *app.Service) {
@@ -25,9 +26,25 @@ func registerScanTools(s *mcp.Server, svc *app.Service) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        "scan_files_preview",
+		Description: "Issue confirmToken for scan_files (same movieDirs/tvDirs).",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in scanFilesIn) (*mcp.CallToolResult, map[string]any, error) {
+		params := map[string]any{"movieDirs": in.MovieDirs, "tvDirs": in.TVDirs}
+		tok, err := svc.IssueMCPConfirmToken("scan_files", params)
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]any{"confirmToken": tok.ConfirmToken, "expiresAt": tok.ExpiresAt, "ttlSeconds": tok.TTLSeconds}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "scan_files",
-		Description: "Rescan media directories into the DB. May take a while on large libraries. Empty movieDirs/tvDirs means full scan of both roots. On failure the tool returns IsError (also check status.error).",
+		Description: "Rescan media directories. Requires confirmToken from scan_files_preview. May take a while.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in scanFilesIn) (*mcp.CallToolResult, domain.ScanStatus, error) {
+		params := map[string]any{"movieDirs": in.MovieDirs, "tvDirs": in.TVDirs}
+		if err := svc.ValidateMCPConfirmToken("scan_files", params, in.ConfirmToken); err != nil {
+			return nil, domain.ScanStatus{}, err
+		}
 		status := svc.RunFileScan(ctx, in.MovieDirs, in.TVDirs)
 		if strings.TrimSpace(status.Error) != "" {
 			return nil, status, fmt.Errorf("%s", status.Error)
@@ -37,7 +54,7 @@ func registerScanTools(s *mcp.Server, svc *app.Service) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "discover_directories",
-		Description: "Discover movie folders and TV series directories under media roots (does not rescan all files). On failure check result.errors.",
+		Description: "Discover movie folders and TV series directories (read-mostly). On failure check result.errors.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, domain.DirectoryScanResult, error) {
 		result := svc.DiscoverDirectories(ctx)
 		if len(result.Errors) > 0 {

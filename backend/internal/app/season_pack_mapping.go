@@ -180,4 +180,3 @@ func suggestSeasonPackMappings(
 func inferLabelFromName(name string) string {
 	return inferSubtitleLanguageLabel(name)
 }
-

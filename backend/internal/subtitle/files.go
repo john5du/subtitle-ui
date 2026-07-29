@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -202,6 +203,38 @@ func BackupFile(path string) (string, error) {
 	}
 
 	return backupPath, nil
+}
+
+// backupPathPattern matches BackupFile suffixes: .bak.YYYYMMDD-HHMMSS...
+var backupPathPattern = regexp.MustCompile(`\.bak\.\d{8}-\d{6}`)
+
+// IsBackupPath reports whether path looks like a BackupFile sidecar (not arbitrary ".bak." names).
+func IsBackupPath(path string) bool {
+	return backupPathPattern.MatchString(filepath.Base(path))
+}
+
+// SourcePathFromBackup returns the original path for a BackupFile sidecar, or empty if not a backup.
+func SourcePathFromBackup(backupPath string) string {
+	base := filepath.Base(backupPath)
+	loc := backupPathPattern.FindStringIndex(base)
+	if loc == nil {
+		return ""
+	}
+	// base is "file.srt.bak.TIMESTAMP..." → source base before ".bak."
+	srcBase := base[:loc[0]]
+	if srcBase == "" {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(backupPath), srcBase)
+}
+
+// RestoreFile copies backupPath onto targetPath (atomic via temp+rename when possible).
+func RestoreFile(backupPath string, targetPath string) error {
+	data, err := os.ReadFile(backupPath)
+	if err != nil {
+		return err
+	}
+	return WriteFileBytes(data, targetPath)
 }
 
 func WriteFileBytes(data []byte, target string) error {

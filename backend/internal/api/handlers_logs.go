@@ -6,6 +6,28 @@ import (
 )
 
 func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/logs")
+	path = strings.Trim(path, "/")
+	if path != "" {
+		// /api/logs/{id}/rollback
+		parts := strings.Split(path, "/")
+		if len(parts) == 2 && parts[1] == "rollback" && r.Method == http.MethodPost {
+			s.handleLogRollback(w, r, parts[0])
+			return
+		}
+		if len(parts) == 1 && r.Method == http.MethodGet {
+			log, err := s.service.GetOperationLog(parts[0])
+			if err != nil {
+				s.writeAppError(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, log)
+			return
+		}
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		page := parsePositiveIntOrDefault(r.URL.Query().Get("page"), 1)
@@ -23,4 +45,13 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+func (s *Server) handleLogRollback(w http.ResponseWriter, r *http.Request, opID string) {
+	result, err := s.service.RollbackOperation(opID)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }

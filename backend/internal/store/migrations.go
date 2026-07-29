@@ -427,6 +427,49 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 		}
 	}
 
+	applied, err = s.isMigrationApplied(10)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		// Audit fields for MCP safety / rollback (nullable-compatible defaults).
+		// Skip column adds when operation_logs is absent (incomplete legacy fixtures).
+		hasTable, err := s.hasTable("operation_logs")
+		if err != nil {
+			return err
+		}
+		if hasTable {
+			for _, column := range []struct {
+				name string
+				def  string
+			}{
+				{name: "source", def: "TEXT NOT NULL DEFAULT ''"},
+				{name: "tool", def: "TEXT NOT NULL DEFAULT ''"},
+				{name: "op_group", def: "TEXT NOT NULL DEFAULT ''"},
+				{name: "meta", def: "TEXT NOT NULL DEFAULT ''"},
+			} {
+				has, err := s.hasColumn("operation_logs", column.name)
+				if err != nil {
+					return err
+				}
+				if !has {
+					if _, err := s.exec(`ALTER TABLE operation_logs ADD COLUMN ` + column.name + ` ` + column.def); err != nil {
+						return fmt.Errorf("apply migration v10 operation_logs.%s: %w", column.name, err)
+					}
+				}
+			}
+			if _, err := s.exec(`CREATE INDEX IF NOT EXISTS idx_operation_logs_source ON operation_logs(source)`); err != nil {
+				return fmt.Errorf("apply migration v10 index source: %w", err)
+			}
+			if _, err := s.exec(`CREATE INDEX IF NOT EXISTS idx_operation_logs_action ON operation_logs(action)`); err != nil {
+				return fmt.Errorf("apply migration v10 index action: %w", err)
+			}
+		}
+		if _, err := s.exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 10, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
 	if s.dialect == dialectPostgres {
 		if _, err := s.exec(`
 CREATE TABLE IF NOT EXISTS data_migrations (
@@ -475,6 +518,32 @@ func (s *Store) backfillTitleSortKeys() error {
 
 func (s *Store) isMigrationApplied(version int) (bool, error) {
 	row := s.queryRow(`SELECT COUNT(1) FROM schema_migrations WHERE version = ?`, version)
+	var count int
+	if err := row.Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (s *Store) hasTable(tableName string) (bool, error) {
+	if s.dialect == dialectPostgres {
+		row := s.queryRow(
+			`SELECT COUNT(1)
+FROM information_schema.tables
+WHERE table_schema = current_schema()
+  AND table_name = ?`,
+			tableName,
+		)
+		var count int
+		if err := row.Scan(&count); err != nil {
+			return false, err
+		}
+		return count > 0, nil
+	}
+	row := s.queryRow(
+		`SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = ?`,
+		tableName,
+	)
 	var count int
 	if err := row.Scan(&count); err != nil {
 		return false, err

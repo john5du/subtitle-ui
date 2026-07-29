@@ -162,4 +162,3 @@ func stripKnownExt(name string) string {
 	}
 	return name
 }
-

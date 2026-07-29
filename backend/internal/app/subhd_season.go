@@ -17,8 +17,8 @@ import (
 
 // SubHDSeasonPrepareOptions downloads a SubHD pack and proposes episode mappings.
 type SubHDSeasonPrepareOptions struct {
-	SID                string
-	VideoIDs           []string
+	SID      string
+	VideoIDs []string
 	// Season scopes matching to one season and fills episode-only names (01.srt → S{season}E01).
 	// Zero or negative means no default season (strict SxxExx only for episode-only fallbacks).
 	Season             int
@@ -39,12 +39,12 @@ type SubHDSeasonSuggestedMapping struct {
 
 // SubHDSeasonPrepareResult is returned after downloading a season pack once.
 type SubHDSeasonPrepareResult struct {
-	CacheToken         string                        `json:"cacheToken"`
-	SID                string                        `json:"sid"`
-	FileName           string                        `json:"fileName"`
-	Entries            []archive.Entry               `json:"entries"`
-	SuggestedMappings  []SubHDSeasonSuggestedMapping `json:"suggestedMappings"`
-	Notices            []string                      `json:"notices,omitempty"`
+	CacheToken        string                        `json:"cacheToken"`
+	SID               string                        `json:"sid"`
+	FileName          string                        `json:"fileName"`
+	Entries           []archive.Entry               `json:"entries"`
+	SuggestedMappings []SubHDSeasonSuggestedMapping `json:"suggestedMappings"`
+	Notices           []string                      `json:"notices,omitempty"`
 }
 
 // SubHDSeasonInstallOptions installs pack entries from a prepare cache token.
@@ -372,19 +372,35 @@ func (s *Service) installResolvedSubHD(videoID string, sid string, resolved *sub
 		return domain.Subtitle{}, err
 	}
 
-	s.recordOp(action, updatedVideo.ID, targetPath, backupPath, "ok", detail)
+	meta := map[string]any{
+		"created": opts.ReplaceID == "",
+		"toPath":  targetPath,
+		"sid":     sid,
+	}
+	if replaceSourcePath != "" {
+		meta["fromPath"] = replaceSourcePath
+	}
+	s.recordOpEx(OpRecord{
+		Action:     action,
+		VideoID:    updatedVideo.ID,
+		TargetPath: targetPath,
+		BackupPath: backupPath,
+		Status:     "ok",
+		Message:    detail,
+		Meta:       meta,
+	})
 	return updatedSub, nil
 }
 
 // SubHDSeasonPacksResult is the response for season-pack search (title-page 合集 only).
 type SubHDSeasonPacksResult struct {
-	Query        string              `json:"query"`
-	Season       int                 `json:"season"`
-	DoubanID     string              `json:"doubanId,omitempty"`
-	TitlePageURL string              `json:"titlePageUrl,omitempty"`
-	Title        string              `json:"title,omitempty"`
+	Query        string               `json:"query"`
+	Season       int                  `json:"season"`
+	DoubanID     string               `json:"doubanId,omitempty"`
+	TitlePageURL string               `json:"titlePageUrl,omitempty"`
+	Title        string               `json:"title,omitempty"`
 	Items        []subhd.SearchResult `json:"items"`
-	Message      string              `json:"message,omitempty"`
+	Message      string               `json:"message,omitempty"`
 }
 
 // SubHDSeasonPacksOptions controls season-pack listing.
@@ -457,4 +473,3 @@ func (s *Service) SearchSubHDSeasonPacks(ctx context.Context, videoID string, op
 		Message:      msg,
 	}, nil
 }
-

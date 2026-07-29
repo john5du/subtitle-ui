@@ -35,7 +35,8 @@ cd frontend && bun run build   # static export → frontend/out
   - Client example (Cursor / remote MCP): URL `http://127.0.0.1:9307/mcp` + Bearer header
   - Prefer `normalize_plan_*` before `normalize_apply_*`; SubHD season: `subhd_season_prepare` → review mappings → `subhd_season_install`
   - `install_subtitle_from_path` only allows paths under movie/TV media roots
-  - Agent translate (SRT only, agent does translation): `read_subtitle_cues` (paginated) → translate `text` only → `install_translated_cues` once with all `{index,text}`; timing from source; default bilingual `zh&en` (中文上 / 原文下 when targetLang=zh); untranslated indexes keep source
+  - Agent translate (SRT only, agent does translation): `read_subtitle_cues` (paginated) → `install_translated_cues_preview` → `install_translated_cues` with `{index,text}` + confirmToken; timing from source; default bilingual `zh&en`
+  - MCP safety: dangerous tools require `*_preview` → `confirmToken` (HMAC, ~10m TTL). Audit logs: `list_operation_logs` / `get_operation_log`. Rollback: `rollback_operation_preview` → `rollback_operation` (by opId; uses backup_path). Backups: `list_subtitle_backups`, `cleanup_subtitle_backups_preview`/`cleanup_subtitle_backups`. Logs prune: `clear_operation_logs_preview`/`clear_operation_logs`. REST: `GET /api/logs/{id}`, `POST /api/logs/{id}/rollback`
 - Video stream preview (ArtPlayer + optional hls.js; requires Jellyfin enabled):
   - UI play-preview button only when Jellyfin is enabled (no local ffmpeg; audio via Jellyfin when needed)
   - `POST /api/videos/{id}/stream-ticket` (Bearer) → `{ ticket, expiresAt, url, kind }` (`kind`: `progressive`|`hls`; 503 if Jellyfin off / item not found)

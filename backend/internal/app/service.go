@@ -79,6 +79,9 @@ type Service struct {
 
 	// mcpEnabled is hot-reloaded from DB (env bootstrap default false).
 	mcpEnabled atomic.Bool
+
+	// confirmNonces enforces single-use MCP confirm tokens.
+	confirmNonces usedConfirmNonces
 }
 
 // SubHDParseStats returns HTML parse telemetry when the live SubHD client is in use.

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +13,10 @@ import (
 )
 
 func (s *Service) ConvertSubtitleToASS(videoID string, subtitleID string, options SubtitleConvertOptions) (domain.Subtitle, error) {
+	return s.ConvertSubtitleToASSCtx(context.Background(), videoID, subtitleID, options)
+}
+
+func (s *Service) ConvertSubtitleToASSCtx(ctx context.Context, videoID string, subtitleID string, options SubtitleConvertOptions) (domain.Subtitle, error) {
 	mu := s.lockVideo(videoID)
 	mu.Lock()
 	defer mu.Unlock()
@@ -33,7 +38,7 @@ func (s *Service) ConvertSubtitleToASS(videoID string, subtitleID string, option
 
 	targetPath, err := s.convertSRTPathToASS(existing.Path, options.SourceEncoding)
 	if err != nil {
-		s.recordOp("convert", videoID, existing.Path, "", "error", err.Error())
+		s.recordOpCtx(ctx, "convert", videoID, existing.Path, "", "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
@@ -45,18 +50,21 @@ func (s *Service) ConvertSubtitleToASS(videoID string, subtitleID string, option
 	}
 	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, targetPath, sourceOverrides)
 	if err != nil {
-		s.recordOp("convert", videoID, existing.Path, "", "error", err.Error())
+		s.recordOpCtx(ctx, "convert", videoID, existing.Path, "", "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
-	s.recordOp(
-		"convert",
-		updatedVideo.ID,
-		targetPath,
-		"",
-		"ok",
-		fmt.Sprintf("generated from %s", existing.FileName),
-	)
+	s.recordOpExCtx(ctx, OpRecord{
+		Action:     "convert",
+		VideoID:    updatedVideo.ID,
+		TargetPath: existing.Path,
+		Status:     "ok",
+		Message:    fmt.Sprintf("generated from %s", existing.FileName),
+		Meta: map[string]any{
+			"generatedPath": targetPath,
+			"sourcePath":    existing.Path,
+		},
+	})
 
 	s.notifyJellyfinAfterSubtitleChange(updatedVideo.ID)
 	return updatedSub, nil
@@ -108,6 +116,10 @@ func (s *Service) convertSRTPathToASS(sourcePath string, sourceEncoding string) 
 }
 
 func (s *Service) OffsetSubtitleTiming(videoID string, subtitleID string, options SubtitleTimingOffsetOptions) (domain.Subtitle, error) {
+	return s.OffsetSubtitleTimingCtx(context.Background(), videoID, subtitleID, options)
+}
+
+func (s *Service) OffsetSubtitleTimingCtx(ctx context.Context, videoID string, subtitleID string, options SubtitleTimingOffsetOptions) (domain.Subtitle, error) {
 	offsetMS := options.OffsetMS
 	if offsetMS == 0 {
 		return domain.Subtitle{}, fmt.Errorf("%w: offsetMs must not be zero", ErrBadRequest)
@@ -141,18 +153,18 @@ func (s *Service) OffsetSubtitleTiming(videoID string, subtitleID string, option
 	}
 	shiftedData, err := subtitle.OffsetTimingBytes(sourceData, filepath.Ext(existing.Path), offsetMS)
 	if err != nil {
-		s.recordOp("offset", videoID, existing.Path, "", "error", err.Error())
+		s.recordOpCtx(ctx, "offset", videoID, existing.Path, "", "error", err.Error())
 		return domain.Subtitle{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
 	}
 
 	backupPath, err := subtitle.BackupFile(existing.Path)
 	if err != nil {
 		err = fmt.Errorf("backup before timing offset failed: %w", err)
-		s.recordOp("offset", videoID, existing.Path, "", "error", err.Error())
+		s.recordOpCtx(ctx, "offset", videoID, existing.Path, "", "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 	if err := subtitle.WriteFileBytes(shiftedData, existing.Path); err != nil {
-		s.recordOp("offset", videoID, existing.Path, backupPath, "error", err.Error())
+		s.recordOpCtx(ctx, "offset", videoID, existing.Path, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
@@ -164,11 +176,12 @@ func (s *Service) OffsetSubtitleTiming(videoID string, subtitleID string, option
 	}
 	updatedVideo, updatedSub, err := s.refreshVideoSubtitles(videoID, existing.Path, sourceOverrides)
 	if err != nil {
-		s.recordOp("offset", videoID, existing.Path, backupPath, "error", err.Error())
+		s.recordOpCtx(ctx, "offset", videoID, existing.Path, backupPath, "error", err.Error())
 		return domain.Subtitle{}, err
 	}
 
-	s.recordOp(
+	s.recordOpCtx(
+		ctx,
 		"offset",
 		updatedVideo.ID,
 		existing.Path,
@@ -182,6 +195,10 @@ func (s *Service) OffsetSubtitleTiming(videoID string, subtitleID string, option
 }
 
 func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {
+	return s.DeleteSubtitleCtx(context.Background(), videoID, subtitleID)
+}
+
+func (s *Service) DeleteSubtitleCtx(ctx context.Context, videoID string, subtitleID string) error {
 	mu := s.lockVideo(videoID)
 	mu.Lock()
 	defer mu.Unlock()
@@ -201,21 +218,21 @@ func (s *Service) DeleteSubtitle(videoID string, subtitleID string) error {
 	backupPath, err := subtitle.BackupFile(existing.Path)
 	if err != nil {
 		err = fmt.Errorf("backup before delete failed: %w", err)
-		s.recordOp("delete", videoID, existing.Path, "", "error", err.Error())
+		s.recordOpCtx(ctx, "delete", videoID, existing.Path, "", "error", err.Error())
 		return err
 	}
 	if err := os.Remove(existing.Path); err != nil {
-		s.recordOp("delete", videoID, existing.Path, backupPath, "error", err.Error())
+		s.recordOpCtx(ctx, "delete", videoID, existing.Path, backupPath, "error", err.Error())
 		return err
 	}
 
 	_, _, err = s.refreshVideoSubtitles(videoID, "", nil)
 	if err != nil {
-		s.recordOp("delete", videoID, existing.Path, backupPath, "error", err.Error())
+		s.recordOpCtx(ctx, "delete", videoID, existing.Path, backupPath, "error", err.Error())
 		return err
 	}
 
-	s.recordOp("delete", videoID, existing.Path, backupPath, "ok", "")
+	s.recordOpCtx(ctx, "delete", videoID, existing.Path, backupPath, "ok", "")
 	s.notifyJellyfinAfterSubtitleChange(videoID)
 	return nil
 }

@@ -322,17 +322,36 @@ func (s *Service) installSubtitleBytes(videoID string, payload []byte, uploadNam
 		return domain.Subtitle{}, err
 	}
 
-	s.recordOp(action, updatedVideo.ID, targetPath, backupPath, "ok", "")
+	meta := map[string]any{
+		"created":    replaceID == "",
+		"replaceId":  replaceID,
+		"uploadName": uploadName,
+		"toPath":     targetPath,
+	}
+	if replaceSourcePath != "" {
+		meta["fromPath"] = replaceSourcePath
+	}
+	s.recordOpEx(OpRecord{
+		Action:     action,
+		VideoID:    updatedVideo.ID,
+		TargetPath: targetPath,
+		BackupPath: backupPath,
+		Status:     "ok",
+		Meta:       meta,
+	})
 
 	if convertedTargetPath != "" {
-		s.recordOp(
-			"convert",
-			updatedVideo.ID,
-			convertedTargetPath,
-			"",
-			"ok",
-			fmt.Sprintf("generated from %s", filepath.Base(targetPath)),
-		)
+		s.recordOpEx(OpRecord{
+			Action:     "convert",
+			VideoID:    updatedVideo.ID,
+			TargetPath: targetPath,
+			Status:     "ok",
+			Message:    fmt.Sprintf("generated from %s", filepath.Base(targetPath)),
+			Meta: map[string]any{
+				"generatedPath": convertedTargetPath,
+				"sourcePath":    targetPath,
+			},
+		})
 	}
 
 	s.notifyJellyfinAfterSubtitleChange(updatedVideo.ID)

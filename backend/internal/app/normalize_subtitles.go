@@ -335,14 +335,18 @@ func (s *Service) applyNormalizeItems(videos []domain.Video, items []domain.Subt
 		out.BackupPath = backupPath
 		result.Renamed++
 		result.Results = append(result.Results, out)
-		s.recordOp(
-			"normalize",
-			videoID,
-			toPath,
-			backupPath,
-			"ok",
-			fmt.Sprintf("from=%s to=%s", filepath.Base(existing.Path), filepath.Base(toPath)),
-		)
+		s.recordOpEx(OpRecord{
+			Action:     "normalize",
+			VideoID:    videoID,
+			TargetPath: toPath,
+			BackupPath: backupPath,
+			Status:     "ok",
+			Message:    fmt.Sprintf("from=%s to=%s", filepath.Base(existing.Path), filepath.Base(toPath)),
+			Meta: map[string]any{
+				"fromPath": existing.Path,
+				"toPath":   toPath,
+			},
+		})
 	}
 
 	for videoID, pending := range pendingByVideo {

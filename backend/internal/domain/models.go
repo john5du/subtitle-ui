@@ -59,6 +59,12 @@ type ScanStatus struct {
 	Error          string     `json:"error,omitempty"`
 }
 
+const (
+	OpSourceREST   = "rest"
+	OpSourceMCP    = "mcp"
+	OpSourceSystem = "system"
+)
+
 type OperationLog struct {
 	ID         string    `json:"id"`
 	Timestamp  time.Time `json:"timestamp"`
@@ -68,6 +74,14 @@ type OperationLog struct {
 	BackupPath string    `json:"backupPath,omitempty"`
 	Status     string    `json:"status"`
 	Message    string    `json:"message,omitempty"`
+	// Source is rest|mcp|system (empty on legacy rows).
+	Source string `json:"source,omitempty"`
+	// Tool is MCP tool name when Source=mcp.
+	Tool string `json:"tool,omitempty"`
+	// OpGroup groups related rows (e.g. season install).
+	OpGroup string `json:"opGroup,omitempty"`
+	// Meta is optional JSON (fromPath, toPath, created, refOpId, …).
+	Meta string `json:"meta,omitempty"`
 }
 
 type OperationLogPage struct {
@@ -76,6 +90,55 @@ type OperationLogPage struct {
 	Page       int            `json:"page"`
 	PageSize   int            `json:"pageSize"`
 	TotalPages int            `json:"totalPages"`
+}
+
+// OperationLogFilter filters ListLogs queries.
+type OperationLogFilter struct {
+	Action  string
+	VideoID string
+	Source  string
+	Tool    string
+}
+
+// RollbackResult is the outcome of rolling back one operation log.
+type RollbackResult struct {
+	OK            bool   `json:"ok"`
+	OpID          string `json:"opId"`
+	Action        string `json:"action"`
+	RestoredPath  string `json:"restoredPath,omitempty"`
+	RemovedPath   string `json:"removedPath,omitempty"`
+	BackupPath    string `json:"backupPath,omitempty"`
+	RollbackLogID string `json:"rollbackLogId,omitempty"`
+	Message       string `json:"message,omitempty"`
+}
+
+// SubtitleBackupInfo describes a .bak.* file under media roots.
+type SubtitleBackupInfo struct {
+	Path       string    `json:"path"`
+	SourcePath string    `json:"sourcePath,omitempty"`
+	Size       int64     `json:"size"`
+	ModTime    time.Time `json:"modTime"`
+	VideoID    string    `json:"videoId,omitempty"`
+}
+
+// CleanupBackupsResult summarizes backup prune.
+type CleanupBackupsResult struct {
+	DryRun      bool             `json:"dryRun"`
+	Deleted     []string         `json:"deleted,omitempty"`
+	WouldDelete []string         `json:"wouldDelete,omitempty"`
+	Failed      []CleanupFailure `json:"failed,omitempty"`
+	Count       int              `json:"count"`
+}
+
+// CleanupFailure is one failed cleanup path.
+type CleanupFailure struct {
+	Path  string `json:"path"`
+	Error string `json:"error"`
+}
+
+// ClearLogsResult summarizes log prune.
+type ClearLogsResult struct {
+	Deleted int `json:"deleted"`
 }
 
 type AppSetting struct {

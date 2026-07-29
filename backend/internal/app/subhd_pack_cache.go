@@ -22,7 +22,7 @@ type subhdPackCacheEntry struct {
 	FileName string
 	URL      string
 	// Data is set only for tiny payloads kept in memory (tests / tiny files).
-	Data     []byte
+	Data []byte
 	// DiskPath is preferred storage for real downloads to bound RSS.
 	DiskPath string
 	Size     int

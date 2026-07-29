@@ -41,6 +41,7 @@ func newTestService(t *testing.T) (*app.Service, domain.Video) {
 		TVMediaRoot:    tvRoot,
 		DBPath:         filepath.Join(base, "test.sqlite3"),
 		SubHDEnabled:   false,
+		AdminToken:     "test-admin-token",
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -83,13 +84,34 @@ func callToolJSON(t *testing.T, session *mcp.ClientSession, name string, args an
 		t.Fatalf("CallTool %s: %v", name, err)
 	}
 	if res.IsError {
-		t.Fatalf("CallTool %s IsError: %+v", name, res.Content)
+		msg := ""
+		for _, c := range res.Content {
+			if tc, ok := c.(*mcp.TextContent); ok {
+				msg += tc.Text
+			}
+		}
+		t.Fatalf("CallTool %s IsError: %s", name, msg)
 	}
 	raw, err := json.Marshal(res.StructuredContent)
 	if err != nil {
 		t.Fatalf("marshal structured: %v", err)
 	}
 	return raw
+}
+
+func previewConfirmToken(t *testing.T, session *mcp.ClientSession, previewTool string, args map[string]any) string {
+	t.Helper()
+	raw := callToolJSON(t, session, previewTool, args)
+	var out struct {
+		ConfirmToken string `json:"confirmToken"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("unmarshal preview: %v raw=%s", err, raw)
+	}
+	if out.ConfirmToken == "" {
+		t.Fatalf("empty confirmToken from %s: %s", previewTool, raw)
+	}
+	return out.ConfirmToken
 }
 
 func TestMCPListTools(t *testing.T) {
@@ -101,11 +123,15 @@ func TestMCPListTools(t *testing.T) {
 	}
 	want := map[string]bool{
 		"list_videos": true, "get_video": true, "list_tv_series": true,
-		"scan_status": true, "scan_files": true, "discover_directories": true,
-		"read_subtitle_content": true, "delete_subtitle": true,
+		"scan_status": true, "scan_files": true, "scan_files_preview": true,
+		"discover_directories":  true,
+		"read_subtitle_content": true, "delete_subtitle": true, "delete_subtitle_preview": true,
 		"normalize_plan_video": true, "subhd_search": true,
-		"install_subtitle_from_path": true, "version_info": true,
-		"read_subtitle_cues": true, "install_translated_cues": true,
+		"install_subtitle_from_path": true, "install_subtitle_from_path_preview": true,
+		"version_info":       true,
+		"read_subtitle_cues": true, "install_translated_cues": true, "install_translated_cues_preview": true,
+		"list_operation_logs": true, "rollback_operation": true, "rollback_operation_preview": true,
+		"list_subtitle_backups": true, "cleanup_subtitle_backups_preview": true,
 	}
 	got := map[string]bool{}
 	for _, tool := range tools.Tools {
@@ -157,8 +183,11 @@ func TestMCPReadAndOffsetSubtitle(t *testing.T) {
 		t.Fatalf("unexpected content: %+v", content)
 	}
 
-	raw = callToolJSON(t, session, "offset_subtitle_timing", map[string]any{
+	token := previewConfirmToken(t, session, "offset_subtitle_timing_preview", map[string]any{
 		"videoId": video.ID, "subtitleId": subID, "offsetMs": 500,
+	})
+	raw = callToolJSON(t, session, "offset_subtitle_timing", map[string]any{
+		"videoId": video.ID, "subtitleId": subID, "offsetMs": 500, "confirmToken": token,
 	})
 	var sub domain.Subtitle
 	if err := json.Unmarshal(raw, &sub); err != nil {
@@ -179,10 +208,11 @@ func TestMCPInstallFromPath(t *testing.T) {
 		t.Fatalf("write src: %v", err)
 	}
 
+	token := previewConfirmToken(t, session, "install_subtitle_from_path_preview", map[string]any{
+		"videoId": video.ID, "path": src, "label": "en",
+	})
 	raw := callToolJSON(t, session, "install_subtitle_from_path", map[string]any{
-		"videoId": video.ID,
-		"path":    src,
-		"label":   "en",
+		"videoId": video.ID, "path": src, "label": "en", "confirmToken": token,
 	})
 	var sub domain.Subtitle
 	if err := json.Unmarshal(raw, &sub); err != nil {
@@ -192,14 +222,19 @@ func TestMCPInstallFromPath(t *testing.T) {
 		t.Fatal("expected installed subtitle")
 	}
 
-	// Outside media root must fail.
+	// Outside media root must fail (even with token for that path).
 	outside := filepath.Join(t.TempDir(), "evil.srt")
 	if err := os.WriteFile(outside, []byte("x"), 0o644); err != nil {
 		t.Fatalf("write outside: %v", err)
 	}
+	badTok := previewConfirmToken(t, session, "install_subtitle_from_path_preview", map[string]any{
+		"videoId": video.ID, "path": outside,
+	})
 	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
-		Name:      "install_subtitle_from_path",
-		Arguments: map[string]any{"videoId": video.ID, "path": outside},
+		Name: "install_subtitle_from_path",
+		Arguments: map[string]any{
+			"videoId": video.ID, "path": outside, "confirmToken": badTok,
+		},
 	})
 	if err != nil {
 		t.Fatalf("CallTool: %v", err)
@@ -258,17 +293,80 @@ func TestMCPReadAndInstallTranslatedCues(t *testing.T) {
 	for _, c := range page.Cues {
 		items = append(items, map[string]any{"index": c.Index, "text": "译文" + c.Text})
 	}
-	raw = callToolJSON(t, session, "install_translated_cues", map[string]any{
-		"videoId":          video.ID,
-		"sourceSubtitleId": subID,
-		"items":            items,
-		"label":            "zh&en",
-	})
+	installArgs := map[string]any{
+		"videoId": video.ID, "sourceSubtitleId": subID, "items": items, "label": "zh&en",
+	}
+	token := previewConfirmToken(t, session, "install_translated_cues_preview", installArgs)
+	installArgs["confirmToken"] = token
+	raw = callToolJSON(t, session, "install_translated_cues", installArgs)
 	var sub domain.Subtitle
 	if err := json.Unmarshal(raw, &sub); err != nil {
 		t.Fatalf("unmarshal sub: %v", err)
 	}
 	if sub.ID == "" {
 		t.Fatal("expected installed bilingual subtitle")
+	}
+}
+
+func TestMCPConfirmRequiredAndRollbackDelete(t *testing.T) {
+	svc, video := newTestService(t)
+	session := connectMCP(t, svc)
+	subID := video.Subtitles[0].ID
+
+	// Without token → error.
+	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "delete_subtitle",
+		Arguments: map[string]any{"videoId": video.ID, "subtitleId": subID},
+	})
+	if err != nil {
+		t.Fatalf("CallTool: %v", err)
+	}
+	if !res.IsError {
+		t.Fatal("expected confirmToken required")
+	}
+
+	token := previewConfirmToken(t, session, "delete_subtitle_preview", map[string]any{
+		"videoId": video.ID, "subtitleId": subID,
+	})
+	_ = callToolJSON(t, session, "delete_subtitle", map[string]any{
+		"videoId": video.ID, "subtitleId": subID, "confirmToken": token,
+	})
+
+	// Find delete log and rollback (should be attributed to MCP).
+	logsRaw := callToolJSON(t, session, "list_operation_logs", map[string]any{
+		"action": "delete", "source": "mcp", "pageSize": 20,
+	})
+	var logs domain.OperationLogPage
+	if err := json.Unmarshal(logsRaw, &logs); err != nil {
+		t.Fatalf("logs: %v", err)
+	}
+	var opID string
+	for _, item := range logs.Items {
+		if item.Action == "delete" && item.Status == "ok" && item.BackupPath != "" {
+			if item.Source != domain.OpSourceMCP || item.Tool != "delete_subtitle" {
+				t.Fatalf("expected mcp audit fields, got source=%q tool=%q", item.Source, item.Tool)
+			}
+			opID = item.ID
+			break
+		}
+	}
+	if opID == "" {
+		t.Fatalf("no delete log: %+v", logs.Items)
+	}
+	rbTok := previewConfirmToken(t, session, "rollback_operation_preview", map[string]any{"opId": opID})
+	rbRaw := callToolJSON(t, session, "rollback_operation", map[string]any{
+		"opId": opID, "confirmToken": rbTok,
+	})
+	var rb domain.RollbackResult
+	if err := json.Unmarshal(rbRaw, &rb); err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+	if !rb.OK {
+		t.Fatalf("rollback not ok: %+v", rb)
+	}
+	// Subtitle file should be back.
+	v, ok := svc.GetVideo(video.ID)
+	if !ok || len(v.Subtitles) < 1 {
+		t.Fatalf("expected subtitle restored, got %+v", v)
 	}
 }

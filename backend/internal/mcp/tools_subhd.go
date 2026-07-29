@@ -12,98 +12,124 @@ import (
 
 type subhdSearchIn struct {
 	VideoID string `json:"videoId" jsonschema:"video id to build default query"`
-	Query   string `json:"q,omitempty" jsonschema:"override search query"`
-	Page    int    `json:"page,omitempty" jsonschema:"page (default 1, max SUBHD_SEARCH_MAX_PAGES)"`
+	Query   string `json:"q,omitempty"`
+	Page    int    `json:"page,omitempty"`
 }
 
 type subhdDownloadIn struct {
-	VideoID      string `json:"videoId" jsonschema:"video id"`
-	SID          string `json:"sid" jsonschema:"SubHD subtitle id from search"`
-	Label        string `json:"label,omitempty" jsonschema:"language label"`
-	ReplaceID    string `json:"replaceId,omitempty" jsonschema:"existing subtitle id to replace"`
-	ArchiveEntry string `json:"archiveEntry,omitempty" jsonschema:"pick entry when archive has multiple subtitles"`
+	VideoID      string `json:"videoId"`
+	SID          string `json:"sid"`
+	Label        string `json:"label,omitempty"`
+	ReplaceID    string `json:"replaceId,omitempty"`
+	ArchiveEntry string `json:"archiveEntry,omitempty"`
+	ConfirmToken string `json:"confirmToken,omitempty" jsonschema:"from subhd_download_preview"`
 }
 
 type subhdSeasonPacksIn struct {
-	VideoID string `json:"videoId" jsonschema:"any episode video id of the series"`
-	Query   string `json:"q,omitempty" jsonschema:"override season search query"`
-	Season  int    `json:"season,omitempty" jsonschema:"season number for ranking packs"`
+	VideoID string `json:"videoId"`
+	Query   string `json:"q,omitempty"`
+	Season  int    `json:"season,omitempty"`
 }
 
 type subhdSeasonPrepareIn struct {
-	SID                string   `json:"sid" jsonschema:"SubHD pack sid from season packs"`
-	VideoIDs           []string `json:"videoIds" jsonschema:"episode video ids to map"`
-	Season             int      `json:"season,omitempty" jsonschema:"season for episode-only filename matching"`
-	LanguagePreference string   `json:"languagePreference,omitempty" jsonschema:"e.g. bilingual, zh, en"`
-	FormatPreference   string   `json:"formatPreference,omitempty" jsonschema:"e.g. srt, ass"`
-	SkipExisting       bool     `json:"skipExisting,omitempty" jsonschema:"skip episodes that already have subtitles"`
-	Label              string   `json:"label,omitempty" jsonschema:"default label for installs"`
+	SID                string   `json:"sid"`
+	VideoIDs           []string `json:"videoIds"`
+	Season             int      `json:"season,omitempty"`
+	LanguagePreference string   `json:"languagePreference,omitempty"`
+	FormatPreference   string   `json:"formatPreference,omitempty"`
+	SkipExisting       bool     `json:"skipExisting,omitempty"`
+	Label              string   `json:"label,omitempty"`
 }
 
 type subhdSeasonInstallIn struct {
-	CacheToken string                    `json:"cacheToken" jsonschema:"token from subhd_season_prepare"`
-	Mappings   []app.ArchiveBatchMapping `json:"mappings" jsonschema:"videoId + archiveEntry (+ optional label/convertTo)"`
+	CacheToken   string                    `json:"cacheToken"`
+	Mappings     []app.ArchiveBatchMapping `json:"mappings"`
+	ConfirmToken string                    `json:"confirmToken,omitempty" jsonschema:"from subhd_season_install_preview"`
 }
 
 func registerSubHDTools(s *mcp.Server, svc *app.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "subhd_search",
-		Description: "Search SubHD for subtitles for a video. Requires SubHD enabled. Prefer bilingual results when listed first.",
+		Description: "Search SubHD for subtitles. Requires SubHD enabled.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in subhdSearchIn) (*mcp.CallToolResult, *subhd.SearchPage, error) {
-		page, err := svc.SearchSubHD(ctx, in.VideoID, app.SubHDSearchOptions{
-			Query: in.Query,
-			Page:  in.Page,
-		})
+		page, err := svc.SearchSubHD(ctx, in.VideoID, app.SubHDSearchOptions{Query: in.Query, Page: in.Page})
 		return nil, page, err
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        "subhd_download_preview",
+		Description: "Issue confirmToken for subhd_download.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in subhdDownloadIn) (*mcp.CallToolResult, map[string]any, error) {
+		params := subhdDownloadParams(in)
+		tok, err := svc.IssueMCPConfirmToken("subhd_download", params)
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]any{"confirmToken": tok.ConfirmToken, "expiresAt": tok.ExpiresAt, "ttlSeconds": tok.TTLSeconds}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "subhd_download",
-		Description: "Download a SubHD subtitle by sid and install next to the video. If the archive has multiple entries, error lists them — retry with archiveEntry.",
+		Description: "Download SubHD subtitle by sid. Requires confirmToken from subhd_download_preview.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in subhdDownloadIn) (*mcp.CallToolResult, domain.Subtitle, error) {
+		params := subhdDownloadParams(in)
+		if err := svc.ValidateMCPConfirmToken("subhd_download", params, in.ConfirmToken); err != nil {
+			return nil, domain.Subtitle{}, err
+		}
 		sub, err := svc.InstallFromSubHD(ctx, in.VideoID, in.SID, app.SubHDInstallOptions{
-			Label:        in.Label,
-			ReplaceID:    in.ReplaceID,
-			ArchiveEntry: in.ArchiveEntry,
+			Label: in.Label, ReplaceID: in.ReplaceID, ArchiveEntry: in.ArchiveEntry,
 		})
 		return nil, sub, err
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "subhd_season_packs",
-		Description: "Search SubHD season packs (合集) for a series. Pass any episode videoId of the series.",
+		Description: "Search SubHD season packs. Pass any episode videoId.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in subhdSeasonPacksIn) (*mcp.CallToolResult, app.SubHDSeasonPacksResult, error) {
-		result, err := svc.SearchSubHDSeasonPacks(ctx, in.VideoID, app.SubHDSeasonPacksOptions{
-			Query:  in.Query,
-			Season: in.Season,
-		})
+		result, err := svc.SearchSubHDSeasonPacks(ctx, in.VideoID, app.SubHDSeasonPacksOptions{Query: in.Query, Season: in.Season})
 		return nil, result, err
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "subhd_season_prepare",
-		Description: "Download a SubHD season pack once, cache it, list entries, and suggest episode mappings. Then review mappings and call subhd_season_install with cacheToken.",
+		Description: "Download season pack once, cache, suggest mappings. Then subhd_season_install_preview → subhd_season_install.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in subhdSeasonPrepareIn) (*mcp.CallToolResult, app.SubHDSeasonPrepareResult, error) {
 		result, err := svc.PrepareSubHDSeasonPack(ctx, app.SubHDSeasonPrepareOptions{
-			SID:                in.SID,
-			VideoIDs:           in.VideoIDs,
-			Season:             in.Season,
-			LanguagePreference: in.LanguagePreference,
-			FormatPreference:   in.FormatPreference,
-			SkipExisting:       in.SkipExisting,
-			Label:              in.Label,
+			SID: in.SID, VideoIDs: in.VideoIDs, Season: in.Season,
+			LanguagePreference: in.LanguagePreference, FormatPreference: in.FormatPreference,
+			SkipExisting: in.SkipExisting, Label: in.Label,
 		})
 		return nil, result, err
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        "subhd_season_install_preview",
+		Description: "Issue confirmToken for subhd_season_install.",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, in subhdSeasonInstallIn) (*mcp.CallToolResult, map[string]any, error) {
+		params := map[string]any{"cacheToken": in.CacheToken, "mappings": in.Mappings}
+		tok, err := svc.IssueMCPConfirmToken("subhd_season_install", params)
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]any{"confirmToken": tok.ConfirmToken, "expiresAt": tok.ExpiresAt, "ttlSeconds": tok.TTLSeconds, "mappingCount": len(in.Mappings)}, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "subhd_season_install",
-		Description: "Install season pack entries using cacheToken from subhd_season_prepare and explicit mappings (videoId, archiveEntry).",
+		Description: "Install season pack mappings. Requires confirmToken from subhd_season_install_preview.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in subhdSeasonInstallIn) (*mcp.CallToolResult, app.SubHDSeasonInstallResult, error) {
-		result, err := svc.InstallSubHDSeasonPack(ctx, app.SubHDSeasonInstallOptions{
-			CacheToken: in.CacheToken,
-			Mappings:   in.Mappings,
-		})
+		params := map[string]any{"cacheToken": in.CacheToken, "mappings": in.Mappings}
+		if err := svc.ValidateMCPConfirmToken("subhd_season_install", params, in.ConfirmToken); err != nil {
+			return nil, app.SubHDSeasonInstallResult{}, err
+		}
+		result, err := svc.InstallSubHDSeasonPack(ctx, app.SubHDSeasonInstallOptions{CacheToken: in.CacheToken, Mappings: in.Mappings})
 		return nil, result, err
 	})
+}
+
+func subhdDownloadParams(in subhdDownloadIn) map[string]any {
+	return map[string]any{
+		"videoId": in.VideoID, "sid": in.SID, "label": in.Label,
+		"replaceId": in.ReplaceID, "archiveEntry": in.ArchiveEntry,
+	}
 }

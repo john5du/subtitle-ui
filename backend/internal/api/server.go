@@ -57,6 +57,7 @@ func NewServerWithConfig(service *app.Service, cfg config.Config) *Server {
 	s.mux.HandleFunc("/api/subtitles/providers/subhd/season-prepare", s.handleSubHDSeasonPrepare)
 	s.mux.HandleFunc("/api/subtitles/providers/subhd/season-install", s.handleSubHDSeasonInstall)
 	s.mux.HandleFunc("/api/logs", s.handleLogs)
+	s.mux.HandleFunc("/api/logs/", s.handleLogs)
 	// Streamable MCP always mounted; runtime gate is service.MCPEnabled() (default off).
 	mcpHandler := s.withMCPEnabled(mcpserver.NewHTTPHandler(service))
 	s.mux.Handle("/mcp", mcpHandler)
