@@ -1,12 +1,33 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { PlugZap, Save } from "lucide-react";
 
 import { useI18n, type Locale } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
+import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 import { SpinnerIcon } from "../pending-state";
+
+/** Settings field / section label with optional click-to-show help bubble. */
+export function SettingsLabel({
+  children,
+  help,
+  className
+}: {
+  children: ReactNode;
+  help?: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex min-w-0 items-center gap-1.5", className)}>
+      <p className="min-w-0 text-xs font-semibold uppercase tracking-section text-foreground-muted">{children}</p>
+      {help ? <DialogHelpTip text={help} /> : null}
+    </div>
+  );
+}
 
 export function SaveSettingsButton({
   saving,

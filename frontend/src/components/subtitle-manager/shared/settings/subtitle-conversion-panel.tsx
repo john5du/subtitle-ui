@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { SpinnerIcon } from "../pending-state";
-import { SaveSettingsButton } from "./settings-shared";
+import { SaveSettingsButton, SettingsLabel } from "./settings-shared";
 
 const SOURCE_ENCODING_OPTIONS: SubtitleSourceEncoding[] = ["auto", "utf-8", "utf-16le", "utf-16be", "gb18030", "big5"];
 const DIALOGUES_PLACEHOLDER = "{{DIALOGUES}}";
@@ -119,7 +119,7 @@ export function SubtitleConversionSettingsPanel() {
     <div className="surface-panel space-y-4 p-3 sm:p-4">
 
       <div className="flex min-h-9 items-center justify-between gap-3">
-        <p className="min-w-0 shrink text-sm font-semibold text-foreground">{t("conversion.defaultSourceEncoding")}</p>
+        <SettingsLabel className="min-w-0 shrink">{t("conversion.defaultSourceEncoding")}</SettingsLabel>
         <div className="shrink-0">
           <Select value={draftEncoding} onValueChange={(value) => setDraftEncoding(value as SubtitleSourceEncoding)} disabled={loading || saving}>
             <SelectTrigger size="sm" className="w-[140px]" aria-label={t("conversion.defaultSourceEncoding")}>
@@ -138,7 +138,7 @@ export function SubtitleConversionSettingsPanel() {
 
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("conversion.assTemplate")}</p>
+          <SettingsLabel>{t("conversion.assTemplate")}</SettingsLabel>
           <Button
             type="button"
             variant="outline"

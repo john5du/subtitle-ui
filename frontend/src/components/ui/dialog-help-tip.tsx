@@ -143,7 +143,7 @@ export function DialogHelpTip({ text, label, className, children }: DialogHelpTi
         ref={buttonRef}
         type="button"
         className={cn(
-          "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           open && "bg-muted text-foreground",
           className
         )}
@@ -160,7 +160,7 @@ export function DialogHelpTip({ text, label, className, children }: DialogHelpTi
           }
         }}
       >
-        <CircleAlert className="h-4 w-4" aria-hidden />
+        <CircleAlert className="h-3.5 w-3.5" aria-hidden />
       </button>
       {typeof document !== "undefined" && open && pos
         ? createPortal(

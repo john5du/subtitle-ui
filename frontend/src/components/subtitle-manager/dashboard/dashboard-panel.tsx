@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import { DialogHelpTip } from "@/components/ui/dialog-help-tip";
 import {
   JellyfinSettingsPanel,
   LocaleSelect,
@@ -30,14 +31,19 @@ import { ThemeToggle } from "../shared/theme-toggle";
 
 function SettingsSection({
   title,
+  help,
   children
 }: {
   title: string;
+  help?: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-display text-xs font-semibold uppercase tracking-section text-foreground-muted">{title}</h2>
+      <div className="flex items-center gap-1.5">
+        <h2 className="text-display text-sm font-semibold uppercase tracking-section text-foreground-muted">{title}</h2>
+        {help ? <DialogHelpTip text={help} /> : null}
+      </div>
       <div className="space-y-2">{children}</div>
     </section>
   );
@@ -211,23 +217,23 @@ export function DashboardPanel({
                 </div>
               </SettingsSection>
 
-              <SettingsSection title={t("settings.subhd")}>
+              <SettingsSection title={t("settings.subhd")} help={t("subhd.settingsDescription")}>
                 <SubHDSettingsPanel />
               </SettingsSection>
 
-              <SettingsSection title={t("settings.sonarr")}>
+              <SettingsSection title={t("settings.sonarr")} help={t("sonarr.settingsDescription")}>
                 <SonarrSettingsPanel />
               </SettingsSection>
 
-              <SettingsSection title={t("settings.jellyfin")}>
+              <SettingsSection title={t("settings.jellyfin")} help={t("jellyfin.settingsDescription")}>
                 <JellyfinSettingsPanel />
               </SettingsSection>
 
-              <SettingsSection title={t("settings.mcp")}>
+              <SettingsSection title={t("settings.mcp")} help={t("mcp.settingsDescription")}>
                 <MCPSettingsPanel />
               </SettingsSection>
 
-              <SettingsSection title={t("settings.subtitleConversion")}>
+              <SettingsSection title={t("settings.subtitleConversion")} help={t("conversion.settingsDescription")}>
                 <SubtitleConversionSettingsPanel />
               </SettingsSection>
 

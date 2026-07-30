@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 
 import { SpinnerIcon } from "../pending-state";
-import { SaveSettingsButton } from "./settings-shared";
+import { SaveSettingsButton, SettingsLabel } from "./settings-shared";
 
 export function SubHDSettingsPanel() {
   const { t } = useI18n();
@@ -102,7 +102,7 @@ export function SubHDSettingsPanel() {
 
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("subhd.enabled")}</p>
+          <SettingsLabel>{t("subhd.enabled")}</SettingsLabel>
           <Switch
             checked={draftEnabled}
             onCheckedChange={setDraftEnabled}
@@ -113,7 +113,7 @@ export function SubHDSettingsPanel() {
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("subhd.baseUrl")}</p>
+          <SettingsLabel>{t("subhd.baseUrl")}</SettingsLabel>
           <div className="flex items-center gap-2">
             <Input
               size="sm"
@@ -145,7 +145,7 @@ export function SubHDSettingsPanel() {
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("subhd.proxy")}</p>
+        <SettingsLabel help={t("subhd.proxyHint")}>{t("subhd.proxy")}</SettingsLabel>
         <Input
           size="sm"
           value={draftProxy}
@@ -156,7 +156,6 @@ export function SubHDSettingsPanel() {
             setError("");
           }}
         />
-        <p className="text-xs text-muted-foreground">{t("subhd.proxyHint")}</p>
       </div>
 
       {loading && (

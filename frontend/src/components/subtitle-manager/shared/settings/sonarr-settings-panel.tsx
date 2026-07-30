@@ -1,18 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
 import { emitToast } from "@/lib/toast";
 import type { ConnectionTestResult, SonarrConfig } from "@/lib/types";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 
 import { SpinnerIcon } from "../pending-state";
-import { SaveSettingsButton, TestConnectionButton } from "./settings-shared";
+import { SaveSettingsButton, SettingsLabel, TestConnectionButton } from "./settings-shared";
 
 export function SonarrSettingsPanel() {
   const { t } = useI18n();
@@ -23,7 +21,6 @@ export function SonarrSettingsPanel() {
   const [draftUrl, setDraftUrl] = useState("");
   const [draftApiKey, setDraftApiKey] = useState("");
   const [apiKeySet, setApiKeySet] = useState(false);
-  const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -147,7 +144,7 @@ export function SonarrSettingsPanel() {
 
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("sonarr.enabled")}</p>
+          <SettingsLabel>{t("sonarr.enabled")}</SettingsLabel>
           <Switch
             checked={draftEnabled}
             onCheckedChange={setDraftEnabled}
@@ -158,7 +155,7 @@ export function SonarrSettingsPanel() {
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("sonarr.url")}</p>
+          <SettingsLabel>{t("sonarr.url")}</SettingsLabel>
           <Input
             size="sm"
             value={draftUrl}
@@ -173,35 +170,19 @@ export function SonarrSettingsPanel() {
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("sonarr.apiKey")}</p>
-        <div className="relative">
-          <Input
-            size="sm"
-            type={apiKeyVisible ? "text" : "password"}
-            autoComplete="off"
-            value={draftApiKey}
-            placeholder={apiKeySet ? t("sonarr.apiKeyConfiguredPlaceholder") : t("sonarr.apiKeyPlaceholder")}
-            disabled={busy || !draftEnabled}
-            className="pr-10"
-            onChange={(event) => {
-              setDraftApiKey(event.target.value);
-              setError("");
-            }}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute right-0.5 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            disabled={busy || !draftEnabled}
-            onClick={() => setApiKeyVisible((prev) => !prev)}
-            aria-label={apiKeyVisible ? t("common.hide") : t("common.show")}
-            title={apiKeyVisible ? t("common.hide") : t("common.show")}
-          >
-            {apiKeyVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">{t("sonarr.apiKeyHint")}</p>
+        <SettingsLabel help={t("sonarr.apiKeyHint")}>{t("sonarr.apiKey")}</SettingsLabel>
+        <Input
+          size="sm"
+          type="password"
+          autoComplete="off"
+          value={draftApiKey}
+          placeholder={apiKeySet ? t("sonarr.apiKeyConfiguredPlaceholder") : t("sonarr.apiKeyPlaceholder")}
+          disabled={busy || !draftEnabled}
+          onChange={(event) => {
+            setDraftApiKey(event.target.value);
+            setError("");
+          }}
+        />
       </div>
 
       {loading && (

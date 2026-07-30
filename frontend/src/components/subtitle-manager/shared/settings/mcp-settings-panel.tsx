@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 
 import { SpinnerIcon } from "../pending-state";
-import { SaveSettingsButton } from "./settings-shared";
+import { SaveSettingsButton, SettingsLabel } from "./settings-shared";
 
 export function MCPSettingsPanel() {
   const { t } = useI18n();
@@ -23,7 +23,7 @@ export function MCPSettingsPanel() {
   const [config, setConfig] = useState<MCPConfig | null>(null);
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [error, setError] = useState("");
-  const [copiedKey, setCopiedKey] = useState<"url" | "config" | null>(null);
+  const [copied, setCopied] = useState(false);
   const [token, setToken] = useState("");
   const [fullUrl, setFullUrl] = useState("/mcp");
   const copiedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -116,20 +116,20 @@ export function MCPSettingsPanel() {
     [fullUrl, token]
   );
 
-  async function handleCopy(key: "url" | "config", text: string) {
-    const ok = await copyToClipboard(text);
+  async function handleCopyConfig() {
+    const ok = await copyToClipboard(clientConfigJson);
     if (!ok) {
       emitToast({ level: "error", message: t("mcp.copyFailed") });
       return;
     }
-    setCopiedKey(key);
+    setCopied(true);
     emitToast({ level: "success", message: t("mcp.copied") });
     if (copiedResetTimerRef.current !== null) {
       clearTimeout(copiedResetTimerRef.current);
     }
     copiedResetTimerRef.current = setTimeout(() => {
       copiedResetTimerRef.current = null;
-      setCopiedKey((current) => (current === key ? null : current));
+      setCopied(false);
     }, 1500);
   }
 
@@ -137,10 +137,8 @@ export function MCPSettingsPanel() {
 
   return (
     <div className="surface-panel space-y-4 p-3 sm:p-4">
-      <p className="text-xs text-muted-foreground">{t("mcp.settingsDescription")}</p>
-
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("mcp.enabled")}</p>
+        <SettingsLabel>{t("mcp.enabled")}</SettingsLabel>
         <Switch
           checked={draftEnabled}
           onCheckedChange={setDraftEnabled}
@@ -151,50 +149,23 @@ export function MCPSettingsPanel() {
       </div>
 
       <div className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("mcp.endpoint")}</p>
-        <p className="break-all font-mono text-sm text-foreground">{endpoint}</p>
-        <p className="text-xs text-muted-foreground">{t("mcp.endpointHint")}</p>
-      </div>
-
-      <div className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("mcp.fullUrl")}</p>
-        <div className="flex items-start gap-2">
-          <p className="min-w-0 flex-1 break-all font-mono text-sm text-foreground">{fullUrl}</p>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            disabled={loading}
-            onClick={() => void handleCopy("url", fullUrl)}
-            aria-label={t("mcp.copyUrl")}
-            title={t("mcp.copyUrl")}
-          >
-            {copiedKey === "url" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-1">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">
-            {t("mcp.clientConfig")}
-          </p>
+          <SettingsLabel help={t("mcp.clientConfigHint")}>{t("mcp.clientConfig")}</SettingsLabel>
           <Button
             type="button"
             variant="outline"
             size="icon-sm"
             disabled={loading}
-            onClick={() => void handleCopy("config", clientConfigJson)}
+            onClick={() => void handleCopyConfig()}
             aria-label={t("mcp.copyConfig")}
             title={t("mcp.copyConfig")}
           >
-            {copiedKey === "config" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
           </Button>
         </div>
         <pre className="max-h-48 overflow-auto rounded-md border border-border bg-surface-subtle p-2 font-mono text-xs text-foreground whitespace-pre-wrap break-all">
           {clientConfigJson}
         </pre>
-        <p className="text-xs text-muted-foreground">{t("mcp.clientConfigHint")}</p>
         {!token && <p className="text-xs text-muted-foreground">{t("mcp.tokenMissing")}</p>}
         {!loading && !enabledEffective && (
           <p className="text-xs text-muted-foreground">{t("mcp.enableFirst")}</p>
