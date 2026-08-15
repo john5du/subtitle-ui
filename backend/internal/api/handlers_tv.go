@@ -23,7 +23,11 @@ func (s *Server) handleTVSeries(w http.ResponseWriter, r *http.Request) {
 		sortBy = r.URL.Query().Get("sortYear")
 	}
 	sortOrder := r.URL.Query().Get("sortOrder")
-	pageData := s.service.ListTVSeriesPage(query, page, pageSize, sortBy, sortOrder)
+	pageData, err := s.service.ListTVSeriesPage(query, page, pageSize, sortBy, sortOrder)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
 	s.attachTVSeriesPosterURLs(r, pageData.Items)
 	writeJSON(w, http.StatusOK, pageData)
 }

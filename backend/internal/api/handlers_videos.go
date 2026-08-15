@@ -33,7 +33,11 @@ func (s *Server) handleVideos(w http.ResponseWriter, r *http.Request) {
 	pageSize := parsePositiveIntOrDefault(r.URL.Query().Get("pageSize"), 30)
 	sortBy := r.URL.Query().Get("sortBy")
 	sortOrder := r.URL.Query().Get("sortOrder")
-	pageData := s.service.ListVideosPage(query, mediaType, directory, page, pageSize, sortBy, sortOrder)
+	pageData, err := s.service.ListVideosPage(query, mediaType, directory, page, pageSize, sortBy, sortOrder)
+	if err != nil {
+		s.writeAppError(w, err)
+		return
+	}
 	s.attachVideoPosterURLs(r, pageData.Items)
 	writeJSON(w, http.StatusOK, pageData)
 }
@@ -51,9 +55,9 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case len(segments) == 1 && r.Method == http.MethodGet:
-		video, ok := s.service.GetVideo(videoID)
-		if !ok {
-			writeError(w, http.StatusNotFound, "video not found")
+		video, err := s.service.GetVideo(videoID)
+		if err != nil {
+			s.writeAppError(w, err)
 			return
 		}
 		s.attachVideoPosterURL(r, &video)

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -11,56 +12,6 @@ import (
 )
 
 const migrationV1 = `
-CREATE TABLE IF NOT EXISTS videos (
-  id TEXT PRIMARY KEY,
-  path TEXT NOT NULL UNIQUE,
-  directory TEXT NOT NULL,
-  file_name TEXT NOT NULL,
-  title TEXT NOT NULL,
-  year TEXT NOT NULL DEFAULT '',
-  metadata_source TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS subtitles (
-  id TEXT PRIMARY KEY,
-  video_id TEXT NOT NULL,
-  path TEXT NOT NULL,
-  file_name TEXT NOT NULL,
-  language TEXT NOT NULL DEFAULT 'und',
-  format TEXT NOT NULL DEFAULT '',
-  size INTEGER NOT NULL DEFAULT 0,
-  mod_time TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY(video_id) REFERENCES videos(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_subtitles_video_id ON subtitles(video_id);
-CREATE INDEX IF NOT EXISTS idx_subtitles_path ON subtitles(path);
-
-CREATE TABLE IF NOT EXISTS scan_runs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  started_at TEXT NOT NULL,
-  finished_at TEXT NOT NULL,
-  video_count INTEGER NOT NULL DEFAULT 0,
-  error TEXT NOT NULL DEFAULT ''
-);
-
-CREATE TABLE IF NOT EXISTS operation_logs (
-  id TEXT PRIMARY KEY,
-  timestamp TEXT NOT NULL,
-  action TEXT NOT NULL,
-  video_id TEXT NOT NULL,
-  target_path TEXT NOT NULL DEFAULT '',
-  backup_path TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL,
-  message TEXT NOT NULL DEFAULT ''
-);
-
-CREATE INDEX IF NOT EXISTS idx_operation_logs_timestamp ON operation_logs(timestamp);
-`
-
-const migrationV1Postgres = `
 CREATE TABLE IF NOT EXISTS videos (
   id TEXT PRIMARY KEY,
   path TEXT NOT NULL UNIQUE,
@@ -148,13 +99,6 @@ var migrationV6VideoMetadataColumns = []struct {
 	{name: "series_tmdb_id", statement: `ALTER TABLE videos ADD COLUMN series_tmdb_id TEXT NOT NULL DEFAULT '';`},
 }
 
-func (s *Store) migrationV1SQL() string {
-	if s.dialect == dialectPostgres {
-		return migrationV1Postgres
-	}
-	return migrationV1
-}
-
 func (s *Store) backfillSubtitleSources() error {
 	type backfillInfo struct {
 		targetPath   string
@@ -212,6 +156,12 @@ ORDER BY timestamp ASC`,
 	return nil
 }
 func (s *Store) migrate() error {
+	unlock, err := s.acquireSchemaMigrateLock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	if _, err := s.exec(`
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version INTEGER PRIMARY KEY,
@@ -235,7 +185,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 			}
 		}()
 
-		if err = s.execScriptTx(tx, s.migrationV1SQL()); err != nil {
+		if err = s.execScriptTx(tx, migrationV1); err != nil {
 			return fmt.Errorf("apply migration v1: %w", err)
 		}
 		if _, err = s.execTx(tx, `INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 1, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
@@ -379,10 +329,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 		return err
 	}
 	if !applied {
-		fileSizeType := "INTEGER"
-		if s.dialect == dialectPostgres {
-			fileSizeType = "BIGINT"
-		}
+		fileSizeType := "BIGINT"
 		for _, column := range []struct {
 			name      string
 			statement string
@@ -411,15 +358,13 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 		return err
 	}
 	if !applied {
-		if s.dialect == dialectPostgres {
-			hasFileSize, err := s.hasColumn("videos", "file_size")
-			if err != nil {
-				return err
-			}
-			if hasFileSize {
-				if _, err := s.exec(`ALTER TABLE videos ALTER COLUMN file_size TYPE BIGINT`); err != nil {
-					return fmt.Errorf("apply migration v9 file_size bigint: %w", err)
-				}
+		hasFileSize, err := s.hasColumn("videos", "file_size")
+		if err != nil {
+			return err
+		}
+		if hasFileSize {
+			if _, err := s.exec(`ALTER TABLE videos ALTER COLUMN file_size TYPE BIGINT`); err != nil {
+				return fmt.Errorf("apply migration v9 file_size bigint: %w", err)
 			}
 		}
 		if _, err := s.exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 9, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
@@ -470,18 +415,6 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 		}
 	}
 
-	if s.dialect == dialectPostgres {
-		if _, err := s.exec(`
-CREATE TABLE IF NOT EXISTS data_migrations (
-  name TEXT PRIMARY KEY,
-  source TEXT NOT NULL DEFAULT '',
-  applied_at TEXT NOT NULL,
-  details TEXT NOT NULL DEFAULT ''
-)`); err != nil {
-			return fmt.Errorf("create data migrations table: %w", err)
-		}
-	}
-
 	return nil
 }
 
@@ -516,6 +449,28 @@ func (s *Store) backfillTitleSortKeys() error {
 	return nil
 }
 
+func (s *Store) acquireSchemaMigrateLock() (func(), error) {
+	ctx := context.Background()
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("schema migrate lock: %w", err)
+	}
+	lockSQL := "SELECT pg_advisory_lock(hashtextextended(current_schema() || '/subtitle-ui/schema-migrate', 0))"
+	if _, err := conn.ExecContext(ctx, lockSQL); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("schema migrate lock: %w", err)
+	}
+	unlocked := false
+	return func() {
+		if unlocked {
+			return
+		}
+		unlocked = true
+		_, _ = conn.ExecContext(ctx, "SELECT pg_advisory_unlock(hashtextextended(current_schema() || '/subtitle-ui/schema-migrate', 0))")
+		_ = conn.Close()
+	}, nil
+}
+
 func (s *Store) isMigrationApplied(version int) (bool, error) {
 	row := s.queryRow(`SELECT COUNT(1) FROM schema_migrations WHERE version = ?`, version)
 	var count int
@@ -526,22 +481,11 @@ func (s *Store) isMigrationApplied(version int) (bool, error) {
 }
 
 func (s *Store) hasTable(tableName string) (bool, error) {
-	if s.dialect == dialectPostgres {
-		row := s.queryRow(
-			`SELECT COUNT(1)
+	row := s.queryRow(
+		`SELECT COUNT(1)
 FROM information_schema.tables
 WHERE table_schema = current_schema()
   AND table_name = ?`,
-			tableName,
-		)
-		var count int
-		if err := row.Scan(&count); err != nil {
-			return false, err
-		}
-		return count > 0, nil
-	}
-	row := s.queryRow(
-		`SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = ?`,
 		tableName,
 	)
 	var count int
@@ -552,44 +496,18 @@ WHERE table_schema = current_schema()
 }
 
 func (s *Store) hasColumn(tableName string, columnName string) (bool, error) {
-	if s.dialect == dialectPostgres {
-		row := s.queryRow(
-			`SELECT COUNT(1)
+	row := s.queryRow(
+		`SELECT COUNT(1)
 FROM information_schema.columns
 WHERE table_schema = current_schema()
   AND table_name = ?
   AND column_name = ?`,
-			tableName,
-			columnName,
-		)
-		var count int
-		if err := row.Scan(&count); err != nil {
-			return false, err
-		}
-		return count > 0, nil
-	}
-
-	rows, err := s.query(`PRAGMA table_info(` + tableName + `)`)
-	if err != nil {
+		tableName,
+		columnName,
+	)
+	var count int
+	if err := row.Scan(&count); err != nil {
 		return false, err
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var (
-			cid        int
-			name       string
-			colType    string
-			notNull    int
-			defaultV   any
-			primaryKey int
-		)
-		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultV, &primaryKey); err != nil {
-			return false, err
-		}
-		if strings.EqualFold(name, columnName) {
-			return true, nil
-		}
-	}
-	return false, rows.Err()
+	return count > 0, nil
 }

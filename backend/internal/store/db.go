@@ -14,29 +14,23 @@ func (s *Store) Close() error {
 }
 
 func (s *Store) DatabaseType() string {
-	if s == nil {
-		return string(dialectSQLite)
-	}
-	if s.dialect == dialectPostgres {
-		return string(dialectPostgres)
-	}
-	return string(dialectSQLite)
+	return "postgres"
 }
 
 func (s *Store) exec(query string, args ...any) (sql.Result, error) {
-	return s.db.Exec(s.rebind(query), args...)
+	return s.db.Exec(rebind(query), args...)
 }
 
 func (s *Store) query(query string, args ...any) (*sql.Rows, error) {
-	return s.db.Query(s.rebind(query), args...)
+	return s.db.Query(rebind(query), args...)
 }
 
 func (s *Store) queryRow(query string, args ...any) *sql.Row {
-	return s.db.QueryRow(s.rebind(query), args...)
+	return s.db.QueryRow(rebind(query), args...)
 }
 
 func (s *Store) execTx(tx *sql.Tx, query string, args ...any) (sql.Result, error) {
-	return tx.Exec(s.rebind(query), args...)
+	return tx.Exec(rebind(query), args...)
 }
 
 func (s *Store) execScript(query string) error {
@@ -66,21 +60,15 @@ func (s *Store) execScriptTx(tx *sql.Tx, query string) error {
 }
 
 func (s *Store) queryTx(tx *sql.Tx, query string, args ...any) (*sql.Rows, error) {
-	return tx.Query(s.rebind(query), args...)
+	return tx.Query(rebind(query), args...)
 }
 
 func (s *Store) queryRowTx(tx *sql.Tx, query string, args ...any) *sql.Row {
-	return tx.QueryRow(s.rebind(query), args...)
+	return tx.QueryRow(rebind(query), args...)
 }
 
-// rebind rewrites ? placeholders for the active SQL dialect (Postgres $1, $2, …).
-// Dual-dialect support (SQLite default + Postgres via DATABASE_URL) is intentional;
-// keep queries dialect-agnostic and route differences through helpers in this file.
-func (s *Store) rebind(query string) string {
-	if s.dialect != dialectPostgres {
-		return query
-	}
-
+// rebind rewrites ? placeholders to Postgres $1, $2, … form.
+func rebind(query string) string {
 	var b strings.Builder
 	b.Grow(len(query) + 8)
 	index := 1
@@ -108,36 +96,19 @@ func placeholders(count int) string {
 }
 
 func (s *Store) insertPrefix() string {
-	if s.dialect == dialectSQLite {
-		return "INSERT OR REPLACE"
-	}
 	return "INSERT"
 }
 
-// settingsUpsertSuffix is the Postgres ON CONFLICT clause for app_settings.
-// SQLite uses INSERT OR REPLACE via insertPrefix(); keep dialect forks here only.
 func (s *Store) settingsUpsertSuffix() string {
-	if s.dialect != dialectPostgres {
-		return ""
-	}
 	return ` ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
 }
 
-// yearSortExprs returns (emptyYearExpr, yearValueExpr) for ORDER BY year.
-// Dialects differ on ifnull/coalesce and safe integer casts.
 func (s *Store) yearSortExprs() (emptyExpr, yearExpr string) {
-	if s.dialect == dialectPostgres {
-		return `CASE WHEN trim(coalesce(year, '')) = '' THEN 1 ELSE 0 END`,
-			`CASE WHEN trim(coalesce(year, '')) ~ '^[0-9]+$' THEN CAST(year AS INTEGER) ELSE 0 END`
-	}
-	return `CASE WHEN trim(ifnull(year, '')) = '' THEN 1 ELSE 0 END`,
-		`CAST(year AS INTEGER)`
+	return `CASE WHEN trim(coalesce(year, '')) = '' THEN 1 ELSE 0 END`,
+		`CASE WHEN trim(coalesce(year, '')) ~ '^[0-9]+$' THEN CAST(year AS INTEGER) ELSE 0 END`
 }
 
 func (s *Store) videoUpsertSuffix() string {
-	if s.dialect != dialectPostgres {
-		return ""
-	}
 	return ` ON CONFLICT(id) DO UPDATE SET
   path = excluded.path,
   directory = excluded.directory,
@@ -162,9 +133,6 @@ func (s *Store) videoUpsertSuffix() string {
 }
 
 func (s *Store) subtitleUpsertSuffix() string {
-	if s.dialect != dialectPostgres {
-		return ""
-	}
 	return ` ON CONFLICT(id) DO UPDATE SET
   video_id = excluded.video_id,
   path = excluded.path,

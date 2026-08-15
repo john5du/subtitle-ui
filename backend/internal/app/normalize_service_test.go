@@ -9,6 +9,7 @@ import (
 
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/store"
 )
 
 func TestNormalizeSubtitlesPlanAndApply(t *testing.T) {
@@ -45,7 +46,7 @@ func TestNormalizeSubtitlesPlanAndApply(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -58,7 +59,7 @@ func TestNormalizeSubtitlesPlanAndApply(t *testing.T) {
 	if status.Error != "" {
 		t.Fatalf("scan: %s", status.Error)
 	}
-	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	page := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20)
 	if len(page.Items) != 1 {
 		t.Fatalf("expected 1 video, got %d", len(page.Items))
 	}
@@ -107,10 +108,7 @@ func TestNormalizeSubtitlesPlanAndApply(t *testing.T) {
 		t.Fatalf("canonical path missing: %v", err)
 	}
 
-	reloaded, ok := svc.GetVideo(video.ID)
-	if !ok {
-		t.Fatalf("reload video")
-	}
+	reloaded := mustGetVideo(t, svc, video.ID)
 	if _, found := findSubtitleByFileName(reloaded.Subtitles, "movie-a.zh.srt"); !found {
 		t.Fatalf("expected zh subtitle after rename, got %+v", reloaded.Subtitles)
 	}
@@ -172,7 +170,7 @@ The weather is nice today
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -183,7 +181,7 @@ The weather is nice today
 	if status.Error != "" {
 		t.Fatalf("scan: %s", status.Error)
 	}
-	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	page := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20)
 	if len(page.Items) != 1 {
 		t.Fatalf("expected 1 video, got %d", len(page.Items))
 	}

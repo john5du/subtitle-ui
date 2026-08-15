@@ -33,9 +33,9 @@ func (s *Service) SearchSubHD(ctx context.Context, videoID string, opts SubHDSea
 	if client == nil || !client.Enabled() {
 		return nil, ErrProviderDisabled
 	}
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return nil, ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return nil, err
 	}
 	query := strings.TrimSpace(opts.Query)
 	if query == "" {
@@ -75,9 +75,9 @@ func (s *Service) InstallFromSubHD(ctx context.Context, videoID string, sid stri
 	if sid == "" {
 		return domain.Subtitle{}, fmt.Errorf("%w: missing sid", ErrBadRequest)
 	}
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return domain.Subtitle{}, ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return domain.Subtitle{}, err
 	}
 
 	dl, err := client.Download(ctx, sid)

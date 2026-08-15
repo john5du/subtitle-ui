@@ -77,5 +77,5 @@ func (s *Server) withMCPEnabled(next http.Handler) http.Handler {
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.withCORS(withRequestLogging(s.withAdminAuth(s.mux)))
+	return s.withCORS(withRequestLogging(s.withAdminAuth(s.mux), s.trustForwardedHeaders))
 }

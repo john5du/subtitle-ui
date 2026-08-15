@@ -21,9 +21,9 @@ func (s *Service) ConvertSubtitleToASSCtx(ctx context.Context, videoID string, s
 	mu.Lock()
 	defer mu.Unlock()
 
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return domain.Subtitle{}, ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return domain.Subtitle{}, err
 	}
 	existing, found := findSubtitle(video.Subtitles, subtitleID)
 	if !found {
@@ -132,9 +132,9 @@ func (s *Service) OffsetSubtitleTimingCtx(ctx context.Context, videoID string, s
 	mu.Lock()
 	defer mu.Unlock()
 
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return domain.Subtitle{}, ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return domain.Subtitle{}, err
 	}
 	existing, found := findSubtitle(video.Subtitles, subtitleID)
 	if !found {
@@ -203,9 +203,9 @@ func (s *Service) DeleteSubtitleCtx(ctx context.Context, videoID string, subtitl
 	mu.Lock()
 	defer mu.Unlock()
 
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return err
 	}
 	existing, found := findSubtitle(video.Subtitles, subtitleID)
 	if !found {
@@ -238,9 +238,9 @@ func (s *Service) DeleteSubtitleCtx(ctx context.Context, videoID string, subtitl
 }
 
 func (s *Service) ReadSubtitleContent(videoID string, subtitleID string) ([]byte, error) {
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return nil, ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return nil, err
 	}
 	existing, found := findSubtitle(video.Subtitles, subtitleID)
 	if !found {

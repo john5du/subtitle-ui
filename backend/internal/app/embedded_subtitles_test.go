@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"subtitle-ui/backend/internal/config"
+	"subtitle-ui/backend/internal/store"
 )
 
 func TestListEmbeddedSubtitlesRequiresJellyfin(t *testing.T) {
@@ -137,7 +138,7 @@ func setupEmbeddedSubtitleFixture(t *testing.T, tune func(*config.Config, string
 	cfg := config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 		AdminToken:     "test-admin-token",
 	}
 	if tune != nil {
@@ -150,7 +151,7 @@ func setupEmbeddedSubtitleFixture(t *testing.T, tune func(*config.Config, string
 	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatalf("scan: %s", status.Error)
 	}
-	page := svc.ListVideosPage("", "movie", "", 1, 10, "", "")
+	page := mustListVideosPage(t, svc, "movie", 10)
 	if len(page.Items) != 1 {
 		_ = svc.Close()
 		t.Fatalf("expected 1 video, got %d", len(page.Items))

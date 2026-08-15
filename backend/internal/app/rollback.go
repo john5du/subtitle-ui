@@ -1,7 +1,9 @@
 package app
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,7 +21,10 @@ func (s *Service) RollbackOperation(opID string) (domain.RollbackResult, error) 
 	}
 	log, err := s.store.GetLog(opID)
 	if err != nil {
-		return domain.RollbackResult{}, ErrNotFound
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.RollbackResult{}, ErrNotFound
+		}
+		return domain.RollbackResult{}, err
 	}
 	if log.Status != "ok" {
 		return domain.RollbackResult{}, fmt.Errorf("%w: only successful operations can be rolled back (status=%s)", ErrBadRequest, log.Status)

@@ -29,7 +29,7 @@ func (s *Store) SaveScanResult(videos []domain.Video, startedAt time.Time, finis
 //
 // When scanErr is non-empty, only the scan_runs row is written — no deletes or upserts.
 // Partial scan failures must not wipe half the library (e.g. TV root down while movies scan OK).
-func (s *Store) SaveScanReconcile(found []domain.Video, rebuilt []domain.Video, startedAt time.Time, finishedAt time.Time, scanErr string, replaceScopes []string) error {
+func (s *Store) SaveScanReconcile(found []domain.Video, rebuilt []domain.Video, startedAt time.Time, finishedAt time.Time, scanErr string, replaceScopes []string) (err error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -54,89 +54,108 @@ func (s *Store) SaveScanReconcile(found []domain.Video, rebuilt []domain.Video, 
 
 	// Never mutate the library when the scan reported an error: found/rebuilt may be incomplete.
 	if strings.TrimSpace(scanErr) != "" {
-		return tx.Commit()
+		err = tx.Commit()
+		return err
 	}
 
-	{
-		foundPaths := make(map[string]struct{}, len(found))
-		for _, video := range found {
-			foundPaths[normalizeScanPath(video.Path)] = struct{}{}
-		}
+	foundPaths := make(map[string]struct{}, len(found))
+	for _, video := range found {
+		foundPaths[normalizeScanPath(video.Path)] = struct{}{}
+	}
 
-		if err = s.deleteMissingVideosForScanScopesTx(tx, replaceScopes, foundPaths); err != nil {
+	if err = s.deleteMissingVideosForScanScopesTx(tx, replaceScopes, foundPaths); err != nil {
+		return err
+	}
+
+	for _, video := range rebuilt {
+		exists, dbUpdatedAt, lockErr := s.lockVideoRowTx(tx, video.ID)
+		if lockErr != nil {
+			err = lockErr
+			return err
+		}
+		// A subtitle write that finished after this scan started must not be
+		// clobbered by a stale on-disk snapshot collected earlier in the walk.
+		skipSubtitles := exists && dbUpdatedAt.After(startedAt.UTC())
+
+		existingSubtitleSources, loadErr := s.loadSubtitleSourcesTx(tx, video.ID)
+		if loadErr != nil {
+			err = loadErr
 			return err
 		}
 
-		for _, video := range rebuilt {
-			existingSubtitleSources, loadErr := s.loadSubtitleSourcesTx(tx, video.ID)
-			if loadErr != nil {
-				return loadErr
-			}
+		fileModTime := ""
+		if !video.FileModTime.IsZero() {
+			fileModTime = video.FileModTime.UTC().Format(time.RFC3339Nano)
+		}
 
-			fileModTime := ""
-			if !video.FileModTime.IsZero() {
-				fileModTime = video.FileModTime.UTC().Format(time.RFC3339Nano)
-			}
+		videoUpdatedAt := video.UpdatedAt
+		if skipSubtitles && dbUpdatedAt.After(videoUpdatedAt) {
+			videoUpdatedAt = dbUpdatedAt
+		}
 
+		_, err = s.execTx(
+			tx,
+			s.insertPrefix()+` INTO videos(id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at, title_sort_key)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.videoUpsertSuffix(),
+			video.ID,
+			video.Path,
+			video.Directory,
+			video.FileName,
+			video.Title,
+			video.OriginalTitle,
+			video.Year,
+			video.ImdbID,
+			video.TmdbID,
+			defaultMediaType(video.MediaType),
+			video.MetadataSource,
+			video.SeriesTitle,
+			video.SeriesOriginalTitle,
+			video.SeriesImdbID,
+			video.SeriesTmdbID,
+			video.PosterPath,
+			video.FileSize,
+			fileModTime,
+			video.ScanFingerprint,
+			videoUpdatedAt.UTC().Format(time.RFC3339Nano),
+			textsort.SortKey(video.Title),
+		)
+		if err != nil {
+			return err
+		}
+
+		if skipSubtitles {
+			continue
+		}
+
+		if _, err = s.execTx(tx, `DELETE FROM subtitles WHERE video_id = ?`, video.ID); err != nil {
+			return err
+		}
+		for _, sub := range video.Subtitles {
+			sub = mergeSubtitleSource(sub, existingSubtitleSources)
 			_, err = s.execTx(
 				tx,
-				s.insertPrefix()+` INTO videos(id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at, title_sort_key)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.videoUpsertSuffix(),
+				s.insertPrefix()+` INTO subtitles(id, video_id, path, file_name, language, format, size, mod_time, updated_at, source, source_detail)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.subtitleUpsertSuffix(),
+				sub.ID,
 				video.ID,
-				video.Path,
-				video.Directory,
-				video.FileName,
-				video.Title,
-				video.OriginalTitle,
-				video.Year,
-				video.ImdbID,
-				video.TmdbID,
-				defaultMediaType(video.MediaType),
-				video.MetadataSource,
-				video.SeriesTitle,
-				video.SeriesOriginalTitle,
-				video.SeriesImdbID,
-				video.SeriesTmdbID,
-				video.PosterPath,
-				video.FileSize,
-				fileModTime,
-				video.ScanFingerprint,
-				video.UpdatedAt.UTC().Format(time.RFC3339Nano),
-				textsort.SortKey(video.Title),
+				sub.Path,
+				sub.FileName,
+				sub.Language,
+				sub.Format,
+				sub.Size,
+				sub.ModTime.UTC().Format(time.RFC3339Nano),
+				videoUpdatedAt.UTC().Format(time.RFC3339Nano),
+				sub.Source,
+				sub.SourceDetail,
 			)
 			if err != nil {
 				return err
 			}
-
-			if _, err = s.execTx(tx, `DELETE FROM subtitles WHERE video_id = ?`, video.ID); err != nil {
-				return err
-			}
-			for _, sub := range video.Subtitles {
-				sub = mergeSubtitleSource(sub, existingSubtitleSources)
-				_, err = s.execTx(
-					tx,
-					s.insertPrefix()+` INTO subtitles(id, video_id, path, file_name, language, format, size, mod_time, updated_at, source, source_detail)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.subtitleUpsertSuffix(),
-					sub.ID,
-					video.ID,
-					sub.Path,
-					sub.FileName,
-					sub.Language,
-					sub.Format,
-					sub.Size,
-					sub.ModTime.UTC().Format(time.RFC3339Nano),
-					video.UpdatedAt.UTC().Format(time.RFC3339Nano),
-					sub.Source,
-					sub.SourceDetail,
-				)
-				if err != nil {
-					return err
-				}
-			}
 		}
 	}
 
-	return tx.Commit()
+	err = tx.Commit()
+	return err
 }
 
 func (s *Store) deleteMissingVideosForScanScopesTx(tx *sql.Tx, replaceScopes []string, foundPaths map[string]struct{}) error {

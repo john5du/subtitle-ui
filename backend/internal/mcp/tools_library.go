@@ -44,16 +44,20 @@ func registerLibraryTools(s *mcp.Server, svc *app.Service) {
 		if pageSize < 1 {
 			pageSize = 30
 		}
-		return nil, svc.ListVideosPage(in.Query, in.MediaType, in.Dir, page, pageSize, in.SortBy, in.SortOrder), nil
+		pageData, err := svc.ListVideosPage(in.Query, in.MediaType, in.Dir, page, pageSize, in.SortBy, in.SortOrder)
+		if err != nil {
+			return nil, domain.VideoPage{}, err
+		}
+		return nil, pageData, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_video",
 		Description: "Get one video by id including full subtitles[] list (path, language, format, source).",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in getVideoIn) (*mcp.CallToolResult, domain.Video, error) {
-		video, ok := svc.GetVideo(in.VideoID)
-		if !ok {
-			return nil, domain.Video{}, app.ErrNotFound
+		video, err := svc.GetVideo(in.VideoID)
+		if err != nil {
+			return nil, domain.Video{}, err
 		}
 		return nil, video, nil
 	})
@@ -70,7 +74,11 @@ func registerLibraryTools(s *mcp.Server, svc *app.Service) {
 		if pageSize < 1 {
 			pageSize = 30
 		}
-		return nil, svc.ListTVSeriesPage(in.Query, page, pageSize, in.SortBy, in.SortOrder), nil
+		pageData, err := svc.ListTVSeriesPage(in.Query, page, pageSize, in.SortBy, in.SortOrder)
+		if err != nil {
+			return nil, domain.TVSeriesPage{}, err
+		}
+		return nil, pageData, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

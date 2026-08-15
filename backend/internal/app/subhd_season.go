@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -113,9 +114,12 @@ func (s *Service) PrepareSubHDSeasonPack(ctx context.Context, opts SubHDSeasonPr
 		if id == "" {
 			continue
 		}
-		video, ok := s.GetVideo(id)
-		if !ok {
-			return SubHDSeasonPrepareResult{}, fmt.Errorf("%w: video %s", ErrNotFound, id)
+		video, err := s.GetVideo(id)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				return SubHDSeasonPrepareResult{}, fmt.Errorf("%w: video %s", ErrNotFound, id)
+			}
+			return SubHDSeasonPrepareResult{}, err
 		}
 		videos = append(videos, video)
 	}
@@ -286,9 +290,9 @@ func (s *Service) InstallSubHDSeasonPack(ctx context.Context, opts SubHDSeasonIn
 
 // installResolvedSubHD writes an already-resolved SubHD subtitle (shared by single + season install).
 func (s *Service) installResolvedSubHD(ctx context.Context, videoID string, sid string, resolved *subhd.ResolvedSubtitle, opts SubHDInstallOptions) (domain.Subtitle, error) {
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return domain.Subtitle{}, ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return domain.Subtitle{}, err
 	}
 	if resolved == nil || len(resolved.Data) == 0 {
 		return domain.Subtitle{}, fmt.Errorf("%w: empty subtitle payload", ErrBadRequest)
@@ -306,7 +310,6 @@ func (s *Service) installResolvedSubHD(ctx context.Context, videoID string, sid 
 		DefaultLabel:  "zh",
 	})
 
-	var err error
 	targetPath := ""
 	backupPath := ""
 	action := "download"
@@ -415,9 +418,9 @@ func (s *Service) SearchSubHDSeasonPacks(ctx context.Context, videoID string, op
 	if client == nil || !client.Enabled() {
 		return SubHDSeasonPacksResult{}, ErrProviderDisabled
 	}
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return SubHDSeasonPacksResult{}, ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return SubHDSeasonPacksResult{}, err
 	}
 	season := opts.Season
 	if season < 0 {

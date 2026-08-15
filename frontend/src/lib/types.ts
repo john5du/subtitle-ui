@@ -1,4 +1,4 @@
-﻿export type MediaType = "movie" | "tv";
+export type MediaType = "movie" | "tv";
 export type ActiveTab = "dashboard" | "movie" | "tv";
 export type SubtitleOperationKind = "upload" | "replace" | "delete" | "convert" | "offset" | "batch" | "download" | "normalize";
 
@@ -346,7 +346,7 @@ export interface SonarrSearchResult {
 
 export interface VersionInfo {
   version: string;
-  databaseType: "sqlite" | "postgres" | string;
+  databaseType: "postgres" | string;
 }
 
 export interface SubHDSearchResult {

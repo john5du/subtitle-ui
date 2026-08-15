@@ -15,9 +15,9 @@ import (
 func (s *Service) ListSubtitleBackups(videoID string, olderThanDays int) ([]domain.SubtitleBackupInfo, error) {
 	var roots []string
 	if videoID = strings.TrimSpace(videoID); videoID != "" {
-		video, ok := s.GetVideo(videoID)
-		if !ok {
-			return nil, ErrNotFound
+		video, err := s.GetVideo(videoID)
+		if err != nil {
+			return nil, err
 		}
 		roots = []string{video.Directory}
 	} else {

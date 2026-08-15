@@ -8,6 +8,7 @@ import (
 
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/store"
 )
 
 func TestTVSeriesSummariesUseSeriesNFOForSearchAndExternalIDs(t *testing.T) {
@@ -38,7 +39,7 @@ func TestTVSeriesSummariesUseSeriesNFOForSearchAndExternalIDs(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -52,7 +53,7 @@ func TestTVSeriesSummariesUseSeriesNFOForSearchAndExternalIDs(t *testing.T) {
 		t.Fatalf("scan status error: %s", status.Error)
 	}
 
-	tvVideos := svc.ListVideosPage("", domain.MediaTypeTV, "", 1, 20, "", "")
+	tvVideos := mustListVideosPage(t, svc, domain.MediaTypeTV, 20)
 	if len(tvVideos.Items) != 1 {
 		t.Fatalf("expected 1 tv episode, got %d", len(tvVideos.Items))
 	}
@@ -66,11 +67,17 @@ func TestTVSeriesSummariesUseSeriesNFOForSearchAndExternalIDs(t *testing.T) {
 		t.Fatalf("unexpected stored series ids: %+v", tvVideos.Items[0])
 	}
 
-	chinese := svc.ListTVSeriesPage("夜魔侠", 1, 20, "", "")
+	chinese, err := svc.ListTVSeriesPage("夜魔侠", 1, 20, "", "")
+	if err != nil {
+		t.Fatalf("list chinese series: %v", err)
+	}
 	if chinese.Total != 1 || len(chinese.Items) != 1 {
 		t.Fatalf("expected Chinese query to find series, total=%d items=%+v", chinese.Total, chinese.Items)
 	}
-	english := svc.ListTVSeriesPage("Daredevil", 1, 20, "", "")
+	english, err := svc.ListTVSeriesPage("Daredevil", 1, 20, "", "")
+	if err != nil {
+		t.Fatalf("list english series: %v", err)
+	}
 	if english.Total != 1 || len(english.Items) != 1 {
 		t.Fatalf("expected English query to find series, total=%d items=%+v", english.Total, english.Items)
 	}

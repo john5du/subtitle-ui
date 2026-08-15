@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
+	"log"
 	"time"
 
 	"subtitle-ui/backend/internal/domain"
@@ -53,11 +53,11 @@ func opAuditFrom(ctx context.Context) OpAudit {
 	return OpAudit{}
 }
 
-func (s *Service) ListLogsPage(page int, pageSize int) domain.OperationLogPage {
+func (s *Service) ListLogsPage(page int, pageSize int) (domain.OperationLogPage, error) {
 	return s.ListLogsPageFiltered(page, pageSize, domain.OperationLogFilter{})
 }
 
-func (s *Service) ListLogsPageFiltered(page int, pageSize int, filter domain.OperationLogFilter) domain.OperationLogPage {
+func (s *Service) ListLogsPageFiltered(page int, pageSize int, filter domain.OperationLogFilter) (domain.OperationLogPage, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -70,13 +70,7 @@ func (s *Service) ListLogsPageFiltered(page int, pageSize int, filter domain.Ope
 
 	logs, total, err := s.store.ListLogsFiltered(page, pageSize, filter)
 	if err != nil {
-		return domain.OperationLogPage{
-			Items:      []domain.OperationLog{},
-			Total:      0,
-			Page:       page,
-			PageSize:   pageSize,
-			TotalPages: 0,
-		}
+		return domain.OperationLogPage{}, err
 	}
 
 	totalPages := 0
@@ -90,29 +84,29 @@ func (s *Service) ListLogsPageFiltered(page int, pageSize int, filter domain.Ope
 		Page:       page,
 		PageSize:   pageSize,
 		TotalPages: totalPages,
-	}
+	}, nil
 }
 
 func (s *Service) ListLogs(limit int) []domain.OperationLog {
 	if limit <= 0 {
 		limit = 50
 	}
-	return s.ListLogsPage(1, limit).Items
+	page, err := s.ListLogsPage(1, limit)
+	if err != nil {
+		return nil
+	}
+	return page.Items
 }
 
 func (s *Service) GetOperationLog(id string) (domain.OperationLog, error) {
-	log, err := s.store.GetLog(id)
+	entry, err := s.store.GetLog(id)
 	if err != nil {
-		if err == sql.ErrNoRows || strings.Contains(err.Error(), "no rows") {
-			return domain.OperationLog{}, ErrNotFound
-		}
-		// sqlite driver may wrap no rows
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.OperationLog{}, ErrNotFound
 		}
 		return domain.OperationLog{}, err
 	}
-	return log, nil
+	return entry, nil
 }
 
 func (s *Service) ClearLogs() error {
@@ -256,7 +250,7 @@ func (s *Service) recordOpEx(rec OpRecord) string {
 	}
 	seed := fmt.Sprintf("%s-%s-%s-%d", rec.Action, videoID, rec.TargetPath, time.Now().UnixNano())
 	id := makeID(seed)
-	_ = s.store.AppendLog(domain.OperationLog{
+	if err := s.store.AppendLog(domain.OperationLog{
 		ID:         id,
 		Timestamp:  time.Now().UTC(),
 		Action:     rec.Action,
@@ -269,6 +263,9 @@ func (s *Service) recordOpEx(rec OpRecord) string {
 		Tool:       rec.Tool,
 		OpGroup:    rec.OpGroup,
 		Meta:       meta,
-	})
+	}); err != nil {
+		log.Printf("append operation log failed id=%s action=%s err=%v", id, rec.Action, err)
+		return ""
+	}
 	return id
 }

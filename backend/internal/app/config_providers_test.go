@@ -6,9 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/store"
 	"subtitle-ui/backend/internal/subtitle"
 )
 
@@ -26,7 +28,7 @@ func TestMCPConfigDefaultsAndUpdate(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 		MCPEnabled:     false,
 	})
 	if err != nil {
@@ -81,7 +83,7 @@ func TestSubHDConfigDefaultsAndUpdate(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 		SubHDEnabled:   true,
 		SubHDBaseURL:   "https://subhd.tv",
 		SubHDProxyURL:  "",
@@ -154,7 +156,7 @@ func TestSonarrConfigDefaultsAndUpdate(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 		SonarrEnabled:  true,
 		SonarrURL:      "http://127.0.0.1:8989",
 		SonarrAPIKey:   "env-key",
@@ -262,7 +264,7 @@ func TestJellyfinConfigDefaultsAndUpdate(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot:  movieRoot,
 		TVMediaRoot:     tvRoot,
-		DBPath:          filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:     store.TestDSN(t),
 		JellyfinEnabled: true,
 		JellyfinURL:     "http://127.0.0.1:8096",
 		JellyfinAPIKey:  "env-key",
@@ -390,7 +392,7 @@ func TestSubtitleConversionConfigDefaultsAndRejectsInvalidTemplate(t *testing.T)
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -436,5 +438,105 @@ func TestSubtitleConversionConfigDefaultsAndRejectsInvalidTemplate(t *testing.T)
 	}
 	if after.ASSTemplate != strings.TrimSpace(customTemplate) || after.SourceEncodingDefault != "gb18030" {
 		t.Fatalf("invalid update should not overwrite config")
+	}
+}
+
+func TestJellyfinInvalidPathMapDoesNotBlockService(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+	dsn := store.TestDSN(t)
+
+	disabled, err := NewService(config.Config{
+		MovieMediaRoot:  movieRoot,
+		TVMediaRoot:     tvRoot,
+		DatabaseURL:     dsn,
+		JellyfinEnabled: false,
+		JellyfinPathMap: "nocolon",
+	})
+	if err != nil {
+		t.Fatalf("disabled service with invalid env path map should start: %v", err)
+	}
+	defer func() {
+		_ = disabled.Close()
+	}()
+	if disabled.JellyfinEnabled() {
+		t.Fatal("expected jellyfin disabled")
+	}
+
+	enabledEnv, err := NewService(config.Config{
+		MovieMediaRoot:  movieRoot,
+		TVMediaRoot:     tvRoot,
+		DatabaseURL:     store.TestDSN(t),
+		JellyfinEnabled: true,
+		JellyfinURL:     "http://127.0.0.1:8096",
+		JellyfinAPIKey:  "env-key",
+		JellyfinPathMap: "nocolon",
+	})
+	if err != nil {
+		t.Fatalf("enabled service with invalid env path map should start: %v", err)
+	}
+	defer func() {
+		_ = enabledEnv.Close()
+	}()
+	if !enabledEnv.JellyfinEnabled() {
+		t.Fatal("expected jellyfin to stay enabled without path maps")
+	}
+
+	if _, err := disabled.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
+		Enabled: false,
+		URL:     "http://127.0.0.1:8096",
+		APIKey:  "kept-key",
+		PathMap: "nocolon",
+	}); err != nil {
+		t.Fatalf("disable with dirty path map should succeed: %v", err)
+	}
+	if _, err := disabled.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
+		Enabled: true,
+		URL:     "http://127.0.0.1:8096",
+		APIKey:  "kept-key",
+		PathMap: "nocolon",
+	}); !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("enable with invalid path map should fail, got %v", err)
+	}
+
+	if err := disabled.store.SetAppSettings(map[string]string{
+		settingJellyfinEnabled: "true",
+		settingJellyfinURL:     "http://127.0.0.1:8096",
+		settingJellyfinAPIKey:  "stored-key",
+		settingJellyfinPathMap: "nocolon",
+	}, time.Now().UTC()); err != nil {
+		t.Fatalf("persist dirty path map: %v", err)
+	}
+	if err := disabled.Close(); err != nil {
+		t.Fatalf("close before reopen: %v", err)
+	}
+
+	reopened, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DatabaseURL:    dsn,
+	})
+	if err != nil {
+		t.Fatalf("historical dirty path map should not block startup: %v", err)
+	}
+	defer func() {
+		_ = reopened.Close()
+	}()
+	cfg, err := reopened.GetJellyfinConfig()
+	if err != nil {
+		t.Fatalf("get jellyfin config after dirty reopen: %v", err)
+	}
+	if cfg.PathMap != "nocolon" {
+		t.Fatalf("expected dirty path map to remain visible, got %q", cfg.PathMap)
+	}
+	if !reopened.JellyfinEnabled() {
+		t.Fatal("expected stored enabled flag to apply with empty maps")
 	}
 }

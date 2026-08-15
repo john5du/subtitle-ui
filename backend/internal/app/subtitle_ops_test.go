@@ -11,6 +11,7 @@ import (
 
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/store"
 )
 
 func TestReadSubtitleContentReturnsStoredFileBytes(t *testing.T) {
@@ -46,7 +47,7 @@ func TestReadSubtitleContentReturnsStoredFileBytes(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -60,7 +61,7 @@ func TestReadSubtitleContentReturnsStoredFileBytes(t *testing.T) {
 		t.Fatalf("scan status error: %s", status.Error)
 	}
 
-	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	page := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20)
 	if len(page.Items) != 1 {
 		t.Fatalf("expected one movie, got %d", len(page.Items))
 	}
@@ -124,7 +125,7 @@ func TestUploadSubtitleWithASSConversionPreservesOriginalSRT(t *testing.T) {
 		t.Fatalf("expected converted dialogue, got %q", string(assBytes))
 	}
 
-	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	page := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20)
 	if len(page.Items) != 1 || len(page.Items[0].Subtitles) != 2 {
 		t.Fatalf("expected srt and ass subtitles, got page=%+v", page)
 	}
@@ -215,7 +216,7 @@ func TestConvertExistingSRTSubtitleToASS(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(video.Directory, "movie-a.zh.ass")); err != nil {
 		t.Fatalf("expected converted ass file: %v", err)
 	}
-	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	page := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20)
 	originalSRT, ok := findSubtitleByFileName(page.Items[0].Subtitles, "movie-a.zh.srt")
 	if !ok {
 		t.Fatalf("expected original srt subtitle")
@@ -265,10 +266,7 @@ func TestDeleteSubtitleBacksUpAndLogs(t *testing.T) {
 	if deleteLog.Status != "ok" || deleteLog.BackupPath == "" {
 		t.Fatalf("unexpected delete log: %+v", deleteLog)
 	}
-	updated, found := svc.GetVideo(video.ID)
-	if !found {
-		t.Fatalf("expected video to remain after subtitle delete")
-	}
+	updated := mustGetVideo(t, svc, video.ID)
 	if len(updated.Subtitles) != 0 {
 		t.Fatalf("expected no subtitles after delete, got %+v", updated.Subtitles)
 	}

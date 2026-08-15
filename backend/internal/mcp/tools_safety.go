@@ -69,12 +69,16 @@ func registerSafetyTools(s *mcp.Server, svc *app.Service) {
 		if pageSize < 1 {
 			pageSize = 30
 		}
-		return nil, svc.ListLogsPageFiltered(page, pageSize, domain.OperationLogFilter{
+		pageData, err := svc.ListLogsPageFiltered(page, pageSize, domain.OperationLogFilter{
 			Action:  in.Action,
 			VideoID: in.VideoID,
 			Source:  in.Source,
 			Tool:    in.Tool,
-		}), nil
+		})
+		if err != nil {
+			return nil, domain.OperationLogPage{}, err
+		}
+		return nil, pageData, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

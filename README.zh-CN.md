@@ -34,7 +34,7 @@ English version: [`README.md`](./README.md)
 1. 推送前可本地验证（可选）：
 
 ```bash
-go test ./...
+go test ./backend/...
 cd frontend
 bun run build
 ```
@@ -45,7 +45,7 @@ bun run build
 git push origin main
 ```
 
-3. 推送到 `main` 会触发 `.github/workflows/docker-publish.yml`：先跑单元测试（`go test ./...`），再基于版本文件解析下一 patch，构建并推送镜像；成功后再把版本文件同步回 `main`，并在该提交上创建标签 `vX.Y.Z`。
+3. 推送到 `main` 会触发 `.github/workflows/docker-publish.yml`：先跑单元测试（`go test ./backend/...`），再基于版本文件解析下一 patch，构建并推送镜像；成功后再把版本文件同步回 `main`，并在该提交上创建标签 `vX.Y.Z`。
 4. 也可以通过 `workflow_dispatch` 手动运行工作流；可选版本输入支持 `0.7.3` 或 `v0.7.3`，不填写时会基于版本文件自动递增 patch。
 5. `github-actions[bot]` 的版本同步提交（`chore: sync version files…`）不会再次触发发版。
 6. 发版结果核对：
@@ -181,7 +181,7 @@ cp scripts/.env.example scripts/.env   # 首次：填入密钥（scripts/.env �
 ```
 
 - 自动加载 `scripts/.env`，再加载 `scripts/.env.local`（已在 shell 中 export 的变量优先）。见 `scripts/.env.example`。
-
+- 若未设置 `DATABASE_URL`，会启动 **仅供开发** 的 Compose Postgres（`127.0.0.1:5432`，`postgres:16`，用户/密码/库为 `subtitle` / `subtitle` / `subtitle_ui`），并等到健康检查通过。
 - 前端：`http://localhost:3300`
 - 后端：`http://localhost:9307`
 - 日志：`tmp/frontend.out.log`, `tmp/frontend.err.log`, `tmp/backend.out.log`, `tmp/backend.err.log`
@@ -257,81 +257,92 @@ bun run build
 docker build -t subtitle-ui:local .
 ```
 
-运行容器（bind mount 示例）：
+运行容器（需要 PostgreSQL 与必填环境变量；镜像内 `APP_ENV=production`）：
 
 ```bash
-docker run --rm -p 9307:9307 \
+docker network inspect subtitle-ui >/dev/null 2>&1 || docker network create subtitle-ui
+
+docker run -d --name subtitle-ui-pg --network subtitle-ui \
+  -e POSTGRES_USER=subtitle \
+  -e POSTGRES_PASSWORD=subtitle \
+  -e POSTGRES_DB=subtitle_ui \
+  --health-cmd="pg_isready -U subtitle -d subtitle_ui" \
+  --health-interval=3s --health-timeout=3s --health-retries=20 \
+  postgres:16-alpine
+
+for i in $(seq 1 60); do
+  status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' subtitle-ui-pg 2>/dev/null || true)"
+  case "$status" in
+    healthy) break ;;
+    unhealthy|exited|dead)
+      echo "Postgres failed (status=$status)" >&2
+      exit 1
+      ;;
+  esac
+  if [ "$i" -eq 60 ]; then
+    echo "Timed out waiting for Postgres to become healthy" >&2
+    exit 1
+  fi
+  sleep 1
+done
+
+docker run --rm --network subtitle-ui -p 9307:9307 \
+  -e DATABASE_URL='postgres://subtitle:subtitle@subtitle-ui-pg:5432/subtitle_ui?sslmode=disable' \
+  -e ADMIN_TOKEN='replace-me' \
+  -e STREAM_TICKET_SECRET='replace-me-too' \
   -v /path/to/movies:/data/media/movies \
   -v /path/to/tv:/data/media/tv \
-  -v /path/to/data:/data \
   ghcr.io/john5du/subtitle-ui:latest
 ```
 
 - 应用在 `:9307` 同时提供 API 和前端服务。
+- 运行时必填：`DATABASE_URL`（PostgreSQL）、`ADMIN_TOKEN`、`STREAM_TICKET_SECRET`。
 - 默认容器路径：
   - `MOVIE_MEDIA_ROOT=/data/media/movies`
   - `TV_MEDIA_ROOT=/data/media/tv`
-  - `DB_PATH=/data/subtitle_manager.sqlite3`
-  - `DATABASE_URL` 默认不设置，因此使用 SQLite
+  - `APP_ENV=production`
   - `UI_DIST=/app/frontend/out`
 - 媒体目录挂载必须可写，因为字幕文件会原地创建/替换。
+- 共享部署前请改掉示例密码和令牌。
 
-使用 Docker Compose 运行（SQLite）：
-
-```yaml
-services:
-  subtitle-ui:
-    image: ghcr.io/john5du/subtitle-ui:latest
-    container_name: subtitle-ui
-    ports:
-      - "9307:9307"
-    environment:
-      MOVIE_MEDIA_ROOT: /data/media/movies
-      TV_MEDIA_ROOT: /data/media/tv
-      DB_PATH: /data/subtitle_manager.sqlite3
-      UI_DIST: /app/frontend/out
-    volumes:
-      - /path/to/movies:/data/media/movies
-      - /path/to/tv:/data/media/tv
-      - /path/to/data:/data
-    restart: unless-stopped
-```
-
-```bash
-docker compose up -d
-```
-
-PostgreSQL 变体：
+推荐用 Docker Compose（与本地 `docker-compose.yml` / `scripts/.env.example` 相同的 Postgres 16 账号）：
 
 ```yaml
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:16-alpine
     environment:
+      POSTGRES_USER: subtitle
+      POSTGRES_PASSWORD: subtitle
       POSTGRES_DB: subtitle_ui
-      POSTGRES_USER: subtitle_ui
-      POSTGRES_PASSWORD: change-me
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U subtitle -d subtitle_ui"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
     restart: unless-stopped
 
   subtitle-ui:
     image: ghcr.io/john5du/subtitle-ui:latest
     container_name: subtitle-ui
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "9307:9307"
     environment:
       MOVIE_MEDIA_ROOT: /data/media/movies
       TV_MEDIA_ROOT: /data/media/tv
-      DB_PATH: /data/subtitle_manager.sqlite3
-      DATABASE_URL: postgres://subtitle_ui:change-me@postgres:5432/subtitle_ui?sslmode=disable
+      APP_ENV: production
+      DATABASE_URL: postgres://subtitle:subtitle@postgres:5432/subtitle_ui?sslmode=disable
+      ADMIN_TOKEN: replace-me
+      STREAM_TICKET_SECRET: replace-me-too
       UI_DIST: /app/frontend/out
     volumes:
       - /path/to/movies:/data/media/movies
       - /path/to/tv:/data/media/tv
-      - /path/to/data:/data
     restart: unless-stopped
 
 volumes:
@@ -342,7 +353,7 @@ volumes:
 
 - 工作流文件：`.github/workflows/docker-publish.yml`
 - 触发条件：推送到 `main` 或手动执行 `workflow_dispatch`
-- 流程：单元测试（`go test ./...`）→ 解析 patch 版本 → 构建/推送镜像 → 同步版本文件 → 打标签
+- 流程：单元测试（`go test ./backend/...`）→ 解析 patch 版本 → 构建/推送镜像 → 同步版本文件 → 打标签
 - bot 的版本同步提交不会再次触发发版
 - 镜像仓库：`ghcr.io/john5du/subtitle-ui`
 - 发布标签：
@@ -360,8 +371,7 @@ volumes:
 - `MOVIE_MEDIA_ROOT` 默认 `./media/movies`
 - `TV_MEDIA_ROOT` 默认 `./media/tv`
 - `MEDIA_ROOT` 旧版兜底（若设置且 `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` 未设置，则两者都使用它）
-- `DB_PATH` 默认 `./tmp/subtitle_manager.sqlite3`；SQLite 路径，设置 `DATABASE_URL` 时也作为迁移源
-- `DATABASE_URL` 可选 PostgreSQL DSN；设置后使用 PostgreSQL 而不是 SQLite
+- `DATABASE_URL` 必填的 PostgreSQL DSN
 - `UI_DIST` 默认 `./frontend/out`
 - `CORS_ALLOWED_ORIGINS` 逗号分隔的允许来源列表，用于跨来源写入类 API 请求
 - `ADMIN_TOKEN` 管理员 API 令牌（未设置时默认 `change-me`）。不安全默认值会被拒绝，除非改为强密钥，或（仅非 production）设置 `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true`（`./scripts/dev-up.sh` 在未设置时会自动打开该开关）。除「后端 API」一节列出的公开路径外，全部 `/api/*` 与 `/mcp` 需 Bearer（health、poster、带 ticket 的 stream/HLS）。前端登录页会把令牌保存在 `localStorage`。
@@ -390,7 +400,7 @@ Jellyfin（可选；字幕通知 + 播放预览；URL+key 已配置则启用，�
 - `JELLYFIN_ENABLED`
 - `JELLYFIN_PATH_MAP` 形如 `local:jellyfin,...`（两边挂载根不同时）
 - `JELLYFIN_USER_ID` 可选 PlaybackInfo 用户 GUID；空则自动选管理员
-- `STREAM_TICKET_SECRET` 可选（否则用 `ADMIN_TOKEN`）
+- `STREAM_TICKET_SECRET` 生产环境必填；开发环境留空则回落到 `ADMIN_TOKEN`
 - `STREAM_TICKET_TTL` 默认 `15m`
 
 更多示例见 `scripts/.env.example`；面向开发代理的细节见 [`AGENTS.md`](./AGENTS.md)。前端 UI 约定：[`docs/frontend-ui.md`](./docs/frontend-ui.md)、[`docs/frontend-dialogs.md`](./docs/frontend-dialogs.md)。
@@ -402,5 +412,4 @@ Jellyfin（可选；字幕通知 + 播放预览；URL+key 已配置则启用，�
 - 扫描器：电影使用 `{base}.nfo` / `movie.nfo`；电视剧还会向上查找 `tvshow.nfo`。没有可用 NFO 的视频会被跳过。
 - 海报查找顺序 — 电影：`poster`、`movie`、`folder`、`<base>-poster`、`<base>`、`cover`；电视剧（剧根目录）：`poster`、`folder`、`fanart`。
 - 替换与删除操作会先备份原字幕文件再写入。
-- 首次连接 PostgreSQL 时，会从 `DB_PATH` 指向的 SQLite 数据库导入一次数据。在打开或升级 SQLite 源库前，应用会先在同目录创建 `<db>.backup-<UTC 时间戳>` 形式的备份；如果存在 `-wal`/`-shm` 旁路文件，也会一起复制。如果 PostgreSQL 业务表已有数据且没有导入标记，启动会失败，避免自动合并或覆盖数据。
 - 本项目尚未达到生产级硬化。

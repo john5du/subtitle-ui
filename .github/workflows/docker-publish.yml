@@ -74,7 +74,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Run unit tests
-        run: go test ./...
+        run: go test ./backend/...
 
       - name: Resolve release context
         id: release

@@ -30,7 +30,7 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 
 	beforeVideos, beforeErr := s.listAllVideos()
 	if beforeErr != nil {
-		beforeVideos = []domain.Video{}
+		return domain.ScanStatus{Error: beforeErr.Error()}
 	}
 	previousByPath := make(map[string]domain.Video, len(beforeVideos))
 	for _, video := range beforeVideos {
@@ -410,14 +410,24 @@ func (s *Service) populateDirectoryScanCounts(result *domain.DirectoryScanResult
 		return
 	}
 
-	result.MovieCount = s.ListVideosPage("", domain.MediaTypeMovie, "", 1, 1, "", "").Total
-	result.TVSeriesCount = s.countTVSeries()
+	page, err := s.ListVideosPage("", domain.MediaTypeMovie, "", 1, 1, "", "")
+	if err != nil {
+		result.Errors = append(result.Errors, "movie count: "+err.Error())
+	} else {
+		result.MovieCount = page.Total
+	}
+	tvCount, err := s.countTVSeries()
+	if err != nil {
+		result.Errors = append(result.Errors, "tv series count: "+err.Error())
+	} else {
+		result.TVSeriesCount = tvCount
+	}
 }
 
-func (s *Service) countTVSeries() int {
+func (s *Service) countTVSeries() (int, error) {
 	dirs, err := s.store.ListVideoDirectories(domain.MediaTypeTV)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 	tvRoot := strings.TrimSpace(s.cfg.TVMediaRoot)
 	seen := make(map[string]struct{}, len(dirs))
@@ -428,5 +438,5 @@ func (s *Service) countTVSeries() int {
 		}
 		seen[key] = struct{}{}
 	}
-	return len(seen)
+	return len(seen), nil
 }

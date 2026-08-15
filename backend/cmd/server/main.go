@@ -51,9 +51,6 @@ func main() {
 	rootCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	initialStatus := service.RunScan(rootCtx)
-	log.Printf("initial scan: videos=%d error=%q", initialStatus.VideoCount, initialStatus.Error)
-
 	srv := &http.Server{
 		Addr:              cfg.ServerAddr,
 		Handler:           api.NewServerWithConfig(service, cfg).Handler(),
@@ -67,16 +64,10 @@ func main() {
 	log.Printf("version: %s", version.Value)
 	log.Printf("movie media root: %s", cfg.MovieMediaRoot)
 	log.Printf("tv media root: %s", cfg.TVMediaRoot)
-	if cfg.DatabaseURL != "" {
-		log.Printf("database: postgres (%s)", config.RedactDatabaseURL(cfg.DatabaseURL))
-		log.Printf("sqlite migration source: %s", cfg.DBPath)
-	} else {
-		log.Printf("database: sqlite")
-		log.Printf("db path: %s", cfg.DBPath)
-	}
+	log.Printf("database: postgres (%s)", config.RedactDatabaseURL(cfg.DatabaseURL))
 	log.Printf("ui dist: %s", cfg.UIDist)
 	if cfg.AdminTokenIsDefault {
-		log.Printf("admin auth: using insecure default token %q (ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN) — set ADMIN_TOKEN to a strong secret", cfg.AdminToken)
+		log.Printf("admin auth: using insecure default token (ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN) — set ADMIN_TOKEN to a strong secret")
 	} else {
 		log.Printf("admin auth: enabled (token from ADMIN_TOKEN)")
 	}
@@ -93,6 +84,11 @@ func main() {
 			return
 		}
 		serverErr <- nil
+	}()
+
+	go func() {
+		initialStatus := service.RunScan(rootCtx)
+		log.Printf("initial scan: videos=%d error=%q", initialStatus.VideoCount, initialStatus.Error)
 	}()
 
 	select {

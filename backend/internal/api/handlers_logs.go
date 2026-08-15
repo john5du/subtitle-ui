@@ -35,7 +35,12 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 		if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" && strings.TrimSpace(r.URL.Query().Get("pageSize")) == "" {
 			pageSize = parsePositiveIntOrDefault(rawLimit, pageSize)
 		}
-		writeJSON(w, http.StatusOK, s.service.ListLogsPage(page, pageSize))
+		pageData, err := s.service.ListLogsPage(page, pageSize)
+		if err != nil {
+			s.writeAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, pageData)
 	case http.MethodDelete:
 		if err := s.service.ClearLogs(); err != nil {
 			writeError(w, http.StatusInternalServerError, "clear logs failed")

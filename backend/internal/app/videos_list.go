@@ -10,7 +10,7 @@ import (
 	"subtitle-ui/backend/internal/version"
 )
 
-func (s *Service) ListVideosPage(query string, mediaType string, directory string, page int, pageSize int, sortBy string, sortOrder string) domain.VideoPage {
+func (s *Service) ListVideosPage(query string, mediaType string, directory string, page int, pageSize int, sortBy string, sortOrder string) (domain.VideoPage, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -23,13 +23,7 @@ func (s *Service) ListVideosPage(query string, mediaType string, directory strin
 
 	videos, total, err := s.store.ListVideos(query, mediaType, directory, page, pageSize, sortBy, sortOrder)
 	if err != nil {
-		return domain.VideoPage{
-			Items:      []domain.Video{},
-			Total:      0,
-			Page:       page,
-			PageSize:   pageSize,
-			TotalPages: 0,
-		}
+		return domain.VideoPage{}, err
 	}
 
 	totalPages := 0
@@ -43,7 +37,7 @@ func (s *Service) ListVideosPage(query string, mediaType string, directory strin
 		Page:       page,
 		PageSize:   pageSize,
 		TotalPages: totalPages,
-	}
+	}, nil
 }
 
 func (s *Service) VersionInfo() domain.VersionInfo {
@@ -53,12 +47,15 @@ func (s *Service) VersionInfo() domain.VersionInfo {
 	}
 }
 
-func (s *Service) GetVideo(videoID string) (domain.Video, bool) {
+func (s *Service) GetVideo(videoID string) (domain.Video, error) {
 	video, found, err := s.store.GetVideo(videoID)
 	if err != nil {
-		return domain.Video{}, false
+		return domain.Video{}, err
 	}
-	return video, found
+	if !found {
+		return domain.Video{}, ErrNotFound
+	}
+	return video, nil
 }
 
 func (s *Service) listAllTVVideos() ([]domain.Video, error) {

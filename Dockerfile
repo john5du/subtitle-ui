@@ -22,8 +22,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o
 FROM alpine:3.23
 WORKDIR /app
 
-# ca-certificates only — video preview proxies Jellyfin static streams (no local ffmpeg remux).
-RUN apk add --no-cache ca-certificates \
+# ca-certificates + wget (HEALTHCHECK). Video preview proxies Jellyfin (no local ffmpeg).
+RUN apk add --no-cache ca-certificates wget \
     && addgroup -S app \
     && adduser -S app -G app \
     && mkdir -p /app/frontend/out /data/media/movies /data/media/tv \
@@ -32,13 +32,18 @@ RUN apk add --no-cache ca-certificates \
 COPY --from=backend-builder /out/server /app/server
 COPY --from=frontend-builder /workspace/frontend/out /app/frontend/out
 
-ENV SERVER_ADDR=:9307 \
+ENV APP_ENV=production \
+    SERVER_ADDR=:9307 \
     MOVIE_MEDIA_ROOT=/data/media/movies \
     TV_MEDIA_ROOT=/data/media/tv \
-    DB_PATH=/data/subtitle_manager.sqlite3 \
     UI_DIST=/app/frontend/out
 
 EXPOSE 9307
+
+# /api/health is the public probe and Pings PostgreSQL (503 if the DB is down).
+# There is no separate /ready endpoint.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:9307/api/health >/dev/null || exit 1
 
 USER app
 ENTRYPOINT ["/app/server"]

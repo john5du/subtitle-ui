@@ -11,6 +11,7 @@ import (
 
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/store"
 )
 
 func TestRunFileScanWritesScanLogWithChangeSummary(t *testing.T) {
@@ -40,7 +41,7 @@ func TestRunFileScanWritesScanLogWithChangeSummary(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -94,7 +95,7 @@ func TestCheckMediaRootWritePermissionsWritesErrorLog(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -182,7 +183,7 @@ func TestDirectoryScanResultIncludesIndexedMovieAndSeriesCounts(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -240,7 +241,7 @@ func TestRunFileScanErrorDoesNotWipeOtherMediaType(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -252,10 +253,10 @@ func TestRunFileScanErrorDoesNotWipeOtherMediaType(t *testing.T) {
 	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatalf("initial scan: %s", status.Error)
 	}
-	if total := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "").Total; total != 1 {
+	if total := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20).Total; total != 1 {
 		t.Fatalf("expected 1 movie, got %d", total)
 	}
-	if total := svc.ListVideosPage("", domain.MediaTypeTV, "", 1, 20, "", "").Total; total != 1 {
+	if total := mustListVideosPage(t, svc, domain.MediaTypeTV, 20).Total; total != 1 {
 		t.Fatalf("expected 1 tv, got %d", total)
 	}
 
@@ -268,10 +269,10 @@ func TestRunFileScanErrorDoesNotWipeOtherMediaType(t *testing.T) {
 	if status.Error == "" {
 		t.Fatal("expected scan error after tv root removed")
 	}
-	if total := svc.ListVideosPage("", domain.MediaTypeTV, "", 1, 20, "", "").Total; total != 1 {
+	if total := mustListVideosPage(t, svc, domain.MediaTypeTV, 20).Total; total != 1 {
 		t.Fatalf("tv library must not be wiped on partial scan failure, got total=%d err=%q", total, status.Error)
 	}
-	if total := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "").Total; total != 1 {
+	if total := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20).Total; total != 1 {
 		t.Fatalf("movie library should remain, got total=%d", total)
 	}
 }
@@ -302,7 +303,7 @@ func TestRunFileScanPartialScopeDoesNotWipeOtherVideos(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -314,7 +315,7 @@ func TestRunFileScanPartialScopeDoesNotWipeOtherVideos(t *testing.T) {
 	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatalf("initial scan: %s", status.Error)
 	}
-	if total := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "").Total; total != 2 {
+	if total := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20).Total; total != 2 {
 		t.Fatalf("expected 2 movies after initial scan, got %d", total)
 	}
 
@@ -329,7 +330,7 @@ func TestRunFileScanPartialScopeDoesNotWipeOtherVideos(t *testing.T) {
 	if status := svc.RunFileScan(context.Background(), []string{replaceDir}, nil); status.Error != "" {
 		t.Fatalf("partial scan: %s", status.Error)
 	}
-	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	page := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20)
 	if page.Total != 2 {
 		t.Fatalf("expected 2 movies after partial scan, got %d", page.Total)
 	}
@@ -392,7 +393,7 @@ func TestRunFileScanPersistsPosterPaths(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -406,7 +407,7 @@ func TestRunFileScanPersistsPosterPaths(t *testing.T) {
 		t.Fatalf("scan status error: %s", status.Error)
 	}
 
-	moviePage := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	moviePage := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20)
 	if len(moviePage.Items) != 1 {
 		t.Fatalf("expected 1 movie, got %d", len(moviePage.Items))
 	}
@@ -414,7 +415,7 @@ func TestRunFileScanPersistsPosterPaths(t *testing.T) {
 		t.Fatalf("expected movie poster %q, got %q", moviePosterPath, moviePage.Items[0].PosterPath)
 	}
 
-	tvPage := svc.ListVideosPage("", domain.MediaTypeTV, "", 1, 20, "", "")
+	tvPage := mustListVideosPage(t, svc, domain.MediaTypeTV, 20)
 	if len(tvPage.Items) != 1 {
 		t.Fatalf("expected 1 tv episode, got %d", len(tvPage.Items))
 	}
@@ -448,7 +449,7 @@ func TestRunFileScanSkipsUnchangedVideos(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -499,7 +500,7 @@ func TestRunFileScanSkipsUnchangedVideos(t *testing.T) {
 		t.Fatalf("expected updated=1 after subtitle add, got %q", thirdLog.Message)
 	}
 
-	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	page := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20)
 	if len(page.Items) != 1 || len(page.Items[0].Subtitles) != 1 {
 		t.Fatalf("expected one video with one subtitle after rescan, got %+v", page.Items)
 	}
@@ -530,7 +531,7 @@ func TestRunFileScanMarksPosterChangesAsVideoUpdates(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -585,7 +586,7 @@ func TestResolveVideoPosterPathRejectsUnsafeCandidate(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)

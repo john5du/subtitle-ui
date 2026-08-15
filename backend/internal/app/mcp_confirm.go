@@ -116,7 +116,7 @@ func (s *Service) ValidateMCPConfirmToken(tool string, params any, token string)
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return fmt.Errorf("%w: invalid confirmToken", ErrBadRequest)
 	}
-	if env.V != 1 && env.V != 2 {
+	if env.V != 2 {
 		return fmt.Errorf("%w: unsupported confirmToken version", ErrBadRequest)
 	}
 	if env.Tool != tool {
@@ -139,14 +139,11 @@ func (s *Service) ValidateMCPConfirmToken(tool string, params any, token string)
 	if !hmac.Equal([]byte(env.Mac), []byte(wantMac)) {
 		return fmt.Errorf("%w: confirmToken signature invalid", ErrBadRequest)
 	}
-	// v1 tokens have empty nonce — allow without single-use (legacy).
-	if env.V >= 2 {
-		if env.Nonce == "" {
-			return fmt.Errorf("%w: confirmToken missing nonce", ErrBadRequest)
-		}
-		if !s.confirmNonces.consume(env.Nonce, env.Exp) {
-			return fmt.Errorf("%w: confirmToken already used — request a new preview", ErrBadRequest)
-		}
+	if env.Nonce == "" {
+		return fmt.Errorf("%w: confirmToken missing nonce", ErrBadRequest)
+	}
+	if !s.confirmNonces.consume(env.Nonce, env.Exp) {
+		return fmt.Errorf("%w: confirmToken already used — request a new preview", ErrBadRequest)
 	}
 	return nil
 }
@@ -157,10 +154,6 @@ func (s *Service) signConfirm(tool, hash string, exp int64, nonce string) (strin
 		return "", fmt.Errorf("%w: no secret for confirm tokens", ErrBadRequest)
 	}
 	payload := fmt.Sprintf("mcp-confirm|v2|%s|%s|%d|%s", tool, hash, exp, nonce)
-	if nonce == "" {
-		// v1 compatibility for signing checks on legacy tokens (no nonce in MAC).
-		payload = fmt.Sprintf("mcp-confirm|v1|%s|%s|%d", tool, hash, exp)
-	}
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(payload))
 	return hex.EncodeToString(mac.Sum(nil)), nil

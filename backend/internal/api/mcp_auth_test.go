@@ -13,6 +13,7 @@ import (
 	"subtitle-ui/backend/internal/app"
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/store"
 )
 
 func newMCPTestServer(t *testing.T, mcpBootstrap bool) (*Server, *app.Service) {
@@ -29,7 +30,7 @@ func newMCPTestServer(t *testing.T, mcpBootstrap bool) (*Server, *app.Service) {
 	svc, err := app.NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 		MCPEnabled:     mcpBootstrap,
 	})
 	if err != nil {

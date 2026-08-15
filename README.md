@@ -34,7 +34,7 @@ A Go + Next.js web application for managing subtitle files alongside a Jellyfin-
 1. Optional local check before pushing:
 
 ```bash
-go test ./...
+go test ./backend/...
 cd frontend
 bun run build
 ```
@@ -45,7 +45,7 @@ bun run build
 git push origin main
 ```
 
-3. Pushing to `main` triggers `.github/workflows/docker-publish.yml`, which runs unit tests (`go test ./...`), resolves the next patch version from the version files, builds and pushes the image, then syncs version files back to `main` and creates tag `vX.Y.Z` on that commit.
+3. Pushing to `main` triggers `.github/workflows/docker-publish.yml`, which runs unit tests (`go test ./backend/...`), resolves the next patch version from the version files, builds and pushes the image, then syncs version files back to `main` and creates tag `vX.Y.Z` on that commit.
 4. You can also run the workflow manually with `workflow_dispatch`; the optional version input accepts `0.7.3` or `v0.7.3`, and if omitted the workflow increments the patch version from the version files.
 5. Version-sync commits from `github-actions[bot]` (`chore: sync version files…`) do not re-trigger release.
 6. Confirm release artifacts:
@@ -181,6 +181,7 @@ cp scripts/.env.example scripts/.env   # once; fill secrets (gitignored)
 ```
 
 - Loads `scripts/.env` then `scripts/.env.local` (shell-exported vars win). See `scripts/.env.example`.
+- If `DATABASE_URL` is unset, starts the **dev-only** Compose Postgres (`127.0.0.1:5432`, `postgres:16`, user/password/db `subtitle` / `subtitle` / `subtitle_ui`) and waits until it is healthy.
 - Frontend: `http://localhost:3300`
 - Backend: `http://localhost:9307`
 - Logs: `tmp/frontend.out.log`, `tmp/frontend.err.log`, `tmp/backend.out.log`, `tmp/backend.err.log`
@@ -256,81 +257,92 @@ Build image locally:
 docker build -t subtitle-ui:local .
 ```
 
-Run container (example with bind mounts):
+Run container (PostgreSQL plus required env — the image sets `APP_ENV=production`):
 
 ```bash
-docker run --rm -p 9307:9307 \
+docker network inspect subtitle-ui >/dev/null 2>&1 || docker network create subtitle-ui
+
+docker run -d --name subtitle-ui-pg --network subtitle-ui \
+  -e POSTGRES_USER=subtitle \
+  -e POSTGRES_PASSWORD=subtitle \
+  -e POSTGRES_DB=subtitle_ui \
+  --health-cmd="pg_isready -U subtitle -d subtitle_ui" \
+  --health-interval=3s --health-timeout=3s --health-retries=20 \
+  postgres:16-alpine
+
+for i in $(seq 1 60); do
+  status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' subtitle-ui-pg 2>/dev/null || true)"
+  case "$status" in
+    healthy) break ;;
+    unhealthy|exited|dead)
+      echo "Postgres failed (status=$status)" >&2
+      exit 1
+      ;;
+  esac
+  if [ "$i" -eq 60 ]; then
+    echo "Timed out waiting for Postgres to become healthy" >&2
+    exit 1
+  fi
+  sleep 1
+done
+
+docker run --rm --network subtitle-ui -p 9307:9307 \
+  -e DATABASE_URL='postgres://subtitle:subtitle@subtitle-ui-pg:5432/subtitle_ui?sslmode=disable' \
+  -e ADMIN_TOKEN='replace-me' \
+  -e STREAM_TICKET_SECRET='replace-me-too' \
   -v /path/to/movies:/data/media/movies \
   -v /path/to/tv:/data/media/tv \
-  -v /path/to/data:/data \
   ghcr.io/john5du/subtitle-ui:latest
 ```
 
 - App entrypoint serves both API and frontend on `:9307`.
+- Required at runtime: `DATABASE_URL` (PostgreSQL), `ADMIN_TOKEN`, and `STREAM_TICKET_SECRET`.
 - Default container paths:
   - `MOVIE_MEDIA_ROOT=/data/media/movies`
   - `TV_MEDIA_ROOT=/data/media/tv`
-  - `DB_PATH=/data/subtitle_manager.sqlite3`
-  - `DATABASE_URL` unset by default, so SQLite is used
+  - `APP_ENV=production`
   - `UI_DIST=/app/frontend/out`
 - Media root mounts must be writable because subtitle files are created/replaced in-place.
+- Change the example passwords and tokens before any shared deployment.
 
-Run with Docker Compose using SQLite:
-
-```yaml
-services:
-  subtitle-ui:
-    image: ghcr.io/john5du/subtitle-ui:latest
-    container_name: subtitle-ui
-    ports:
-      - "9307:9307"
-    environment:
-      MOVIE_MEDIA_ROOT: /data/media/movies
-      TV_MEDIA_ROOT: /data/media/tv
-      DB_PATH: /data/subtitle_manager.sqlite3
-      UI_DIST: /app/frontend/out
-    volumes:
-      - /path/to/movies:/data/media/movies
-      - /path/to/tv:/data/media/tv
-      - /path/to/data:/data
-    restart: unless-stopped
-```
-
-```bash
-docker compose up -d
-```
-
-PostgreSQL variant:
+Recommended: Docker Compose (same Postgres 16 account as local `docker-compose.yml` / `scripts/.env.example`):
 
 ```yaml
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:16-alpine
     environment:
+      POSTGRES_USER: subtitle
+      POSTGRES_PASSWORD: subtitle
       POSTGRES_DB: subtitle_ui
-      POSTGRES_USER: subtitle_ui
-      POSTGRES_PASSWORD: change-me
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U subtitle -d subtitle_ui"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
     restart: unless-stopped
 
   subtitle-ui:
     image: ghcr.io/john5du/subtitle-ui:latest
     container_name: subtitle-ui
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "9307:9307"
     environment:
       MOVIE_MEDIA_ROOT: /data/media/movies
       TV_MEDIA_ROOT: /data/media/tv
-      DB_PATH: /data/subtitle_manager.sqlite3
-      DATABASE_URL: postgres://subtitle_ui:change-me@postgres:5432/subtitle_ui?sslmode=disable
+      APP_ENV: production
+      DATABASE_URL: postgres://subtitle:subtitle@postgres:5432/subtitle_ui?sslmode=disable
+      ADMIN_TOKEN: replace-me
+      STREAM_TICKET_SECRET: replace-me-too
       UI_DIST: /app/frontend/out
     volumes:
       - /path/to/movies:/data/media/movies
       - /path/to/tv:/data/media/tv
-      - /path/to/data:/data
     restart: unless-stopped
 
 volumes:
@@ -341,8 +353,8 @@ volumes:
 
 - Workflow file: `.github/workflows/docker-publish.yml`
 - Trigger: push to `main` or manual `workflow_dispatch`
-- Pipeline: unit tests (`go test ./...`) → resolve patch version → image build/push → version file sync → tag
-- Bot version-sync commits do not re-trigger release
+- Pipeline: unit tests (`go test ./backend/...`) → resolve patch version → image build/push → version file sync → tag
+- Bot version-sync commits (`chore: sync version files…`) do not re-trigger release
 - Registry: `ghcr.io/john5du/subtitle-ui`
 - Tags published:
   - semantic tag (`vX.Y.Z`)
@@ -359,8 +371,7 @@ Core:
 - `MOVIE_MEDIA_ROOT` default `./media/movies`
 - `TV_MEDIA_ROOT` default `./media/tv`
 - `MEDIA_ROOT` legacy fallback (if set and `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` not set, both use it)
-- `DB_PATH` default `./tmp/subtitle_manager.sqlite3`; SQLite path and import source when `DATABASE_URL` is set
-- `DATABASE_URL` optional PostgreSQL DSN; when set, PostgreSQL is used instead of SQLite
+- `DATABASE_URL` required PostgreSQL DSN
 - `UI_DIST` default `./frontend/out`
 - `CORS_ALLOWED_ORIGINS` comma-separated allowed origins for mutating cross-origin API requests
 - `ADMIN_TOKEN` admin API token (default `change-me` when unset). The insecure default is rejected unless you set a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true` (`./scripts/dev-up.sh` sets the opt-in when unset). Bearer required on `/api/*` and `/mcp` except public paths listed under Backend API (health, poster, ticket stream/HLS). The UI stores the token in `localStorage`.
@@ -389,7 +400,7 @@ Jellyfin (optional; subtitle notify + stream preview; enabled when URL+key set u
 - `JELLYFIN_ENABLED`
 - `JELLYFIN_PATH_MAP` `local:jellyfin,...` when bind-mount roots differ
 - `JELLYFIN_USER_ID` optional PlaybackInfo user GUID; empty auto-picks an admin
-- `STREAM_TICKET_SECRET` optional (else `ADMIN_TOKEN`)
+- `STREAM_TICKET_SECRET` required in production; empty in development falls back to `ADMIN_TOKEN`
 - `STREAM_TICKET_TTL` default `15m`
 
 See also `scripts/.env.example` and agent-oriented detail in [`AGENTS.md`](./AGENTS.md). Frontend UI conventions: [`docs/frontend-ui.md`](./docs/frontend-ui.md), [`docs/frontend-dialogs.md`](./docs/frontend-dialogs.md).
@@ -401,5 +412,4 @@ See also `scripts/.env.example` and agent-oriented detail in [`AGENTS.md`](./AGE
 - Scanner: movies use `{base}.nfo` / `movie.nfo`; TV also walks up for `tvshow.nfo`. Videos with no usable NFO are skipped.
 - Poster resolution order — movies: `poster`, `movie`, `folder`, `<base>-poster`, `<base>`, `cover`; TV (at series root): `poster`, `folder`, `fanart`.
 - Replace and delete operations back up the existing subtitle file before writing.
-- On the first PostgreSQL connection, existing SQLite data from `DB_PATH` is imported once. Before the SQLite source is opened or upgraded, the app creates a sibling backup named like `<db>.backup-<UTC timestamp>` and also copies `-wal`/`-shm` sidecar files when present. If the PostgreSQL business tables already contain data and no import marker exists, startup fails instead of merging or overwriting data.
 - This project is not production hardened.

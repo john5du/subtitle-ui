@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,9 +14,9 @@ import (
 
 // PlanNormalizeVideoSubtitles previews Jellyfin-style renames for one video.
 func (s *Service) PlanNormalizeVideoSubtitles(videoID string) (domain.SubtitleNormalizePlan, error) {
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return domain.SubtitleNormalizePlan{}, ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return domain.SubtitleNormalizePlan{}, err
 	}
 	return domain.SubtitleNormalizePlan{Items: s.planNormalizeForVideo(video)}, nil
 }
@@ -40,9 +41,9 @@ func (s *Service) ApplyNormalizeVideoSubtitles(videoID string, items []domain.Su
 
 // ApplyNormalizeVideoSubtitlesCtx is ApplyNormalizeVideoSubtitles with audit context.
 func (s *Service) ApplyNormalizeVideoSubtitlesCtx(ctx context.Context, videoID string, items []domain.SubtitleNormalizeApplyItem) (domain.SubtitleNormalizeApplyResult, error) {
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return domain.SubtitleNormalizeApplyResult{}, ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return domain.SubtitleNormalizeApplyResult{}, err
 	}
 	filtered := make([]domain.SubtitleNormalizeApplyItem, 0, len(items))
 	for _, item := range items {
@@ -246,10 +247,15 @@ func (s *Service) applyNormalizeItems(ctx context.Context, videos []domain.Video
 		video, ok := videoByID[videoID]
 		if !ok {
 			// Refresh video map from store in case caller only passed ids.
-			if loaded, found := s.GetVideo(videoID); found {
+			if loaded, loadErr := s.GetVideo(videoID); loadErr == nil {
 				video = loaded
 				videoByID[videoID] = loaded
 				ok = true
+			} else if !errors.Is(loadErr, ErrNotFound) {
+				out.Error = loadErr.Error()
+				result.Failed++
+				result.Results = append(result.Results, out)
+				continue
 			}
 		}
 		if !ok {
@@ -378,7 +384,7 @@ func (s *Service) applyNormalizeItems(ctx context.Context, videos []domain.Video
 			s.notifyJellyfinAfterSubtitleChange(videoID)
 		}
 		// Keep in-memory map fresh for later items in multi-video batches.
-		if loaded, found := s.GetVideo(videoID); found {
+		if loaded, loadErr := s.GetVideo(videoID); loadErr == nil {
 			videoByID[videoID] = loaded
 		}
 	}

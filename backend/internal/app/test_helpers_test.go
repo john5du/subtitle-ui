@@ -8,6 +8,7 @@ import (
 
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/store"
 )
 
 func newMovieServiceFixture(t *testing.T, base string, srtContent string) (*Service, domain.Video) {
@@ -37,7 +38,7 @@ func newMovieServiceFixture(t *testing.T, base string, srtContent string) (*Serv
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -46,12 +47,34 @@ func newMovieServiceFixture(t *testing.T, base string, srtContent string) (*Serv
 		_ = svc.Close()
 		t.Fatalf("scan: %s", status.Error)
 	}
-	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	page, err := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	if err != nil {
+		_ = svc.Close()
+		t.Fatalf("list videos: %v", err)
+	}
 	if len(page.Items) != 1 {
 		_ = svc.Close()
 		t.Fatalf("expected one movie, got %d", len(page.Items))
 	}
 	return svc, page.Items[0]
+}
+
+func mustListVideosPage(t *testing.T, svc *Service, mediaType string, pageSize int) domain.VideoPage {
+	t.Helper()
+	page, err := svc.ListVideosPage("", mediaType, "", 1, pageSize, "", "")
+	if err != nil {
+		t.Fatalf("ListVideosPage: %v", err)
+	}
+	return page
+}
+
+func mustGetVideo(t *testing.T, svc *Service, id string) domain.Video {
+	t.Helper()
+	video, err := svc.GetVideo(id)
+	if err != nil {
+		t.Fatalf("GetVideo(%s): %v", id, err)
+	}
+	return video
 }
 
 func latestLogByAction(logs []domain.OperationLog, action string) (domain.OperationLog, bool) {

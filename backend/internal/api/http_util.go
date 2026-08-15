@@ -42,16 +42,18 @@ func (s *Server) writeAppError(w http.ResponseWriter, err error) {
 	}
 }
 
-func requestRemoteAddr(r *http.Request) string {
+func requestRemoteAddr(r *http.Request, trustForwarded bool) string {
 	if r == nil {
 		return ""
 	}
-	if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
-		if i := strings.IndexByte(forwarded, ','); i >= 0 {
-			forwarded = strings.TrimSpace(forwarded[:i])
-		}
-		if forwarded != "" {
-			return forwarded
+	if trustForwarded {
+		if forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+			if i := strings.IndexByte(forwarded, ','); i >= 0 {
+				forwarded = strings.TrimSpace(forwarded[:i])
+			}
+			if forwarded != "" {
+				return forwarded
+			}
 		}
 	}
 	addr := strings.TrimSpace(r.RemoteAddr)

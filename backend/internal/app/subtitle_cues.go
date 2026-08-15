@@ -187,9 +187,9 @@ func (s *Service) InstallTranslatedCuesCtx(ctx context.Context, opts InstallTran
 }
 
 func (s *Service) readSubtitleSRTBytes(videoID string, subtitleID string) ([]byte, string, error) {
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return nil, "", ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return nil, "", err
 	}
 	existing, found := findSubtitle(video.Subtitles, subtitleID)
 	if !found {

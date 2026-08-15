@@ -15,15 +15,15 @@ cp scripts/.env.example scripts/.env   # once; fill secrets (gitignored)
 go run ./backend/cmd/server
 cd frontend && bun install && bun run dev
 
-# Verify (CI runs only the first)
-go test ./...
+# Verify (CI: go test + frontend test/lint/typecheck/build)
+go test ./backend/...
 go test ./backend/internal/store -run TestName
 cd frontend && bun run lint
 cd frontend && bun run build   # static export → frontend/out
 ```
 
 - Package manager is **bun@1.3.14** (`frontend/package.json` `packageManager`). Use `bun`, not npm/yarn.
-- Postgres store tests skip unless `TEST_POSTGRES_DSN` is set (creates a per-test schema, then drops it). Release CI sets `TEST_POSTGRES_DSN` against a Postgres 16 service so dialect paths run on `main`.
+- Store tests require `TEST_POSTGRES_DSN` or `DATABASE_URL` (creates a per-test schema, then drops it). CI sets `TEST_POSTGRES_DSN` against a Postgres 16 service.
 - Local env: `dev-up` / `dev-restart` load `scripts/.env` then `scripts/.env.local` via `scripts/lib/load-env.sh` (shell-exported vars win). Real `scripts/.env` is gitignored; commit only `scripts/.env.example`.
 - Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300` when unset. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.
 - Optional FE API override: `NEXT_PUBLIC_API_BASE=http://localhost:9307`.
@@ -45,7 +45,7 @@ cd frontend && bun run build   # static export → frontend/out
   - `kind=hls`: `GET /api/videos/{id}/hls/master?ticket=` + `/hls/seg?ticket=&u=` proxies JF HLS and rewrites m3u8 (API key never exposed to browser)
   - Forces browser-friendly audio when needed (e.g. EAC3→AAC on Jellyfin); video may stay copy
   - Upstream media statuses 2xx / 404 / 416 passed through on progressive/segments; no playback progress reporting
-  - `STREAM_TICKET_SECRET` (optional; else AdminToken), `STREAM_TICKET_TTL` (default 15m)
+  - `STREAM_TICKET_SECRET` is required in production; development falls back to `ADMIN_TOKEN`. `STREAM_TICKET_TTL` defaults to 15m.
 - SubHD auto-download (backend, default **on**):
   - Env bootstrap: `SUBHD_ENABLED=false` to disable; `SUBHD_BASE_URL`; `SUBHD_PROXY=socks5://host:port`
   - Runtime config (DB overrides env, no restart): `GET/PUT /api/config/subhd` `{ enabled, baseUrl, proxy }`
@@ -91,7 +91,7 @@ cd frontend && bun run build   # static export → frontend/out
 | `backend/internal/api` | HTTP routes/handlers (+ mounts `/mcp`) |
 | `backend/internal/mcp` | MCP Streamable HTTP tools (library, scan, subtitles, SubHD) |
 | `backend/internal/app` | Service / use-cases (scan, upload, convert, offset, normalize, archives, stream, logs, SubHD, Sonarr, Jellyfin) |
-| `backend/internal/store` | SQLite + Postgres, migrations, SQLite→PG one-shot import |
+| `backend/internal/store` | PostgreSQL store and migrations |
 | `backend/internal/scanner` | Disk scan (video + NFO + posters + subtitles) |
 | `backend/internal/subtitle` | Paths, ASS conversion, timing offset, language normalize |
 | `backend/internal/archive` | zip/7z/rar list + extract (pure-Go; used by upload/SubHD) |
@@ -105,14 +105,15 @@ cd frontend && bun run build   # static export → frontend/out
 | `frontend/src/lib` | API client, i18n, archive helpers (call server; no client unzip) |
 | `frontend/src/components/subtitle-manager` | UI panels/dialogs |
 | `scripts/dev-*.sh` | Local process orchestration |
+| `docker-compose.yml` | Dev-only Postgres (`127.0.0.1:5432`, postgres:16) |
 | `media/` | Local media roots (gitignored); defaults `./media/movies`, `./media/tv` |
-| `tmp/` | Local DB default, logs, pids (gitignored) |
+| `tmp/` | Local logs and pids (gitignored) |
 
 `frontend/next.config.mjs`: `output: "export"` (no Next server in prod). Go default `UI_DIST=./frontend/out`.
 
 ## Config gotchas
 
-- DB: SQLite default `DB_PATH=./tmp/subtitle_manager.sqlite3`. Set `DATABASE_URL` for Postgres; first connect can import SQLite from `DB_PATH` once (backs up SQLite first; refuses non-empty PG without import marker).
+- DB: PostgreSQL only. `DATABASE_URL` is required. Local default: `docker compose up -d postgres` (dev-only, binds `127.0.0.1:5432`; credentials in `scripts/.env.example`). `dev-up` starts it and waits for health when `DATABASE_URL` is unset.
 - `ADMIN_TOKEN`: admin API token (default `change-me` when unset). Rejected unless set to a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true`. `./scripts/dev-up.sh` sets the opt-in when unset. Bearer required on `/api/*` and `/mcp` except public paths: `GET /api/health`, `GET /api/videos/{id}/poster`, and ticket media `GET|HEAD` `.../stream`, `.../hls/master`, `.../hls/seg` (ticket query param; `POST .../stream-ticket` still needs Bearer). FE login page stores token in `localStorage` (`subtitle-ui:admin-token`).
 - Sonarr/Jellyfin GET config never returns full API keys (`apiKey` empty + `apiKeySet`); empty `apiKey` on PUT/test keeps the stored key.
 - Media roots must be **writable** (subtitle write/replace/backup in place).
@@ -121,7 +122,7 @@ cd frontend && bun run build   # static export → frontend/out
 
 ## Release / version
 
-- Push to `main` triggers `.github/workflows/docker-publish.yml`: `go test ./...` → resolve patch bump → build/push `ghcr.io/john5du/subtitle-ui` → commit version sync → tag.
+- Push to `main` triggers `.github/workflows/docker-publish.yml`: `go test ./backend/...` → resolve patch bump → build/push `ghcr.io/john5du/subtitle-ui` → commit version sync → tag.
 - Keep **in sync**: `backend/internal/version/version.go` (`const Value`) and `frontend/package.json` `version`. Mismatch fails the release job.
 - Bot commits `chore: sync version files…` do not re-release.
 - Prefer Conventional Commits. Do not push casual WIP to `main`.

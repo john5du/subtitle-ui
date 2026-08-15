@@ -16,7 +16,6 @@ type Config struct {
 	MovieMediaRoot        string
 	TVMediaRoot           string
 	UIDist                string
-	DBPath                string
 	DatabaseURL           string
 	CORSAllowedOrigins    []string
 	TrustForwardedHeaders bool
@@ -78,7 +77,6 @@ func Load() Config {
 		MovieMediaRoot:        getEnv("MOVIE_MEDIA_ROOT", movieDefault),
 		TVMediaRoot:           getEnv("TV_MEDIA_ROOT", tvDefault),
 		UIDist:                getEnv("UI_DIST", "./frontend/out"),
-		DBPath:                getEnv("DB_PATH", "./tmp/subtitle_manager.sqlite3"),
 		DatabaseURL:           strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		CORSAllowedOrigins:    splitOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")),
 		TrustForwardedHeaders: parseBool(os.Getenv("TRUST_FORWARDED_HEADERS")),
@@ -124,26 +122,25 @@ func Load() Config {
 	if abs, err := filepath.Abs(cfg.UIDist); err == nil {
 		cfg.UIDist = abs
 	}
-	if abs, err := filepath.Abs(cfg.DBPath); err == nil {
-		cfg.DBPath = abs
-	}
 
 	return cfg
 }
 
 // Validate returns a non-nil error when the config is unsafe for the current environment.
 func (c Config) Validate() error {
-	if !c.AdminTokenIsDefault {
-		return nil
+	if strings.TrimSpace(c.DatabaseURL) == "" {
+		return errDatabaseURLRequired
 	}
-	// Default token is never allowed in production.
-	if IsProduction() {
-		return errDefaultAdminTokenInProduction
+	if IsProduction() && strings.TrimSpace(c.StreamTicketSecret) == "" {
+		return errStreamTicketSecretRequired
 	}
-	// Outside production, still require an explicit opt-in so accidental
-	// exposure of change-me on a LAN/VPS is harder.
-	if !AllowInsecureDefaultAdminToken() {
-		return errDefaultAdminTokenRejected
+	if c.AdminTokenIsDefault {
+		if IsProduction() {
+			return errDefaultAdminTokenInProduction
+		}
+		if !AllowInsecureDefaultAdminToken() {
+			return errDefaultAdminTokenRejected
+		}
 	}
 	return nil
 }
@@ -160,6 +157,14 @@ var errDefaultAdminTokenInProduction = &ConfigError{
 
 var errDefaultAdminTokenRejected = &ConfigError{
 	Message: "ADMIN_TOKEN is the insecure default \"change-me\"; set ADMIN_TOKEN to a strong secret, or set ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true for local development only",
+}
+
+var errDatabaseURLRequired = &ConfigError{
+	Message: "DATABASE_URL is required (PostgreSQL only; SQLite is no longer supported)",
+}
+
+var errStreamTicketSecretRequired = &ConfigError{
+	Message: "STREAM_TICKET_SECRET must be set in production (do not reuse ADMIN_TOKEN)",
 }
 
 // ConfigError is a user-facing configuration problem.
@@ -243,22 +248,6 @@ func parsePositiveInt(raw string, fallback int) int {
 	}
 	if n <= 0 {
 		return fallback
-	}
-	return n
-}
-
-// parseNonNegativeInt allows 0 (e.g. unlimited preview length); empty/invalid → fallback.
-func parseNonNegativeInt(raw string, fallback int) int {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return fallback
-	}
-	n := 0
-	for _, r := range trimmed {
-		if r < '0' || r > '9' {
-			return fallback
-		}
-		n = n*10 + int(r-'0')
 	}
 	return n
 }

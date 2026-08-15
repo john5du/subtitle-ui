@@ -36,9 +36,12 @@ func (s *Service) ListEmbeddedSubtitles(ctx context.Context, videoID string) (Em
 	if client == nil || !client.Enabled() {
 		return EmbeddedSubtitleList{}, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
 	}
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return EmbeddedSubtitleList{}, fmt.Errorf("%w: video", ErrNotFound)
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return EmbeddedSubtitleList{}, fmt.Errorf("%w: video", ErrNotFound)
+		}
+		return EmbeddedSubtitleList{}, err
 	}
 	if strings.TrimSpace(video.Path) == "" {
 		return EmbeddedSubtitleList{}, fmt.Errorf("%w: video path", ErrNotFound)

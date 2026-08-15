@@ -84,6 +84,34 @@ wait_http_ready() {
   return 1
 }
 
+wait_compose_service_healthy() {
+  local service="$1"
+  local timeout_sec="$2"
+  local timeout_ms=$((timeout_sec * 1000))
+  local waited_ms=0
+  local interval_ms=500
+  local cid status
+
+  while [ "$waited_ms" -lt "$timeout_ms" ]; do
+    cid="$(docker compose ps -q "$service" 2>/dev/null | head -n 1 | tr -d '[:space:]' || true)"
+    if [ -n "$cid" ]; then
+      status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || true)"
+      case "$status" in
+        healthy)
+          return 0
+          ;;
+        unhealthy|exited|dead)
+          return 1
+          ;;
+      esac
+    fi
+    sleep 0.5
+    waited_ms=$((waited_ms + interval_ms))
+  done
+
+  return 1
+}
+
 wait_service_ready() {
   local port="$1"
   local url="$2"
@@ -175,6 +203,26 @@ export CORS_ALLOWED_ORIGINS="$backend_cors_allowed_origins"
 if [ -z "${ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN+x}" ]; then
   export ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true
 fi
+
+if [ -z "${DATABASE_URL:-}" ]; then
+  if ! command -v docker >/dev/null 2>&1; then
+    die "DATABASE_URL is required (PostgreSQL). Install Docker or set DATABASE_URL in scripts/.env."
+  fi
+  if ! docker compose version >/dev/null 2>&1; then
+    die "DATABASE_URL is required (PostgreSQL). docker compose is required to start the dev-only Postgres, or set DATABASE_URL in scripts/.env."
+  fi
+  log_step "DATABASE_URL unset; starting dev-only Postgres on 127.0.0.1:5432 via docker compose"
+  if ! (
+    cd "$repo_root" || exit 1
+    docker compose up -d postgres || exit 1
+    wait_compose_service_healthy postgres "$wait_timeout_sec"
+  ); then
+    die "Local Postgres did not become healthy within ${wait_timeout_sec}s. Check: docker compose -f \"$repo_root/docker-compose.yml\" ps postgres"
+  fi
+  export DATABASE_URL="postgres://subtitle:subtitle@127.0.0.1:5432/subtitle_ui?sslmode=disable"
+fi
+export TEST_POSTGRES_DSN="${TEST_POSTGRES_DSN:-$DATABASE_URL}"
+log_step "Postgres configured"
 
 if [ ! -d "$frontend_dir" ]; then
   die "frontend directory not found: $frontend_dir"

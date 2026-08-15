@@ -37,7 +37,7 @@ func (w *errorCaptureResponseWriter) Write(data []byte) (int, error) {
 	return w.ResponseWriter.Write(data)
 }
 
-func withRequestLogging(next http.Handler) http.Handler {
+func withRequestLogging(next http.Handler, trustForwarded bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !shouldLogAPIRequest(r) {
 			next.ServeHTTP(w, r)
@@ -53,7 +53,7 @@ func withRequestLogging(next http.Handler) http.Handler {
 			status = http.StatusOK
 		}
 		durationMS := time.Since(started).Milliseconds()
-		remote := requestRemoteAddr(r)
+		remote := requestRemoteAddr(r, trustForwarded)
 
 		if status >= http.StatusBadRequest {
 			errorMessage := parseErrorMessage(captured.body.Bytes())

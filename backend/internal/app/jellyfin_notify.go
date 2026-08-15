@@ -21,8 +21,8 @@ func (s *Service) notifyJellyfinAfterSubtitleChange(videoID string) {
 	if videoID == "" {
 		return
 	}
-	video, ok := s.GetVideo(videoID)
-	if !ok {
+	video, err := s.GetVideo(videoID)
+	if err != nil {
 		return
 	}
 	path := strings.TrimSpace(video.Path)

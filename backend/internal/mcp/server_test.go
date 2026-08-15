@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -12,6 +13,7 @@ import (
 	"subtitle-ui/backend/internal/app"
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/store"
 )
 
 func newTestService(t *testing.T) (*app.Service, domain.Video) {
@@ -39,7 +41,7 @@ func newTestService(t *testing.T) (*app.Service, domain.Video) {
 	svc, err := app.NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 		SubHDEnabled:   false,
 		AdminToken:     "test-admin-token",
 	})
@@ -50,7 +52,10 @@ func newTestService(t *testing.T) (*app.Service, domain.Video) {
 	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatalf("scan: %s", status.Error)
 	}
-	page := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	page, err := svc.ListVideosPage("", domain.MediaTypeMovie, "", 1, 20, "", "")
+	if err != nil {
+		t.Fatalf("list videos: %v", err)
+	}
 	if len(page.Items) != 1 {
 		t.Fatalf("expected 1 video, got %d", len(page.Items))
 	}
@@ -365,8 +370,70 @@ func TestMCPConfirmRequiredAndRollbackDelete(t *testing.T) {
 		t.Fatalf("rollback not ok: %+v", rb)
 	}
 	// Subtitle file should be back.
-	v, ok := svc.GetVideo(video.ID)
-	if !ok || len(v.Subtitles) < 1 {
-		t.Fatalf("expected subtitle restored, got %+v", v)
+	v, err := svc.GetVideo(video.ID)
+	if err != nil || len(v.Subtitles) < 1 {
+		t.Fatalf("expected subtitle restored, got %+v err=%v", v, err)
+	}
+}
+
+func callToolError(t *testing.T, session *mcp.ClientSession, name string, args any) string {
+	t.Helper()
+	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      name,
+		Arguments: args,
+	})
+	if err != nil {
+		return err.Error()
+	}
+	if !res.IsError {
+		raw, _ := json.Marshal(res.StructuredContent)
+		t.Fatalf("CallTool %s expected error, got %s", name, raw)
+	}
+	msg := ""
+	for _, c := range res.Content {
+		if tc, ok := c.(*mcp.TextContent); ok {
+			msg += tc.Text
+		}
+	}
+	if msg == "" {
+		t.Fatalf("CallTool %s IsError with empty text", name)
+	}
+	return msg
+}
+
+func TestMCPPropagatesStoreErrors(t *testing.T) {
+	svc, video := newTestService(t)
+	session := connectMCP(t, svc)
+
+	missing := callToolError(t, session, "get_video", map[string]any{"videoId": "missing-video-id"})
+	if !strings.Contains(strings.ToLower(missing), "not found") {
+		t.Fatalf("missing get_video should be not found, got %q", missing)
+	}
+
+	missingLog := callToolError(t, session, "get_operation_log", map[string]any{"opId": "missing-op-id"})
+	if !strings.Contains(strings.ToLower(missingLog), "not found") {
+		t.Fatalf("missing get_operation_log should be not found, got %q", missingLog)
+	}
+
+	_ = svc.Close()
+
+	listErr := callToolError(t, session, "list_videos", map[string]any{"mediaType": "movie"})
+	if strings.EqualFold(strings.TrimSpace(listErr), app.ErrNotFound.Error()) {
+		t.Fatalf("list_videos store error must not be not found, got %q", listErr)
+	}
+
+	getErr := callToolError(t, session, "get_video", map[string]any{"videoId": video.ID})
+	if strings.EqualFold(strings.TrimSpace(getErr), app.ErrNotFound.Error()) {
+		t.Fatalf("get_video store error must not be not found, got %q", getErr)
+	}
+
+	logsErr := callToolError(t, session, "list_operation_logs", map[string]any{"page": 1})
+	if strings.EqualFold(strings.TrimSpace(logsErr), app.ErrNotFound.Error()) {
+		t.Fatalf("list_operation_logs store error must not be not found, got %q", logsErr)
+	}
+
+	rollbackErr := callToolError(t, session, "rollback_operation_preview", map[string]any{"opId": "missing-op-id"})
+	if strings.EqualFold(strings.TrimSpace(rollbackErr), app.ErrNotFound.Error()) {
+		t.Fatalf("rollback preview store error must not be not found, got %q", rollbackErr)
 	}
 }

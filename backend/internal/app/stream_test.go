@@ -16,6 +16,7 @@ import (
 
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/provider/jellyfin"
+	"subtitle-ui/backend/internal/store"
 )
 
 func TestIssueStreamTicketRequiresJellyfin(t *testing.T) {
@@ -40,7 +41,7 @@ func TestIssueStreamTicketRequiresJellyfin(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot:     movieRoot,
 		TVMediaRoot:        tvRoot,
-		DBPath:             filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:        store.TestDSN(t),
 		AdminToken:         "test-admin-token",
 		StreamTicketSecret: "stream-secret",
 		StreamTicketTTL:    time.Minute,
@@ -53,7 +54,7 @@ func TestIssueStreamTicketRequiresJellyfin(t *testing.T) {
 	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatalf("scan: %s", status.Error)
 	}
-	page := svc.ListVideosPage("", "movie", "", 1, 10, "", "")
+	page := mustListVideosPage(t, svc, "movie", 10)
 	if len(page.Items) != 1 {
 		t.Fatalf("expected 1 video, got %d", len(page.Items))
 	}
@@ -130,7 +131,7 @@ func TestIssueAndValidateStreamTicketWithJellyfin(t *testing.T) {
 	svc, err := NewService(config.Config{
 		MovieMediaRoot:     movieRoot,
 		TVMediaRoot:        tvRoot,
-		DBPath:             filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:        store.TestDSN(t),
 		AdminToken:         "test-admin-token",
 		StreamTicketSecret: "stream-secret",
 		StreamTicketTTL:    time.Minute,
@@ -147,7 +148,7 @@ func TestIssueAndValidateStreamTicketWithJellyfin(t *testing.T) {
 	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatalf("scan: %s", status.Error)
 	}
-	page := svc.ListVideosPage("", "movie", "", 1, 10, "", "")
+	page := mustListVideosPage(t, svc, "movie", 10)
 	if len(page.Items) != 1 {
 		t.Fatalf("expected 1 video, got %d", len(page.Items))
 	}
@@ -248,7 +249,7 @@ func TestIssueStreamTicketHLSKind(t *testing.T) {
 
 	svc, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot, TVMediaRoot: tvRoot,
-		DBPath: filepath.Join(base, "h.sqlite3"), AdminToken: "tok",
+		DatabaseURL: store.TestDSN(t), AdminToken: "tok",
 		StreamTicketSecret: "sec", StreamTicketTTL: time.Minute,
 		JellyfinEnabled: true, JellyfinURL: jf.URL, JellyfinAPIKey: "jf-key",
 		JellyfinUserID: "user-1",
@@ -260,7 +261,7 @@ func TestIssueStreamTicketHLSKind(t *testing.T) {
 	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatal(status.Error)
 	}
-	videoID := svc.ListVideosPage("", "movie", "", 1, 10, "", "").Items[0].ID
+	videoID := mustListVideosPage(t, svc, "movie", 10).Items[0].ID
 	issued, err := svc.IssueStreamTicket(context.Background(), videoID)
 	if err != nil {
 		t.Fatal(err)
@@ -338,7 +339,7 @@ func TestIssueStreamTicketMapsJellyfinErrors(t *testing.T) {
 
 	svcFail, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot, TVMediaRoot: tvRoot,
-		DBPath: filepath.Join(base, "fail.sqlite3"), AdminToken: "tok",
+		DatabaseURL: store.TestDSN(t), AdminToken: "tok",
 		StreamTicketSecret: "sec", JellyfinEnabled: true, JellyfinURL: failJF.URL, JellyfinAPIKey: "k",
 	})
 	if err != nil {
@@ -348,7 +349,7 @@ func TestIssueStreamTicketMapsJellyfinErrors(t *testing.T) {
 	if status := svcFail.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatal(status.Error)
 	}
-	videoID := svcFail.ListVideosPage("", "movie", "", 1, 10, "", "").Items[0].ID
+	videoID := mustListVideosPage(t, svcFail, "movie", 10).Items[0].ID
 	_, err = svcFail.IssueStreamTicket(context.Background(), videoID)
 	if err == nil || errors.Is(err, ErrNotFound) {
 		t.Fatalf("jellyfin 5xx must not be ErrNotFound, got %v", err)
@@ -365,7 +366,7 @@ func TestIssueStreamTicketMapsJellyfinErrors(t *testing.T) {
 
 	svcEmpty, err := NewService(config.Config{
 		MovieMediaRoot: movieRoot, TVMediaRoot: tvRoot,
-		DBPath: filepath.Join(base, "empty.sqlite3"), AdminToken: "tok",
+		DatabaseURL: store.TestDSN(t), AdminToken: "tok",
 		StreamTicketSecret: "sec", JellyfinEnabled: true, JellyfinURL: emptyJF.URL, JellyfinAPIKey: "k",
 	})
 	if err != nil {
@@ -375,7 +376,7 @@ func TestIssueStreamTicketMapsJellyfinErrors(t *testing.T) {
 	if status := svcEmpty.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatal(status.Error)
 	}
-	videoID = svcEmpty.ListVideosPage("", "movie", "", 1, 10, "", "").Items[0].ID
+	videoID = mustListVideosPage(t, svcEmpty, "movie", 10).Items[0].ID
 	_, err = svcEmpty.IssueStreamTicket(context.Background(), videoID)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing item should be ErrNotFound, got %v", err)

@@ -17,6 +17,7 @@ import (
 	"subtitle-ui/backend/internal/app"
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/store"
 )
 
 func TestWithRequestLoggingLogsFailedRequests(t *testing.T) {
@@ -32,7 +33,7 @@ func TestWithRequestLoggingLogsFailedRequests(t *testing.T) {
 
 	handler := withRequestLogging(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad request")
-	}))
+	}), false)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/test", nil)
 	req.RemoteAddr = "127.0.0.1:54321"
@@ -77,7 +78,7 @@ func TestWithRequestLoggingLogsSuccessResponses(t *testing.T) {
 
 	handler := withRequestLogging(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	}))
+	}), false)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/videos", nil)
 	req.RemoteAddr = "10.0.0.2:1234"
@@ -118,7 +119,7 @@ func TestWithRequestLoggingSkipsHealthAndNonAPI(t *testing.T) {
 
 	handler := withRequestLogging(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	}))
+	}), false)
 
 	for _, path := range []string{"/api/health", "/index.html", "/"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
@@ -286,7 +287,7 @@ func TestHandleOffsetSubtitleTiming(t *testing.T) {
 	service, err := app.NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -297,7 +298,7 @@ func TestHandleOffsetSubtitleTiming(t *testing.T) {
 	if status := service.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatalf("run scan: %s", status.Error)
 	}
-	page := service.ListVideosPage("", "movie", "", 1, 20, "", "")
+	page := mustListVideosPage(t, service, "movie", 20)
 	if len(page.Items) != 1 || len(page.Items[0].Subtitles) != 1 {
 		t.Fatalf("expected scanned video with subtitle, got %+v", page)
 	}
@@ -498,7 +499,7 @@ func newPosterTestFixture(t *testing.T) posterTestFixture {
 	service, err := app.NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 	})
 	if err != nil {
 		t.Fatalf("new service: %v", err)
@@ -511,8 +512,8 @@ func newPosterTestFixture(t *testing.T) posterTestFixture {
 		_ = service.Close()
 	}
 
-	moviePage := service.ListVideosPage("", "movie", "", 1, 20, "", "")
-	tvPage := service.ListVideosPage("", "tv", "", 1, 20, "", "")
+	moviePage := mustListVideosPage(t, service, "movie", 20)
+	tvPage := mustListVideosPage(t, service, "tv", 20)
 
 	fixture := posterTestFixture{
 		server:  NewServer(service, ""),
@@ -535,6 +536,15 @@ func newPosterTestFixture(t *testing.T) posterTestFixture {
 	}
 
 	return fixture
+}
+
+func mustListVideosPage(t *testing.T, service *app.Service, mediaType string, pageSize int) domain.VideoPage {
+	t.Helper()
+	page, err := service.ListVideosPage("", mediaType, "", 1, pageSize, "", "")
+	if err != nil {
+		t.Fatalf("ListVideosPage: %v", err)
+	}
+	return page
 }
 
 func latestAPILogByAction(logs []domain.OperationLog, action string) (domain.OperationLog, bool) {
@@ -704,7 +714,7 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 	service, err := app.NewService(config.Config{
 		MovieMediaRoot:     movieRoot,
 		TVMediaRoot:        tvRoot,
-		DBPath:             filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:        store.TestDSN(t),
 		AdminToken:         "stream-test-token",
 		StreamTicketSecret: "stream-secret",
 		JellyfinEnabled:    true,
@@ -719,7 +729,7 @@ func TestVideoStreamTicketAndRange(t *testing.T) {
 	if status := service.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatalf("scan: %s", status.Error)
 	}
-	page := service.ListVideosPage("", "movie", "", 1, 10, "", "")
+	page := mustListVideosPage(t, service, "movie", 10)
 	if len(page.Items) != 1 {
 		t.Fatalf("expected 1 video, got %d", len(page.Items))
 	}
@@ -860,7 +870,7 @@ func TestVideoHLSSegmentPathBinding(t *testing.T) {
 	service, err := app.NewService(config.Config{
 		MovieMediaRoot:     movieRoot,
 		TVMediaRoot:        tvRoot,
-		DBPath:             filepath.Join(base, "hls.sqlite3"),
+		DatabaseURL:        store.TestDSN(t),
 		AdminToken:         "stream-test-token",
 		StreamTicketSecret: "stream-secret",
 		StreamTicketTTL:    time.Minute,
@@ -876,7 +886,7 @@ func TestVideoHLSSegmentPathBinding(t *testing.T) {
 	if status := service.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatalf("scan: %s", status.Error)
 	}
-	videoID := service.ListVideosPage("", "movie", "", 1, 10, "", "").Items[0].ID
+	videoID := mustListVideosPage(t, service, "movie", 10).Items[0].ID
 	handler := NewServerWithConfig(service, config.Config{AdminToken: "stream-test-token"}).Handler()
 
 	ticketReq := httptest.NewRequest(http.MethodPost, "/api/videos/"+videoID+"/stream-ticket", nil)
@@ -954,7 +964,7 @@ func TestVideoStreamTicketDisabledWithoutJellyfin(t *testing.T) {
 	service, err := app.NewService(config.Config{
 		MovieMediaRoot: movieRoot,
 		TVMediaRoot:    tvRoot,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 		AdminToken:     "stream-test-token",
 	})
 	if err != nil {
@@ -964,7 +974,7 @@ func TestVideoStreamTicketDisabledWithoutJellyfin(t *testing.T) {
 	if status := service.RunFileScan(context.Background(), nil, nil); status.Error != "" {
 		t.Fatalf("scan: %s", status.Error)
 	}
-	page := service.ListVideosPage("", "movie", "", 1, 10, "", "")
+	page := mustListVideosPage(t, service, "movie", 10)
 	if len(page.Items) != 1 {
 		t.Fatalf("expected 1 video, got %d", len(page.Items))
 	}

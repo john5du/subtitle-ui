@@ -11,7 +11,7 @@ import (
 	"subtitle-ui/backend/internal/textsort"
 )
 
-func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortBy string, sortOrder string) domain.TVSeriesPage {
+func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortBy string, sortOrder string) (domain.TVSeriesPage, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -24,13 +24,7 @@ func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortBy 
 
 	videos, err := s.listAllTVVideos()
 	if err != nil {
-		return domain.TVSeriesPage{
-			Items:      []domain.TVSeriesSummary{},
-			Total:      0,
-			Page:       page,
-			PageSize:   pageSize,
-			TotalPages: 0,
-		}
+		return domain.TVSeriesPage{}, err
 	}
 
 	rows := buildTVSeriesSummaries(videos, s.cfg.TVMediaRoot)
@@ -51,7 +45,7 @@ func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortBy 
 			Page:       page,
 			PageSize:   pageSize,
 			TotalPages: totalPages,
-		}
+		}, nil
 	}
 
 	end := start + pageSize
@@ -65,7 +59,7 @@ func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortBy 
 		Page:       page,
 		PageSize:   pageSize,
 		TotalPages: totalPages,
-	}
+	}, nil
 }
 
 func buildTVSeriesSummaries(videos []domain.Video, tvRootPath string) []domain.TVSeriesSummary {

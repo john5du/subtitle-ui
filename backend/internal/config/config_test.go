@@ -31,18 +31,6 @@ func TestParseDurationAndPositiveInt(t *testing.T) {
 	if parsePositiveInt("0", 2) != 2 || parsePositiveInt("x", 2) != 2 {
 		t.Fatal("invalid positive int fallback")
 	}
-	if parseNonNegativeInt("", 300) != 300 {
-		t.Fatal("empty non-negative int fallback")
-	}
-	if parseNonNegativeInt("0", 300) != 0 {
-		t.Fatal("0 should be allowed for unlimited")
-	}
-	if parseNonNegativeInt("300", 60) != 300 {
-		t.Fatal("parse 300 seconds")
-	}
-	if parseNonNegativeInt("x", 300) != 300 {
-		t.Fatal("invalid non-negative int fallback")
-	}
 }
 
 func TestSplitOrigins(t *testing.T) {
@@ -89,6 +77,8 @@ func TestValidateDefaultAdminTokenInProduction(t *testing.T) {
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("ADMIN_TOKEN", "")
 	t.Setenv("ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN", "")
+	t.Setenv("DATABASE_URL", "postgres://user:pass@127.0.0.1:5432/subtitle_ui?sslmode=disable")
+	t.Setenv("STREAM_TICKET_SECRET", "ticket-secret")
 	t.Setenv("MEDIA_ROOT", "")
 	t.Setenv("MOVIE_MEDIA_ROOT", t.TempDir())
 	t.Setenv("TV_MEDIA_ROOT", t.TempDir())
@@ -129,6 +119,29 @@ func TestValidateDefaultAdminTokenInProduction(t *testing.T) {
 	}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("production with strong token: %v", err)
+	}
+}
+
+func TestValidateRequiresDatabaseURLAndProdStreamSecret(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("ADMIN_TOKEN", "token")
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("STREAM_TICKET_SECRET", "")
+	cfg := Load()
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected DATABASE_URL required")
+	}
+
+	t.Setenv("DATABASE_URL", "postgres://user:pass@127.0.0.1:5432/subtitle_ui?sslmode=disable")
+	cfg = Load()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("dev without stream secret should pass: %v", err)
+	}
+
+	t.Setenv("APP_ENV", "production")
+	cfg = Load()
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("production should require STREAM_TICKET_SECRET")
 	}
 }
 

@@ -1,11 +1,15 @@
 package app
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"subtitle-ui/backend/internal/config"
+	"subtitle-ui/backend/internal/store"
 )
 
 func TestRollbackDeleteViaBackup(t *testing.T) {
@@ -44,8 +48,8 @@ func TestRollbackDeleteViaBackup(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("restored file missing: %v", err)
 	}
-	v, ok := svc.GetVideo(video.ID)
-	if !ok || len(v.Subtitles) < 1 {
+	v := mustGetVideo(t, svc, video.ID)
+	if len(v.Subtitles) < 1 {
 		t.Fatalf("db not refreshed: %+v", v)
 	}
 }
@@ -56,7 +60,7 @@ func TestConfirmTokenRoundTrip(t *testing.T) {
 	tvRoot := filepath.Join(base, "tv")
 	_ = os.MkdirAll(movieRoot, 0o755)
 	_ = os.MkdirAll(tvRoot, 0o755)
-	svc, err := NewService(configFromRoots(movieRoot, tvRoot, base))
+	svc, err := NewService(configFromRoots(t, movieRoot, tvRoot))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,11 +98,35 @@ func TestConfirmTokenRoundTrip(t *testing.T) {
 	}
 }
 
-func configFromRoots(movie, tv, base string) config.Config {
+func TestConfirmTokenRejectsLegacyV1(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	_ = os.MkdirAll(movieRoot, 0o755)
+	_ = os.MkdirAll(tvRoot, 0o755)
+	svc, err := NewService(configFromRoots(t, movieRoot, tvRoot))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = svc.Close() }()
+
+	raw, err := json.Marshal(confirmEnvelope{V: 1, Tool: "delete_subtitle"})
+	if err != nil {
+		t.Fatalf("marshal v1 token: %v", err)
+	}
+	legacyToken := base64.RawURLEncoding.EncodeToString(raw)
+	err = svc.ValidateMCPConfirmToken("delete_subtitle", map[string]any{}, legacyToken)
+	if err == nil || !strings.Contains(err.Error(), "unsupported confirmToken version") {
+		t.Fatalf("expected unsupported v1 token, got %v", err)
+	}
+}
+
+func configFromRoots(t *testing.T, movie, tv string) config.Config {
+	t.Helper()
 	return config.Config{
 		MovieMediaRoot: movie,
 		TVMediaRoot:    tv,
-		DBPath:         filepath.Join(base, "test.sqlite3"),
+		DatabaseURL:    store.TestDSN(t),
 		AdminToken:     "secret",
 	}
 }

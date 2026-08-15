@@ -99,7 +99,7 @@ func (s *Store) queryVideos(baseQuery string, args []any) ([]domain.Video, error
 	}
 
 	// Batch-load subtitles after the main rows cursor is closed to avoid
-	// single-connection SQLite deadlocks.
+	// holding the query connection while attaching child rows.
 	if err := s.attachSubtitles(out); err != nil {
 		return nil, err
 	}
@@ -113,11 +113,11 @@ func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 	)
 
 	var (
-		video         domain.Video
-		posterPath    string
-		fileModRaw    string
-		fingerprint   string
-		updatedRaw    string
+		video       domain.Video
+		posterPath  string
+		fileModRaw  string
+		fingerprint string
+		updatedRaw  string
 	)
 	err := row.Scan(
 		&video.ID,
@@ -162,7 +162,20 @@ func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 	return video, true, nil
 }
 
-func (s *Store) UpdateVideoSubtitles(videoID string, subtitles []domain.Subtitle, updatedAt time.Time) error {
+func (s *Store) lockVideoRowTx(tx *sql.Tx, videoID string) (bool, time.Time, error) {
+	row := s.queryRowTx(tx, `SELECT updated_at FROM videos WHERE id = ? FOR UPDATE`, videoID)
+	var raw string
+	err := row.Scan(&raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, time.Time{}, nil
+	}
+	if err != nil {
+		return false, time.Time{}, err
+	}
+	return true, parseTimeOrNow(raw), nil
+}
+
+func (s *Store) UpdateVideoSubtitles(videoID string, subtitles []domain.Subtitle, updatedAt time.Time) (err error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -173,6 +186,16 @@ func (s *Store) UpdateVideoSubtitles(videoID string, subtitles []domain.Subtitle
 		}
 	}()
 
+	exists, _, lockErr := s.lockVideoRowTx(tx, videoID)
+	if lockErr != nil {
+		err = lockErr
+		return err
+	}
+	if !exists {
+		err = sql.ErrNoRows
+		return err
+	}
+
 	res, err := s.execTx(tx, `UPDATE videos SET updated_at = ? WHERE id = ?`, updatedAt.UTC().Format(time.RFC3339Nano), videoID)
 	if err != nil {
 		return err
@@ -182,7 +205,8 @@ func (s *Store) UpdateVideoSubtitles(videoID string, subtitles []domain.Subtitle
 		return err
 	}
 	if affected == 0 {
-		return sql.ErrNoRows
+		err = sql.ErrNoRows
+		return err
 	}
 
 	existingSubtitleSources, err := s.loadSubtitleSourcesTx(tx, videoID)
@@ -214,7 +238,8 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			return err
 		}
 	}
-	return tx.Commit()
+	err = tx.Commit()
+	return err
 }
 func (s *Store) ListVideoDirectories(mediaType string) ([]string, error) {
 	query := `SELECT DISTINCT directory FROM videos`

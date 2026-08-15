@@ -1,0 +1,23 @@
+# Dev-only local PostgreSQL for subtitle-ui.
+# Binds 127.0.0.1:5432 so the port is not exposed on LAN.
+# Credentials match scripts/.env.example (postgres:16 / subtitle / subtitle_ui).
+# Do not use this file as a production Compose stack.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: subtitle
+      POSTGRES_PASSWORD: subtitle
+      POSTGRES_DB: subtitle_ui
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - subtitle-ui-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U subtitle -d subtitle_ui"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  subtitle-ui-pg:

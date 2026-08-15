@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -102,10 +103,7 @@ func (s *Service) SubHDParseStats() (subhd.ParseStats, bool) {
 }
 
 func NewService(cfg config.Config) (*Service, error) {
-	st, err := store.OpenWithOptions(store.OpenOptions{
-		SQLitePath:  cfg.DBPath,
-		PostgresURL: cfg.DatabaseURL,
-	})
+	st, err := store.Open(cfg.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -129,9 +127,10 @@ func NewService(cfg config.Config) (*Service, error) {
 		}),
 	}
 	{
-		var maps []jellyfin.PathMap
-		if parsed, err := jellyfin.ParsePathMaps(cfg.JellyfinPathMap); err == nil {
-			maps = parsed
+		maps, err := jellyfin.ParsePathMaps(cfg.JellyfinPathMap)
+		if err != nil {
+			// Invalid env/historical path maps must not block core service startup.
+			maps = nil
 		}
 		svc.jellyfin = jellyfin.New(jellyfin.Options{
 			Enabled:  cfg.JellyfinEnabled,
@@ -193,6 +192,14 @@ func (s *Service) rebuildSubHDClient(enabled bool, baseURL, proxy string) {
 
 func (s *Service) Close() error {
 	return s.store.Close()
+}
+
+// Ping checks that the backing database is reachable.
+func (s *Service) Ping(ctx context.Context) error {
+	if s == nil || s.store == nil {
+		return errors.New("service is not initialized")
+	}
+	return s.store.Ping(ctx)
 }
 
 // lockVideo returns a per-video mutex for subtitle mutations (create-on-first-use).

@@ -37,10 +37,17 @@ func (s *Service) UpdateJellyfinConfig(req domain.JellyfinConfigUpdate) (domain.
 	}
 
 	pathMaps, err := jellyfin.ParsePathMaps(pathMapRaw)
+	var pathMapStored string
 	if err != nil {
-		return domain.JellyfinConfig{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
+		if req.Enabled {
+			return domain.JellyfinConfig{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
+		}
+		// Disabling must succeed even with a historical dirty path map.
+		pathMaps = nil
+		pathMapStored = pathMapRaw
+	} else {
+		pathMapStored = jellyfin.FormatPathMaps(pathMaps)
 	}
-	pathMapStored := jellyfin.FormatPathMaps(pathMaps)
 
 	existing, err := s.resolveJellyfinConfig()
 	if err != nil {
@@ -112,7 +119,7 @@ func (s *Service) applyStoredJellyfinConfig() error {
 	}
 	maps, err := jellyfin.ParsePathMaps(cfg.PathMap)
 	if err != nil {
-		// Keep going with empty maps if stored value is corrupt.
+		// Historical dirty values must not prevent the core service from starting.
 		maps = nil
 	}
 	s.rebuildJellyfinClient(cfg.Enabled, cfg.URL, cfg.APIKey, maps)

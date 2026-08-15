@@ -199,9 +199,9 @@ func (s *Service) installSubtitleBytes(ctx context.Context, videoID string, payl
 	mu.Lock()
 	defer mu.Unlock()
 
-	video, ok := s.GetVideo(videoID)
-	if !ok {
-		return domain.Subtitle{}, ErrNotFound
+	video, err := s.GetVideo(videoID)
+	if err != nil {
+		return domain.Subtitle{}, err
 	}
 
 	content := payload
@@ -245,7 +245,6 @@ func (s *Service) installSubtitleBytes(ctx context.Context, videoID string, payl
 		DefaultLabel:  "zh",
 	})
 
-	var err error
 	targetPath := ""
 	backupPath := ""
 	action := "upload"

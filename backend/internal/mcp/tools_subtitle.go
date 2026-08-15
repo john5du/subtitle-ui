@@ -100,9 +100,9 @@ func registerSubtitleTools(s *mcp.Server, svc *app.Service) {
 		if err != nil {
 			return nil, nil, err
 		}
-		video, ok := svc.GetVideo(in.VideoID)
-		if !ok {
-			return nil, nil, app.ErrNotFound
+		video, err := svc.GetVideo(in.VideoID)
+		if err != nil {
+			return nil, nil, err
 		}
 		var path string
 		for _, sub := range video.Subtitles {
