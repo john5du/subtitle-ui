@@ -114,7 +114,7 @@ func registerSafetyTools(s *mcp.Server, svc *app.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "rollback_operation",
 		Description: "Rollback a successful operation by opId (requires confirmToken from rollback_operation_preview). Restores from backup_path or removes created files.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in rollbackIn) (*mcp.CallToolResult, domain.RollbackResult, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in rollbackIn) (*mcp.CallToolResult, domain.RollbackResult, error) {
 		params := map[string]any{"opId": in.OpID}
 		if err := svc.ValidateMCPConfirmToken("rollback_operation", params, in.ConfirmToken); err != nil {
 			return nil, domain.RollbackResult{}, err

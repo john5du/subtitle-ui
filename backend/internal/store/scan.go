@@ -95,7 +95,7 @@ func (s *Store) SaveScanReconcile(found []domain.Video, rebuilt []domain.Video, 
 
 		_, err = s.execTx(
 			tx,
-			s.insertPrefix()+` INTO videos(id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at, title_sort_key)
+			`INSERT INTO videos(id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at, title_sort_key)
 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.videoUpsertSuffix(),
 			video.ID,
 			video.Path,
@@ -134,7 +134,7 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.videoUp
 			sub = mergeSubtitleSource(sub, existingSubtitleSources)
 			_, err = s.execTx(
 				tx,
-				s.insertPrefix()+` INTO subtitles(id, video_id, path, file_name, language, format, size, mod_time, updated_at, source, source_detail)
+				`INSERT INTO subtitles(id, video_id, path, file_name, language, format, size, mod_time, updated_at, source, source_detail)
 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.subtitleUpsertSuffix(),
 				sub.ID,
 				video.ID,
@@ -240,8 +240,8 @@ FROM scan_runs ORDER BY id DESC LIMIT 1`,
 		return status, err
 	}
 
-	started := parseTimeOrNow(startedRaw)
-	finished := parseTimeOrNow(finishedRaw)
+	started := parseStoredTime(startedRaw)
+	finished := parseStoredTime(finishedRaw)
 	status.LastStartedAt = &started
 	status.LastFinishedAt = &finished
 	status.VideoCount = videoCount

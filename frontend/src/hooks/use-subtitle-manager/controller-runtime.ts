@@ -65,10 +65,6 @@ export function createControllerRuntime({ getState, getSelectors, getT, stateApi
     }
   }
 
-  function setTranslatedMessage(key: MessageKey, values?: TranslationValues) {
-    setters.setMessageState({ key, values });
-  }
-
   function beginUpload(key: MessageKey, values?: TranslationValues) {
     refs.pendingUploadsRef.current += 1;
     setters.setUploadingMessageState({ key, values });
@@ -93,7 +89,6 @@ export function createControllerRuntime({ getState, getSelectors, getT, stateApi
     }
     const errorText = error instanceof Error ? error.message : String(error);
     const title = getT()(prefix);
-    setters.setMessageState({ raw: `${title}: ${errorText}` });
     emitToast({
       level: "error",
       message: title,
@@ -135,7 +130,6 @@ export function createControllerRuntime({ getState, getSelectors, getT, stateApi
     finishBootstrapping,
     beginLoading,
     endLoading,
-    setTranslatedMessage,
     beginUpload,
     updateUploadMessage,
     endUpload,

@@ -84,7 +84,6 @@ function createInitialState(): SubtitleManagerState {
     pending: EMPTY_PENDING_STATE,
     uploading: false,
     uploadingMessageState: null,
-    messageState: null,
     scanStatus: null,
     logs: [],
     logsPager: createDefaultPager(DEFAULT_LOG_PAGE_SIZE),
@@ -121,7 +120,6 @@ type StateAction =
   | { type: "setPending"; value: SetStateAction<UiPendingState> }
   | { type: "setUploading"; value: SetStateAction<boolean> }
   | { type: "setUploadingMessageState"; value: SetStateAction<LocalizedText> }
-  | { type: "setMessageState"; value: SetStateAction<LocalizedText> }
   | { type: "setScanStatus"; value: SetStateAction<ScanStatus | null> }
   | { type: "setLogs"; value: SetStateAction<OperationLog[]> }
   | { type: "setLogsPager"; value: SetStateAction<Pager> }
@@ -236,10 +234,6 @@ function reducer(state: SubtitleManagerState, action: StateAction): SubtitleMana
       const uploadingMessageState = resolveUpdate(state.uploadingMessageState, action.value);
       return uploadingMessageState === state.uploadingMessageState ? state : { ...state, uploadingMessageState };
     }
-    case "setMessageState": {
-      const messageState = resolveUpdate(state.messageState, action.value);
-      return messageState === state.messageState ? state : { ...state, messageState };
-    }
     case "setScanStatus": {
       const scanStatus = resolveUpdate(state.scanStatus, action.value);
       return scanStatus === state.scanStatus ? state : { ...state, scanStatus };
@@ -350,7 +344,6 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
       setPending: createSetter<UiPendingState>(dispatch, "setPending"),
       setUploading: createSetter<boolean>(dispatch, "setUploading"),
       setUploadingMessageState: createSetter<LocalizedText>(dispatch, "setUploadingMessageState"),
-      setMessageState: createSetter<LocalizedText>(dispatch, "setMessageState"),
       setScanStatus: createSetter<ScanStatus | null>(dispatch, "setScanStatus"),
       setLogs: createSetter<OperationLog[]>(dispatch, "setLogs"),
       setLogsPager: createSetter<Pager>(dispatch, "setLogsPager"),

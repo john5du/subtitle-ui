@@ -14,20 +14,13 @@ import { EmptyPanel } from "../shared/empty-panel";
 import { MediaExternalLinks } from "../shared/media-external-links";
 import { InlinePending, SpinnerIcon } from "../shared/pending-state";
 import { PosterThumbnail } from "../shared/poster-thumbnail";
-import { ArchiveEntryPickerDialog } from "../subtitle/dialogs/archive-entry-picker-dialog";
-import { ConvertSubtitleDialog } from "../subtitle/dialogs/convert-subtitle-dialog";
 import { DeleteSubtitleDialog } from "../subtitle/dialogs/delete-subtitle-dialog";
-import { SubHDDownloadDialog } from "../subtitle/dialogs/subhd-download-dialog";
-import { SubtitlePreviewDialog } from "../subtitle/dialogs/subtitle-preview-dialog";
-import { TimingOffsetDialog } from "../subtitle/dialogs/timing-offset-dialog";
 import { NormalizeSubtitlesDialog, type NormalizeDialogScope } from "../subtitle/dialogs/normalize-subtitles-dialog";
-import { UploadSubtitleDialog } from "../subtitle/dialogs/upload-subtitle-dialog";
-import { VideoSubtitlePreviewDialog } from "../subtitle/dialogs/video-subtitle-preview-dialog";
 import { EmbeddedSubtitlesSummary } from "../subtitle/embedded-subtitles-summary";
+import { SubtitleDetailsDialogs } from "../subtitle/subtitle-details-dialogs";
 import { SubtitleTrackCard, subtitleRowActionIconClassName } from "../subtitle/subtitle-track-card";
 import {
   ACCEPTED_SUBTITLE_UPLOAD_TYPES,
-  isSRTFileName,
   useSubtitleFileWorkflow
 } from "../subtitle/use-subtitle-file-workflow";
 
@@ -93,7 +86,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
     onRemove,
     onPreviewSubtitle,
     handleRef: ref,
-    confirmReplace: false
+    confirmReplace: true
   });
 
   const uploadPending = subtitleAction?.kind === "upload" && subtitleAction.videoId === selectedVideo?.id;
@@ -272,140 +265,25 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
         </div>
       )}
 
-      <UploadSubtitleDialog
-        open={workflow.uploadDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            workflow.setUploadDialogOpen(false);
-            workflow.setPendingUploadFile(null);
-            return;
-          }
-          workflow.setUploadDialogOpen(true);
-        }}
-        pendingUploadFile={workflow.pendingUploadFile}
-        uploadLabel={workflow.uploadLabel}
-        onUploadLabelChange={workflow.setUploadLabel}
-        canConvertToAss={Boolean(workflow.pendingUploadFile && isSRTFileName(workflow.pendingUploadFile.name))}
-        convertToAss={workflow.uploadConvertToAss}
-        onConvertToAssChange={workflow.setUploadConvertToAss}
-        sourceEncoding={workflow.uploadSourceEncoding}
-        onSourceEncodingChange={workflow.setUploadSourceEncoding}
-        onConfirm={() => {
-          void workflow.confirmUpload();
-        }}
-        busy={busy}
-        uploadPending={uploadPending}
-      />
-
-      <ConvertSubtitleDialog
-        open={workflow.pendingConvertSubtitle !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            workflow.setPendingConvertSubtitle(null);
-            workflow.setConvertSourceEncoding("auto");
-          }
-        }}
-        subtitle={workflow.pendingConvertSubtitle}
-        sourceEncoding={workflow.convertSourceEncoding}
-        onSourceEncodingChange={workflow.setConvertSourceEncoding}
-        convertPending={Boolean(
-          subtitleAction?.kind === "convert" &&
-            workflow.pendingConvertSubtitle &&
-            subtitleAction.subtitleId === workflow.pendingConvertSubtitle.id
-        )}
-        onConfirm={() => {
-          void workflow.confirmConvertSubtitle();
-        }}
-      />
-
-      <TimingOffsetDialog
-        open={workflow.pendingOffsetSubtitle !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            workflow.setPendingOffsetSubtitle(null);
-            workflow.setOffsetSeconds("");
-            return;
-          }
-          workflow.setPendingOffsetSubtitle(workflow.pendingOffsetSubtitle);
-        }}
-        subtitle={workflow.pendingOffsetSubtitle}
-        offsetSeconds={workflow.offsetSeconds}
-        onOffsetSecondsChange={workflow.setOffsetSeconds}
-        offsetPending={Boolean(
-          subtitleAction?.kind === "offset" &&
-            workflow.pendingOffsetSubtitle &&
-            subtitleAction.subtitleId === workflow.pendingOffsetSubtitle.id
-        )}
-        onConfirm={(offsetMs) => {
-          void workflow.confirmOffsetSubtitle(offsetMs);
-        }}
-      />
-
-      <ArchiveEntryPickerDialog
-        open={workflow.zipPickDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            workflow.setZipPickDialogOpen(false);
-            workflow.setSelectedZipEntryId("");
-            return;
-          }
-          workflow.setZipPickDialogOpen(true);
-        }}
-        mode={workflow.zipPickMode}
-        zipPickFileName={workflow.zipPickFileName}
-        zipPickEntries={workflow.zipPickEntries}
-        zipUploadLabel={workflow.zipUploadLabel}
-        onZipUploadLabelChange={workflow.setZipUploadLabel}
-        selectedZipEntryId={workflow.selectedZipEntryId}
-        onSelectZipEntryId={workflow.setSelectedZipEntryId}
-        onPreviewEntry={workflow.openArchiveSubtitlePreview}
-        onConfirm={() => {
-          void workflow.confirmZipEntrySelection();
-        }}
+      <SubtitleDetailsDialogs
+        workflow={workflow}
+        selectedVideo={selectedVideo}
         busy={busy}
         uploading={uploading}
-        zipLoading={workflow.zipLoading}
+        subtitleAction={subtitleAction}
+        uploadPending={uploadPending}
+        downloadPending={downloadPending}
+        canPlayPreview={canPlayPreview}
+        canAutoDownload={canAutoDownload}
+        playPreviewOpen={playPreviewOpen}
+        setPlayPreviewOpen={setPlayPreviewOpen}
+        downloadDialogOpen={downloadDialogOpen}
+        setDownloadDialogOpen={setDownloadDialogOpen}
+        showUploadButton
+        onPreviewSubtitle={onPreviewSubtitle}
+        onSearchSubHD={onSearchSubHD}
+        onDownloadSubHD={onDownloadSubHD}
       />
-
-      <SubtitlePreviewDialog
-        open={workflow.previewDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            workflow.resetPreviewState();
-            return;
-          }
-          workflow.setPreviewDialogOpen(true);
-        }}
-        previewTitle={workflow.previewTitle}
-        previewStatus={workflow.previewStatus}
-        previewError={workflow.previewError}
-        previewContent={workflow.previewContent}
-        previewEncoding={workflow.previewEncoding}
-        previewTruncated={workflow.previewTruncated}
-      />
-
-      {canPlayPreview ? (
-        <VideoSubtitlePreviewDialog
-          open={playPreviewOpen}
-          onOpenChange={setPlayPreviewOpen}
-          video={selectedVideo}
-          onLoadSubtitleContent={onPreviewSubtitle}
-        />
-      ) : null}
-
-      {canAutoDownload && onSearchSubHD && onDownloadSubHD ? (
-        <SubHDDownloadDialog
-          open={downloadDialogOpen}
-          onOpenChange={setDownloadDialogOpen}
-          video={selectedVideo}
-          busy={busy || workflow.zipLoading}
-          downloading={downloadPending}
-          onSearch={onSearchSubHD}
-          onDownload={onDownloadSubHD}
-          onUploadLocal={workflow.openUploadPicker}
-          uploadLocalPending={uploadPending || workflow.zipLoading}
-        />
-      ) : null}
 
       <NormalizeSubtitlesDialog
         open={normalizeOpen}

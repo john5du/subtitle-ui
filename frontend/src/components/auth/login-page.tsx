@@ -51,6 +51,8 @@ export function LoginPage({
           priority
           className="h-[112px] w-[112px]"
         />
+        <h1 className="sr-only">{t("auth.loginTitle")}</h1>
+        <p className="sr-only">{t("auth.loginDescription")}</p>
         <Input
           id="admin-token"
           type="password"
@@ -58,7 +60,8 @@ export function LoginPage({
           autoFocus
           value={token}
           disabled={submitting}
-          aria-label={t("auth.submit")}
+          aria-label={t("auth.tokenLabel")}
+          placeholder={t("auth.tokenPlaceholder")}
           className="w-full"
           onChange={(event) => setToken(event.target.value)}
         />

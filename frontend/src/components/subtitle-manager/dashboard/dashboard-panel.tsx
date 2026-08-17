@@ -53,10 +53,8 @@ function formatDatabaseType(databaseType: VersionInfo["databaseType"] | undefine
   switch (String(databaseType || "").toLowerCase()) {
     case "postgres":
       return t("settings.databaseType.postgres");
-    case "sqlite":
-      return t("settings.databaseType.sqlite");
     default:
-      return "-";
+      return databaseType ? String(databaseType) : "-";
   }
 }
 

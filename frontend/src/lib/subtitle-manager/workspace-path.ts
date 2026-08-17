@@ -1,4 +1,4 @@
-import { normalizeForCompare } from "@/lib/subtitle-manager/tv-tree";
+import { normalizeForCompare } from "@/lib/subtitle-manager/path-utils";
 
 export function resolveTvInitialPath(options: {
   seriesRows: Array<{ path?: string | null }>;

@@ -2,6 +2,7 @@ package jellyfin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -16,7 +17,7 @@ type pathIDCacheEntry struct {
 }
 
 const findItemPageSize = 100
-const pathIDHitTTL = 2 * time.Minute
+const pathIDHitTTL = 30 * time.Minute
 const pathIDMissTTL = 30 * time.Second
 
 // FindItemIDByPath looks up a Movie/Episode id by filesystem path.
@@ -24,19 +25,20 @@ const pathIDMissTTL = 30 * time.Second
 // Matching is by Path only (not SearchTerm/metadata title). Jellyfin titles often
 // differ from filenames (e.g. Show.S01E01.mkv → "Pilot"), so name search would
 // drop the real item. Results are paged until a path match or the library is exhausted.
-// Successful and not-found results are cached briefly to avoid repeated full-library scans.
+//
+// Hits are cached for pathIDHitTTL to avoid repeated full-library scans. Misses use
+// a short pathIDMissTTL so a newly imported file is found on the next preview.
+// Call InvalidatePathIDCache after Library/Media/Updated, or when an item API
+// returns 404 for a cached id.
 func (c *Client) FindItemIDByPath(ctx context.Context, localOrMappedPath string) (string, error) {
 	if !c.Enabled() {
 		return "", ErrDisabled
 	}
-	target := c.MapPath(strings.TrimSpace(localOrMappedPath))
-	if target == "" {
-		return "", fmt.Errorf("empty path")
-	}
-	want := normalizeComparePath(target)
+	want := c.pathIDCacheKey(localOrMappedPath)
 	if want == "" {
 		return "", fmt.Errorf("empty path")
 	}
+	target := c.MapPath(strings.TrimSpace(localOrMappedPath))
 
 	if id, ok, err := c.lookupPathIDCache(want); ok {
 		return id, err
@@ -110,6 +112,50 @@ func (c *Client) storePathIDCache(key, itemID string, miss bool) {
 		c.pathIDCache = make(map[string]pathIDCacheEntry)
 	}
 	c.pathIDCache[key] = pathIDCacheEntry{itemID: itemID, miss: miss, at: time.Now()}
+}
+
+// itemIDThen looks up a path, runs fn, and on ErrItemNotFound after a successful
+// lookup (stale cached id) drops the cache and retries once.
+func (c *Client) itemIDThen(ctx context.Context, localOrMappedPath string, fn func(itemID string) error) (string, error) {
+	run := func() (string, error) {
+		id, err := c.FindItemIDByPath(ctx, localOrMappedPath)
+		if err != nil {
+			return "", err
+		}
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return "", fmt.Errorf("%w: empty item id", ErrItemNotFound)
+		}
+		return id, fn(id)
+	}
+	id, err := run()
+	if err == nil || !errors.Is(err, ErrItemNotFound) || id == "" {
+		return id, err
+	}
+	c.InvalidatePathIDCache(localOrMappedPath)
+	return run()
+}
+
+// InvalidatePathIDCache drops a cached hit or miss for the given local or mapped path.
+func (c *Client) InvalidatePathIDCache(localOrMappedPath string) {
+	if c == nil {
+		return
+	}
+	key := c.pathIDCacheKey(localOrMappedPath)
+	if key == "" {
+		return
+	}
+	c.pathIDMu.Lock()
+	defer c.pathIDMu.Unlock()
+	delete(c.pathIDCache, key)
+}
+
+func (c *Client) pathIDCacheKey(localOrMappedPath string) string {
+	if c == nil {
+		return ""
+	}
+	target := c.MapPath(strings.TrimSpace(localOrMappedPath))
+	return normalizeComparePath(target)
 }
 
 type itemQueryResult struct {

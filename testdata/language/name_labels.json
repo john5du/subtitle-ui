@@ -4,6 +4,10 @@
   { "input": "简体中文.srt", "wantLabel": "zh" },
   { "input": "繁体.srt", "wantLabel": "zh-hant" },
   { "input": "English.srt", "wantLabel": "en" },
+  { "input": "英语.srt", "wantLabel": "en" },
+  { "input": "英文.srt", "wantLabel": "en" },
+  { "input": "日文.srt", "wantLabel": "ja" },
+  { "input": "韩文.srt", "wantLabel": "ko" },
   { "input": "episode.srt", "wantLabel": "zh" },
   { "input": "unknown.srt", "wantLabel": "zh" }
 ]

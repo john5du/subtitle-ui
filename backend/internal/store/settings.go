@@ -34,7 +34,7 @@ func (s *Store) GetAppSettings(keys []string) (map[string]domain.AppSetting, err
 		if err := rows.Scan(&setting.Key, &setting.Value, &updatedRaw); err != nil {
 			return nil, err
 		}
-		setting.UpdatedAt = parseTimeOrNow(updatedRaw)
+		setting.UpdatedAt = parseStoredTime(updatedRaw)
 		out[setting.Key] = setting
 	}
 	if err := rows.Err(); err != nil {
@@ -59,7 +59,7 @@ func (s *Store) SetAppSettings(values map[string]string, updatedAt time.Time) er
 	}()
 
 	updatedValue := updatedAt.UTC().Format(time.RFC3339Nano)
-	query := s.insertPrefix() + ` INTO app_settings(key, value, updated_at) VALUES(?, ?, ?)` + s.settingsUpsertSuffix()
+	query := `INSERT INTO app_settings(key, value, updated_at) VALUES(?, ?, ?)` + s.settingsUpsertSuffix()
 	for key, value := range values {
 		if _, err = s.execTx(tx, query, key, value, updatedValue); err != nil {
 			return err

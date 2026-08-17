@@ -142,14 +142,33 @@ func (s *Service) ValidateMCPConfirmToken(tool string, params any, token string)
 	if env.Nonce == "" {
 		return fmt.Errorf("%w: confirmToken missing nonce", ErrBadRequest)
 	}
-	if !s.confirmNonces.consume(env.Nonce, env.Exp) {
+	if ok, err := s.consumeConfirmNonce(env.Nonce, env.Exp); err != nil {
+		return err
+	} else if !ok {
 		return fmt.Errorf("%w: confirmToken already used — request a new preview", ErrBadRequest)
 	}
 	return nil
 }
 
+func (s *Service) consumeConfirmNonce(nonce string, expUnix int64) (bool, error) {
+	exp := time.Unix(expUnix, 0).UTC()
+	if s != nil && s.store != nil {
+		return s.store.ConsumeConfirmNonce(nonce, exp)
+	}
+	return s.confirmNonces.consume(nonce, expUnix), nil
+}
+
+func (s *Service) mcpConfirmSecret() string {
+	if s != nil {
+		if secret := strings.TrimSpace(s.cfg.MCPConfirmSecret); secret != "" {
+			return secret
+		}
+	}
+	return s.streamTicketSecret()
+}
+
 func (s *Service) signConfirm(tool, hash string, exp int64, nonce string) (string, error) {
-	secret := s.streamTicketSecret()
+	secret := s.mcpConfirmSecret()
 	if secret == "" {
 		return "", fmt.Errorf("%w: no secret for confirm tokens", ErrBadRequest)
 	}

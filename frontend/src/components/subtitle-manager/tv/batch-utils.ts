@@ -12,6 +12,8 @@ import {
   type ZipSubtitleEntry
 } from "@/lib/subtitle-zip";
 
+import { detectSubtitleLanguageType } from "@/lib/subtitle-language";
+
 import type {
   BatchLanguagePreference,
   DetectedBatchLanguageType,
@@ -20,6 +22,8 @@ import type {
   SeasonBatchMappingStatus,
   SeasonBatchRowView
 } from "../types";
+
+export { detectSubtitleLanguageType };
 
 const BATCH_LANGUAGE_LABEL_KEYS: Record<DetectedBatchLanguageType, Parameters<TranslateFn>[0]> = {
   bilingual: "batch.language.bilingual",
@@ -417,36 +421,6 @@ export function filterSeasonBatchRowViews(rows: SeasonBatchRowView[], filter: Se
   }
 
   return rows.filter((row) => row.status === "skipped");
-}
-
-export function detectSubtitleLanguageType(fileNameOrPath: string): DetectedBatchLanguageType {
-  const text = fileNameOrPath.toLowerCase();
-
-  if (/双语|bilingual|中英|简英|繁英|(?:chs|cht|zh)[._\-\s&+]*(?:en|eng)|(?:en|eng)[._\-\s&+]*(?:chs|cht|zh)/.test(text)) {
-    return "bilingual";
-  }
-
-  if (/简体|简中|chs|gb|zh[-_.\s]?hans|sc\b/.test(text)) {
-    return "simplified";
-  }
-
-  if (/繁体|繁中|cht|big5|zh[-_.\s]?hant|tc\b/.test(text)) {
-    return "traditional";
-  }
-
-  if (/英文|english|\beng\b/.test(text)) {
-    return "english";
-  }
-
-  if (/日语|日文|japanese|\bjpn\b/.test(text)) {
-    return "japanese";
-  }
-
-  if (/韩语|韩文|korean|\bkor\b/.test(text)) {
-    return "korean";
-  }
-
-  return "unknown";
 }
 
 export function applyBatchEntryPreferences(

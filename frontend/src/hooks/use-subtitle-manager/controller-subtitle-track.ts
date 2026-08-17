@@ -9,7 +9,6 @@ export function createSubtitleTrackActions(runtime: ControllerRuntime, refresh: 
     setSubtitleActionPending,
     beginUpload,
     endUpload,
-    setTranslatedMessage,
     notifySuccess,
     reportRequestError
   } = runtime;
@@ -36,7 +35,6 @@ export function createSubtitleTrackActions(runtime: ControllerRuntime, refresh: 
     try {
       await requestPayload(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
       await refreshAfterSubtitleMutation(video, previousSubtitleCount);
-      setTranslatedMessage("status.uploadedSubtitleFor", { title: video.title || video.fileName });
       notifySuccess(runtime.t("toast.subtitleUploadedTitle"), video.title || video.fileName);
       return true;
     } catch (error) {
@@ -73,7 +71,6 @@ export function createSubtitleTrackActions(runtime: ControllerRuntime, refresh: 
     try {
       await requestPayload(`/api/videos/${video.id}/subtitles`, { method: "POST", body });
       await refreshAfterSubtitleMutation(video, video.subtitles.length);
-      setTranslatedMessage("status.replacedSubtitle", { name: subtitle.fileName });
       notifySuccess(runtime.t("toast.subtitleReplacedTitle"), subtitle.fileName);
       return true;
     } catch (error) {
@@ -100,7 +97,6 @@ export function createSubtitleTrackActions(runtime: ControllerRuntime, refresh: 
         body: JSON.stringify({ targetFormat: "ass", sourceEncoding })
       });
       await refreshAfterSubtitleMutation(video, video.subtitles.length);
-      setTranslatedMessage("status.convertedSubtitle", { name: subtitle.fileName });
       notifySuccess(runtime.t("toast.subtitleConvertedTitle"), subtitle.fileName);
       return true;
     } catch (error) {
@@ -128,7 +124,6 @@ export function createSubtitleTrackActions(runtime: ControllerRuntime, refresh: 
       });
       await refreshAfterSubtitleMutation(video, video.subtitles.length);
       const offsetLabel = formatOffsetMilliseconds(offsetMs);
-      setTranslatedMessage("status.offsetSubtitle", { name: subtitle.fileName, offset: offsetLabel });
       notifySuccess(runtime.t("toast.subtitleOffsetTitle"), `${subtitle.fileName} · ${offsetLabel}`);
       return true;
     } catch (error) {
@@ -151,7 +146,6 @@ export function createSubtitleTrackActions(runtime: ControllerRuntime, refresh: 
     try {
       await requestPayload(`/api/videos/${video.id}/subtitles/${subtitle.id}`, { method: "DELETE" });
       await refreshAfterSubtitleMutation(video, previousSubtitleCount);
-      setTranslatedMessage("status.deletedSubtitle", { name: subtitle.fileName });
       notifySuccess(runtime.t("toast.subtitleDeletedTitle"), subtitle.fileName);
       return true;
     } catch (error) {

@@ -548,3 +548,177 @@ func TestValidatePathMaps(t *testing.T) {
 		t.Fatalf("empty maps should skip: %v", err)
 	}
 }
+
+func TestFindItemIDByPathCachesHitUntilInvalidate(t *testing.T) {
+	target := "/data/movies/Foo.mkv"
+	var itemsHits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !authOK(r, "test-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodGet || r.URL.Path != "/Items" {
+			http.NotFound(w, r)
+			return
+		}
+		itemsHits.Add(1)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Items": []map[string]string{{"Id": "item-1", "Path": target}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c := jellyfin.New(jellyfin.Options{
+		Enabled: true, BaseURL: srv.URL, APIKey: "test-key", HTTPClient: srv.Client(),
+	})
+	id, err := c.FindItemIDByPath(context.Background(), target)
+	if err != nil || id != "item-1" {
+		t.Fatalf("first lookup: id=%q err=%v", id, err)
+	}
+	id, err = c.FindItemIDByPath(context.Background(), target)
+	if err != nil || id != "item-1" {
+		t.Fatalf("cached lookup: id=%q err=%v", id, err)
+	}
+	if itemsHits.Load() != 1 {
+		t.Fatalf("cached hit must not re-scan, hits=%d", itemsHits.Load())
+	}
+	c.InvalidatePathIDCache(target)
+	id, err = c.FindItemIDByPath(context.Background(), target)
+	if err != nil || id != "item-1" {
+		t.Fatalf("after invalidate: id=%q err=%v", id, err)
+	}
+	if itemsHits.Load() != 2 {
+		t.Fatalf("invalidate should force re-scan, hits=%d", itemsHits.Load())
+	}
+}
+
+func TestNotifyVideoChangedInvalidatesCachedMiss(t *testing.T) {
+	targetLocal := "/host/movies/Foo.mkv"
+	targetMapped := "/data/movies/Foo.mkv"
+	var itemsHits atomic.Int32
+	var present atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !authOK(r, "test-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/Library/Media/Updated":
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodGet && r.URL.Path == "/Items":
+			itemsHits.Add(1)
+			items := []map[string]string{}
+			if present.Load() {
+				items = []map[string]string{{"Id": "item-new", "Path": targetMapped}}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"Items": items})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	c := jellyfin.New(jellyfin.Options{
+		Enabled: true, BaseURL: srv.URL, APIKey: "test-key",
+		PathMaps:   []jellyfin.PathMap{{From: "/host/movies", To: "/data/movies"}},
+		HTTPClient: srv.Client(),
+	})
+	_, err := c.FindItemIDByPath(context.Background(), targetLocal)
+	if !errors.Is(err, jellyfin.ErrItemNotFound) {
+		t.Fatalf("expected miss, got %v", err)
+	}
+	present.Store(true)
+	_, err = c.FindItemIDByPath(context.Background(), targetLocal)
+	if !errors.Is(err, jellyfin.ErrItemNotFound) {
+		t.Fatalf("cached miss should still apply, got %v", err)
+	}
+	if itemsHits.Load() != 1 {
+		t.Fatalf("cached miss must not re-scan, hits=%d", itemsHits.Load())
+	}
+	if err := c.NotifyVideoChanged(context.Background(), targetLocal); err != nil {
+		t.Fatalf("notify: %v", err)
+	}
+	id, err := c.FindItemIDByPath(context.Background(), targetLocal)
+	if err != nil || id != "item-new" {
+		t.Fatalf("after notify: id=%q err=%v", id, err)
+	}
+	if itemsHits.Load() != 2 {
+		t.Fatalf("notify should drop miss cache, hits=%d", itemsHits.Load())
+	}
+}
+
+func TestResolvePlaybackPlanForPathRetriesStaleCachedID(t *testing.T) {
+	target := "/data/movies/Foo.mkv"
+	var itemsHits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !authOK(r, "test-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/Items":
+			n := itemsHits.Add(1)
+			id := "old-id"
+			if n > 1 {
+				id = "new-id"
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"Items": []map[string]string{{"Id": id, "Path": target}},
+			})
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/Items/old-id/PlaybackInfo"):
+			http.NotFound(w, r)
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/Items/new-id/PlaybackInfo"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"PlaySessionId": "ps",
+				"MediaSources": []map[string]any{
+					{"Id": "ms-1", "SupportsDirectPlay": true, "SupportsDirectStream": true},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	c := jellyfin.New(jellyfin.Options{
+		Enabled: true, BaseURL: srv.URL, APIKey: "test-key",
+		UserID: "user-1", HTTPClient: srv.Client(),
+	})
+	id, plan, err := c.ResolvePlaybackPlanForPath(context.Background(), target)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if id != "new-id" {
+		t.Fatalf("id=%q", id)
+	}
+	if plan.Mode != jellyfin.PlaybackModeProgressive {
+		t.Fatalf("mode=%s", plan.Mode)
+	}
+	if itemsHits.Load() != 2 {
+		t.Fatalf("stale id 404 should re-scan once, hits=%d", itemsHits.Load())
+	}
+}
+
+func TestResolvePlaybackPlanForPathDoesNotRescanCachedMiss(t *testing.T) {
+	var itemsHits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/Items" {
+			itemsHits.Add(1)
+			_ = json.NewEncoder(w).Encode(map[string]any{"Items": []any{}})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
+	c := jellyfin.New(jellyfin.Options{
+		Enabled: true, BaseURL: srv.URL, APIKey: "test-key", HTTPClient: srv.Client(),
+	})
+	_, _, err := c.ResolvePlaybackPlanForPath(context.Background(), "/data/movies/Missing.mkv")
+	if !errors.Is(err, jellyfin.ErrItemNotFound) {
+		t.Fatalf("expected not found, got %v", err)
+	}
+	if itemsHits.Load() != 1 {
+		t.Fatalf("cached miss must not trigger a second /Items scan, hits=%d", itemsHits.Load())
+	}
+}

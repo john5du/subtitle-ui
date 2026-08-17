@@ -3,8 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { detectSubtitleLanguageType } from "@/components/subtitle-manager/tv/batch-utils";
-import { inferUploadLanguageLabel, isBilingualLanguage } from "@/lib/subtitle-language";
+import { detectSubtitleLanguageType, inferUploadLanguageLabel, isBilingualLanguage } from "@/lib/subtitle-language";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 

@@ -6,6 +6,13 @@
   { "input": "简体中文.srt", "want": "simplified" },
   { "input": "繁体.srt", "want": "traditional" },
   { "input": "English.srt", "want": "english" },
+  { "input": "英语.srt", "want": "english" },
+  { "input": "英文.srt", "want": "english" },
+  { "input": "Show.en.srt", "want": "english" },
+  { "input": "日语.srt", "want": "japanese" },
+  { "input": "日文.srt", "want": "japanese" },
+  { "input": "韩语.srt", "want": "korean" },
+  { "input": "韩文.srt", "want": "korean" },
   { "input": "unknown.srt", "want": "unknown" },
   { "input": "episode.srt", "want": "unknown" }
 ]

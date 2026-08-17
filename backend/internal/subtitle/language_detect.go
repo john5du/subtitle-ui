@@ -10,11 +10,13 @@ import (
 const contentSampleMaxCues = 40
 
 var (
-	bilingualNamePattern = regexp.MustCompile(`(?i)双语|bilingual|中英|简英|繁英|(?:chs|cht|zh)[._\-\s&+]*(?:en|eng)|(?:en|eng)[._\-\s&+]*(?:chs|cht|zh)`)
+	bilingualNamePattern   = regexp.MustCompile(`(?i)双语|bilingual|中英|简英|繁英|(?:chs|cht|zh)[._\-\s&+]*(?:en|eng)|(?:en|eng)[._\-\s&+]*(?:chs|cht|zh)`)
 	traditionalNamePattern = regexp.MustCompile(`(?i)繁体|繁中|cht|big5|zh[-_.\s]?hant|\btc\b`)
 	simplifiedNamePattern  = regexp.MustCompile(`(?i)简体|简中|chs|gb|zh[-_.\s]?hans|\bsc\b`)
-	englishNamePattern     = regexp.MustCompile(`(?i)\b(eng|english|en)\b|英语`)
+	englishNamePattern     = regexp.MustCompile(`(?i)\b(eng|english|en)\b|英语|英文`)
 	chineseNamePattern     = regexp.MustCompile(`中文|国语|粤语|(?i)\b(chi|chinese|zh|chs|cht)\b`)
+	japaneseNamePattern    = regexp.MustCompile(`(?i)\b(jpn|japanese|jp)\b|日语|日文`)
+	koreanNamePattern      = regexp.MustCompile(`(?i)\b(kor|korean|kr)\b|韩语|韩文`)
 	assDialogueLinePattern = regexp.MustCompile(`(?i)^dialogue\s*:`)
 	assOverridePattern     = regexp.MustCompile(`\{[^}]*\}`)
 	htmlTagStripPattern    = regexp.MustCompile(`(?s)<[^>]+>`)
@@ -86,13 +88,13 @@ func DetectLanguageType(name string) string {
 	if traditionalNamePattern.MatchString(text) || strings.Contains(name, "繁体") || strings.Contains(name, "繁中") {
 		return "traditional"
 	}
-	if englishNamePattern.MatchString(text) || strings.Contains(name, "英语") {
+	if englishNamePattern.MatchString(text) || strings.Contains(name, "英语") || strings.Contains(name, "英文") {
 		return "english"
 	}
-	if regexp.MustCompile(`(?i)\b(jpn|japanese|jp)\b|日语`).MatchString(text) {
+	if japaneseNamePattern.MatchString(text) || strings.Contains(name, "日语") || strings.Contains(name, "日文") {
 		return "japanese"
 	}
-	if regexp.MustCompile(`(?i)\b(kor|korean|kr)\b|韩语`).MatchString(text) {
+	if koreanNamePattern.MatchString(text) || strings.Contains(name, "韩语") || strings.Contains(name, "韩文") {
 		return "korean"
 	}
 	return "unknown"

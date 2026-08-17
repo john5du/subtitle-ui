@@ -150,9 +150,9 @@ func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 	video.PosterPath = posterPath
 	video.ScanFingerprint = fingerprint
 	if strings.TrimSpace(fileModRaw) != "" {
-		video.FileModTime = parseTimeOrNow(fileModRaw)
+		video.FileModTime = parseStoredTime(fileModRaw)
 	}
-	video.UpdatedAt = parseTimeOrNow(updatedRaw)
+	video.UpdatedAt = parseStoredTime(updatedRaw)
 
 	subs, err := s.listSubtitlesByVideoID(video.ID)
 	if err != nil {
@@ -172,7 +172,7 @@ func (s *Store) lockVideoRowTx(tx *sql.Tx, videoID string) (bool, time.Time, err
 	if err != nil {
 		return false, time.Time{}, err
 	}
-	return true, parseTimeOrNow(raw), nil
+	return true, parseStoredTime(raw), nil
 }
 
 func (s *Store) UpdateVideoSubtitles(videoID string, subtitles []domain.Subtitle, updatedAt time.Time) (err error) {
@@ -317,7 +317,7 @@ FROM subtitles WHERE video_id = ? ORDER BY file_name ASC`,
 		); err != nil {
 			return nil, err
 		}
-		sub.ModTime = parseTimeOrNow(modValue)
+		sub.ModTime = parseStoredTime(modValue)
 		sub = normalizeSubtitleSource(sub)
 		out = append(out, sub)
 	}
@@ -371,7 +371,7 @@ FROM subtitles WHERE video_id IN (` + strings.Join(placeholders, ",") + `) ORDER
 		); err != nil {
 			return err
 		}
-		sub.ModTime = parseTimeOrNow(modValue)
+		sub.ModTime = parseStoredTime(modValue)
 		sub = normalizeSubtitleSource(sub)
 		idx, ok := indexByID[videoID]
 		if !ok {
@@ -551,16 +551,28 @@ func scanVideoRow(rows *sql.Rows) (domain.Video, error) {
 	video.PosterPath = posterPath
 	video.ScanFingerprint = fingerprint
 	if strings.TrimSpace(fileModRaw) != "" {
-		video.FileModTime = parseTimeOrNow(fileModRaw)
+		video.FileModTime = parseStoredTime(fileModRaw)
 	}
-	video.UpdatedAt = parseTimeOrNow(updatedRaw)
+	video.UpdatedAt = parseStoredTime(updatedRaw)
 	return video, nil
 }
 
-func parseTimeOrNow(raw string) time.Time {
-	t, err := time.Parse(time.RFC3339Nano, raw)
-	if err != nil {
-		return time.Now().UTC()
+func parseStoredTime(raw string) time.Time {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}
 	}
-	return t
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.999999999Z07:00",
+		"2006-01-02 15:04:05Z07:00",
+		"2006-01-02 15:04:05.999999999",
+		"2006-01-02 15:04:05",
+	} {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t.UTC()
+		}
+	}
+	return time.Time{}
 }

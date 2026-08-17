@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { normalizeForCompare } from "@/lib/subtitle-manager/tv-tree";
+import { normalizeForCompare } from "@/lib/subtitle-manager/path-utils";
 
 import type { SubtitleManagerController, SubtitleManagerSelectors, SubtitleManagerStateApi } from "./types";
 

@@ -56,7 +56,7 @@ func TestConcurrentOpenAppliesMigrationsOnce(t *testing.T) {
 	defer func() {
 		_ = verify.Close()
 	}()
-	for version := 1; version <= 10; version++ {
+	for version := 1; version <= 11; version++ {
 		applied, err := verify.isMigrationApplied(version)
 		if err != nil {
 			t.Fatalf("check migration v%d: %v", version, err)

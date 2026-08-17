@@ -60,7 +60,7 @@ func registerTranslateTools(s *mcp.Server, svc *app.Service) {
 		Name: "install_translated_cues",
 		Description: "Install bilingual zh&en SRT from agent translations. Requires confirmToken from install_translated_cues_preview. " +
 			"Timing from sourceSubtitleId. Default targetLang=zh: [Chinese, English original].",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in installTranslatedIn) (*mcp.CallToolResult, domain.Subtitle, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in installTranslatedIn) (*mcp.CallToolResult, domain.Subtitle, error) {
 		params := translatedInstallParams(in)
 		if err := svc.ValidateMCPConfirmToken("install_translated_cues", params, in.ConfirmToken); err != nil {
 			return nil, domain.Subtitle{}, err
@@ -69,7 +69,7 @@ func registerTranslateTools(s *mcp.Server, svc *app.Service) {
 		for _, it := range in.Items {
 			items = append(items, app.TranslatedCueItem{Index: it.Index, Text: it.Text})
 		}
-		ctx := app.WithOpAudit(context.Background(), domain.OpSourceMCP, "install_translated_cues")
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "install_translated_cues")
 		sub, err := svc.InstallTranslatedCuesCtx(ctx, app.InstallTranslatedCuesOptions{
 			VideoID: in.VideoID, SourceSubtitleID: in.SourceSubtitleID, Items: items,
 			Label: in.Label, ReplaceID: in.ReplaceID, TargetLang: in.TargetLang,

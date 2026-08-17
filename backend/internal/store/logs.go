@@ -137,7 +137,7 @@ func scanOperationLog(row scannable) (domain.OperationLog, error) {
 	); err != nil {
 		return domain.OperationLog{}, err
 	}
-	log.Timestamp = parseTimeOrNow(timeValue)
+	log.Timestamp = parseStoredTime(timeValue)
 	return log, nil
 }
 

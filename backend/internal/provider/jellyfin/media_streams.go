@@ -38,6 +38,18 @@ func (s playbackStreamsSrc) streams() []MediaStream {
 	return s.MediaStreamsC
 }
 
+// ListMediaStreamsForPath looks up the item by filesystem path then lists streams.
+// A 404 / missing item after a cached id is dropped and the lookup is retried once.
+func (c *Client) ListMediaStreamsForPath(ctx context.Context, localOrMappedPath string) ([]MediaStream, error) {
+	var streams []MediaStream
+	_, err := c.itemIDThen(ctx, localOrMappedPath, func(id string) error {
+		var listErr error
+		streams, listErr = c.ListMediaStreams(ctx, id)
+		return listErr
+	})
+	return streams, err
+}
+
 // ListMediaStreams returns media streams for a Jellyfin item.
 // Uses PlaybackInfo (same path as stream preview) — GET /Items/{id}?Fields=… returns 400 on some servers.
 func (c *Client) ListMediaStreams(ctx context.Context, itemID string) ([]MediaStream, error) {

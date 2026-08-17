@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  detectSubtitleLanguageType,
   formatSubtitleLanguageLabel,
   inferUploadLanguageLabel,
   isBilingualLanguage
@@ -35,6 +36,14 @@ describe("formatSubtitleLanguageLabel", () => {
 
   test("keeps bilingual labels lowercase", () => {
     expect(formatSubtitleLanguageLabel("ZH&EN")).toBe("zh&en");
+  });
+});
+
+describe("detectSubtitleLanguageType", () => {
+  test("accepts both 英语 and 英文", () => {
+    expect(detectSubtitleLanguageType("英语.srt")).toBe("english");
+    expect(detectSubtitleLanguageType("英文.srt")).toBe("english");
+    expect(detectSubtitleLanguageType("Show.en.srt")).toBe("english");
   });
 });
 

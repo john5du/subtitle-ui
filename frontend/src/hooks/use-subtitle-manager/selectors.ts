@@ -4,7 +4,7 @@ import { useMemo } from "react";
 
 import type { TranslateFn } from "@/lib/i18n";
 import { collectDetectedSeasons, compareTvVideosByEpisode, parseVideoSeasonEpisodeForSort } from "@/lib/subtitle-manager/tv-episode";
-import { deriveTreeRootPath, normalizeForCompare } from "@/lib/subtitle-manager/tv-tree";
+import { deriveTreeRootPath, normalizeForCompare } from "@/lib/subtitle-manager/path-utils";
 import type { TvSeasonOption } from "@/lib/types";
 
 import type { SubtitleManagerSelectors, SubtitleManagerState } from "./types";

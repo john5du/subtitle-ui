@@ -6,7 +6,7 @@ import {
   normalizeScanStatus,
   normalizeVideo
 } from "@/lib/subtitle-manager/normalizers";
-import { pickDefaultTvDirectory } from "@/lib/subtitle-manager/tv-tree";
+import { pickDefaultTvDirectory } from "@/lib/subtitle-manager/path-utils";
 
 import { DEFAULT_LOG_PAGE_SIZE } from "./state";
 import type { ControllerRuntime } from "./controller-runtime";

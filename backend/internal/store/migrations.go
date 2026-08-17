@@ -415,6 +415,26 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 		}
 	}
 
+	applied, err = s.isMigrationApplied(11)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		if _, err := s.exec(`
+CREATE TABLE IF NOT EXISTS mcp_confirm_nonces (
+  nonce TEXT PRIMARY KEY,
+  exp TEXT NOT NULL
+)`); err != nil {
+			return fmt.Errorf("apply migration v11 mcp_confirm_nonces: %w", err)
+		}
+		if _, err := s.exec(`CREATE INDEX IF NOT EXISTS idx_mcp_confirm_nonces_exp ON mcp_confirm_nonces(exp)`); err != nil {
+			return fmt.Errorf("apply migration v11 index exp: %w", err)
+		}
+		if _, err := s.exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 11, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

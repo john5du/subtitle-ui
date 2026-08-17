@@ -370,7 +370,7 @@ volumes:
 - `SERVER_ADDR` 默认 `:9307`
 - `MOVIE_MEDIA_ROOT` 默认 `./media/movies`
 - `TV_MEDIA_ROOT` 默认 `./media/tv`
-- `MEDIA_ROOT` 旧版兜底（若设置且 `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` 未设置，则两者都使用它）
+- `MEDIA_ROOT` **已弃用**兜底（若设置且 `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` 未设置，则两者都使用它；新部署请用分根）
 - `DATABASE_URL` 必填的 PostgreSQL DSN
 - `UI_DIST` 默认 `./frontend/out`
 - `CORS_ALLOWED_ORIGINS` 逗号分隔的允许来源列表，用于跨来源写入类 API 请求

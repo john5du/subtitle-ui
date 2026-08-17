@@ -1,7 +1,7 @@
 import type { Locale } from "@/lib/i18n";
 import type { MediaType, TvSeriesSummary } from "@/lib/types";
 
-import { basenamePath } from "./tv-tree";
+import { basenamePath } from "./path-utils";
 
 function clean(value: string | undefined | null) {
   return String(value ?? "").trim();

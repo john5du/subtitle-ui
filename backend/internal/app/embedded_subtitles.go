@@ -46,7 +46,7 @@ func (s *Service) ListEmbeddedSubtitles(ctx context.Context, videoID string) (Em
 	if strings.TrimSpace(video.Path) == "" {
 		return EmbeddedSubtitleList{}, fmt.Errorf("%w: video path", ErrNotFound)
 	}
-	itemID, err := client.FindItemIDByPath(ctx, video.Path)
+	streams, err := client.ListMediaStreamsForPath(ctx, video.Path)
 	if err != nil {
 		if errors.Is(err, jellyfin.ErrDisabled) {
 			return EmbeddedSubtitleList{}, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
@@ -54,16 +54,8 @@ func (s *Service) ListEmbeddedSubtitles(ctx context.Context, videoID string) (Em
 		if errors.Is(err, jellyfin.ErrItemNotFound) {
 			return EmbeddedSubtitleList{}, fmt.Errorf("%w: jellyfin item: %w", ErrNotFound, err)
 		}
-		// empty / unmappable path from MapPath
 		if strings.Contains(err.Error(), "empty path") {
 			return EmbeddedSubtitleList{}, fmt.Errorf("%w: jellyfin path: %w", ErrNotFound, err)
-		}
-		return EmbeddedSubtitleList{}, fmt.Errorf("jellyfin item lookup: %w", err)
-	}
-	streams, err := client.ListMediaStreams(ctx, itemID)
-	if err != nil {
-		if errors.Is(err, jellyfin.ErrDisabled) {
-			return EmbeddedSubtitleList{}, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
 		}
 		return EmbeddedSubtitleList{}, fmt.Errorf("jellyfin media streams: %w", err)
 	}

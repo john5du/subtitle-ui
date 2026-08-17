@@ -52,7 +52,6 @@ export function useSubtitleManager(): SubtitleManagerResult {
   });
 
   const uploadingMessage = useMemo(() => resolveLocalizedText(state.uploadingMessageState, t), [state.uploadingMessageState, t]);
-  const message = useMemo(() => resolveLocalizedText(state.messageState, t), [state.messageState, t]);
   const formatTime = useCallback((value: string | undefined | null) => formatTimeWithLocale(locale, value), [locale]);
   const setMovieQuery = useCallback((value: string) => controller.setMovieQuery(value), [controller]);
   const setTvQuery = useCallback((value: string) => controller.setTvQuery(value), [controller]);
@@ -148,7 +147,6 @@ export function useSubtitleManager(): SubtitleManagerResult {
       pending: state.pending,
       uploading: state.uploading,
       uploadingMessage,
-      message,
       formatTime
     },
     dashboard: {

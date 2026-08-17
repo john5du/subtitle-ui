@@ -54,7 +54,6 @@ export interface SubtitleManagerState {
   pending: UiPendingState;
   uploading: boolean;
   uploadingMessageState: LocalizedText;
-  messageState: LocalizedText;
   scanStatus: ScanStatus | null;
   logs: OperationLog[];
   logsPager: Pager;
@@ -105,7 +104,6 @@ export interface SubtitleManagerSetters {
   setPending: Dispatch<SetStateAction<UiPendingState>>;
   setUploading: Dispatch<SetStateAction<boolean>>;
   setUploadingMessageState: Dispatch<SetStateAction<LocalizedText>>;
-  setMessageState: Dispatch<SetStateAction<LocalizedText>>;
   setScanStatus: Dispatch<SetStateAction<ScanStatus | null>>;
   setLogs: Dispatch<SetStateAction<OperationLog[]>>;
   setLogsPager: Dispatch<SetStateAction<Pager>>;
@@ -141,7 +139,6 @@ export interface SubtitleManagerCore {
   pending: UiPendingState;
   uploading: boolean;
   uploadingMessage: string;
-  message: string;
   formatTime: (value: string | undefined | null) => string;
 }
 

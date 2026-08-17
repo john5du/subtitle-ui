@@ -21,6 +21,7 @@ func (c *Client) ReportMediaUpdated(ctx context.Context, paths []string) error {
 			continue
 		}
 		mapped := c.MapPath(p)
+		c.InvalidatePathIDCache(p)
 		if _, ok := seen[mapped]; ok {
 			continue
 		}

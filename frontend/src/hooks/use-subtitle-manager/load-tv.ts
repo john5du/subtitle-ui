@@ -1,7 +1,7 @@
 import type { Video } from "@/lib/types";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { normalizePagedVideosResponse, normalizeTvSeriesPage } from "@/lib/subtitle-manager/normalizers";
-import { normalizeForCompare } from "@/lib/subtitle-manager/tv-tree";
+import { normalizeForCompare } from "@/lib/subtitle-manager/path-utils";
 
 import { DEFAULT_PAGE_SIZE } from "./state";
 import { buildRequestSignature, type ControllerRuntime } from "./controller-runtime";

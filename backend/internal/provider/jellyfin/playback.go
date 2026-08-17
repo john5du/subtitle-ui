@@ -62,6 +62,18 @@ type playbackMediaSrc struct {
 	MediaStreams         []PlaybackMediaStream `json:"MediaStreams"`
 }
 
+// ResolvePlaybackPlanForPath looks up the item by filesystem path then builds a plan.
+// A 404 / missing item after a cached id is dropped and the lookup is retried once.
+func (c *Client) ResolvePlaybackPlanForPath(ctx context.Context, localOrMappedPath string) (string, PlaybackPlan, error) {
+	var plan PlaybackPlan
+	itemID, err := c.itemIDThen(ctx, localOrMappedPath, func(id string) error {
+		var resolveErr error
+		plan, resolveErr = c.ResolvePlaybackPlan(ctx, id)
+		return resolveErr
+	})
+	return itemID, plan, err
+}
+
 // ResolvePlaybackPlan asks Jellyfin how to stream an item for browser preview.
 // DeviceProfile declares AAC-preferring audio so EAC3/DTS trigger audio transcoding.
 func (c *Client) ResolvePlaybackPlan(ctx context.Context, itemID string) (PlaybackPlan, error) {

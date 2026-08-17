@@ -382,3 +382,76 @@ func TestIssueStreamTicketMapsJellyfinErrors(t *testing.T) {
 		t.Fatalf("missing item should be ErrNotFound, got %v", err)
 	}
 }
+
+func TestIssueStreamTicketRetriesStaleCachedItemID(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	movieDir := filepath.Join(movieRoot, "Movie")
+	_ = os.MkdirAll(movieDir, 0o755)
+	_ = os.MkdirAll(tvRoot, 0o755)
+	videoPath := filepath.Join(movieDir, "movie.mp4")
+	_ = os.WriteFile(videoPath, []byte("x"), 0o644)
+	_ = os.WriteFile(filepath.Join(movieDir, "movie.nfo"), []byte("<movie><title>M</title><year>2025</year></movie>"), 0o644)
+
+	var itemsHits atomic.Int32
+	jf := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Emby-Token") != "jf-key" && !strings.Contains(r.Header.Get("Authorization"), "jf-key") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/Items":
+			n := itemsHits.Add(1)
+			id := "old-id"
+			if n > 1 {
+				id = "new-id"
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"Items": []map[string]string{{"Id": id, "Path": videoPath}},
+			})
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/Items/old-id/PlaybackInfo"):
+			http.NotFound(w, r)
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/Items/new-id/PlaybackInfo"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"PlaySessionId": "ps-1",
+				"MediaSources": []map[string]any{
+					{"Id": "ms-1", "SupportsDirectPlay": true, "SupportsDirectStream": true},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(jf.Close)
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot, TVMediaRoot: tvRoot,
+		DatabaseURL: store.TestDSN(t), AdminToken: "tok",
+		StreamTicketSecret: "sec", StreamTicketTTL: time.Minute,
+		JellyfinEnabled: true, JellyfinURL: jf.URL, JellyfinAPIKey: "jf-key",
+		JellyfinUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = svc.Close() })
+	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatal(status.Error)
+	}
+	videoID := mustListVideosPage(t, svc, "movie", 10).Items[0].ID
+	issued, err := svc.IssueStreamTicket(context.Background(), videoID)
+	if err != nil {
+		t.Fatalf("issue: %v", err)
+	}
+	claims, err := svc.ValidateStreamTicket(videoID, issued.Ticket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claims.ItemID != "new-id" {
+		t.Fatalf("itemID=%q", claims.ItemID)
+	}
+	if itemsHits.Load() != 2 {
+		t.Fatalf("expected one re-scan after stale 404, hits=%d", itemsHits.Load())
+	}
+}

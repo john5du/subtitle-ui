@@ -73,9 +73,12 @@ export function VideoSubtitlePreviewDialog({
     : "";
   const selectedSubtitleRef = useRef(selectedSubtitle);
   selectedSubtitleRef.current = selectedSubtitle;
+  const sessionKey = open && videoId ? videoId : "";
+  const sessionInitRef = useRef("");
 
   useEffect(() => {
-    if (!open || !videoId) {
+    if (!sessionKey) {
+      sessionInitRef.current = "";
       setSelectedSubtitleId("__none__");
       setSubtitleBlobUrl("");
       setSubtitleStatus("idle");
@@ -83,14 +86,17 @@ export function VideoSubtitlePreviewDialog({
       setPlayerError("");
       return;
     }
+    if (sessionInitRef.current === sessionKey) {
+      return;
+    }
+    sessionInitRef.current = sessionKey;
     const preferred =
       (initialSubtitleId && subtitles.some((s) => s.id === initialSubtitleId) && initialSubtitleId) ||
       subtitles[0]?.id ||
       "__none__";
     setSelectedSubtitleId(preferred);
     setPlayerError("");
-    // only reset selection when dialog opens or video changes
-  }, [open, videoId, initialSubtitleId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionKey, initialSubtitleId, subtitles]);
 
   useEffect(() => {
     const controller = new AbortController();

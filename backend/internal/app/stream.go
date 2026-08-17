@@ -67,7 +67,7 @@ func (s *Service) IssueStreamTicket(ctx context.Context, videoID string) (Stream
 	if err != nil {
 		return StreamTicket{}, err
 	}
-	itemID, err := client.FindItemIDByPath(ctx, video.Path)
+	itemID, plan, err := client.ResolvePlaybackPlanForPath(ctx, video.Path)
 	if err != nil {
 		if errors.Is(err, jellyfin.ErrDisabled) {
 			return StreamTicket{}, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
@@ -75,26 +75,18 @@ func (s *Service) IssueStreamTicket(ctx context.Context, videoID string) (Stream
 		if errors.Is(err, jellyfin.ErrItemNotFound) {
 			return StreamTicket{}, fmt.Errorf("%w: jellyfin item: %w", ErrNotFound, err)
 		}
-		return StreamTicket{}, fmt.Errorf("jellyfin item lookup: %w", err)
-	}
-	itemID = strings.TrimSpace(itemID)
-	if itemID == "" {
-		return StreamTicket{}, fmt.Errorf("%w: jellyfin item id invalid", ErrNotFound)
-	}
-
-	plan, err := client.ResolvePlaybackPlan(ctx, itemID)
-	if err != nil {
-		if errors.Is(err, jellyfin.ErrDisabled) {
-			return StreamTicket{}, fmt.Errorf("%w: jellyfin", ErrProviderDisabled)
-		}
-		if errors.Is(err, jellyfin.ErrItemNotFound) {
-			return StreamTicket{}, fmt.Errorf("%w: jellyfin item: %w", ErrNotFound, err)
+		if strings.Contains(err.Error(), "empty path") {
+			return StreamTicket{}, fmt.Errorf("%w: jellyfin path: %w", ErrNotFound, err)
 		}
 		// Metadata-based preview gate (HDR etc.) — no stream probe.
 		if errors.Is(err, jellyfin.ErrPreviewUnplayable) {
 			return StreamTicket{}, fmt.Errorf("%w: %s", ErrPreviewUnavailable, err.Error())
 		}
 		return StreamTicket{}, fmt.Errorf("jellyfin playback info: %w", err)
+	}
+	itemID = strings.TrimSpace(itemID)
+	if itemID == "" {
+		return StreamTicket{}, fmt.Errorf("%w: jellyfin item id invalid", ErrNotFound)
 	}
 	if err := jellyfin.ValidateUpstreamPath(plan.UpstreamPath); err != nil {
 		return StreamTicket{}, fmt.Errorf("jellyfin playback path: %w", err)

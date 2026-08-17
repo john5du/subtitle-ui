@@ -370,7 +370,7 @@ Core:
 - `SERVER_ADDR` default `:9307`
 - `MOVIE_MEDIA_ROOT` default `./media/movies`
 - `TV_MEDIA_ROOT` default `./media/tv`
-- `MEDIA_ROOT` legacy fallback (if set and `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` not set, both use it)
+- `MEDIA_ROOT` **deprecated** fallback (if set and `MOVIE_MEDIA_ROOT`/`TV_MEDIA_ROOT` not set, both use it; prefer the split roots)
 - `DATABASE_URL` required PostgreSQL DSN
 - `UI_DIST` default `./frontend/out`
 - `CORS_ALLOWED_ORIGINS` comma-separated allowed origins for mutating cross-origin API requests

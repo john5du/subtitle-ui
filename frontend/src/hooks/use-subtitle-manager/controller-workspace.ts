@@ -1,7 +1,7 @@
 import type { ActiveTab, Video } from "@/lib/types";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { normalizeDirectoryScanResult, normalizeScanStatus } from "@/lib/subtitle-manager/normalizers";
-import { normalizeForCompare, pickDefaultTvDirectory } from "@/lib/subtitle-manager/tv-tree";
+import { normalizeForCompare, pickDefaultTvDirectory } from "@/lib/subtitle-manager/path-utils";
 import {
   clampPage,
   clampPageSize,
@@ -21,7 +21,6 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     endLoadChannel,
     beginLoading,
     endLoading,
-    setTranslatedMessage,
     notifySuccess,
     notifyInfo,
     reportRequestError
@@ -48,7 +47,6 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
         total: 0,
         totalPages: 0
       });
-      setTranslatedMessage("status.logsCleared");
       notifySuccess(runtime.t("toast.logsClearedTitle"));
       return true;
     } catch (error) {
@@ -105,7 +103,6 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
   async function triggerScan() {
     beginLoading();
     setters.setPending((prev) => ({ ...prev, scan: true }));
-    setTranslatedMessage("status.scanStepDirs");
 
     try {
       const discoveredPayload = await requestPayload<unknown>("/api/scan/directories", { method: "POST" });
@@ -116,8 +113,6 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       if (defaultDir) {
         setters.setSelectedTvDirPath(defaultDir);
       }
-
-      setTranslatedMessage("status.scanStepFiles");
 
       const payload = {
         movieDirs: discovered.movie.map((item) => item.path),
@@ -149,13 +144,11 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       const warningCount = discovered.errors.length;
       const videoCount = normalizedStatus?.videoCount ?? 0;
       if (warningCount > 0) {
-        setTranslatedMessage("status.scanCompletedWithWarnings", { count: videoCount, warnings: warningCount });
         notifyInfo(
           runtime.t("toast.scanWarningsTitle"),
           runtime.t("toast.scanWarningsDetail", { count: videoCount, warnings: warningCount })
         );
       } else {
-        setTranslatedMessage("status.scanCompletedNoWarnings", { count: videoCount });
         notifySuccess(runtime.t("toast.scanSuccessMessage", { count: videoCount }));
       }
     } catch (error) {
@@ -171,7 +164,6 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     try {
       if (runtime.state.activeTab === "dashboard") {
         await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadVersionInfo()]);
-        setTranslatedMessage("status.dashboardRefreshed");
         notifySuccess(runtime.t("toast.dashboardRefreshedTitle"));
         return;
       }
@@ -187,13 +179,11 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
           loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1, force: true }),
           refreshTvVideosForPath(targetDir)
         ]);
-        setTranslatedMessage("status.tvRefreshed");
         notifySuccess(runtime.t("toast.tvRefreshedTitle"));
         return;
       }
 
       await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1, force: true });
-      setTranslatedMessage("status.movieRefreshed");
       notifySuccess(runtime.t("toast.movieRefreshedTitle"));
     } finally {
       setters.setPending((prev) => ({ ...prev, refreshTab: null }));

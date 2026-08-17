@@ -4,7 +4,7 @@ const BILINGUAL_NAME_RE =
   /双语|bilingual|中英|简英|繁英|(?:chs|cht|zh)[._\-\s&+]*(?:en|eng)|(?:en|eng)[._\-\s&+]*(?:chs|cht|zh)/i;
 const TRADITIONAL_NAME_RE = /繁体|繁中|cht|big5|zh[-_.\s]?hant|\btc\b/i;
 const SIMPLIFIED_NAME_RE = /简体|简中|chs|gb|zh[-_.\s]?hans|\bsc\b/i;
-const ENGLISH_NAME_RE = /英语|english|\beng\b|\ben\b/i;
+const ENGLISH_NAME_RE = /英语|英文|english|\beng\b|\ben\b/i;
 const CHINESE_NAME_RE = /中文|国语|粤语|chinese|\bchi\b|\bzh\b/i;
 
 export function isBilingualLanguage(language: string | undefined | null): boolean {
@@ -120,6 +120,39 @@ export function subtitleLanguageDisplayText(
     return t(lang.labelKey);
   }
   return lang.code || "-";
+}
+
+export type DetectedLanguageType =
+  | "bilingual"
+  | "simplified"
+  | "traditional"
+  | "english"
+  | "japanese"
+  | "korean"
+  | "unknown";
+
+export function detectSubtitleLanguageType(fileNameOrPath: string): DetectedLanguageType {
+  const text = String(fileNameOrPath || "");
+  const lower = text.toLowerCase();
+  if (BILINGUAL_NAME_RE.test(text) || BILINGUAL_NAME_RE.test(lower)) {
+    return "bilingual";
+  }
+  if (SIMPLIFIED_NAME_RE.test(text) || SIMPLIFIED_NAME_RE.test(lower)) {
+    return "simplified";
+  }
+  if (TRADITIONAL_NAME_RE.test(text) || TRADITIONAL_NAME_RE.test(lower)) {
+    return "traditional";
+  }
+  if (ENGLISH_NAME_RE.test(text) || ENGLISH_NAME_RE.test(lower)) {
+    return "english";
+  }
+  if (/日语|日文|japanese|\bjpn\b|\bjp\b/i.test(text)) {
+    return "japanese";
+  }
+  if (/韩语|韩文|korean|\bkor\b|\bkr\b/i.test(text)) {
+    return "korean";
+  }
+  return "unknown";
 }
 
 /** Infer filename language label for upload defaults (backend still re-checks content). */

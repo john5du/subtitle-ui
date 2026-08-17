@@ -95,10 +95,6 @@ func placeholders(count int) string {
 	return strings.Join(out, ",")
 }
 
-func (s *Store) insertPrefix() string {
-	return "INSERT"
-}
-
 func (s *Store) settingsUpsertSuffix() string {
 	return ` ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
 }

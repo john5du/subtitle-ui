@@ -26,7 +26,6 @@ export function createSubtitleSubHDActions(
     endLoading,
     beginUpload,
     endUpload,
-    setTranslatedMessage,
     notifySuccess,
     notifyInfo,
     reportRequestError
@@ -86,7 +85,6 @@ export function createSubtitleSubHDActions(
         body: JSON.stringify(body)
       });
       await refreshAfterSubtitleMutation(video, previousSubtitleCount);
-      setTranslatedMessage("status.downloadedSubtitleFor", { title: video.title || video.fileName });
       notifySuccess(runtime.t("toast.subtitleDownloadedTitle"), video.title || video.fileName);
       return true;
     } catch (error) {
@@ -189,10 +187,8 @@ export function createSubtitleSubHDActions(
     const total = mappings.length;
     const failed = Math.max(0, total - success);
     if (failed > 0 || errors.length > 0) {
-      setTranslatedMessage("status.batchFinishedWarnings", { success, total, failed: failed || errors.length });
       notifyInfo(runtime.t("toast.batchWarningsTitle"), runtime.t("toast.batchSuccessMessage", { success, total }));
     } else {
-      setTranslatedMessage("status.batchFinishedSuccess", { success, total });
       notifySuccess(runtime.t("toast.batchSuccessMessage", { success, total }));
     }
     return { total, success, failed, errors };

@@ -123,12 +123,12 @@ func registerSubtitleTools(s *mcp.Server, svc *app.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "delete_subtitle",
 		Description: "Delete a sidecar subtitle (backs up first). Requires confirmToken from delete_subtitle_preview with the same videoId/subtitleId.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in deleteSubtitleIn) (*mcp.CallToolResult, map[string]any, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in deleteSubtitleIn) (*mcp.CallToolResult, map[string]any, error) {
 		params := map[string]any{"videoId": in.VideoID, "subtitleId": in.SubtitleID}
 		if err := svc.ValidateMCPConfirmToken("delete_subtitle", params, in.ConfirmToken); err != nil {
 			return nil, nil, err
 		}
-		ctx := app.WithOpAudit(context.Background(), domain.OpSourceMCP, "delete_subtitle")
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "delete_subtitle")
 		if err := svc.DeleteSubtitleCtx(ctx, in.VideoID, in.SubtitleID); err != nil {
 			return nil, nil, err
 		}
@@ -150,12 +150,12 @@ func registerSubtitleTools(s *mcp.Server, svc *app.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "convert_subtitle_to_ass",
 		Description: "Convert SRT to ASS. Requires confirmToken from convert_subtitle_to_ass_preview.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in convertSubtitleIn) (*mcp.CallToolResult, domain.Subtitle, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in convertSubtitleIn) (*mcp.CallToolResult, domain.Subtitle, error) {
 		params := map[string]any{"videoId": in.VideoID, "subtitleId": in.SubtitleID, "sourceEncoding": in.SourceEncoding}
 		if err := svc.ValidateMCPConfirmToken("convert_subtitle_to_ass", params, in.ConfirmToken); err != nil {
 			return nil, domain.Subtitle{}, err
 		}
-		ctx := app.WithOpAudit(context.Background(), domain.OpSourceMCP, "convert_subtitle_to_ass")
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "convert_subtitle_to_ass")
 		sub, err := svc.ConvertSubtitleToASSCtx(ctx, in.VideoID, in.SubtitleID, app.SubtitleConvertOptions{SourceEncoding: in.SourceEncoding})
 		return nil, sub, err
 	})
@@ -175,12 +175,12 @@ func registerSubtitleTools(s *mcp.Server, svc *app.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "offset_subtitle_timing",
 		Description: "Shift subtitle timing (backs up first). Requires confirmToken from offset_subtitle_timing_preview.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in offsetSubtitleIn) (*mcp.CallToolResult, domain.Subtitle, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in offsetSubtitleIn) (*mcp.CallToolResult, domain.Subtitle, error) {
 		params := map[string]any{"videoId": in.VideoID, "subtitleId": in.SubtitleID, "offsetMs": in.OffsetMs}
 		if err := svc.ValidateMCPConfirmToken("offset_subtitle_timing", params, in.ConfirmToken); err != nil {
 			return nil, domain.Subtitle{}, err
 		}
-		ctx := app.WithOpAudit(context.Background(), domain.OpSourceMCP, "offset_subtitle_timing")
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "offset_subtitle_timing")
 		sub, err := svc.OffsetSubtitleTimingCtx(ctx, in.VideoID, in.SubtitleID, app.SubtitleTimingOffsetOptions{OffsetMS: in.OffsetMs})
 		return nil, sub, err
 	})
@@ -208,12 +208,12 @@ func registerSubtitleTools(s *mcp.Server, svc *app.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "normalize_apply_video",
 		Description: "Apply normalize renames. Requires confirmToken from normalize_apply_video_preview with identical items.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in normalizeApplyVideoIn) (*mcp.CallToolResult, domain.SubtitleNormalizeApplyResult, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in normalizeApplyVideoIn) (*mcp.CallToolResult, domain.SubtitleNormalizeApplyResult, error) {
 		params := map[string]any{"videoId": in.VideoID, "items": in.Items}
 		if err := svc.ValidateMCPConfirmToken("normalize_apply_video", params, in.ConfirmToken); err != nil {
 			return nil, domain.SubtitleNormalizeApplyResult{}, err
 		}
-		ctx := app.WithOpAudit(context.Background(), domain.OpSourceMCP, "normalize_apply_video")
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "normalize_apply_video")
 		result, err := svc.ApplyNormalizeVideoSubtitlesCtx(ctx, in.VideoID, in.Items)
 		return nil, result, err
 	})
@@ -241,12 +241,12 @@ func registerSubtitleTools(s *mcp.Server, svc *app.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "normalize_apply_season",
 		Description: "Apply season normalize. Requires confirmToken from normalize_apply_season_preview.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in normalizeApplySeasonIn) (*mcp.CallToolResult, domain.SubtitleNormalizeApplyResult, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in normalizeApplySeasonIn) (*mcp.CallToolResult, domain.SubtitleNormalizeApplyResult, error) {
 		params := map[string]any{"path": in.Path, "key": in.Key, "season": in.Season, "items": in.Items}
 		if err := svc.ValidateMCPConfirmToken("normalize_apply_season", params, in.ConfirmToken); err != nil {
 			return nil, domain.SubtitleNormalizeApplyResult{}, err
 		}
-		ctx := app.WithOpAudit(context.Background(), domain.OpSourceMCP, "normalize_apply_season")
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "normalize_apply_season")
 		result, err := svc.ApplyNormalizeSeasonSubtitlesCtx(ctx, in.Path, in.Key, in.Season, in.Items)
 		return nil, result, err
 	})
@@ -266,12 +266,12 @@ func registerSubtitleTools(s *mcp.Server, svc *app.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "install_subtitle_from_path",
 		Description: "Install subtitle from media-root path. Requires confirmToken from install_subtitle_from_path_preview.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in installFromPathIn) (*mcp.CallToolResult, domain.Subtitle, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in installFromPathIn) (*mcp.CallToolResult, domain.Subtitle, error) {
 		params := installPathParams(in)
 		if err := svc.ValidateMCPConfirmToken("install_subtitle_from_path", params, in.ConfirmToken); err != nil {
 			return nil, domain.Subtitle{}, err
 		}
-		ctx := app.WithOpAudit(context.Background(), domain.OpSourceMCP, "install_subtitle_from_path")
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "install_subtitle_from_path")
 		sub, err := svc.InstallSubtitleFromPathCtx(ctx, in.VideoID, in.Path, in.Label, in.ReplaceID, app.SubtitleUploadOptions{
 			ConvertTo: in.ConvertTo, SourceEncoding: in.SourceEncoding, ArchiveEntry: in.ArchiveEntry,
 		})

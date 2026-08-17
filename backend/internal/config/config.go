@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -40,6 +41,8 @@ type Config struct {
 	StreamTicketSecret string
 	// StreamTicketTTL is how long a stream ticket remains valid.
 	StreamTicketTTL time.Duration
+	// MCPConfirmSecret signs MCP confirm tokens. Empty → StreamTicketSecret, then AdminToken.
+	MCPConfirmSecret string
 	// MCPEnabled is the env bootstrap for Streamable MCP at /mcp (Bearer ADMIN_TOKEN).
 	// Default false; DB setting mcp.enabled overrides at runtime (settings UI).
 	MCPEnabled bool
@@ -60,9 +63,11 @@ func Load() Config {
 	movieDefault := "./media/movies"
 	tvDefault := "./media/tv"
 	if legacyRoot != "" {
-		// Legacy single-root: both movie and TV share MEDIA_ROOT.
 		movieDefault = legacyRoot
 		tvDefault = legacyRoot
+		if strings.TrimSpace(os.Getenv("MOVIE_MEDIA_ROOT")) == "" && strings.TrimSpace(os.Getenv("TV_MEDIA_ROOT")) == "" {
+			log.Printf("MEDIA_ROOT is deprecated; set MOVIE_MEDIA_ROOT and TV_MEDIA_ROOT instead")
+		}
 	}
 
 	adminToken := strings.TrimSpace(os.Getenv("ADMIN_TOKEN"))
@@ -96,6 +101,7 @@ func Load() Config {
 		JellyfinUserID:        strings.TrimSpace(os.Getenv("JELLYFIN_USER_ID")),
 		StreamTicketSecret:    strings.TrimSpace(os.Getenv("STREAM_TICKET_SECRET")),
 		StreamTicketTTL:       parseDuration(os.Getenv("STREAM_TICKET_TTL"), 15*time.Minute),
+		MCPConfirmSecret:      strings.TrimSpace(os.Getenv("MCP_CONFIRM_SECRET")),
 		MCPEnabled:            parseBool(os.Getenv("MCP_ENABLED")),
 	}
 

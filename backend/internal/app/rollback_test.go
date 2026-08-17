@@ -121,6 +121,43 @@ func TestConfirmTokenRejectsLegacyV1(t *testing.T) {
 	}
 }
 
+func TestConfirmTokenReplayRejectedAcrossRestart(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	_ = os.MkdirAll(movieRoot, 0o755)
+	_ = os.MkdirAll(tvRoot, 0o755)
+	dsn := store.TestDSN(t)
+	cfg := config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DatabaseURL:    dsn,
+		AdminToken:     "secret",
+	}
+	svc1, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	params := map[string]any{"videoId": "v1", "subtitleId": "s1"}
+	tok, err := svc1.IssueMCPConfirmToken("delete_subtitle", params)
+	if err != nil {
+		t.Fatalf("issue: %v", err)
+	}
+	if err := svc1.ValidateMCPConfirmToken("delete_subtitle", params, tok.ConfirmToken); err != nil {
+		t.Fatalf("first validate: %v", err)
+	}
+	_ = svc1.Close()
+
+	svc2, err := NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = svc2.Close() }()
+	if err := svc2.ValidateMCPConfirmToken("delete_subtitle", params, tok.ConfirmToken); err == nil {
+		t.Fatal("expected replay rejected after restart")
+	}
+}
+
 func configFromRoots(t *testing.T, movie, tv string) config.Config {
 	t.Helper()
 	return config.Config{

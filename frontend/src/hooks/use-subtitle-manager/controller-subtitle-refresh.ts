@@ -1,5 +1,5 @@
 import type { Video } from "@/lib/types";
-import { normalizeForCompare } from "@/lib/subtitle-manager/tv-tree";
+import { normalizeForCompare } from "@/lib/subtitle-manager/path-utils";
 
 import type { ControllerRuntime } from "./controller-runtime";
 import type { LoadActions } from "./controller-load";

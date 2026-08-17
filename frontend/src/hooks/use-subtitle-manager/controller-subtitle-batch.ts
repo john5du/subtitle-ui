@@ -21,7 +21,6 @@ export function createSubtitleBatchActions(
     beginUpload,
     updateUploadMessage,
     endUpload,
-    setTranslatedMessage,
     notifySuccess,
     notifyInfo
   } = runtime;
@@ -41,7 +40,6 @@ export function createSubtitleBatchActions(
     ).trim();
 
     if (!targetDir) {
-      setTranslatedMessage("status.tvBatchNeedsSeries");
       notifyInfo(runtime.t("toast.selectTvSeriesTitle"));
       return [];
     }
@@ -104,13 +102,11 @@ export function createSubtitleBatchActions(
     const total = items.length;
     const failed = total - success;
     if (failed > 0) {
-      setTranslatedMessage("status.batchDeleteFinishedWarnings", { success, total, failed });
       notifyInfo(
         runtime.t("toast.batchDeleteWarningsTitle"),
         runtime.t("toast.batchDeleteSuccessMessage", { success, total })
       );
     } else {
-      setTranslatedMessage("status.batchDeleteFinishedSuccess", { success, total });
       notifySuccess(runtime.t("toast.batchDeleteSuccessMessage", { success, total }));
     }
 
@@ -229,10 +225,8 @@ export function createSubtitleBatchActions(
     const total = items.length;
     const failed = total - success;
     if (failed > 0) {
-      setTranslatedMessage("status.batchFinishedWarnings", { success, total, failed });
       notifyInfo(runtime.t("toast.batchWarningsTitle"), runtime.t("toast.batchSuccessMessage", { success, total }));
     } else {
-      setTranslatedMessage("status.batchFinishedSuccess", { success, total });
       notifySuccess(runtime.t("toast.batchSuccessMessage", { success, total }));
     }
     setSubtitleActionPending(null);

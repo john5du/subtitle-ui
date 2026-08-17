@@ -154,7 +154,7 @@ func (c *Client) getJSON(ctx context.Context, path string, query url.Values, des
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		sample := truncate(string(body), 200)
 		log.Printf("jellyfin GET failed path=%s status=%s bodySample=%q", path, resp.Status, sample)
-		return fmt.Errorf("jellyfin GET %s: %s", path, jellyfinHTTPError(resp.StatusCode, sample))
+		return jellyfinRequestError(http.MethodGet, path, resp.StatusCode, sample)
 	}
 	if dest == nil {
 		return nil
@@ -200,7 +200,7 @@ func (c *Client) postJSON(ctx context.Context, path string, payload any, dest an
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		sample := truncate(string(body), 200)
 		log.Printf("jellyfin POST failed path=%s status=%s bodySample=%q", path, resp.Status, sample)
-		return fmt.Errorf("jellyfin POST %s: %s", path, jellyfinHTTPError(resp.StatusCode, sample))
+		return jellyfinRequestError(http.MethodPost, path, resp.StatusCode, sample)
 	}
 	if dest == nil || len(body) == 0 {
 		return nil
@@ -210,6 +210,21 @@ func (c *Client) postJSON(ctx context.Context, path string, payload any, dest an
 		return fmt.Errorf("jellyfin decode %s: %w", path, err)
 	}
 	return nil
+}
+
+func jellyfinRequestError(method, path string, statusCode int, sample string) error {
+	msg := fmt.Sprintf("jellyfin %s %s: %s", method, path, jellyfinHTTPError(statusCode, sample))
+	if statusCode == http.StatusNotFound && isJellyfinItemPath(path) {
+		return fmt.Errorf("%w: %s", ErrItemNotFound, msg)
+	}
+	return fmt.Errorf("%s", msg)
+}
+
+func isJellyfinItemPath(path string) bool {
+	if i := strings.IndexByte(path, '?'); i >= 0 {
+		path = path[:i]
+	}
+	return strings.HasPrefix(path, "/Items/")
 }
 
 func jellyfinHTTPError(statusCode int, sample string) string {
