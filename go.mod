@@ -7,7 +7,7 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/mozillazg/go-pinyin v0.21.0
-	github.com/nwaples/rardecode/v2 v2.3.0
+	github.com/nwaples/rardecode/v2 v2.4.1
 	golang.org/x/net v0.58.0
 	golang.org/x/text v0.41.0
 )
