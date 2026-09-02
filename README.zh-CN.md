@@ -171,7 +171,7 @@ media/tv/
 
 依赖要求：
 - macOS 自带 `bash` 与 `lsof`
-- 本地已安装 `go`、`bun`（`frontend/package.json` 当前指定 `bun@1.3.14`）
+- 本地已安装 `go`、`bun`（`frontend/package.json` 当前指定 `bun@1.4.0`）
 
 ### 一键启动
 

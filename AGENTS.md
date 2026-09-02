@@ -22,7 +22,7 @@ cd frontend && bun run lint
 cd frontend && bun run build   # static export → frontend/out
 ```
 
-- Package manager is **bun@1.3.14** (`frontend/package.json` `packageManager`). Use `bun`, not npm/yarn.
+- Package manager is **bun@1.4.0** (`frontend/package.json` `packageManager`). Use `bun`, not npm/yarn.
 - Store tests require `TEST_POSTGRES_DSN` or `DATABASE_URL` (creates a per-test schema, then drops it). CI sets `TEST_POSTGRES_DSN` against a Postgres 16 service.
 - Local env: `dev-up` / `dev-restart` load `scripts/.env` then `scripts/.env.local` via `scripts/lib/load-env.sh` (shell-exported vars win). Real `scripts/.env` is gitignored; commit only `scripts/.env.example`.
 - Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300` when unset. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.

@@ -171,7 +171,7 @@ Subtitle extensions recognized: `.srt .ass .ssa .vtt .sub`.
 
 Requirements:
 - macOS with `bash` and `lsof`
-- Local `go` and `bun` (`frontend/package.json` currently pins `bun@1.3.14`)
+- Local `go` and `bun` (`frontend/package.json` currently pins `bun@1.4.0`)
 
 ### One-click startup
 
