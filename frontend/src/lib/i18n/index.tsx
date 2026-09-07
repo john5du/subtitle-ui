@@ -18,7 +18,7 @@ export type Locale = "en" | "zh-CN";
 export type TranslationValues = Record<string, string | number | boolean | null | undefined>;
 export type TranslateFn = (key: MessageKey, values?: TranslationValues) => string;
 
-const DEFAULT_LOCALE: Locale = "en";
+const DEFAULT_LOCALE: Locale = "zh-CN";
 const STORAGE_KEY = "subtitle-ui:locale";
 
 const dictionaries: Record<Locale, MessageDictionary> = {
@@ -61,6 +61,25 @@ function isLocale(value: string | null | undefined): value is Locale {
   return value === "en" || value === "zh-CN";
 }
 
+function readClientLocale(fallback: Locale): Locale {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+  try {
+    const bootstrapLocale = window.__subtitleUiLocale;
+    if (isLocale(bootstrapLocale)) {
+      return bootstrapLocale;
+    }
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (isLocale(stored)) {
+      return stored;
+    }
+  } catch {
+    return fallback;
+  }
+  return fallback;
+}
+
 export function I18nProvider({
   children,
   initialLocale = DEFAULT_LOCALE
@@ -68,7 +87,7 @@ export function I18nProvider({
   children: ReactNode;
   initialLocale?: Locale;
 }) {
-  const [locale, setLocale] = useState<Locale>(initialLocale);
+  const [locale, setLocale] = useState<Locale>(() => readClientLocale(initialLocale));
   const hasMounted = useRef(false);
 
   useEffect(() => {

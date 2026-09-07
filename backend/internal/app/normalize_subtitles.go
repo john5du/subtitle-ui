@@ -220,10 +220,11 @@ func (s *Service) applyNormalizeItems(ctx context.Context, videos []domain.Video
 
 	// Group by video for a single refresh after renames.
 	type pendingRename struct {
-		item       domain.SubtitleNormalizeApplyItem
-		from       domain.Subtitle
-		toPath     string
-		backupPath string
+		resultIndex int
+		item        domain.SubtitleNormalizeApplyItem
+		from        domain.Subtitle
+		toPath      string
+		backupPath  string
 	}
 	pendingByVideo := make(map[string][]pendingRename, len(videos))
 	claimedTargets := make(map[string]struct{}, len(items))
@@ -319,73 +320,87 @@ func (s *Service) applyNormalizeItems(ctx context.Context, videos []domain.Video
 			continue
 		}
 
-		mu := s.lockVideo(videoID)
-		mu.Lock()
-		backupPath, err := subtitle.BackupFile(existing.Path)
-		if err != nil {
-			mu.Unlock()
-			out.Error = fmt.Sprintf("backup failed: %v", err)
-			result.Failed++
-			result.Results = append(result.Results, out)
-			s.recordOpCtx(ctx, "normalize", videoID, existing.Path, "", "error", out.Error)
-			continue
-		}
-		if err := os.Rename(existing.Path, toPath); err != nil {
-			mu.Unlock()
-			out.Error = fmt.Sprintf("rename failed: %v", err)
-			out.BackupPath = backupPath
-			result.Failed++
-			result.Results = append(result.Results, out)
-			s.recordOpCtx(ctx, "normalize", videoID, existing.Path, backupPath, "error", out.Error)
-			continue
-		}
-		mu.Unlock()
-
 		claimedTargets[targetKey] = struct{}{}
-		pendingByVideo[videoID] = append(pendingByVideo[videoID], pendingRename{
-			item:       item,
-			from:       existing,
-			toPath:     toPath,
-			backupPath: backupPath,
-		})
-		out.Status = domain.SubtitleNormalizeApplyOK
-		out.BackupPath = backupPath
-		result.Renamed++
 		result.Results = append(result.Results, out)
-		s.recordOpExCtx(ctx, OpRecord{
-			Action:     "normalize",
-			VideoID:    videoID,
-			TargetPath: toPath,
-			BackupPath: backupPath,
-			Status:     "ok",
-			Message:    fmt.Sprintf("from=%s to=%s", filepath.Base(existing.Path), filepath.Base(toPath)),
-			Meta: map[string]any{
-				"fromPath": existing.Path,
-				"toPath":   toPath,
-			},
+		pendingByVideo[videoID] = append(pendingByVideo[videoID], pendingRename{
+			resultIndex: len(result.Results) - 1,
+			item:        item,
+			from:        existing,
+			toPath:      toPath,
 		})
 	}
 
 	for videoID, pending := range pendingByVideo {
-		overrides := make(map[string]subtitleSourceOverride, len(pending))
+		mu := s.lockVideo(videoID)
+		mu.Lock()
+		renamed := make([]pendingRename, 0, len(pending))
 		for _, item := range pending {
+			out := &result.Results[item.resultIndex]
+			backupPath, err := subtitle.BackupFile(item.from.Path)
+			if err != nil {
+				out.Error = fmt.Sprintf("backup failed: %v", err)
+				result.Failed++
+				s.recordOpCtx(ctx, "normalize", videoID, item.from.Path, "", "error", out.Error)
+				continue
+			}
+			if err := os.Rename(item.from.Path, item.toPath); err != nil {
+				out.Error = fmt.Sprintf("rename failed: %v", err)
+				out.BackupPath = backupPath
+				result.Failed++
+				s.recordOpCtx(ctx, "normalize", videoID, item.from.Path, backupPath, "error", out.Error)
+				continue
+			}
+			out.BackupPath = backupPath
+			item.backupPath = backupPath
+			renamed = append(renamed, item)
+		}
+
+		overrides := make(map[string]subtitleSourceOverride, len(renamed))
+		for _, item := range renamed {
 			overrides[subtitleSourceOverrideKey(item.toPath)] = subtitleSourceOverride{
 				Source:       item.from.Source,
 				SourceDetail: item.from.SourceDetail,
 			}
 		}
-		mu := s.lockVideo(videoID)
-		mu.Lock()
-		_, _, refreshErr := s.refreshVideoSubtitles(videoID, "", overrides)
-		mu.Unlock()
-		if refreshErr != nil {
-			s.recordOpCtx(ctx, "normalize", videoID, "", "", "error", "refresh after rename: "+refreshErr.Error())
-		} else {
-			s.notifyJellyfinAfterSubtitleChange(videoID)
+		var refreshErr error
+		if len(renamed) > 0 {
+			_, _, refreshErr = s.refreshVideoSubtitles(videoID, "", overrides)
 		}
-		// Keep in-memory map fresh for later items in multi-video batches.
-		if loaded, loadErr := s.GetVideo(videoID); loadErr == nil {
-			videoByID[videoID] = loaded
+		mu.Unlock()
+
+		refreshMsg := ""
+		if refreshErr != nil {
+			refreshMsg = "refresh after rename: " + refreshErr.Error()
+			s.recordOpCtx(ctx, "normalize", videoID, "", "", "error", refreshMsg)
+		}
+
+		for _, item := range renamed {
+			out := &result.Results[item.resultIndex]
+			out.Status = domain.SubtitleNormalizeApplyOK
+			out.Error = refreshMsg
+			result.Renamed++
+			message := fmt.Sprintf("from=%s to=%s", filepath.Base(item.from.Path), filepath.Base(item.toPath))
+			if refreshMsg != "" {
+				message += "; " + refreshMsg
+			}
+			s.recordOpExCtx(ctx, OpRecord{
+				Action:     "normalize",
+				VideoID:    videoID,
+				TargetPath: item.toPath,
+				BackupPath: item.backupPath,
+				Status:     "ok",
+				Message:    message,
+				Meta: map[string]any{
+					"fromPath": item.from.Path,
+					"toPath":   item.toPath,
+				},
+			})
+		}
+		if len(renamed) > 0 {
+			s.notifyJellyfinAfterSubtitleChange(videoID)
+			if loaded, loadErr := s.GetVideo(videoID); loadErr == nil {
+				videoByID[videoID] = loaded
+			}
 		}
 	}
 

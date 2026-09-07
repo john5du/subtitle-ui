@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -18,15 +19,36 @@ func (s *Store) DatabaseType() string {
 }
 
 func (s *Store) exec(query string, args ...any) (sql.Result, error) {
-	return s.db.Exec(rebind(query), args...)
+	return s.execContext(context.Background(), query, args...)
+}
+
+func (s *Store) execContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.db.ExecContext(ctx, rebind(query), args...)
 }
 
 func (s *Store) query(query string, args ...any) (*sql.Rows, error) {
-	return s.db.Query(rebind(query), args...)
+	return s.queryContext(context.Background(), query, args...)
+}
+
+func (s *Store) queryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.db.QueryContext(ctx, rebind(query), args...)
 }
 
 func (s *Store) queryRow(query string, args ...any) *sql.Row {
-	return s.db.QueryRow(rebind(query), args...)
+	return s.queryRowContext(context.Background(), query, args...)
+}
+
+func (s *Store) queryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.db.QueryRowContext(ctx, rebind(query), args...)
 }
 
 func (s *Store) execTx(tx *sql.Tx, query string, args ...any) (sql.Result, error) {

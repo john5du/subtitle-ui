@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -216,5 +217,106 @@ The weather is nice today
 	}
 	if dashFix.ToLabel != "zh&en" || dashFix.ToFileName != "movie-b.zh&en.ass" {
 		t.Fatalf("expected legacy dash → zh&en, got %+v", dashFix)
+	}
+}
+
+func TestNormalizeApplyKeepsOkLogWhenRefreshFails(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	movieDir := filepath.Join(movieRoot, "Movie C")
+	if err := os.MkdirAll(movieDir, 0o755); err != nil {
+		t.Fatalf("mkdir movie dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-c.mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write video: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(movieDir, "movie-c.nfo"), []byte(sampleNFO("Movie C", "2025")), 0o644); err != nil {
+		t.Fatalf("write nfo: %v", err)
+	}
+	legacySub := filepath.Join(movieDir, "movie-c.CHS.srt")
+	if err := os.WriteFile(legacySub, []byte("1\n00:00:01,000 --> 00:00:02,000\nhi\n"), 0o644); err != nil {
+		t.Fatalf("write sub: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DatabaseURL:    store.TestDSN(t),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() { _ = svc.Close() }()
+
+	if status := svc.RunFileScan(context.Background(), nil, nil); status.Error != "" {
+		t.Fatalf("scan: %s", status.Error)
+	}
+	page := mustListVideosPage(t, svc, domain.MediaTypeMovie, 20)
+	if len(page.Items) != 1 {
+		t.Fatalf("expected 1 video, got %d", len(page.Items))
+	}
+	video := page.Items[0]
+	plan, err := svc.PlanNormalizeVideoSubtitles(video.ID)
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+	var renameItem *domain.SubtitleNormalizeItem
+	for i := range plan.Items {
+		if plan.Items[i].Status == domain.SubtitleNormalizeRename {
+			renameItem = &plan.Items[i]
+			break
+		}
+	}
+	if renameItem == nil {
+		t.Fatalf("expected rename item, plan=%+v", plan.Items)
+	}
+
+	svc.refreshSubtitlesHook = func(string, string, map[string]subtitleSourceOverride) (domain.Video, domain.Subtitle, error) {
+		return domain.Video{}, domain.Subtitle{}, errors.New("index down")
+	}
+
+	apply, err := svc.ApplyNormalizeVideoSubtitles(video.ID, []domain.SubtitleNormalizeApplyItem{{
+		VideoID:    video.ID,
+		SubtitleID: renameItem.SubtitleID,
+		ToPath:     renameItem.ToPath,
+	}})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if apply.Renamed != 1 || apply.Failed != 0 {
+		t.Fatalf("disk rename should count as renamed, got %+v", apply)
+	}
+	if len(apply.Results) != 1 || apply.Results[0].Status != domain.SubtitleNormalizeApplyOK {
+		t.Fatalf("expected ok status after disk rename, got %+v", apply.Results)
+	}
+	if apply.Results[0].Error == "" || apply.Results[0].BackupPath == "" {
+		t.Fatalf("expected refresh error and backup path, got %+v", apply.Results[0])
+	}
+	if _, err := os.Stat(renameItem.ToPath); err != nil {
+		t.Fatalf("canonical path missing after refresh failure: %v", err)
+	}
+
+	var sawOK, sawRefreshErr bool
+	for _, entry := range svc.ListLogs(50) {
+		if entry.Action != "normalize" {
+			continue
+		}
+		if entry.Status == "ok" && entry.BackupPath != "" {
+			sawOK = true
+		}
+		if entry.Status == "error" && strings.Contains(entry.Message, "refresh after rename") {
+			sawRefreshErr = true
+		}
+	}
+	if !sawOK || !sawRefreshErr {
+		t.Fatalf("expected ok rename log and refresh error log, ok=%v refresh=%v", sawOK, sawRefreshErr)
 	}
 }

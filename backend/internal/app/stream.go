@@ -17,7 +17,6 @@ import (
 
 	"subtitle-ui/backend/internal/domain"
 	"subtitle-ui/backend/internal/provider/jellyfin"
-	"subtitle-ui/backend/internal/subtitle"
 )
 
 const (
@@ -291,10 +290,7 @@ func (s *Service) streamTicketSecret() string {
 }
 
 func (s *Service) isSafeMediaPath(targetPath string) bool {
-	if subtitle.EnsureWithinRoot(s.cfg.MovieMediaRoot, targetPath) {
-		return true
-	}
-	return subtitle.EnsureWithinRoot(s.cfg.TVMediaRoot, targetPath)
+	return s.isWithinMediaRoots(targetPath)
 }
 
 func randomNonce(n int) (string, error) {

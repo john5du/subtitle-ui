@@ -435,6 +435,22 @@ CREATE TABLE IF NOT EXISTS mcp_confirm_nonces (
 		}
 	}
 
+	applied, err = s.isMigrationApplied(12)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		if _, err := s.exec(`CREATE INDEX IF NOT EXISTS idx_videos_directory ON videos(directory)`); err != nil {
+			return fmt.Errorf("apply migration v12 idx_videos_directory: %w", err)
+		}
+		if _, err := s.exec(`CREATE INDEX IF NOT EXISTS idx_operation_logs_video_id_timestamp ON operation_logs(video_id, timestamp DESC)`); err != nil {
+			return fmt.Errorf("apply migration v12 idx_operation_logs_video_id_timestamp: %w", err)
+		}
+		if _, err := s.exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 12, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

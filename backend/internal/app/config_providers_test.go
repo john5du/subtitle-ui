@@ -10,6 +10,7 @@ import (
 
 	"subtitle-ui/backend/internal/config"
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/secretcrypt"
 	"subtitle-ui/backend/internal/store"
 	"subtitle-ui/backend/internal/subtitle"
 )
@@ -538,5 +539,138 @@ func TestJellyfinInvalidPathMapDoesNotBlockService(t *testing.T) {
 	}
 	if !reopened.JellyfinEnabled() {
 		t.Fatal("expected stored enabled flag to apply with empty maps")
+	}
+}
+
+func TestJellyfinAPIKeyDecryptFailurePreservesCiphertext(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DatabaseURL:    store.TestDSN(t),
+		AdminToken:     "token-a",
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() { _ = svc.Close() }()
+
+	if _, err := svc.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
+		Enabled: true,
+		URL:     "http://jellyfin.local:8096",
+		APIKey:  "runtime-key",
+	}); err != nil {
+		t.Fatalf("save jellyfin: %v", err)
+	}
+
+	svc.cfg.AdminToken = "token-b"
+	got, err := svc.GetJellyfinConfig()
+	if err != nil {
+		t.Fatalf("get after rotate: %v", err)
+	}
+	if got.Enabled {
+		t.Fatal("unreadable key must not keep integration enabled")
+	}
+	if !got.APIKeySet {
+		t.Fatal("ciphertext must still report apiKeySet")
+	}
+
+	if _, err := svc.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
+		Enabled: false,
+		URL:     "http://jellyfin.local:8096",
+		APIKey:  "",
+	}); err != nil {
+		t.Fatalf("save after decrypt failure: %v", err)
+	}
+	raw := svc.rawAppSetting(settingJellyfinAPIKey)
+	if !secretcrypt.IsEncrypted(raw) {
+		t.Fatalf("empty save must not wipe ciphertext, got %q", raw)
+	}
+
+	if _, err := svc.UpdateJellyfinConfig(domain.JellyfinConfigUpdate{
+		Enabled: true,
+		URL:     "http://jellyfin.local:8096",
+		APIKey:  "",
+	}); !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("enable without usable key should fail, got %v", err)
+	}
+	if !secretcrypt.IsEncrypted(svc.rawAppSetting(settingJellyfinAPIKey)) {
+		t.Fatal("failed enable must not wipe ciphertext")
+	}
+
+	svc.cfg.AdminToken = "token-a"
+	resolved, err := svc.resolveJellyfinConfig()
+	if err != nil || resolved.APIKey != "runtime-key" {
+		t.Fatalf("original key should still decrypt, got %+v err=%v", resolved, err)
+	}
+}
+
+func TestSonarrAPIKeyDecryptFailurePreservesCiphertext(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot: movieRoot,
+		TVMediaRoot:    tvRoot,
+		DatabaseURL:    store.TestDSN(t),
+		AdminToken:     "token-a",
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() { _ = svc.Close() }()
+
+	if _, err := svc.UpdateSonarrConfig(domain.SonarrConfigUpdate{
+		Enabled: true,
+		URL:     "http://sonarr.local:8989",
+		APIKey:  "runtime-key",
+	}); err != nil {
+		t.Fatalf("save sonarr: %v", err)
+	}
+
+	svc.cfg.AdminToken = "token-b"
+	got, err := svc.GetSonarrConfig()
+	if err != nil {
+		t.Fatalf("get after rotate: %v", err)
+	}
+	if got.Enabled {
+		t.Fatal("unreadable key must not keep integration enabled")
+	}
+	if !got.APIKeySet {
+		t.Fatal("ciphertext must still report apiKeySet")
+	}
+
+	if _, err := svc.UpdateSonarrConfig(domain.SonarrConfigUpdate{
+		Enabled: false,
+		URL:     "http://sonarr.local:8989",
+		APIKey:  "",
+	}); err != nil {
+		t.Fatalf("save after decrypt failure: %v", err)
+	}
+	raw := svc.rawAppSetting(settingSonarrAPIKey)
+	if !secretcrypt.IsEncrypted(raw) {
+		t.Fatalf("empty save must not wipe ciphertext, got %q", raw)
+	}
+
+	svc.cfg.AdminToken = "token-a"
+	resolved, err := svc.resolveSonarrConfig()
+	if err != nil || resolved.APIKey != "runtime-key" {
+		t.Fatalf("original key should still decrypt, got %+v err=%v", resolved, err)
 	}
 }

@@ -489,7 +489,7 @@ export function summarizeFileNames(names: string[], t: TranslateFn, maxVisible =
   return `${names.slice(0, maxVisible).join(", ")} ${t("batch.summary.more", { count: names.length - maxVisible })}`;
 }
 
-export async function collectBatchEntriesFromFiles(files: File[]) {
+export async function collectBatchEntriesFromFiles(files: File[], t: TranslateFn) {
   const entries: ZipSubtitleEntry[] = [];
   const unsupported: string[] = [];
   const archiveErrors: string[] = [];
@@ -507,7 +507,7 @@ export async function collectBatchEntriesFromFiles(files: File[]) {
       }
 
       if (archiveEntries.length === 0) {
-        archiveErrors.push(`${file.name} (no subtitle files in archive)`);
+        archiveErrors.push(t("toast.archiveFileNoSubtitles", { name: file.name }));
         continue;
       }
 

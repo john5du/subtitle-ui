@@ -188,7 +188,7 @@ func (s *Service) resolveTVSeriesLocal(path string, key string) (tvSeriesLocalMe
 	}
 	path = strings.TrimSpace(path)
 	key = strings.TrimSpace(key)
-	rows := buildTVSeriesSummaries(videos, s.cfg.TVMediaRoot)
+	rows := buildTVSeriesSummaries(videos, nil, s.cfg.TVMediaRoot)
 
 	var summary *domain.TVSeriesSummary
 	for i := range rows {

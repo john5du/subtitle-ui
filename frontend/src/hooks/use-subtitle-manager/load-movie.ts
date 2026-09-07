@@ -6,7 +6,7 @@ import { buildRequestSignature, type ControllerRuntime } from "./controller-runt
 import { isAbortError } from "./load-utils";
 
 export function createMovieLoadActions(runtime: ControllerRuntime) {
-  const { setters, refs, beginLoadChannel, endLoadChannel, beginLoading, endLoading, reportRequestError } = runtime;
+  const { setters, refs, beginLoadChannel, endLoadChannel, reportRequestError } = runtime;
 
   async function loadMovieVideos(options: { page?: number; pageSize?: number; force?: boolean; quiet?: boolean } = {}) {
     const state = runtime.state;
@@ -35,7 +35,6 @@ export function createMovieLoadActions(runtime: ControllerRuntime) {
     const promise = (async () => {
       if (!quiet) {
         beginLoadChannel("movieList");
-        beginLoading();
       }
       try {
         const params = new URLSearchParams();
@@ -74,7 +73,6 @@ export function createMovieLoadActions(runtime: ControllerRuntime) {
           refs.pendingMovieListRequestRef.current = null;
         }
         if (!quiet) {
-          endLoading();
           endLoadChannel("movieList");
         }
       }

@@ -95,6 +95,7 @@ func registerSubHDTools(s *mcp.Server, svc *app.Service) {
 		Name:        "subhd_season_prepare",
 		Description: "Download season pack once, cache, suggest mappings. Then subhd_season_install_preview → subhd_season_install.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in subhdSeasonPrepareIn) (*mcp.CallToolResult, app.SubHDSeasonPrepareResult, error) {
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "subhd_season_prepare")
 		result, err := svc.PrepareSubHDSeasonPack(ctx, app.SubHDSeasonPrepareOptions{
 			SID: in.SID, VideoIDs: in.VideoIDs, Season: in.Season,
 			LanguagePreference: in.LanguagePreference, FormatPreference: in.FormatPreference,

@@ -1,4 +1,4 @@
-import { memo, useCallback, type KeyboardEvent } from "react";
+import { memo, useCallback } from "react";
 
 import { Search } from "lucide-react";
 
@@ -128,17 +128,6 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
 
   const { measureRef } = useCardGridColumns(effectiveViewMode === "card", handleCardColumnsChange);
 
-  const handleRowKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLTableRowElement>, row: TvSeriesSummary) => {
-      if (operationLocked) return;
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        onOpenManager(row);
-      }
-    },
-    [operationLocked, onOpenManager]
-  );
-
   const hasRows = rows.length > 0;
   const showSkeleton = !hasRows && pending;
   const updatingLabel = t("tv.updatingResults");
@@ -207,22 +196,28 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                 return (
                   <TableRow
                     key={row.key}
-                    role="button"
-                    tabIndex={operationLocked ? -1 : 0}
-                    aria-label={displayTitle}
                     className={cn("row-focus", operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent")}
                     onClick={() => {
                       if (!operationLocked) {
                         onOpenManager(row);
                       }
                     }}
-                    onKeyDown={(event) => handleRowKeyDown(event, row)}
                   >
                     <TableCell className="w-[76px] py-2">
                       <PosterThumbnail src={row.posterUrl} />
                     </TableCell>
                     <TableCell className="max-w-[260px] truncate font-medium" title={displayTitle}>
-                      {displayTitle || "-"}
+                      <button
+                        type="button"
+                        className="block w-full truncate text-left font-medium"
+                        disabled={operationLocked}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpenManager(row);
+                        }}
+                      >
+                        {displayTitle || "-"}
+                      </button>
                     </TableCell>
                     <TableCell>{row.latestEpisodeYear || "-"}</TableCell>
                     <TableCell className="hidden truncate md:table-cell" title={formatTime(row.updatedAt)}>

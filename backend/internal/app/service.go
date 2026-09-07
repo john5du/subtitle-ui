@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
+	"log"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -74,15 +76,16 @@ type Service struct {
 	dirScanMu   sync.RWMutex
 	lastDirScan domain.DirectoryScanResult
 
-	// Per-video mutexes serialize subtitle disk+DB mutations.
-	videoLocksMu sync.Mutex
-	videoLocks   map[string]*sync.Mutex
+	// Striped mutexes serialize subtitle disk+DB mutations without unbounded growth.
+	videoLocks [256]sync.Mutex
 
 	// mcpEnabled is hot-reloaded from DB (env bootstrap default false).
 	mcpEnabled atomic.Bool
 
 	// confirmNonces enforces single-use MCP confirm tokens.
 	confirmNonces usedConfirmNonces
+
+	refreshSubtitlesHook func(videoID string, targetPath string, sourceOverrides map[string]subtitleSourceOverride) (domain.Video, domain.Subtitle, error)
 }
 
 // SubHDParseStats returns HTML parse telemetry when the live SubHD client is in use.
@@ -112,7 +115,6 @@ func NewService(cfg config.Config) (*Service, error) {
 		scanner:        scanner.New(),
 		store:          st,
 		subhdPackCache: newSubHDPackCache(),
-		videoLocks:     make(map[string]*sync.Mutex),
 		subhd: subhd.New(subhd.Options{
 			Enabled:     cfg.SubHDEnabled,
 			BaseURL:     cfg.SubHDBaseURL,
@@ -129,7 +131,7 @@ func NewService(cfg config.Config) (*Service, error) {
 	{
 		maps, err := jellyfin.ParsePathMaps(cfg.JellyfinPathMap)
 		if err != nil {
-			// Invalid env/historical path maps must not block core service startup.
+			log.Printf("JELLYFIN_PATH_MAP invalid, ignoring: %v", err)
 			maps = nil
 		}
 		svc.jellyfin = jellyfin.New(jellyfin.Options{
@@ -202,20 +204,10 @@ func (s *Service) Ping(ctx context.Context) error {
 	return s.store.Ping(ctx)
 }
 
-// lockVideo returns a per-video mutex for subtitle mutations (create-on-first-use).
 func (s *Service) lockVideo(videoID string) *sync.Mutex {
-	videoID = strings.TrimSpace(videoID)
-	s.videoLocksMu.Lock()
-	defer s.videoLocksMu.Unlock()
-	if s.videoLocks == nil {
-		s.videoLocks = make(map[string]*sync.Mutex)
-	}
-	if mu, ok := s.videoLocks[videoID]; ok {
-		return mu
-	}
-	mu := &sync.Mutex{}
-	s.videoLocks[videoID] = mu
-	return mu
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(strings.ToLower(strings.TrimSpace(videoID))))
+	return &s.videoLocks[h.Sum32()%uint32(len(s.videoLocks))]
 }
 
 func (s *Service) CheckMediaRootWritePermissions() []string {

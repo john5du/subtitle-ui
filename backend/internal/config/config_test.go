@@ -156,6 +156,18 @@ func TestLoadLegacyMediaRoot(t *testing.T) {
 	if cfg.MovieMediaRoot != cfg.TVMediaRoot {
 		t.Fatalf("legacy MEDIA_ROOT should set both roots equal: movie=%q tv=%q", cfg.MovieMediaRoot, cfg.TVMediaRoot)
 	}
+	if !cfg.LegacyMediaRoot {
+		t.Fatal("expected LegacyMediaRoot")
+	}
+
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("DATABASE_URL", "postgres://user:pass@127.0.0.1:5432/subtitle_ui?sslmode=disable")
+	t.Setenv("STREAM_TICKET_SECRET", "ticket-secret")
+	t.Setenv("ADMIN_TOKEN", "super-secret-token")
+	cfg = Load()
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("production should reject legacy MEDIA_ROOT")
+	}
 }
 
 func TestLoadExplicitChangeMeIsDefault(t *testing.T) {

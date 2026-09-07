@@ -16,8 +16,6 @@ export function createSubtitleBatchActions(
 ) {
   const {
     setSubtitleActionPending,
-    beginLoading,
-    endLoading,
     beginUpload,
     updateUploadMessage,
     endUpload,
@@ -56,7 +54,6 @@ export function createSubtitleBatchActions(
       kind: "batch",
       videoId: items[0]?.video.id || ""
     });
-    beginLoading();
     beginUpload("status.deletingSubtitlesProgress", { current: 0, total: items.length });
     const errors: string[] = [];
     let success = 0;
@@ -92,10 +89,9 @@ export function createSubtitleBatchActions(
         ]);
       } catch (error) {
         const errorText = error instanceof Error ? error.message : String(error);
-        errors.push(`refresh after batch delete failed: ${errorText}`);
+        errors.push(runtime.t("toast.afterMutationRefreshFailed", { error: errorText }));
       }
       endUpload();
-      endLoading();
       setSubtitleActionPending(null);
     }
 
@@ -122,7 +118,6 @@ export function createSubtitleBatchActions(
       kind: "batch",
       videoId: items[0]?.video.id || ""
     });
-    beginLoading();
     beginUpload("status.uploadingSubtitleFilesProgress", { current: 0, total: items.length });
     const errors: string[] = [];
     let success = 0;
@@ -216,10 +211,9 @@ export function createSubtitleBatchActions(
         ]);
       } catch (error) {
         const errorText = error instanceof Error ? error.message : String(error);
-        errors.push(`refresh after batch upload failed: ${errorText}`);
+        errors.push(runtime.t("toast.afterMutationRefreshFailed", { error: errorText }));
       }
       endUpload();
-      endLoading();
     }
 
     const total = items.length;

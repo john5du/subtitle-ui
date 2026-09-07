@@ -3,6 +3,8 @@ package api
 import (
 	"net/http"
 	"strings"
+
+	"subtitle-ui/backend/internal/domain"
 )
 
 func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +37,13 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 		if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" && strings.TrimSpace(r.URL.Query().Get("pageSize")) == "" {
 			pageSize = parsePositiveIntOrDefault(rawLimit, pageSize)
 		}
-		pageData, err := s.service.ListLogsPage(page, pageSize)
+		q := r.URL.Query()
+		pageData, err := s.service.ListLogsPageFiltered(page, pageSize, domain.OperationLogFilter{
+			Action:  strings.TrimSpace(q.Get("action")),
+			VideoID: strings.TrimSpace(q.Get("videoId")),
+			Source:  strings.TrimSpace(q.Get("source")),
+			Tool:    strings.TrimSpace(q.Get("tool")),
+		})
 		if err != nil {
 			s.writeAppError(w, err)
 			return

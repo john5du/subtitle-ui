@@ -8,7 +8,7 @@ import { buildRequestSignature, type ControllerRuntime } from "./controller-runt
 import { isAbortError } from "./load-utils";
 
 export function createTvLoadActions(runtime: ControllerRuntime) {
-  const { setters, refs, beginLoadChannel, endLoadChannel, beginLoading, endLoading, reportRequestError } = runtime;
+  const { setters, refs, beginLoadChannel, endLoadChannel, reportRequestError } = runtime;
 
   async function loadTvSeriesPage(options: { page?: number; pageSize?: number; force?: boolean; quiet?: boolean } = {}) {
     const state = runtime.state;
@@ -37,7 +37,6 @@ export function createTvLoadActions(runtime: ControllerRuntime) {
     const promise = (async () => {
       if (!quiet) {
         beginLoadChannel("tvSeriesList");
-        beginLoading();
       }
       try {
         const params = new URLSearchParams();
@@ -77,7 +76,6 @@ export function createTvLoadActions(runtime: ControllerRuntime) {
           refs.pendingTvSeriesRequestRef.current = null;
         }
         if (!quiet) {
-          endLoading();
           endLoadChannel("tvSeriesList");
         }
       }
@@ -129,7 +127,6 @@ export function createTvLoadActions(runtime: ControllerRuntime) {
 
     refs.pendingTvEpisodesPathRef.current = directory;
     beginLoadChannel("tvEpisodes");
-    beginLoading();
     try {
       const videos = await listAllTvVideos(directory, signal);
       if (signal?.aborted) {
@@ -152,7 +149,6 @@ export function createTvLoadActions(runtime: ControllerRuntime) {
       if (normalizeForCompare(refs.pendingTvEpisodesPathRef.current) === normalizeForCompare(directory)) {
         refs.pendingTvEpisodesPathRef.current = "";
       }
-      endLoading();
       endLoadChannel("tvEpisodes");
     }
   }

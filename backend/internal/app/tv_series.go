@@ -22,12 +22,16 @@ func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortBy 
 		pageSize = 200
 	}
 
-	videos, err := s.listAllTVVideos()
+	videos, err := s.store.ListAllVideosMeta(domain.MediaTypeTV)
+	if err != nil {
+		return domain.TVSeriesPage{}, err
+	}
+	counts, err := s.store.SubtitleCountsByVideo()
 	if err != nil {
 		return domain.TVSeriesPage{}, err
 	}
 
-	rows := buildTVSeriesSummaries(videos, s.cfg.TVMediaRoot)
+	rows := buildTVSeriesSummaries(videos, counts, s.cfg.TVMediaRoot)
 	rows = filterTVSeriesSummaries(rows, query)
 	sortTVSeriesSummaries(rows, sortBy, sortOrder)
 
@@ -62,7 +66,7 @@ func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortBy 
 	}, nil
 }
 
-func buildTVSeriesSummaries(videos []domain.Video, tvRootPath string) []domain.TVSeriesSummary {
+func buildTVSeriesSummaries(videos []domain.Video, subtitleCounts map[string]int, tvRootPath string) []domain.TVSeriesSummary {
 	type group struct {
 		item        domain.TVSeriesSummary
 		latestYear  int
@@ -107,7 +111,11 @@ func buildTVSeriesSummaries(videos []domain.Video, tvRootPath string) []domain.T
 		}
 
 		item.item.VideoCount += 1
-		if len(video.Subtitles) == 0 {
+		subCount := len(video.Subtitles)
+		if subtitleCounts != nil {
+			subCount = subtitleCounts[video.ID]
+		}
+		if subCount == 0 {
 			item.item.NoSubtitleCount += 1
 		}
 		if item.item.PosterVideoID == "" && strings.TrimSpace(video.PosterPath) != "" {

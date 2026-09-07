@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,10 @@ import (
 
 // RollbackOperation restores state for a successful prior operation log.
 func (s *Service) RollbackOperation(opID string) (domain.RollbackResult, error) {
+	return s.RollbackOperationCtx(context.Background(), opID)
+}
+
+func (s *Service) RollbackOperationCtx(ctx context.Context, opID string) (domain.RollbackResult, error) {
 	opID = strings.TrimSpace(opID)
 	if opID == "" {
 		return domain.RollbackResult{}, fmt.Errorf("%w: missing opId", ErrBadRequest)
@@ -167,14 +172,13 @@ func (s *Service) RollbackOperation(opID string) (domain.RollbackResult, error) 
 
 	if videoID != "" && videoID != systemOperationVideoID {
 		if _, _, err := s.refreshVideoSubtitles(videoID, result.RestoredPath, nil); err != nil {
-			s.recordOpEx(OpRecord{
+			s.recordOpExCtx(ctx, OpRecord{
 				Action:     "rollback",
 				VideoID:    log.VideoID,
 				TargetPath: log.TargetPath,
 				BackupPath: log.BackupPath,
 				Status:     "error",
 				Message:    fmt.Sprintf("files restored but refresh failed: %v", err),
-				Source:     domain.OpSourceSystem,
 				Meta: map[string]any{
 					"refOpId":      log.ID,
 					"refAction":    log.Action,
@@ -188,14 +192,13 @@ func (s *Service) RollbackOperation(opID string) (domain.RollbackResult, error) 
 	}
 
 	result.OK = true
-	rollbackID := s.recordOpEx(OpRecord{
+	rollbackID := s.recordOpExCtx(ctx, OpRecord{
 		Action:     "rollback",
 		VideoID:    log.VideoID,
 		TargetPath: log.TargetPath,
 		BackupPath: log.BackupPath,
 		Status:     "ok",
 		Message:    fmt.Sprintf("ref=%s action=%s", log.ID, log.Action),
-		Source:     domain.OpSourceSystem,
 		Meta: map[string]any{
 			"refOpId":      log.ID,
 			"refAction":    log.Action,

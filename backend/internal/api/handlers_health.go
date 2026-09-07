@@ -31,14 +31,12 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	payload := map[string]any{
-		"status":     healthStatus,
-		"time":       time.Now().UTC(),
-		"db":         dbStatus,
-		"scanStatus": map[string]any{},
+		"status": healthStatus,
+		"time":   time.Now().UTC(),
+		"db":     dbStatus,
 	}
-	// ScanStatus reads from the database too, so only call it after a successful
-	// bounded Ping; otherwise a health probe could block again on an outage.
-	if databaseReady {
+	includeDetails := s.adminToken == "" || s.authorized(r)
+	if databaseReady && includeDetails {
 		payload["scanStatus"] = s.service.ScanStatus()
 		if stats, ok := s.service.SubHDParseStats(); ok {
 			payload["subhdParse"] = stats

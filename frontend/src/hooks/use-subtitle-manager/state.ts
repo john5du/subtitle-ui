@@ -80,7 +80,6 @@ function createInitialState(): SubtitleManagerState {
     movieSortOrder: "desc",
     tvSeriesSortBy: "year",
     tvSeriesSortOrder: "desc",
-    loading: false,
     pending: EMPTY_PENDING_STATE,
     uploading: false,
     uploadingMessageState: null,
@@ -116,7 +115,6 @@ type StateAction =
   | { type: "setMovieSortOrder"; value: SetStateAction<SortOrder> }
   | { type: "setTvSeriesSortBy"; value: SetStateAction<TvSeriesSortBy> }
   | { type: "setTvSeriesSortOrder"; value: SetStateAction<SortOrder> }
-  | { type: "setLoading"; value: SetStateAction<boolean> }
   | { type: "setPending"; value: SetStateAction<UiPendingState> }
   | { type: "setUploading"; value: SetStateAction<boolean> }
   | { type: "setUploadingMessageState"; value: SetStateAction<LocalizedText> }
@@ -218,10 +216,6 @@ function reducer(state: SubtitleManagerState, action: StateAction): SubtitleMana
       const tvSeriesSortOrder = resolveUpdate(state.tvSeriesSortOrder, action.value);
       return tvSeriesSortOrder === state.tvSeriesSortOrder ? state : { ...state, tvSeriesSortOrder };
     }
-    case "setLoading": {
-      const loading = resolveUpdate(state.loading, action.value);
-      return loading === state.loading ? state : { ...state, loading };
-    }
     case "setPending": {
       const pending = resolveUpdate(state.pending, action.value);
       return pending === state.pending ? state : { ...state, pending };
@@ -274,7 +268,6 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const pendingLoadsRef = useRef(0);
   const pendingUploadsRef = useRef(0);
   const pendingLoadChannelsRef = useRef<Record<LoadChannel, number>>({
     movieList: 0,
@@ -300,7 +293,6 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
 
   const refs = useMemo<SubtitleManagerRefs>(
     () => ({
-      pendingLoadsRef,
       pendingUploadsRef,
       pendingLoadChannelsRef,
       loadedMovieListSignatureRef,
@@ -340,7 +332,6 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
       setMovieSortOrder: createSetter<SortOrder>(dispatch, "setMovieSortOrder"),
       setTvSeriesSortBy: createSetter<TvSeriesSortBy>(dispatch, "setTvSeriesSortBy"),
       setTvSeriesSortOrder: createSetter<SortOrder>(dispatch, "setTvSeriesSortOrder"),
-      setLoading: createSetter<boolean>(dispatch, "setLoading"),
       setPending: createSetter<UiPendingState>(dispatch, "setPending"),
       setUploading: createSetter<boolean>(dispatch, "setUploading"),
       setUploadingMessageState: createSetter<LocalizedText>(dispatch, "setUploadingMessageState"),

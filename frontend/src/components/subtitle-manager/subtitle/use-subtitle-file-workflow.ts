@@ -208,7 +208,7 @@ export function useSubtitleFileWorkflow({
       setPreviewDialogOpen(true);
       setPreviewTitle(entry.fileName || entry.path || "-");
       setPreviewStatus("error");
-      setPreviewError(t("details.parseArchiveFailed", { error: "missing archive entry" }));
+      setPreviewError(t("details.parseArchiveFailed", { error: t("details.missingArchiveEntry") }));
       return;
     }
     setPreviewDialogOpen(true);

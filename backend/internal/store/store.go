@@ -33,7 +33,9 @@ func Open(databaseURL string) (*Store, error) {
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(time.Hour)
 
-	if err := db.Ping(); err != nil {
+	pingCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := db.PingContext(pingCtx); err != nil {
 		_ = db.Close()
 		return nil, err
 	}

@@ -43,6 +43,8 @@ export const enMessages = {
   "sidebar.refreshingTab": "Refreshing {tab}",
   "sidebar.collapse": "Collapse sidebar",
   "sidebar.expand": "Expand sidebar",
+  "sidebar.nav": "Main navigation",
+  "sidebar.githubAria": "Open GitHub repository for Subtitle UI v{version}",
 
   "auth.loginTitle": "Admin sign in",
   "auth.loginDescription": "Enter the admin token configured on the server (ADMIN_TOKEN).",
@@ -195,6 +197,10 @@ export const enMessages = {
   "toast.batchPreparationFailedTitle": "Batch prepare failed",
   "toast.archiveParsingFailedTitle": "Archive parse failed",
   "toast.archiveParsingNoSubtitleMessage": "No subtitles in archive",
+  "toast.archiveFileNoSubtitles": "{name} (no subtitle files in archive)",
+  "toast.seasonInstallFailed": "install failed",
+  "toast.seasonInstallRefreshFailed": "refresh after season install failed: {error}",
+  "toast.afterMutationRefreshFailed": "refresh after update failed: {error}",
   "toast.archiveParsedMessage": "{count} subtitles found",
   "toast.unsupportedFileTitle": "Unsupported file",
   "toast.uploadInProgressTitle": "Upload in progress",
@@ -215,6 +221,10 @@ export const enMessages = {
   "error.deleteFailed": "Delete failed",
   "error.previewFailed": "Load subtitle preview failed",
   "error.subhdDownloadFailed": "SubHD download failed",
+  "error.completenessFailed": "Load season completeness failed",
+  "error.requestFailed": "Request failed: {status}",
+  "error.appTitle": "Something went wrong",
+  "error.appRetry": "Try again",
 
   "dashboard.scanInProgress": "Scan in progress",
   "dashboard.scannerIdle": "Scanner idle",
@@ -436,6 +446,7 @@ export const enMessages = {
   "details.uploadingSubtitleFiles": "Uploading subtitle files...",
   "details.noSubtitleFilesInArchive": "No subtitle files found in the archive.",
   "details.parseArchiveFailed": "Parse archive failed: {error}",
+  "details.missingArchiveEntry": "missing archive entry",
   "details.unsupportedFileType": "Unsupported file type. Please select subtitle files or archive files (.zip/.7z/.rar).",
   "details.missingReplaceTarget": "Missing target subtitle for replace.",
 

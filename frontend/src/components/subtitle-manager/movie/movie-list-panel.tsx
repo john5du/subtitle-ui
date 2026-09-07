@@ -1,4 +1,4 @@
-import { memo, useCallback, type KeyboardEvent } from "react";
+import { memo, useCallback } from "react";
 
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useI18n } from "@/lib/i18n";
@@ -117,17 +117,6 @@ export const MovieListPanel = memo(function MovieListPanel({
 
   const { measureRef } = useCardGridColumns(effectiveViewMode === "card", handleCardColumnsChange);
 
-  const handleRowKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLTableRowElement>, video: Video) => {
-      if (operationLocked) return;
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        onOpenManager(video);
-      }
-    },
-    [operationLocked, onOpenManager]
-  );
-
   const hasVideos = videos.length > 0;
   const showSkeleton = !hasVideos && pending;
   const updatingLabel = t("movie.updatingResults");
@@ -181,22 +170,28 @@ export const MovieListPanel = memo(function MovieListPanel({
               videos.map((video) => (
                 <TableRow
                   key={video.id}
-                  role="button"
-                  tabIndex={operationLocked ? -1 : 0}
-                  aria-label={video.title || video.fileName || t("info.movie")}
                   className={cn("row-focus", operationLocked && "cursor-not-allowed opacity-65 hover:bg-transparent")}
                   onClick={() => {
                     if (!operationLocked) {
                       onOpenManager(video);
                     }
                   }}
-                  onKeyDown={(event) => handleRowKeyDown(event, video)}
                 >
                   <TableCell className="w-[76px] py-2">
                     <PosterThumbnail src={video.posterUrl} />
                   </TableCell>
                   <TableCell className="max-w-[260px] truncate font-medium" title={video.title}>
-                    {video.title || "-"}
+                    <button
+                      type="button"
+                      className="block w-full truncate text-left font-medium"
+                      disabled={operationLocked}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenManager(video);
+                      }}
+                    >
+                      {video.title || "-"}
+                    </button>
                   </TableCell>
                   <TableCell>{video.year || "-"}</TableCell>
                   <TableCell className="hidden md:table-cell">{formatTime(video.updatedAt)}</TableCell>

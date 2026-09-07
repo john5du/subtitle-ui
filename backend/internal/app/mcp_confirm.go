@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"subtitle-ui/backend/internal/config"
 )
 
 const defaultMCPConfirmTTL = 10 * time.Minute
@@ -159,12 +161,19 @@ func (s *Service) consumeConfirmNonce(nonce string, expUnix int64) (bool, error)
 }
 
 func (s *Service) mcpConfirmSecret() string {
-	if s != nil {
-		if secret := strings.TrimSpace(s.cfg.MCPConfirmSecret); secret != "" {
-			return secret
-		}
+	if s == nil {
+		return ""
 	}
-	return s.streamTicketSecret()
+	if secret := strings.TrimSpace(s.cfg.MCPConfirmSecret); secret != "" {
+		return secret
+	}
+	if secret := strings.TrimSpace(s.cfg.StreamTicketSecret); secret != "" {
+		return secret
+	}
+	if config.IsProduction() {
+		return ""
+	}
+	return strings.TrimSpace(s.cfg.AdminToken)
 }
 
 func (s *Service) signConfirm(tool, hash string, exp int64, nonce string) (string, error) {

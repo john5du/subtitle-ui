@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -22,9 +24,10 @@ const pathIDMissTTL = 30 * time.Second
 
 // FindItemIDByPath looks up a Movie/Episode id by filesystem path.
 //
-// Matching is by Path only (not SearchTerm/metadata title). Jellyfin titles often
-// differ from filenames (e.g. Show.S01E01.mkv → "Pilot"), so name search would
-// drop the real item. Results are paged until a path match or the library is exhausted.
+// Filename SearchTerm is tried first; hits are still confirmed by Path because
+// Jellyfin titles often differ from filenames (e.g. Show.S01E01.mkv → "Pilot").
+// SearchTerm HTTP errors are logged and ignored so a full Path scan can still match.
+// Results are paged until a path match or the library is exhausted.
 //
 // Hits are cached for pathIDHitTTL to avoid repeated full-library scans. Misses use
 // a short pathIDMissTTL so a newly imported file is found on the next preview.
@@ -44,34 +47,37 @@ func (c *Client) FindItemIDByPath(ctx context.Context, localOrMappedPath string)
 		return id, err
 	}
 
+	base := filepath.Base(target)
+	terms := []string{base}
+	if stem := strings.TrimSuffix(base, filepath.Ext(base)); stem != "" && stem != base {
+		terms = append(terms, stem)
+	}
+	for _, term := range terms {
+		id, found, err := c.findItemIDBySearchTerm(ctx, want, term)
+		if err != nil {
+			if ctx.Err() != nil {
+				return "", err
+			}
+			log.Printf("jellyfin SearchTerm %q failed, falling back to path scan: %v", term, err)
+			continue
+		}
+		if found {
+			c.storePathIDCache(want, id, false)
+			return id, nil
+		}
+	}
+
 	for start := 0; ; start += findItemPageSize {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
-		q := url.Values{}
-		q.Set("Recursive", "true")
-		q.Set("IncludeItemTypes", "Movie,Episode")
-		q.Set("Fields", "Path")
-		q.Set("EnableImages", "false")
-		q.Set("EnableTotalRecordCount", "false")
-		q.Set("StartIndex", strconv.Itoa(start))
-		q.Set("Limit", strconv.Itoa(findItemPageSize))
-
-		var result itemQueryResult
-		if err := c.getJSON(ctx, "/Items", q, &result); err != nil {
-			// Preserve upstream/network/auth errors; do not mask as not-found.
+		items, err := c.listItemsPage(ctx, start, findItemPageSize, "")
+		if err != nil {
 			return "", err
 		}
-		items := result.items()
-		for _, item := range items {
-			if normalizeComparePath(item.path()) != want {
-				continue
-			}
-			id := item.id()
-			if id != "" {
-				c.storePathIDCache(want, id, false)
-				return id, nil
-			}
+		if id, ok := matchItemPath(items, want); ok {
+			c.storePathIDCache(want, id, false)
+			return id, nil
 		}
 		if len(items) < findItemPageSize {
 			break
@@ -79,6 +85,51 @@ func (c *Client) FindItemIDByPath(ctx context.Context, localOrMappedPath string)
 	}
 	c.storePathIDCache(want, "", true)
 	return "", fmt.Errorf("%w for path %s", ErrItemNotFound, target)
+}
+
+func (c *Client) findItemIDBySearchTerm(ctx context.Context, want, searchTerm string) (string, bool, error) {
+	searchTerm = strings.TrimSpace(searchTerm)
+	if searchTerm == "" {
+		return "", false, nil
+	}
+	items, err := c.listItemsPage(ctx, 0, 50, searchTerm)
+	if err != nil {
+		return "", false, err
+	}
+	id, ok := matchItemPath(items, want)
+	return id, ok, nil
+}
+
+func (c *Client) listItemsPage(ctx context.Context, start, limit int, searchTerm string) ([]itemDTO, error) {
+	q := url.Values{}
+	q.Set("Recursive", "true")
+	q.Set("IncludeItemTypes", "Movie,Episode")
+	q.Set("Fields", "Path")
+	q.Set("EnableImages", "false")
+	q.Set("EnableTotalRecordCount", "false")
+	q.Set("StartIndex", strconv.Itoa(start))
+	q.Set("Limit", strconv.Itoa(limit))
+	if strings.TrimSpace(searchTerm) != "" {
+		q.Set("SearchTerm", searchTerm)
+	}
+	var result itemQueryResult
+	if err := c.getJSON(ctx, "/Items", q, &result); err != nil {
+		return nil, err
+	}
+	return result.items(), nil
+}
+
+func matchItemPath(items []itemDTO, want string) (string, bool) {
+	for _, item := range items {
+		if normalizeComparePath(item.path()) != want {
+			continue
+		}
+		id := item.id()
+		if id != "" {
+			return id, true
+		}
+	}
+	return "", false
 }
 
 func (c *Client) lookupPathIDCache(key string) (id string, ok bool, err error) {

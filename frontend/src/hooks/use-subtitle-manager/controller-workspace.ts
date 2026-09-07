@@ -19,8 +19,6 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     setters,
     beginLoadChannel,
     endLoadChannel,
-    beginLoading,
-    endLoading,
     notifySuccess,
     notifyInfo,
     reportRequestError
@@ -101,7 +99,6 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
   }
 
   async function triggerScan() {
-    beginLoading();
     setters.setPending((prev) => ({ ...prev, scan: true }));
 
     try {
@@ -155,7 +152,6 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       reportRequestError("error.scanFailed", error);
     } finally {
       setters.setPending((prev) => ({ ...prev, scan: false }));
-      endLoading();
     }
   }
 

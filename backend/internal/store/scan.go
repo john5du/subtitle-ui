@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"path/filepath"
@@ -30,7 +31,14 @@ func (s *Store) SaveScanResult(videos []domain.Video, startedAt time.Time, finis
 // When scanErr is non-empty, only the scan_runs row is written — no deletes or upserts.
 // Partial scan failures must not wipe half the library (e.g. TV root down while movies scan OK).
 func (s *Store) SaveScanReconcile(found []domain.Video, rebuilt []domain.Video, startedAt time.Time, finishedAt time.Time, scanErr string, replaceScopes []string) (err error) {
-	tx, err := s.db.Begin()
+	return s.SaveScanReconcileCtx(context.Background(), found, rebuilt, startedAt, finishedAt, scanErr, replaceScopes)
+}
+
+func (s *Store) SaveScanReconcileCtx(ctx context.Context, found []domain.Video, rebuilt []domain.Video, startedAt time.Time, finishedAt time.Time, scanErr string, replaceScopes []string) (err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}

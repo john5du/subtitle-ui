@@ -94,5 +94,8 @@ func shouldLogAPIRequest(r *http.Request) bool {
 	if r.Method == http.MethodGet && path == "/api/health" {
 		return false
 	}
+	if isPublicAPIPath(r.Method, path) {
+		return false
+	}
 	return true
 }

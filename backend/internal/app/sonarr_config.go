@@ -39,9 +39,7 @@ func (s *Service) UpdateSonarrConfig(req domain.SonarrConfigUpdate) (domain.Sona
 	if err != nil {
 		return domain.SonarrConfig{}, err
 	}
-	if apiKey == "" {
-		apiKey = strings.TrimSpace(existing.APIKey)
-	}
+	storedAPIKey, apiKey, apiKeySet := s.keepOrSealAPIKey(apiKey, existing.APIKey, s.rawAppSetting(settingSonarrAPIKey))
 
 	if req.Enabled {
 		if normalizedURL == "" {
@@ -60,7 +58,7 @@ func (s *Service) UpdateSonarrConfig(req domain.SonarrConfigUpdate) (domain.Sona
 	if err := s.store.SetAppSettings(map[string]string{
 		settingSonarrEnabled: enabledValue,
 		settingSonarrURL:     normalizedURL,
-		settingSonarrAPIKey:  apiKey,
+		settingSonarrAPIKey:  storedAPIKey,
 	}, updatedAt); err != nil {
 		s.recordOp("config_sonarr", systemOperationVideoID, "", "", "error", err.Error())
 		return domain.SonarrConfig{}, err
@@ -69,7 +67,7 @@ func (s *Service) UpdateSonarrConfig(req domain.SonarrConfigUpdate) (domain.Sona
 	s.rebuildSonarrClient(req.Enabled, normalizedURL, apiKey)
 
 	apiKeyState := "cleared"
-	if apiKey != "" {
+	if apiKeySet {
 		apiKeyState = "set"
 	}
 	s.recordOp(
@@ -85,12 +83,15 @@ func (s *Service) UpdateSonarrConfig(req domain.SonarrConfigUpdate) (domain.Sona
 		Enabled:   req.Enabled && normalizedURL != "" && apiKey != "",
 		URL:       normalizedURL,
 		APIKey:    apiKey,
+		APIKeySet: apiKeySet,
 		UpdatedAt: updatedAt,
 	}), nil
 }
 
 func redactSonarrConfig(cfg domain.SonarrConfig) domain.SonarrConfig {
-	cfg.APIKeySet = strings.TrimSpace(cfg.APIKey) != ""
+	if !cfg.APIKeySet {
+		cfg.APIKeySet = strings.TrimSpace(cfg.APIKey) != ""
+	}
 	cfg.APIKey = ""
 	return cfg
 }
@@ -125,6 +126,7 @@ func (s *Service) resolveSonarrConfig() (domain.SonarrConfig, error) {
 		}
 	}
 	apiKey := strings.TrimSpace(s.cfg.SonarrAPIKey)
+	apiKeySet := apiKey != ""
 	updatedAt := time.Time{}
 
 	if setting, ok := settings[settingSonarrEnabled]; ok {
@@ -144,7 +146,17 @@ func (s *Service) resolveSonarrConfig() (domain.SonarrConfig, error) {
 		}
 	}
 	if setting, ok := settings[settingSonarrAPIKey]; ok {
-		apiKey = strings.TrimSpace(setting.Value)
+		opened := s.openSettingSecret(setting.Value)
+		if opened.DecryptOK {
+			apiKey = opened.Plain
+			apiKeySet = opened.Plain != ""
+		} else if opened.Set {
+			apiKey = ""
+			apiKeySet = true
+		} else {
+			apiKey = ""
+			apiKeySet = false
+		}
 		if setting.UpdatedAt.After(updatedAt) {
 			updatedAt = setting.UpdatedAt
 		}
@@ -157,6 +169,7 @@ func (s *Service) resolveSonarrConfig() (domain.SonarrConfig, error) {
 		Enabled:   effectiveEnabled,
 		URL:       baseURL,
 		APIKey:    apiKey,
+		APIKeySet: apiKeySet,
 		UpdatedAt: updatedAt,
 	}, nil
 }

@@ -18,7 +18,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 		case s.originAllowed(origin, r.Host):
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Add("Vary", "Origin")
-		case !isMutation:
+		case !isMutation && isPublicAPIPath(r.Method, r.URL.Path):
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 		default:
 			allowCORS = false

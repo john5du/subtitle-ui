@@ -7,8 +7,7 @@ import type { SubHDConfig, SubHDDownloadOptions, SubHDSearchPage, SubHDSearchRes
 import { useI18n } from "@/lib/i18n";
 import { ApiRequestError, requestPayload } from "@/lib/subtitle-manager/api-client";
 import { buildSubtitleSearchLinks, buildSubtitleSearchLinksByKeyword } from "@/lib/subtitle-search";
-import type { ArchiveEntryMeta } from "@/lib/types";
-import type { ZipSubtitleEntry } from "@/lib/subtitle-zip";
+import { archiveMetaToEntries, type ZipSubtitleEntry } from "@/lib/subtitle-zip";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,19 +40,6 @@ interface SubHDDownloadDialogProps {
   onUploadLocal?: () => void;
   uploadLocalPending?: boolean;
   showExternalSearchLinks?: boolean;
-}
-
-function toZipEntries(entries: ArchiveEntryMeta[]): ZipSubtitleEntry[] {
-  return entries.map((entry, index) => {
-    const path = (entry.path || entry.fileName || "").replace(/\\/g, "/").replace(/^\/+/, "");
-    return {
-      id: `subhd-${index}-${path.toLowerCase()}`,
-      path,
-      fileName: entry.fileName || path.split("/").pop() || path,
-      size: Number(entry.size) || 0,
-      archiveEntry: path
-    };
-  });
 }
 
 export function SubHDDownloadDialog({
@@ -167,7 +153,7 @@ export function SubHDDownloadDialog({
     } catch (err) {
       if (err instanceof ApiRequestError && err.code === "archive_multiple_entries" && err.entries?.length) {
         setEntryPickSid(item.sid);
-        setEntryPickEntries(toZipEntries(err.entries));
+        setEntryPickEntries(archiveMetaToEntries(err.entries, { idPrefix: "subhd-" }));
         setSelectedEntryId("");
         setEntryPickerOpen(true);
         return;

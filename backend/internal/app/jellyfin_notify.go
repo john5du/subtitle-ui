@@ -23,6 +23,7 @@ func (s *Service) notifyJellyfinAfterSubtitleChange(videoID string) {
 	}
 	video, err := s.GetVideo(videoID)
 	if err != nil {
+		log.Printf("jellyfin notify skipped: get video %s: %v", videoID, err)
 		return
 	}
 	path := strings.TrimSpace(video.Path)

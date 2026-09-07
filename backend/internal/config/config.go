@@ -46,6 +46,8 @@ type Config struct {
 	// MCPEnabled is the env bootstrap for Streamable MCP at /mcp (Bearer ADMIN_TOKEN).
 	// Default false; DB setting mcp.enabled overrides at runtime (settings UI).
 	MCPEnabled bool
+	// LegacyMediaRoot is true when only deprecated MEDIA_ROOT was used to set both roots.
+	LegacyMediaRoot bool
 }
 
 // IsProduction reports whether APP_ENV/ENV is production (or prod).
@@ -62,10 +64,12 @@ func Load() Config {
 	legacyRoot := strings.TrimSpace(os.Getenv("MEDIA_ROOT"))
 	movieDefault := "./media/movies"
 	tvDefault := "./media/tv"
+	legacyOnly := false
 	if legacyRoot != "" {
 		movieDefault = legacyRoot
 		tvDefault = legacyRoot
 		if strings.TrimSpace(os.Getenv("MOVIE_MEDIA_ROOT")) == "" && strings.TrimSpace(os.Getenv("TV_MEDIA_ROOT")) == "" {
+			legacyOnly = true
 			log.Printf("MEDIA_ROOT is deprecated; set MOVIE_MEDIA_ROOT and TV_MEDIA_ROOT instead")
 		}
 	}
@@ -103,6 +107,7 @@ func Load() Config {
 		StreamTicketTTL:       parseDuration(os.Getenv("STREAM_TICKET_TTL"), 15*time.Minute),
 		MCPConfirmSecret:      strings.TrimSpace(os.Getenv("MCP_CONFIRM_SECRET")),
 		MCPEnabled:            parseBool(os.Getenv("MCP_ENABLED")),
+		LegacyMediaRoot:       legacyOnly,
 	}
 
 	// Sonarr: enabled when URL+key set, unless SONARR_ENABLED explicitly disables.
@@ -140,6 +145,9 @@ func (c Config) Validate() error {
 	if IsProduction() && strings.TrimSpace(c.StreamTicketSecret) == "" {
 		return errStreamTicketSecretRequired
 	}
+	if IsProduction() && c.LegacyMediaRoot {
+		return errMediaRootDeprecated
+	}
 	if c.AdminTokenIsDefault {
 		if IsProduction() {
 			return errDefaultAdminTokenInProduction
@@ -171,6 +179,10 @@ var errDatabaseURLRequired = &ConfigError{
 
 var errStreamTicketSecretRequired = &ConfigError{
 	Message: "STREAM_TICKET_SECRET must be set in production (do not reuse ADMIN_TOKEN)",
+}
+
+var errMediaRootDeprecated = &ConfigError{
+	Message: "MEDIA_ROOT is deprecated; set MOVIE_MEDIA_ROOT and TV_MEDIA_ROOT in production",
 }
 
 // ConfigError is a user-facing configuration problem.

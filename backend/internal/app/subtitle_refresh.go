@@ -3,16 +3,19 @@ package app
 import (
 	"database/sql"
 	"errors"
-	"hash/fnv"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/idhash"
 	"subtitle-ui/backend/internal/subtitle"
 )
 
 func (s *Service) refreshVideoSubtitles(videoID string, targetPath string, sourceOverrides map[string]subtitleSourceOverride) (domain.Video, domain.Subtitle, error) {
+	if s != nil && s.refreshSubtitlesHook != nil {
+		return s.refreshSubtitlesHook(videoID, targetPath, sourceOverrides)
+	}
 	video, found, err := s.store.GetVideo(videoID)
 	if err != nil {
 		return domain.Video{}, domain.Subtitle{}, err
@@ -94,24 +97,7 @@ func findSubtitle(subtitles []domain.Subtitle, subtitleID string) (domain.Subtit
 }
 
 func makeID(s string) string {
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(strings.ToLower(s)))
-	return strings.ToUpper(formatUintHex(h.Sum64()))
-}
-
-func formatUintHex(v uint64) string {
-	const alphabet = "0123456789ABCDEF"
-	if v == 0 {
-		return "0"
-	}
-	var out [16]byte
-	pos := len(out)
-	for v > 0 {
-		pos--
-		out[pos] = alphabet[v&0x0F]
-		v >>= 4
-	}
-	return string(out[pos:])
+	return idhash.FromString(s)
 }
 
 func errorString(err error) string {

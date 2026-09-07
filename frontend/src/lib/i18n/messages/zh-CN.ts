@@ -45,6 +45,8 @@ export const zhCNMessages: MessageDictionary = {
   "sidebar.refreshingTab": "正在刷新{tab}",
   "sidebar.collapse": "折叠侧边栏",
   "sidebar.expand": "展开侧边栏",
+  "sidebar.nav": "主导航",
+  "sidebar.githubAria": "打开 Subtitle UI v{version} 的 GitHub 仓库",
 
   "auth.loginTitle": "管理员登录",
   "auth.loginDescription": "请输入服务端环境变量 ADMIN_TOKEN 配置的管理员令牌。",
@@ -197,6 +199,10 @@ export const zhCNMessages: MessageDictionary = {
   "toast.batchPreparationFailedTitle": "批量准备失败",
   "toast.archiveParsingFailedTitle": "压缩包解析失败",
   "toast.archiveParsingNoSubtitleMessage": "压缩包内无字幕文件",
+  "toast.archiveFileNoSubtitles": "{name}（压缩包内无字幕文件）",
+  "toast.seasonInstallFailed": "安装失败",
+  "toast.seasonInstallRefreshFailed": "季包安装后刷新失败：{error}",
+  "toast.afterMutationRefreshFailed": "更新后刷新失败：{error}",
   "toast.archiveParsedMessage": "发现 {count} 个字幕",
   "toast.unsupportedFileTitle": "不支持的文件",
   "toast.uploadInProgressTitle": "上传中，请稍候",
@@ -217,6 +223,10 @@ export const zhCNMessages: MessageDictionary = {
   "error.deleteFailed": "删除失败",
   "error.previewFailed": "加载字幕预览失败",
   "error.subhdDownloadFailed": "SubHD 下载失败",
+  "error.completenessFailed": "加载季度完整度失败",
+  "error.requestFailed": "请求失败：{status}",
+  "error.appTitle": "页面出错了",
+  "error.appRetry": "重试",
 
   "dashboard.scanInProgress": "扫描进行中",
   "dashboard.scannerIdle": "扫描器空闲",
@@ -438,6 +448,7 @@ export const zhCNMessages: MessageDictionary = {
   "details.uploadingSubtitleFiles": "正在上传字幕文件...",
   "details.noSubtitleFilesInArchive": "压缩包中没有找到字幕文件。",
   "details.parseArchiveFailed": "解析压缩包失败：{error}",
+  "details.missingArchiveEntry": "缺少压缩包内文件路径",
   "details.unsupportedFileType": "不支持的文件类型。请选择字幕文件或压缩包文件（.zip/.7z/.rar）。",
   "details.missingReplaceTarget": "替换操作缺少目标字幕。",
 

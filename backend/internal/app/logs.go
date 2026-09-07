@@ -93,6 +93,7 @@ func (s *Service) ListLogs(limit int) []domain.OperationLog {
 	}
 	page, err := s.ListLogsPage(1, limit)
 	if err != nil {
+		log.Printf("list operation logs failed: %v", err)
 		return nil
 	}
 	return page.Items
@@ -121,6 +122,10 @@ func (s *Service) ClearLogs() error {
 // ClearLogsOlderThanDays deletes logs older than keepDays (minimum 1 day retained window for “older than”).
 // keepDays=0 means delete all then write clear_logs marker (same as ClearLogs for full wipe via before=now).
 func (s *Service) ClearLogsOlderThanDays(keepDays int) (domain.ClearLogsResult, error) {
+	return s.ClearLogsOlderThanDaysCtx(context.Background(), keepDays)
+}
+
+func (s *Service) ClearLogsOlderThanDaysCtx(ctx context.Context, keepDays int) (domain.ClearLogsResult, error) {
 	if keepDays < 0 {
 		return domain.ClearLogsResult{}, fmt.Errorf("%w: keepDays must be >= 0", ErrBadRequest)
 	}
@@ -132,21 +137,19 @@ func (s *Service) ClearLogsOlderThanDays(keepDays int) (domain.ClearLogsResult, 
 	}
 	n, err := s.store.ClearLogsBefore(before)
 	if err != nil {
-		s.recordOpEx(OpRecord{
+		s.recordOpExCtx(ctx, OpRecord{
 			Action:  "clear_logs",
 			VideoID: systemOperationVideoID,
 			Status:  "error",
 			Message: err.Error(),
-			Source:  domain.OpSourceSystem,
 		})
 		return domain.ClearLogsResult{}, err
 	}
-	s.recordOpEx(OpRecord{
+	s.recordOpExCtx(ctx, OpRecord{
 		Action:  "clear_logs",
 		VideoID: systemOperationVideoID,
 		Status:  "ok",
 		Message: fmt.Sprintf("deleted=%d keepDays=%d", n, keepDays),
-		Source:  domain.OpSourceSystem,
 		Meta:    map[string]any{"deleted": n, "keepDays": keepDays},
 	})
 	return domain.ClearLogsResult{Deleted: n}, nil
@@ -211,21 +214,6 @@ func (s *Service) recordOpExCtx(ctx context.Context, rec OpRecord) string {
 		rec.Tool = audit.Tool
 	}
 	return s.recordOpEx(rec)
-}
-
-// RecordMCPOp records an operation originating from MCP (source=mcp).
-func (s *Service) RecordMCPOp(action, videoID, targetPath, backupPath, status, message, tool string, meta map[string]any) string {
-	return s.recordOpEx(OpRecord{
-		Action:     action,
-		VideoID:    videoID,
-		TargetPath: targetPath,
-		BackupPath: backupPath,
-		Status:     status,
-		Message:    message,
-		Source:     domain.OpSourceMCP,
-		Tool:       tool,
-		Meta:       meta,
-	})
 }
 
 // recordOpEx appends an extended operation log and returns its id (empty on failure).

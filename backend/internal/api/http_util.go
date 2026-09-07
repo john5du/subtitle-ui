@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -38,7 +39,8 @@ func (s *Server) writeAppError(w http.ResponseWriter, err error) {
 	case errors.Is(err, app.ErrStreamTicketInvalid), errors.Is(err, app.ErrStreamTicketExpired):
 		writeError(w, http.StatusUnauthorized, err.Error())
 	default:
-		writeError(w, http.StatusInternalServerError, err.Error())
+		log.Printf("api internal error: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
 	}
 }
 

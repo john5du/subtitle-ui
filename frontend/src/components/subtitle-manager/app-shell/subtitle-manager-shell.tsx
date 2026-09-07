@@ -327,13 +327,13 @@ export function SubtitleManagerShell({
             rel="noreferrer"
             className="surface-transition focus-ring block h-9 w-9 shrink-0 bg-surface-subtle p-1.5"
             title={`Subtitle UI v${APP_VERSION}`}
-            aria-label={`Open GitHub repository for Subtitle UI v${APP_VERSION}`}
+            aria-label={t("sidebar.githubAria", { version: APP_VERSION })}
           >
             <Image src="/icon.svg" alt="" aria-hidden width={32} height={32} className="h-full w-full" />
           </a>
           <div
             role="tablist"
-            aria-label={t("sidebar.tagline")}
+            aria-label={t("sidebar.nav")}
             className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
           >
             {shell.navItems.map((item) => (
@@ -395,7 +395,7 @@ export function SubtitleManagerShell({
                 rel="noreferrer"
                 className="surface-transition focus-ring block h-10 w-10 shrink-0 bg-surface-subtle p-1.5 text-foreground-muted hover:text-foreground"
                 title={`Subtitle UI v${APP_VERSION}`}
-                aria-label={`Open GitHub repository for Subtitle UI v${APP_VERSION}`}
+                aria-label={t("sidebar.githubAria", { version: APP_VERSION })}
               >
                 <Image
                   src="/icon.svg"
@@ -413,7 +413,7 @@ export function SubtitleManagerShell({
               ) : null}
             </div>
 
-            <div role="tablist" aria-label={t("sidebar.tagline")} className="flex w-full flex-col gap-1.5">
+            <div role="tablist" aria-label={t("sidebar.nav")} className="flex w-full flex-col gap-1.5">
               {shell.navItems.map((item) => (
                 <button
                   key={item.key}

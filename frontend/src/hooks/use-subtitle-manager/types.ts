@@ -50,7 +50,6 @@ export interface SubtitleManagerState {
   movieSortOrder: SortOrder;
   tvSeriesSortBy: TvSeriesSortBy;
   tvSeriesSortOrder: SortOrder;
-  loading: boolean;
   pending: UiPendingState;
   uploading: boolean;
   uploadingMessageState: LocalizedText;
@@ -63,7 +62,6 @@ export interface SubtitleManagerState {
 }
 
 export interface SubtitleManagerRefs {
-  pendingLoadsRef: MutableRefObject<number>;
   pendingUploadsRef: MutableRefObject<number>;
   pendingLoadChannelsRef: MutableRefObject<Record<LoadChannel, number>>;
   loadedMovieListSignatureRef: MutableRefObject<string>;
@@ -100,7 +98,6 @@ export interface SubtitleManagerSetters {
   setMovieSortOrder: Dispatch<SetStateAction<SortOrder>>;
   setTvSeriesSortBy: Dispatch<SetStateAction<TvSeriesSortBy>>;
   setTvSeriesSortOrder: Dispatch<SetStateAction<SortOrder>>;
-  setLoading: Dispatch<SetStateAction<boolean>>;
   setPending: Dispatch<SetStateAction<UiPendingState>>;
   setUploading: Dispatch<SetStateAction<boolean>>;
   setUploadingMessageState: Dispatch<SetStateAction<LocalizedText>>;
@@ -135,7 +132,6 @@ export interface SubtitleManagerSelectors {
 
 export interface SubtitleManagerCore {
   activeTab: ActiveTab;
-  loading: boolean;
   pending: UiPendingState;
   uploading: boolean;
   uploadingMessage: string;

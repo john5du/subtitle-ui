@@ -53,6 +53,24 @@ export function isArchiveFileName(fileName: string) {
   return archiveExtension(fileName) !== "";
 }
 
+export function archiveMetaToEntries(entries: ArchiveEntryMeta[], options?: { sourceFile?: File; idPrefix?: string }): ZipSubtitleEntry[] {
+  const prefix = options?.idPrefix ?? "";
+  return entries
+    .map((entry, index) => {
+      const pathValue = normalizePath(entry.path || entry.fileName || "");
+      const fileName = entry.fileName || basenamePath(pathValue);
+      return {
+        id: `${prefix}${index}-${pathValue.toLowerCase()}`,
+        path: pathValue,
+        fileName,
+        size: Number(entry.size) || 0,
+        sourceFile: options?.sourceFile,
+        archiveEntry: pathValue
+      } satisfies ZipSubtitleEntry;
+    })
+    .sort((a, b) => a.path.localeCompare(b.path));
+}
+
 export async function listArchiveSubtitleEntries(file: File): Promise<ZipSubtitleEntry[]> {
   const body = new FormData();
   body.append("file", file);
@@ -61,20 +79,7 @@ export async function listArchiveSubtitleEntries(file: File): Promise<ZipSubtitl
     body
   });
   const entries = Array.isArray(payload?.entries) ? payload.entries : [];
-  return entries
-    .map((entry, index) => {
-      const pathValue = normalizePath(entry.path || entry.fileName || "");
-      const fileName = entry.fileName || basenamePath(pathValue);
-      return {
-        id: `${index}-${pathValue.toLowerCase()}`,
-        path: pathValue,
-        fileName,
-        size: Number(entry.size) || 0,
-        sourceFile: file,
-        archiveEntry: pathValue
-      } satisfies ZipSubtitleEntry;
-    })
-    .sort((a, b) => a.path.localeCompare(b.path));
+  return archiveMetaToEntries(entries, { sourceFile: file });
 }
 
 export async function extractArchiveSubtitleEntry(file: File, entryPath: string): Promise<ArrayBuffer> {

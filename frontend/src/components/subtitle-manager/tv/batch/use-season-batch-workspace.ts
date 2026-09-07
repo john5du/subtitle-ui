@@ -208,7 +208,7 @@ export function useSeasonBatchWorkspace({
         return;
       }
 
-      const { entries, unsupported, archiveErrors } = await collectBatchEntriesFromFiles(files);
+      const { entries, unsupported, archiveErrors } = await collectBatchEntriesFromFiles(files, t);
       setBatchCandidates(candidates);
 
       if (entries.length === 0) {

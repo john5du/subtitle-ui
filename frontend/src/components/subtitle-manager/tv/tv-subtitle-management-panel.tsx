@@ -3,7 +3,7 @@ import { ArrowLeft, CaseSensitive, Download, ListX, PackageSearch } from "lucide
 
 import type { MissingEpisode, PendingSubtitleAction, SeasonCompleteness, TvSeasonOption, TvSeriesSummary, Video } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
-import { requestPayload } from "@/lib/subtitle-manager/api-client";
+import { ApiRequestError, requestPayload } from "@/lib/subtitle-manager/api-client";
 import { tvSeriesSearchTitle } from "@/lib/subtitle-manager/media-metadata";
 import { emitToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -129,17 +129,26 @@ export function TvSubtitleManagementPanel({
         return;
       }
       setCompleteness(payload);
-    } catch {
+    } catch (error) {
       if (signal?.aborted) {
         return;
       }
       setCompleteness(null);
+      if (error instanceof ApiRequestError && (error.status === 503 || error.status === 404)) {
+        return;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      emitToast({
+        level: "error",
+        message: t("error.completenessFailed"),
+        detail: message
+      });
     } finally {
       if (!signal?.aborted) {
         setCompletenessLoading(false);
       }
     }
-  }, [selectedSeries, seasonNumber]);
+  }, [selectedSeries, seasonNumber, t]);
 
   useEffect(() => {
     setActiveStep("episodes");

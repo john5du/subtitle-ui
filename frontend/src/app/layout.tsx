@@ -44,7 +44,9 @@ const localeBootstrapScript = `
   try {
     const localeKey = "subtitle-ui:locale";
     const storedLocale = window.localStorage.getItem(localeKey);
-    const locale = storedLocale === "zh-CN" ? "zh-CN" : "en";
+    const locale = storedLocale === "en" || storedLocale === "zh-CN"
+      ? storedLocale
+      : (String(window.navigator.language || "").toLowerCase().startsWith("zh") ? "zh-CN" : "en");
     const viewKey = "subtitle-ui:library-view";
     const storedView = window.localStorage.getItem(viewKey);
     const libraryView = storedView === "list" ? "list" : "card";
@@ -73,11 +75,11 @@ const localeBootstrapScript = `
       document.documentElement.classList.remove("oled");
     }
   } catch {
-    window.__subtitleUiLocale = "en";
+    window.__subtitleUiLocale = "zh-CN";
     window.__subtitleUiLibraryView = "card";
     window.__subtitleUiSidebarCollapsed = false;
     window.__subtitleUiTheme = "system";
-    document.documentElement.lang = "en";
+    document.documentElement.lang = "zh-CN";
     document.documentElement.classList.add("dark");
     document.documentElement.classList.remove("oled");
   }
@@ -86,7 +88,7 @@ const localeBootstrapScript = `
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <Script
           id="subtitle-ui-bootstrap"

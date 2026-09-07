@@ -280,7 +280,8 @@ func TestFindItemIDByPathPaginatesWithoutSearchTerm(t *testing.T) {
 			return
 		}
 		if r.URL.Query().Get("SearchTerm") != "" {
-			t.Errorf("SearchTerm must not be used for path lookup, got %q", r.URL.Query().Get("SearchTerm"))
+			_ = json.NewEncoder(w).Encode(map[string]any{"Items": []any{}})
+			return
 		}
 		start, _ := strconv.Atoi(r.URL.Query().Get("StartIndex"))
 		limit, _ := strconv.Atoi(r.URL.Query().Get("Limit"))
@@ -627,13 +628,17 @@ func TestNotifyVideoChangedInvalidatesCachedMiss(t *testing.T) {
 	if !errors.Is(err, jellyfin.ErrItemNotFound) {
 		t.Fatalf("expected miss, got %v", err)
 	}
+	missHits := itemsHits.Load()
+	if missHits < 1 {
+		t.Fatalf("expected at least one items lookup on miss, hits=%d", missHits)
+	}
 	present.Store(true)
 	_, err = c.FindItemIDByPath(context.Background(), targetLocal)
 	if !errors.Is(err, jellyfin.ErrItemNotFound) {
 		t.Fatalf("cached miss should still apply, got %v", err)
 	}
-	if itemsHits.Load() != 1 {
-		t.Fatalf("cached miss must not re-scan, hits=%d", itemsHits.Load())
+	if itemsHits.Load() != missHits {
+		t.Fatalf("cached miss must not re-scan, hits=%d want %d", itemsHits.Load(), missHits)
 	}
 	if err := c.NotifyVideoChanged(context.Background(), targetLocal); err != nil {
 		t.Fatalf("notify: %v", err)
@@ -642,8 +647,68 @@ func TestNotifyVideoChangedInvalidatesCachedMiss(t *testing.T) {
 	if err != nil || id != "item-new" {
 		t.Fatalf("after notify: id=%q err=%v", id, err)
 	}
-	if itemsHits.Load() != 2 {
-		t.Fatalf("notify should drop miss cache, hits=%d", itemsHits.Load())
+	if itemsHits.Load() <= missHits {
+		t.Fatalf("notify should drop miss cache, hits=%d before=%d", itemsHits.Load(), missHits)
+	}
+}
+
+func TestFindItemIDByPathUsesSearchTerm(t *testing.T) {
+	target := "/data/movies/Foo.mkv"
+	var scanned atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/Items" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Query().Get("SearchTerm") == "" {
+			scanned.Add(1)
+			http.Error(w, "should not full-scan", http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Items": []map[string]string{{"Id": "item-search", "Path": target}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	c := jellyfin.New(jellyfin.Options{
+		Enabled: true, BaseURL: srv.URL, APIKey: "k", HTTPClient: srv.Client(),
+	})
+	id, err := c.FindItemIDByPath(context.Background(), target)
+	if err != nil || id != "item-search" {
+		t.Fatalf("id=%q err=%v", id, err)
+	}
+	if scanned.Load() != 0 {
+		t.Fatal("matched SearchTerm must not fall back to full scan")
+	}
+}
+
+func TestFindItemIDByPathSearchTermErrorFallsBackToPathScan(t *testing.T) {
+	target := "/data/movies/Foo.mkv"
+	var fullScan atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/Items" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Query().Get("SearchTerm") != "" {
+			http.Error(w, "search failed", http.StatusInternalServerError)
+			return
+		}
+		fullScan.Add(1)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"Items": []map[string]string{{"Id": "item-path", "Path": target}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	c := jellyfin.New(jellyfin.Options{
+		Enabled: true, BaseURL: srv.URL, APIKey: "k", HTTPClient: srv.Client(),
+	})
+	id, err := c.FindItemIDByPath(context.Background(), target)
+	if err != nil || id != "item-path" {
+		t.Fatalf("id=%q err=%v", id, err)
+	}
+	if fullScan.Load() == 0 {
+		t.Fatal("SearchTerm HTTP error should fall back to full path scan")
 	}
 }
 
@@ -718,7 +783,15 @@ func TestResolvePlaybackPlanForPathDoesNotRescanCachedMiss(t *testing.T) {
 	if !errors.Is(err, jellyfin.ErrItemNotFound) {
 		t.Fatalf("expected not found, got %v", err)
 	}
-	if itemsHits.Load() != 1 {
-		t.Fatalf("cached miss must not trigger a second /Items scan, hits=%d", itemsHits.Load())
+	missHits := itemsHits.Load()
+	if missHits < 1 {
+		t.Fatalf("miss lookup should query /Items, hits=%d", missHits)
+	}
+	_, _, err = c.ResolvePlaybackPlanForPath(context.Background(), "/data/movies/Missing.mkv")
+	if !errors.Is(err, jellyfin.ErrItemNotFound) {
+		t.Fatalf("cached miss: %v", err)
+	}
+	if itemsHits.Load() != missHits {
+		t.Fatalf("cached miss must not re-scan, hits=%d want %d", itemsHits.Load(), missHits)
 	}
 }

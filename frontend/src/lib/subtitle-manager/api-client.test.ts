@@ -8,7 +8,7 @@ describe("isRecord", () => {
     expect(isRecord({ error: "x" })).toBe(true);
     expect(isRecord(null)).toBe(false);
     expect(isRecord("x")).toBe(false);
-    expect(isRecord([])).toBe(true);
+    expect(isRecord([])).toBe(false);
   });
 });
 

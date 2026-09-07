@@ -101,7 +101,7 @@ func (s *Store) ClearLogsBefore(before time.Time) (int, error) {
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 	return int(n), nil
 }

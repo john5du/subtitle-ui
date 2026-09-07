@@ -111,6 +111,10 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 				rebuilt[i].ScanFingerprint = fp
 				rebuilt[i].FileSize = size
 				rebuilt[i].FileModTime = modTime
+				continue
+			}
+			if prev, ok := previousByPath[rebuilt[i].Path]; ok {
+				rebuilt[i].ScanFingerprint = prev.ScanFingerprint
 			}
 		}
 
@@ -162,12 +166,12 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	} else if wipeGuardTripped || result.err != nil {
 		// Record the failed run without mutating library rows.
 		// SaveScanReconcile also refuses mutation when scanErr is set (defense in depth).
-		saveErr = s.store.SaveScanReconcile(nil, nil, started, finished, errorString(result.err), result.replaceScopes)
+		saveErr = s.store.SaveScanReconcileCtx(ctx, nil, nil, started, finished, errorString(result.err), result.replaceScopes)
 		if saveErr != nil {
 			result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
 		}
 	} else {
-		saveErr = s.store.SaveScanReconcile(result.found, result.rebuilt, started, finished, "", result.replaceScopes)
+		saveErr = s.store.SaveScanReconcileCtx(ctx, result.found, result.rebuilt, started, finished, "", result.replaceScopes)
 		if saveErr != nil {
 			result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
 		}

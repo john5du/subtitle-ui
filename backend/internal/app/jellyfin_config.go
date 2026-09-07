@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -53,9 +54,7 @@ func (s *Service) UpdateJellyfinConfig(req domain.JellyfinConfigUpdate) (domain.
 	if err != nil {
 		return domain.JellyfinConfig{}, err
 	}
-	if apiKey == "" {
-		apiKey = strings.TrimSpace(existing.APIKey)
-	}
+	storedAPIKey, apiKey, apiKeySet := s.keepOrSealAPIKey(apiKey, existing.APIKey, s.rawAppSetting(settingJellyfinAPIKey))
 
 	if req.Enabled {
 		if normalizedURL == "" {
@@ -74,7 +73,7 @@ func (s *Service) UpdateJellyfinConfig(req domain.JellyfinConfigUpdate) (domain.
 	if err := s.store.SetAppSettings(map[string]string{
 		settingJellyfinEnabled: enabledValue,
 		settingJellyfinURL:     normalizedURL,
-		settingJellyfinAPIKey:  apiKey,
+		settingJellyfinAPIKey:  storedAPIKey,
 		settingJellyfinPathMap: pathMapStored,
 	}, updatedAt); err != nil {
 		s.recordOp("config_jellyfin", systemOperationVideoID, "", "", "error", err.Error())
@@ -84,7 +83,7 @@ func (s *Service) UpdateJellyfinConfig(req domain.JellyfinConfigUpdate) (domain.
 	s.rebuildJellyfinClient(req.Enabled, normalizedURL, apiKey, pathMaps)
 
 	apiKeyState := "cleared"
-	if apiKey != "" {
+	if apiKeySet {
 		apiKeyState = "set"
 	}
 	s.recordOp(
@@ -100,13 +99,16 @@ func (s *Service) UpdateJellyfinConfig(req domain.JellyfinConfigUpdate) (domain.
 		Enabled:   req.Enabled && normalizedURL != "" && apiKey != "",
 		URL:       normalizedURL,
 		APIKey:    apiKey,
+		APIKeySet: apiKeySet,
 		PathMap:   pathMapStored,
 		UpdatedAt: updatedAt,
 	}), nil
 }
 
 func redactJellyfinConfig(cfg domain.JellyfinConfig) domain.JellyfinConfig {
-	cfg.APIKeySet = strings.TrimSpace(cfg.APIKey) != ""
+	if !cfg.APIKeySet {
+		cfg.APIKeySet = strings.TrimSpace(cfg.APIKey) != ""
+	}
 	cfg.APIKey = ""
 	return cfg
 }
@@ -119,7 +121,7 @@ func (s *Service) applyStoredJellyfinConfig() error {
 	}
 	maps, err := jellyfin.ParsePathMaps(cfg.PathMap)
 	if err != nil {
-		// Historical dirty values must not prevent the core service from starting.
+		log.Printf("stored jellyfin path map invalid, ignoring: %v", err)
 		maps = nil
 	}
 	s.rebuildJellyfinClient(cfg.Enabled, cfg.URL, cfg.APIKey, maps)
@@ -147,6 +149,7 @@ func (s *Service) resolveJellyfinConfig() (domain.JellyfinConfig, error) {
 		}
 	}
 	apiKey := strings.TrimSpace(s.cfg.JellyfinAPIKey)
+	apiKeySet := apiKey != ""
 	pathMap := strings.TrimSpace(s.cfg.JellyfinPathMap)
 	updatedAt := time.Time{}
 
@@ -166,7 +169,17 @@ func (s *Service) resolveJellyfinConfig() (domain.JellyfinConfig, error) {
 		}
 	}
 	if setting, ok := settings[settingJellyfinAPIKey]; ok {
-		apiKey = strings.TrimSpace(setting.Value)
+		opened := s.openSettingSecret(setting.Value)
+		if opened.DecryptOK {
+			apiKey = opened.Plain
+			apiKeySet = opened.Plain != ""
+		} else if opened.Set {
+			apiKey = ""
+			apiKeySet = true
+		} else {
+			apiKey = ""
+			apiKeySet = false
+		}
 		if setting.UpdatedAt.After(updatedAt) {
 			updatedAt = setting.UpdatedAt
 		}
@@ -188,6 +201,7 @@ func (s *Service) resolveJellyfinConfig() (domain.JellyfinConfig, error) {
 		Enabled:   effectiveEnabled,
 		URL:       baseURL,
 		APIKey:    apiKey,
+		APIKeySet: apiKeySet,
 		PathMap:   pathMap,
 		UpdatedAt: updatedAt,
 	}, nil

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/idhash"
 	"subtitle-ui/backend/internal/subtitle"
 )
 
@@ -94,11 +95,18 @@ func (s *Scanner) ScanDirectoriesIncrementalCtx(
 			continue
 		}
 
+		var skippedDirs []string
 		walkErr := filepath.WalkDir(rootAbs, func(path string, d fs.DirEntry, walkErr error) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if walkErr != nil || d == nil || d.IsDir() {
+			if err := skipWalkError(rootAbs, path, d, walkErr, &skippedDirs); err != nil {
+				return err
+			}
+			if walkErr != nil {
+				return nil
+			}
+			if d == nil || d.IsDir() {
 				return nil
 			}
 
@@ -108,7 +116,7 @@ func (s *Scanner) ScanDirectoriesIncrementalCtx(
 
 			videoPath, err := filepath.Abs(path)
 			if err != nil {
-				return nil
+				return fmt.Errorf("abs path %s: %w", path, err)
 			}
 			if _, ok := seenVideoPath[videoPath]; ok {
 				return nil
@@ -141,7 +149,10 @@ func (s *Scanner) ScanDirectoriesIncrementalCtx(
 
 			video, buildErr := s.buildVideo(videoPath, mediaType)
 			if buildErr != nil {
-				return nil
+				if errors.Is(buildErr, errMetadataNotFound) {
+					return nil
+				}
+				return fmt.Errorf("build video %s: %w", videoPath, buildErr)
 			}
 			out.Found = append(out.Found, video)
 			out.Rebuilt[video.Path] = struct{}{}
@@ -152,6 +163,7 @@ func (s *Scanner) ScanDirectoriesIncrementalCtx(
 		if walkErr != nil {
 			scanErrs = append(scanErrs, fmt.Errorf("walk %s: %w", rootAbs, walkErr))
 		}
+		retainPreviousUnderSkipped(previous, skippedDirs, seenVideoPath, &out)
 	}
 
 	sort.Slice(out.Found, func(i int, j int) bool {
@@ -191,7 +203,13 @@ func (s *Scanner) DiscoverDirectoriesCtx(ctx context.Context, root string, media
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if walkErr != nil || d == nil || d.IsDir() {
+		if err := skipWalkError(rootAbs, path, d, walkErr, nil); err != nil {
+			return err
+		}
+		if walkErr != nil {
+			return nil
+		}
+		if d == nil || d.IsDir() {
 			return nil
 		}
 
@@ -332,7 +350,8 @@ func (s *Scanner) buildVideo(path string, mediaType string) (domain.Video, error
 
 	subtitles, err := s.ScanSubtitlesForVideo(absPath)
 	if err != nil {
-		subtitles = []domain.Subtitle{}
+		log.Printf("scan subtitles for %s: %v", absPath, err)
+		subtitles = nil
 	}
 
 	var fileSize int64
@@ -380,24 +399,7 @@ func isMetadataExt(ext string) bool {
 }
 
 func makeID(s string) string {
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(strings.ToLower(s)))
-	return strings.ToUpper(strconvFormatUint(h.Sum64()))
-}
-
-func strconvFormatUint(v uint64) string {
-	const alphabet = "0123456789ABCDEF"
-	if v == 0 {
-		return "0"
-	}
-	var out [16]byte
-	pos := len(out)
-	for v > 0 {
-		pos--
-		out[pos] = alphabet[v&0x0F]
-		v >>= 4
-	}
-	return string(out[pos:])
+	return idhash.FromString(s)
 }
 
 func uniqueAbsDirectories(roots []string) []string {
@@ -423,18 +425,59 @@ func uniqueAbsDirectories(roots []string) []string {
 }
 
 func joinErrors(errs []error) error {
-	if len(errs) == 0 {
+	return errors.Join(errs...)
+}
+
+func skipWalkError(rootAbs, path string, d fs.DirEntry, walkErr error, skippedDirs *[]string) error {
+	if walkErr == nil {
 		return nil
 	}
-	if len(errs) == 1 {
-		return errs[0]
+	if filepath.Clean(path) == filepath.Clean(rootAbs) {
+		return walkErr
 	}
-	var b strings.Builder
-	for i, err := range errs {
-		if i > 0 {
-			b.WriteString("; ")
+	log.Printf("scan skip %s: %v", path, walkErr)
+	if d != nil && d.IsDir() {
+		if skippedDirs != nil {
+			*skippedDirs = append(*skippedDirs, path)
 		}
-		b.WriteString(err.Error())
+		return fs.SkipDir
 	}
-	return errors.New(b.String())
+	return nil
+}
+
+func retainPreviousUnderSkipped(previous map[string]domain.Video, skippedDirs []string, seen map[string]struct{}, out *IncrementalScanResult) {
+	if previous == nil || out == nil || len(skippedDirs) == 0 {
+		return
+	}
+	for videoPath, prev := range previous {
+		if _, ok := seen[videoPath]; ok {
+			continue
+		}
+		if !pathUnderAny(videoPath, skippedDirs) {
+			continue
+		}
+		seen[videoPath] = struct{}{}
+		out.Found = append(out.Found, prev)
+		out.Stats.Found++
+		out.Stats.Skipped++
+	}
+}
+
+func pathUnderAny(path string, parents []string) bool {
+	path = filepath.Clean(path)
+	sep := string(os.PathSeparator)
+	for _, parent := range parents {
+		parent = filepath.Clean(parent)
+		if parent == "" {
+			continue
+		}
+		rel, err := filepath.Rel(parent, path)
+		if err != nil {
+			continue
+		}
+		if rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+sep)) {
+			return true
+		}
+	}
+	return false
 }

@@ -132,6 +132,8 @@ export function SubtitleTrackCard({
           type="file"
           accept={ACCEPTED_SUBTITLE_UPLOAD_TYPES}
           className="hidden"
+          tabIndex={-1}
+          aria-hidden
           onChange={onReplaceFileChange}
         />
 

@@ -143,7 +143,6 @@ export function useSubtitleManager(): SubtitleManagerResult {
   return {
     core: {
       activeTab: state.activeTab,
-      loading: state.loading,
       pending: state.pending,
       uploading: state.uploading,
       uploadingMessage,

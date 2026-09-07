@@ -46,9 +46,36 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 // ListAllVideos returns every video of the optional media type in one query (no page limit).
 // Used for scan diffs and TV series aggregation; prefer ListVideos for API paging.
 func (s *Store) ListAllVideos(mediaType string) ([]domain.Video, error) {
+	return s.listAllVideos(mediaType, true)
+}
+
+// ListAllVideosMeta returns every video without attaching subtitle rows.
+func (s *Store) ListAllVideosMeta(mediaType string) ([]domain.Video, error) {
+	return s.listAllVideos(mediaType, false)
+}
+
+func (s *Store) listAllVideos(mediaType string, withSubtitles bool) ([]domain.Video, error) {
 	baseQuery, args, _ := s.videosSelectQuery("", mediaType, "")
 	baseQuery += " " + s.buildVideoOrderBy("", "")
-	return s.queryVideos(baseQuery, args)
+	return s.queryVideosOpt(baseQuery, args, withSubtitles)
+}
+
+func (s *Store) SubtitleCountsByVideo() (map[string]int, error) {
+	rows, err := s.query(`SELECT video_id, COUNT(1) FROM subtitles GROUP BY video_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[string]int, 256)
+	for rows.Next() {
+		var id string
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
 }
 
 func (s *Store) videosSelectQuery(query string, mediaType string, directory string) (string, []any, []string) {
@@ -80,6 +107,10 @@ func (s *Store) videosSelectQuery(query string, mediaType string, directory stri
 }
 
 func (s *Store) queryVideos(baseQuery string, args []any) ([]domain.Video, error) {
+	return s.queryVideosOpt(baseQuery, args, true)
+}
+
+func (s *Store) queryVideosOpt(baseQuery string, args []any, withSubtitles bool) ([]domain.Video, error) {
 	rows, err := s.query(baseQuery, args...)
 	if err != nil {
 		return nil, err
@@ -98,10 +129,10 @@ func (s *Store) queryVideos(baseQuery string, args []any) ([]domain.Video, error
 		return nil, err
 	}
 
-	// Batch-load subtitles after the main rows cursor is closed to avoid
-	// holding the query connection while attaching child rows.
-	if err := s.attachSubtitles(out); err != nil {
-		return nil, err
+	if withSubtitles {
+		if err := s.attachSubtitles(out); err != nil {
+			return nil, err
+		}
 	}
 	return out, nil
 }

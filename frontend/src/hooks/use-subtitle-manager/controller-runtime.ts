@@ -53,18 +53,6 @@ export function createControllerRuntime({ getState, getSelectors, getT, stateApi
     setters.setPending((prev) => (prev.bootstrapping ? { ...prev, bootstrapping: false } : prev));
   }
 
-  function beginLoading() {
-    refs.pendingLoadsRef.current += 1;
-    setters.setLoading(true);
-  }
-
-  function endLoading() {
-    refs.pendingLoadsRef.current = Math.max(0, refs.pendingLoadsRef.current - 1);
-    if (refs.pendingLoadsRef.current === 0) {
-      setters.setLoading(false);
-    }
-  }
-
   function beginUpload(key: MessageKey, values?: TranslationValues) {
     refs.pendingUploadsRef.current += 1;
     setters.setUploadingMessageState({ key, values });
@@ -128,8 +116,6 @@ export function createControllerRuntime({ getState, getSelectors, getT, stateApi
     endLoadChannel,
     setSubtitleActionPending,
     finishBootstrapping,
-    beginLoading,
-    endLoading,
     beginUpload,
     updateUploadMessage,
     endUpload,

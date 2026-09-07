@@ -263,4 +263,96 @@ func TestScanDirectoriesIncrementalSkipsUnchanged(t *testing.T) {
 	}
 }
 
+func TestScanWalkPermissionErrorSkipsUnreadableDir(t *testing.T) {
+	root := t.TempDir()
+	goodDir := filepath.Join(root, "good")
+	badDir := filepath.Join(root, "bad")
+	if err := os.MkdirAll(goodDir, 0o755); err != nil {
+		t.Fatalf("mkdir good: %v", err)
+	}
+	if err := os.MkdirAll(badDir, 0o755); err != nil {
+		t.Fatalf("mkdir bad: %v", err)
+	}
+	writeMovieFixture(t, goodDir, "ok")
+	writeMovieFixture(t, badDir, "hidden")
+	if err := os.Chmod(badDir, 0); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(badDir, 0o755) })
+	if f, err := os.Open(badDir); err == nil {
+		_ = f.Close()
+		t.Skip("platform allows reading chmod 0 directory")
+	}
 
+	sc := New()
+	result, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, domain.MediaTypeMovie, nil, nil)
+	if err != nil {
+		t.Fatalf("unreadable nested dir should not abort scan: %v", err)
+	}
+	if len(result.Found) != 1 || result.Found[0].Title != "ok" {
+		t.Fatalf("expected only readable video, got %+v", result.Found)
+	}
+}
+
+func TestScanWalkPermissionErrorKeepsPreviousVideos(t *testing.T) {
+	root := t.TempDir()
+	goodDir := filepath.Join(root, "good")
+	badDir := filepath.Join(root, "bad")
+	if err := os.MkdirAll(goodDir, 0o755); err != nil {
+		t.Fatalf("mkdir good: %v", err)
+	}
+	if err := os.MkdirAll(badDir, 0o755); err != nil {
+		t.Fatalf("mkdir bad: %v", err)
+	}
+	writeMovieFixture(t, goodDir, "ok")
+	writeMovieFixture(t, badDir, "hidden")
+
+	sc := New()
+	first, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, domain.MediaTypeMovie, nil, nil)
+	if err != nil {
+		t.Fatalf("initial scan: %v", err)
+	}
+	if len(first.Found) != 2 {
+		t.Fatalf("expected 2 videos, got %d", len(first.Found))
+	}
+	previous := make(map[string]domain.Video, len(first.Found))
+	for _, video := range first.Found {
+		previous[video.Path] = video
+	}
+
+	if err := os.Chmod(badDir, 0); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(badDir, 0o755) })
+	if f, err := os.Open(badDir); err == nil {
+		_ = f.Close()
+		t.Skip("platform allows reading chmod 0 directory")
+	}
+
+	second, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, domain.MediaTypeMovie, previous, nil)
+	if err != nil {
+		t.Fatalf("rescan: %v", err)
+	}
+	if len(second.Found) != 2 {
+		t.Fatalf("expected previous hidden video retained, got %d videos", len(second.Found))
+	}
+}
+
+func TestScanSubtitlesForVideoReadDirError(t *testing.T) {
+	sc := New()
+	_, err := sc.ScanSubtitlesForVideo(filepath.Join(t.TempDir(), "missing", "movie.mkv"))
+	if err == nil {
+		t.Fatal("expected read dir error")
+	}
+}
+
+func writeMovieFixture(t *testing.T, dir, base string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, base+".mkv"), []byte("video"), 0o644); err != nil {
+		t.Fatalf("write video: %v", err)
+	}
+	nfo := `<movie><title>` + base + `</title><year>2024</year></movie>`
+	if err := os.WriteFile(filepath.Join(dir, base+".nfo"), []byte(nfo), 0o644); err != nil {
+		t.Fatalf("write nfo: %v", err)
+	}
+}

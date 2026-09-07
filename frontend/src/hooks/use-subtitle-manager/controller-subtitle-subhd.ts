@@ -22,8 +22,6 @@ export function createSubtitleSubHDActions(
 ) {
   const {
     setSubtitleActionPending,
-    beginLoading,
-    endLoading,
     beginUpload,
     endUpload,
     notifySuccess,
@@ -132,7 +130,6 @@ export function createSubtitleSubHDActions(
       kind: "batch",
       videoId: mappings[0]?.videoId || ""
     });
-    beginLoading();
     beginUpload("status.uploadingSubtitleFilesProgress", { current: 0, total: mappings.length });
     const errors: string[] = [];
     let success = 0;
@@ -153,7 +150,7 @@ export function createSubtitleSubHDActions(
         if (row.ok) {
           success += 1;
         } else {
-          errors.push(`${row.archiveEntry || "?"} -> ${row.videoId}: ${row.error || "install failed"}`);
+          errors.push(`${row.archiveEntry || "?"} -> ${row.videoId}: ${row.error || runtime.t("toast.seasonInstallFailed")}`);
         }
       }
     } catch (error) {
@@ -177,10 +174,9 @@ export function createSubtitleSubHDActions(
         ]);
       } catch (error) {
         const errorText = error instanceof Error ? error.message : String(error);
-        errors.push(`refresh after season install failed: ${errorText}`);
+        errors.push(runtime.t("toast.seasonInstallRefreshFailed", { error: errorText }));
       }
       endUpload();
-      endLoading();
       setSubtitleActionPending(null);
     }
 

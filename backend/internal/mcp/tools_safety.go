@@ -119,7 +119,8 @@ func registerSafetyTools(s *mcp.Server, svc *app.Service) {
 		if err := svc.ValidateMCPConfirmToken("rollback_operation", params, in.ConfirmToken); err != nil {
 			return nil, domain.RollbackResult{}, err
 		}
-		result, err := svc.RollbackOperation(in.OpID)
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "rollback_operation")
+		result, err := svc.RollbackOperationCtx(ctx, in.OpID)
 		return nil, result, err
 	})
 
@@ -158,12 +159,13 @@ func registerSafetyTools(s *mcp.Server, svc *app.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "cleanup_subtitle_backups",
 		Description: "Delete subtitle .bak.* files (requires confirmToken from cleanup_subtitle_backups_preview with identical args).",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in cleanupBackupsIn) (*mcp.CallToolResult, domain.CleanupBackupsResult, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in cleanupBackupsIn) (*mcp.CallToolResult, domain.CleanupBackupsResult, error) {
 		params := map[string]any{"olderThanDays": in.OlderThanDays, "paths": in.Paths}
 		if err := svc.ValidateMCPConfirmToken("cleanup_subtitle_backups", params, in.ConfirmToken); err != nil {
 			return nil, domain.CleanupBackupsResult{}, err
 		}
-		result, err := svc.CleanupSubtitleBackups(false, in.OlderThanDays, in.Paths)
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "cleanup_subtitle_backups")
+		result, err := svc.CleanupSubtitleBackupsCtx(ctx, false, in.OlderThanDays, in.Paths)
 		return nil, result, err
 	})
 
@@ -193,12 +195,13 @@ func registerSafetyTools(s *mcp.Server, svc *app.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "clear_operation_logs",
 		Description: "Delete operation logs older than keepDays (requires confirmToken from clear_operation_logs_preview).",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in clearLogsIn) (*mcp.CallToolResult, domain.ClearLogsResult, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in clearLogsIn) (*mcp.CallToolResult, domain.ClearLogsResult, error) {
 		params := map[string]any{"keepDays": in.KeepDays}
 		if err := svc.ValidateMCPConfirmToken("clear_operation_logs", params, in.ConfirmToken); err != nil {
 			return nil, domain.ClearLogsResult{}, err
 		}
-		result, err := svc.ClearLogsOlderThanDays(in.KeepDays)
+		ctx = app.WithOpAudit(ctx, domain.OpSourceMCP, "clear_operation_logs")
+		result, err := svc.ClearLogsOlderThanDaysCtx(ctx, in.KeepDays)
 		return nil, result, err
 	})
 }

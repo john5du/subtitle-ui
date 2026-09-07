@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,12 +32,16 @@ func (s *Service) ListSubtitleBackups(videoID string, olderThanDays int) ([]doma
 	}
 
 	out := make([]domain.SubtitleBackupInfo, 0, 32)
+	var walkErrs []error
 	for _, root := range roots {
 		if strings.TrimSpace(root) == "" {
 			continue
 		}
-		_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-			if err != nil || d == nil || d.IsDir() {
+		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d == nil || d.IsDir() {
 				return nil
 			}
 			if !subtitle.IsBackupPath(path) {
@@ -60,6 +66,12 @@ func (s *Service) ListSubtitleBackups(videoID string, olderThanDays int) ([]doma
 			})
 			return nil
 		})
+		if err != nil {
+			walkErrs = append(walkErrs, fmt.Errorf("walk %s: %w", root, err))
+		}
+	}
+	if len(walkErrs) > 0 {
+		return out, errors.Join(walkErrs...)
 	}
 	return out, nil
 }
@@ -67,6 +79,10 @@ func (s *Service) ListSubtitleBackups(videoID string, olderThanDays int) ([]doma
 // CleanupSubtitleBackups deletes backup files. dryRun only lists candidates.
 // olderThanDays > 0 filters by mtime; paths if non-empty restricts to those paths (must be bak + media root).
 func (s *Service) CleanupSubtitleBackups(dryRun bool, olderThanDays int, paths []string) (domain.CleanupBackupsResult, error) {
+	return s.CleanupSubtitleBackupsCtx(context.Background(), dryRun, olderThanDays, paths)
+}
+
+func (s *Service) CleanupSubtitleBackupsCtx(ctx context.Context, dryRun bool, olderThanDays int, paths []string) (domain.CleanupBackupsResult, error) {
 	result := domain.CleanupBackupsResult{DryRun: dryRun}
 	var candidates []string
 
@@ -125,12 +141,11 @@ func (s *Service) CleanupSubtitleBackups(dryRun bool, olderThanDays int, paths [
 		result.Deleted = append(result.Deleted, p)
 	}
 	result.Count = len(result.Deleted)
-	s.recordOpEx(OpRecord{
+	s.recordOpExCtx(ctx, OpRecord{
 		Action:  "cleanup_backups",
 		VideoID: systemOperationVideoID,
 		Status:  "ok",
 		Message: fmt.Sprintf("deleted=%d failed=%d olderThanDays=%d", result.Count, len(result.Failed), olderThanDays),
-		Source:  domain.OpSourceSystem,
 		Meta: map[string]any{
 			"deleted":       result.Count,
 			"failed":        len(result.Failed),
