@@ -66,7 +66,7 @@ export function SubtitlePreviewDialog({
                     </span>
                   )}
                 </div>
-                <pre className="overflow-auto whitespace-pre-wrap break-words rounded-lg bg-surface-subtle p-4 font-sans text-base leading-[26px]">
+                <pre className="overflow-auto whitespace-pre-wrap break-words rounded-lg bg-surface-subtle p-4 font-mono text-xs leading-5">
                   {previewContent}
                 </pre>
               </div>
