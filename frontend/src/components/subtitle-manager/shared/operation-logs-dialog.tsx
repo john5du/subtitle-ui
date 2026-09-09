@@ -25,7 +25,6 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { EmptyPanel } from "./empty-panel";
 import { PagerView } from "./pager-view";
@@ -104,11 +103,14 @@ export function OperationLogsDialog({
           </DialogHeader>
 
           <DialogBody className="gap-0">
-            <div className="relative min-h-0 flex-1 overflow-hidden">
-              <ScrollArea viewportRef={logsViewportRef} className={cn("h-full min-h-0", pending.logs && "is-pending")}>
+            <div className="relative isolate min-h-0 flex-1 overflow-hidden contain-paint">
+              <div
+                ref={logsViewportRef}
+                className={cn("h-full min-h-0 overflow-y-auto overscroll-contain", pending.logs && "is-pending")}
+              >
                 <ul className="divide-y divide-border">
                   {logs.map((log) => (
-                    <li key={log.id} className="animate-fade-in-up space-y-2 p-3 text-sm sm:p-4">
+                    <li key={log.id} className="space-y-2 p-3 text-sm sm:p-4">
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
                           <p className="font-semibold">{log.action}</p>
@@ -132,7 +134,7 @@ export function OperationLogsDialog({
                     </li>
                   )}
                 </ul>
-              </ScrollArea>
+              </div>
               {pending.logs && <PanelLoadingOverlay label={t("logs.refreshing")} />}
             </div>
             <PagerView pager={logsPager} onSetPage={onSetLogsPage} disabled={pending.logs} />

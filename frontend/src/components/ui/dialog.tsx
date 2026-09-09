@@ -87,7 +87,7 @@ const DialogContent = React.forwardRef<
       data-dialog-size={size}
       className={cn(
         dialogContentBaseClassName,
-        size !== "sm" && "h-[min(92dvh,100%)] overflow-hidden",
+        size !== "sm" && "h-[min(92dvh,100%)] isolate overflow-hidden contain-paint",
         dialogSizeClassName[size],
         className
       )}

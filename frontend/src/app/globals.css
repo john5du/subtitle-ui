@@ -501,6 +501,12 @@ a:not(.artplayer-app a):focus-visible {
 [data-dialog-size="sm"] { overflow-y: auto; }
 [data-dialog-content] { --ring-offset: var(--popover); }
 [data-alert-dialog-content] { --ring-offset: var(--popover); }
+[data-dialog-size="md"],
+[data-dialog-size="lg"],
+[data-dialog-size="xl"] {
+  isolation: isolate;
+  contain: paint;
+}
 
 @media (max-width: 639px) {
   input:not([type="checkbox"]):not([type="radio"]), textarea { font-size: 1rem; }
