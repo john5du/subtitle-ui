@@ -55,7 +55,6 @@ export function OperationLogsDialog({
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const logsViewportRef = useRef<HTMLDivElement | null>(null);
   const clearDisabled = pending.logs || logsPager.total <= 0;
-  const showLogsPager = Math.max(1, logsPager.totalPages) > 1 || logsPager.total > 0;
   const { t } = useI18n();
   const statusLabel = pending.logs ? t("logs.refreshing") : t("dashboard.logCount", { count: logsPager.total });
 
@@ -104,9 +103,9 @@ export function OperationLogsDialog({
             </div>
           </DialogHeader>
 
-          <DialogBody>
-            <div className="relative flex min-h-0 flex-1 flex-col">
-              <ScrollArea viewportRef={logsViewportRef} className={cn("min-h-0 flex-1", pending.logs && "is-pending")}>
+          <DialogBody className="gap-0">
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              <ScrollArea viewportRef={logsViewportRef} className={cn("h-full min-h-0", pending.logs && "is-pending")}>
                 <ul className="divide-y divide-border">
                   {logs.map((log) => (
                     <li key={log.id} className="animate-fade-in-up space-y-2 p-3 text-sm sm:p-4">
@@ -134,9 +133,9 @@ export function OperationLogsDialog({
                   )}
                 </ul>
               </ScrollArea>
-              <PagerView pager={logsPager} onSetPage={onSetLogsPage} disabled={pending.logs} />
               {pending.logs && <PanelLoadingOverlay label={t("logs.refreshing")} />}
             </div>
+            <PagerView pager={logsPager} onSetPage={onSetLogsPage} disabled={pending.logs} />
           </DialogBody>
         </DialogContent>
       </Dialog>
