@@ -119,6 +119,9 @@ export function DialogHelpTip({ text, label, className, children }: DialogHelpTi
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        buttonRef.current?.focus();
         setOpen(false);
         setPos(null);
       }
@@ -128,12 +131,12 @@ export function DialogHelpTip({ text, label, className, children }: DialogHelpTi
     window.addEventListener("resize", reposition);
     window.addEventListener("scroll", reposition, true);
     document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
     return () => {
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
       document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", onKeyDown, true);
     };
   }, [measureText, open]);
 
@@ -143,7 +146,7 @@ export function DialogHelpTip({ text, label, className, children }: DialogHelpTi
         ref={buttonRef}
         type="button"
         className={cn(
-          "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "ui-control inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           open && "bg-muted text-foreground",
           className
         )}
@@ -168,7 +171,7 @@ export function DialogHelpTip({ text, label, className, children }: DialogHelpTi
               ref={bubbleRef}
               id={tipId}
               role="tooltip"
-              className="fixed z-[200] max-w-[min(20rem,calc(100vw-1rem))] rounded-md border border-border bg-popover px-2.5 py-2 text-left text-xs font-normal leading-snug text-popover-foreground shadow-lg"
+              className="fixed z-[200] max-w-[min(20rem,calc(100vw-1rem))] rounded-md border border-border bg-popover px-2.5 py-2 text-left text-xs font-normal leading-snug text-popover-foreground shadow-[var(--shadow-menu)]"
               style={{ top: pos.top, left: pos.left, width: pos.width }}
             >
               {typeof content === "string" ? <p className="whitespace-pre-wrap">{content}</p> : content}

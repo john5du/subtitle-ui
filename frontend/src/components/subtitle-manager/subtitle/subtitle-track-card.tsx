@@ -87,13 +87,14 @@ export function SubtitleTrackCard({
       : []),
     {
       label: deletePending ? t("common.deleting") : t("common.delete"),
+      destructive: true,
       disabled: busy || rowBusy,
       onSelect: onDelete
     }
   ];
 
   return (
-    <article className={cn("surface-panel p-3", rowBusy && "animate-pulse-soft", className)}>
+    <article aria-busy={rowBusy || undefined} className={cn("surface-panel p-3", rowBusy && "is-pending", className)}>
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius)] bg-surface-subtle text-foreground-muted sm:h-8 sm:w-8">
           <FileArchive className="h-4 w-4" />
@@ -101,7 +102,7 @@ export function SubtitleTrackCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground" title={subtitle.fileName || undefined}>
+            <p className="min-w-0 flex-1 break-all text-sm font-semibold text-foreground" title={subtitle.fileName || undefined}>
               {subtitle.fileName}
             </p>
             <Badge variant="secondary" className="shrink-0">

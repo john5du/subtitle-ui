@@ -23,7 +23,7 @@ export function SettingsLabel({
 }) {
   return (
     <div className={cn("flex min-w-0 items-center gap-1.5", className)}>
-      <p className="min-w-0 text-xs font-semibold uppercase tracking-section text-foreground-muted">{children}</p>
+      <p className="min-w-0 text-xs font-semibold text-foreground-muted">{children}</p>
       {help ? <DialogHelpTip text={help} /> : null}
     </div>
   );
@@ -45,18 +45,15 @@ export function SaveSettingsButton({
   return (
     <Button
       type="button"
-      className="relative h-9 min-w-0 px-3"
+      size="sm"
+      className="min-w-0"
       disabled={disabled}
       onClick={onClick}
       aria-label={saving ? savingLabel : label}
       title={saving ? savingLabel : label}
     >
-      <span className="invisible select-none" aria-hidden>
-        保存
-      </span>
-      <span className="absolute inset-0 flex items-center justify-center">
-        {saving ? <SpinnerIcon className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-      </span>
+      {saving ? <SpinnerIcon className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+      {saving ? savingLabel : label}
     </Button>
   );
 }
@@ -78,28 +75,25 @@ export function TestConnectionButton({
     <Button
       type="button"
       variant="outline"
-      className="relative h-9 min-w-0 px-3"
+      size="sm"
+      className="min-w-0"
       disabled={disabled}
       onClick={onClick}
       aria-label={testing ? testingLabel : label}
       title={testing ? testingLabel : label}
     >
-      <span className="invisible select-none" aria-hidden>
-        检查
-      </span>
-      <span className="absolute inset-0 flex items-center justify-center">
-        {testing ? <SpinnerIcon className="h-4 w-4" /> : <PlugZap className="h-4 w-4" />}
-      </span>
+      {testing ? <SpinnerIcon className="h-4 w-4" /> : <PlugZap className="h-4 w-4" />}
+      {testing ? testingLabel : label}
     </Button>
   );
 }
 
-export function LocaleSelect({ className = "h-9 w-[140px]" }: { className?: string } = {}) {
+export function LocaleSelect({ className = "w-full sm:w-[140px]" }: { className?: string } = {}) {
   const { locale, setLocale, t } = useI18n();
 
   return (
     <Select value={locale} onValueChange={(value) => setLocale(value as Locale)}>
-      <SelectTrigger className={className} aria-label={t("locale.label")}>
+      <SelectTrigger size="sm" className={className} aria-label={t("locale.label")}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

@@ -2,6 +2,8 @@
 
 Shared control density, library shells, drawers, and empty states. Dialog modal frames are covered in [`frontend-dialogs.md`](./frontend-dialogs.md).
 
+Visual language (color, type, radius, surfaces) is defined in [Frontend style guide](./frontend-style-guide.md) and implemented via `frontend/src/app/globals.css` plus shared UI components. Density, list shells, and drawer sizes below remain the implementation contract.
+
 ## Control density
 
 | Density | Height | Prefer | Use when |

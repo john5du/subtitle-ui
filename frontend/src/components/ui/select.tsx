@@ -18,7 +18,7 @@ const SelectTrigger = React.forwardRef<React.ElementRef<typeof SelectPrimitive.T
     <SelectPrimitive.Trigger
       ref={ref}
       className={cn(
-        "focus-ring flex w-full items-center justify-between rounded-md border border-input bg-transparent px-3 text-sm placeholder:text-foreground-subtle disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+        "ui-control focus-ring flex w-full items-center justify-between rounded-md border border-input bg-card px-3 text-sm placeholder:text-foreground-subtle aria-invalid:border-destructive disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
         size === "sm" ? "h-9 py-1.5" : "h-10 py-2",
         className
       )}
@@ -69,7 +69,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "relative z-[120] max-h-[--radix-select-content-available-height] min-w-[8rem] overflow-hidden rounded-md border border-border bg-background text-popover-foreground data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast",
+        "relative z-[120] max-h-[--radix-select-content-available-height] min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-[var(--shadow-menu)] data-[state=open]:animate-fade-in-fast data-[state=closed]:animate-fade-out-fast",
         position === "popper" &&
           "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
         className
@@ -106,7 +106,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-surface-hover focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex w-full cursor-default select-none items-center py-1.5 pl-8 pr-2 text-sm outline-none rounded-sm focus:bg-surface-hover focus:text-foreground data-[state=checked]:bg-selection data-[state=checked]:text-selection-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     {...props}

@@ -323,7 +323,7 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
         return {
           label: item.reason ? `${t("normalize.status.conflict")}: ${item.reason}` : t("normalize.status.conflict"),
           icon: TriangleAlert,
-          className: "text-amber-600 dark:text-amber-400"
+          className: "text-warning"
         };
       default:
         return {

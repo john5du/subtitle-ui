@@ -155,10 +155,11 @@ export function SubtitleConversionSettingsPanel() {
           </Button>
         </div>
         <textarea
+          aria-label={t("conversion.assTemplate")}
           value={draftTemplate}
           spellCheck={false}
           disabled={loading || saving}
-          className="focus-ring min-h-[240px] w-full resize-y border border-input bg-surface-subtle p-3 font-mono text-xs leading-5 text-foreground disabled:opacity-60"
+          className="focus-ring rounded-md min-h-[240px] w-full resize-y border border-input bg-surface-subtle p-3 font-mono text-xs leading-5 text-foreground disabled:opacity-60"
           onChange={(event) => {
             setDraftTemplate(event.target.value);
             setError("");
@@ -171,7 +172,7 @@ export function SubtitleConversionSettingsPanel() {
           <SpinnerIcon className="h-4 w-4" />
         </div>
       )}
-      {error && <p className="break-words text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="break-words text-sm text-destructive">{error}</p>}
 
       <div className="flex justify-end">
         <SaveSettingsButton

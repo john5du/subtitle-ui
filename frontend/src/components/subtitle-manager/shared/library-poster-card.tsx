@@ -27,13 +27,13 @@ export const LibraryPosterCard = memo(function LibraryPosterCard({
     <div className="flex w-full min-w-0 self-start flex-col">
       <button
         type="button"
-        className="surface-transition flex w-full min-w-0 flex-col text-left hover:bg-surface-subtle focus-visible:bg-surface-subtle focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-65"
+        className="focus-ring-inset rounded-lg surface-transition flex w-full min-w-0 flex-col text-left hover:bg-surface-subtle focus-visible:bg-surface-subtle focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-65"
         aria-label={ariaLabel}
         disabled={operationLocked}
         onClick={onOpen}
       >
         <div className="p-2 pb-0">
-          <div className="relative">
+          <div className="relative overflow-hidden rounded-lg">
             <PosterThumbnail
               src={posterUrl}
               className="aspect-[2/3] w-full"
@@ -41,7 +41,7 @@ export const LibraryPosterCard = memo(function LibraryPosterCard({
               sizes="(max-width: 420px) 100vw, (max-width: 768px) 50vw, 220px"
             />
             <span
-              className="poster-badge absolute bottom-2 right-2 min-w-6 px-1.5 py-0.5 text-center text-[10px] font-medium leading-none backdrop-blur"
+              className="poster-badge absolute bottom-2 right-2 min-w-6 px-1.5 py-0.5 text-center text-xs font-medium leading-[18px] rounded-sm"
               aria-hidden
             >
               {badge}
@@ -49,7 +49,7 @@ export const LibraryPosterCard = memo(function LibraryPosterCard({
           </div>
         </div>
         <div className="flex flex-col gap-0.5 p-2">
-          <p className="line-clamp-2 min-w-0 text-base font-semibold leading-6 text-foreground" title={title}>
+          <p className="line-clamp-2 min-w-0 text-sm font-medium leading-[22px] text-foreground" title={title}>
             {title || "-"}
           </p>
           {subtitle ? <span className="text-xs font-medium text-muted-foreground">{subtitle}</span> : null}

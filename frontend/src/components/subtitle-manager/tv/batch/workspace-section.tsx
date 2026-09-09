@@ -18,7 +18,7 @@ export function WorkspaceSection({ icon, title, description, children, className
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-foreground-muted">{icon}</span>
-            <h3 className="text-sm font-semibold uppercase tracking-section text-foreground-muted">{title}</h3>
+            <h3 className="text-sm font-semibold text-foreground-muted">{title}</h3>
           </div>
           {description ? <p className="mt-0.5 text-sm text-muted-foreground">{description}</p> : null}
         </div>

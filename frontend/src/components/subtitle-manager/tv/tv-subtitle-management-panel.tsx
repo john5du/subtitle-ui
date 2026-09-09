@@ -307,7 +307,7 @@ export function TvSubtitleManagementPanel({
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <ScrollArea className={cn("h-full", episodesPending && "animate-pulse-soft")}>
+        <ScrollArea className={cn("h-full", episodesPending && "is-pending")}>
           <ul className="space-y-0.5 p-2">
             {episodeListItems.map((item) => {
               if (item.kind === "missing") {
@@ -324,12 +324,12 @@ export function TvSubtitleManagementPanel({
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-semibold tabular-nums text-muted-foreground">{episodeCode}</span>
-                          <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] font-medium leading-none text-amber-800 dark:text-amber-200">
+                          <span className="font-mono text-xs font-medium tabular-nums text-muted-foreground">{episodeCode}</span>
+                          <span className="rounded-full bg-warning-soft px-1.5 py-px text-xs font-medium leading-none text-warning-muted">
                             {t("tv.completeness.missingBadge")}
                           </span>
                         </div>
-                        <div className="truncate text-sm font-semibold leading-snug text-muted-foreground">{title}</div>
+                        <div className="break-words text-sm font-medium leading-snug text-muted-foreground">{title}</div>
                       </div>
                       <Button
                         type="button"
@@ -360,18 +360,18 @@ export function TvSubtitleManagementPanel({
                     onClick={() => handleEpisodeSelect(video)}
                     disabled={busy || episodesPending}
                     className={cn(
-                      "surface-transition w-full rounded-[var(--radius)] px-3 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-60",
+                      "focus-ring-inset surface-transition w-full rounded-[var(--radius)] px-3 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-60",
                       active
-                        ? "bg-surface-strong"
+                        ? "bg-selection text-selection-foreground"
                         : "bg-transparent hover:bg-surface-subtle",
-                      itemBusy && "animate-pulse-soft"
+                      itemBusy && "is-pending"
                     )}
                     aria-pressed={active}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">
-                        <div className="text-xs font-semibold tabular-nums text-muted-foreground">{episodeCode}</div>
-                        <div className="truncate text-sm font-semibold leading-snug">{video.title || "-"}</div>
+                        <div className="font-mono text-xs font-medium tabular-nums text-muted-foreground">{episodeCode}</div>
+                        <div className="break-words text-sm font-medium leading-snug">{video.title || "-"}</div>
                       </div>
                       <div className="shrink-0 pt-0.5 text-right text-xs tabular-nums text-muted-foreground">
                         {t("tv.subtitleCount", { count: video.subtitles.length })}
@@ -407,11 +407,11 @@ export function TvSubtitleManagementPanel({
                 })}
               </span>
               {completeness.complete ? (
-                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-300">
+                <span className="rounded-full bg-success-soft px-2 py-0.5 font-medium text-success-muted">
                   {t("tv.completeness.complete")}
                 </span>
               ) : missing.length > 0 ? (
-                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-amber-800 dark:text-amber-200">
+                <span className="rounded-full bg-warning-soft px-2 py-0.5 font-medium text-warning-muted">
                   {t("tv.completeness.missing", { count: String(missing.length) })}
                 </span>
               ) : null}
@@ -491,13 +491,13 @@ export function TvSubtitleManagementPanel({
   if (variant === "drawer") {
     return (
       <>
-        <div className={cn("flex h-full w-full min-h-0 flex-col overflow-hidden", className)}>
-          <div className="hidden min-h-0 flex-1 overflow-hidden lg:flex">
-            <div className="min-h-0 w-[280px] shrink-0 overflow-hidden border-r border-border xl:w-[300px]">{episodesPane}</div>
+        <div className={cn("tv-workspace flex h-full w-full min-h-0 flex-col overflow-hidden", className)}>
+          <div className="tv-workspace-wide min-h-0 flex-1 overflow-hidden">
+            <div className="min-h-0 w-[260px] shrink-0 overflow-hidden border-r border-border">{episodesPane}</div>
             <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{subtitlesPane}</div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:hidden">
+          <div className="tv-workspace-narrow min-h-0 flex-1 flex-col overflow-hidden">
             <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="shrink-0 border-b border-border px-4 py-2">
                 <TabsList className="h-9 w-full">
@@ -533,7 +533,7 @@ export function TvSubtitleManagementPanel({
 
   return (
     <>
-      <div className={cn("flex h-full w-full min-h-0 flex-col overflow-hidden", className)}>
+      <div className={cn("tv-workspace flex h-full w-full min-h-0 flex-col overflow-hidden", className)}>
         <Tabs value={activeStep} onValueChange={handleStepChange} className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="shrink-0 border-b border-border px-4 py-3">
             <TabsList className="h-9 w-full sm:max-w-[360px]">

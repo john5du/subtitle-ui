@@ -18,7 +18,7 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
       disabled={disabled}
       ref={ref}
       className={cn(
-        "focus-ring relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "ui-switch focus-ring relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         checked ? "border-primary bg-primary" : "border-input bg-surface-subtle",
         className
       )}
@@ -33,8 +33,8 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
       <span
         aria-hidden
         className={cn(
-          "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm transition-transform",
-          checked ? "translate-x-6" : "translate-x-1"
+          "pointer-events-none block h-5 w-5 rounded-full shadow-sm transition-transform",
+          checked ? "translate-x-6 bg-primary-foreground" : "translate-x-1 bg-input"
         )}
       />
     </button>

@@ -90,7 +90,7 @@ export function UploadSubtitleDialog({
 
           {convertToAss && (
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-section text-foreground-muted">{t("conversion.sourceEncoding")}</p>
+              <p className="text-xs font-semibold text-foreground-muted">{t("conversion.sourceEncoding")}</p>
               <Select value={sourceEncoding} onValueChange={(value) => onSourceEncodingChange(value as SubtitleSourceEncoding)} disabled={busy}>
                 <SelectTrigger size="sm">
                   <SelectValue />

@@ -45,6 +45,7 @@ export interface SeasonBatchRowView extends SeasonBatchMappingRow {
 
 export interface RowActionItem {
   label: string;
+  destructive?: boolean;
   href?: string;
   onSelect?: () => void;
   disabled?: boolean;

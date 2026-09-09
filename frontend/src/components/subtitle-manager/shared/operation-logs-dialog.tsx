@@ -106,8 +106,8 @@ export function OperationLogsDialog({
 
           <DialogBody>
             <div className="relative flex min-h-0 flex-1 flex-col">
-              <ScrollArea viewportRef={logsViewportRef} className={cn("min-h-0 flex-1", pending.logs && "animate-pulse-soft")}>
-                <ul className={cn("divide-y divide-border", showLogsPager && "pb-20")}>
+              <ScrollArea viewportRef={logsViewportRef} className={cn("min-h-0 flex-1", pending.logs && "is-pending")}>
+                <ul className="divide-y divide-border">
                   {logs.map((log) => (
                     <li key={log.id} className="animate-fade-in-up space-y-2 p-3 text-sm sm:p-4">
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -115,11 +115,11 @@ export function OperationLogsDialog({
                           <p className="font-semibold">{log.action}</p>
                           <p className="text-xs text-muted-foreground">{formatTime(log.timestamp)}</p>
                         </div>
-                        <p className="shrink-0 text-xs text-muted-foreground">
-                          {t("logs.videoStatus", { videoId: log.videoId || "-", status: log.status })}
-                        </p>
+                        <Badge variant={log.status === "ok" ? "success" : log.status === "error" ? "destructive" : "secondary"}>
+                          {log.status}
+                        </Badge>
                       </div>
-                      <p className="break-all text-xs text-muted-foreground">{log.targetPath || "-"}</p>
+                      <p className="break-all text-sm">{log.targetPath || log.videoId || "-"}</p>
                       {log.message && (
                         <p className="break-all text-xs text-muted-foreground">{t("logs.details", { details: log.message })}</p>
                       )}

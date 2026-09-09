@@ -8,9 +8,12 @@ import { ThemeProvider } from "@/lib/theme";
 import "./globals.css";
 
 const appSans = localFont({
-  src: "../../src/fonts/Geist-Regular.woff2",
+  src: [
+    { path: "../../src/fonts/Geist-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../../src/fonts/Geist-Medium.woff2", weight: "500", style: "normal" },
+    { path: "../../src/fonts/Geist-SemiBold.woff2", weight: "600", style: "normal" }
+  ],
   variable: "--font-sans",
-  weight: "400",
   display: "swap"
 });
 

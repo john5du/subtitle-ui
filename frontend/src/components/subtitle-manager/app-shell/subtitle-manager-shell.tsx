@@ -84,7 +84,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
       )}
 
       {shell.activeTab === "movie" && (
-        <div className="min-h-[var(--panel-min-h)] flex-1 lg:h-full">
+        <div className="min-h-[var(--panel-min-h)] flex-1 p-3 sm:p-4 lg:h-full lg:p-6">
           <MovieListPanel
             query={movie.query}
             onQueryChange={movie.setQuery}
@@ -114,7 +114,7 @@ const ActiveWorkspace = memo(function ActiveWorkspace({
       )}
 
       {shell.activeTab === "tv" && (
-        <div className="min-h-[var(--panel-min-h)] flex-1 lg:h-full">
+        <div className="min-h-[var(--panel-min-h)] flex-1 p-3 sm:p-4 lg:h-full lg:p-6">
           <TvSeriesListPanel
             query={tv.query}
             onQueryChange={tv.setQuery}
@@ -320,12 +320,12 @@ export function SubtitleManagerShell({
 
   return (
     <div className="relative flex h-full min-h-0 w-full min-w-0 flex-col lg:flex-row">
-        <div className="surface-panel flex shrink-0 items-center gap-1.5 p-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:hidden">
+        <div className="flex flex-wrap shrink-0 items-center gap-1.5 border-b border-border bg-sidebar p-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:hidden">
           <a
             href={APP_REPOSITORY_URL}
             target="_blank"
             rel="noreferrer"
-            className="surface-transition focus-ring block h-9 w-9 shrink-0 bg-surface-subtle p-1.5"
+            className="surface-transition ui-control rounded-lg focus-ring block h-9 w-9 shrink-0 bg-surface-subtle p-1.5"
             title={`Subtitle UI v${APP_VERSION}`}
             aria-label={t("sidebar.githubAria", { version: APP_VERSION })}
           >
@@ -334,7 +334,7 @@ export function SubtitleManagerShell({
           <div
             role="tablist"
             aria-label={t("sidebar.nav")}
-            className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+            className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5"
           >
             {shell.navItems.map((item) => (
               <button
@@ -342,10 +342,11 @@ export function SubtitleManagerShell({
                 type="button"
                 role="tab"
                 aria-selected={shell.activeTab === item.key}
+                aria-label={item.label}
                 className={cn(
-                  "surface-transition inline-flex h-9 shrink-0 items-center gap-1.5 px-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60",
+                  "ui-control focus-ring-inset rounded-lg surface-transition inline-flex h-9 shrink-0 items-center gap-1.5 px-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60",
                   shell.activeTab === item.key
-                    ? "bg-surface-strong text-foreground"
+                    ? "bg-selection text-selection-foreground"
                     : "text-muted-foreground hover:bg-surface-subtle hover:text-foreground"
                 )}
                 disabled={subtitleActions.uploading || model.dashboard.pending.tabSwitch}
@@ -383,7 +384,7 @@ export function SubtitleManagerShell({
 
         <Card
           className={cn(
-            "surface-panel hidden overflow-hidden transition-[width] duration-200 ease-out lg:block lg:h-full lg:shrink-0",
+            "rounded-none border-0 border-r border-border bg-sidebar hidden overflow-hidden transition-[width] duration-200 ease-out lg:block lg:h-full lg:shrink-0",
             sidebarCollapsed ? "lg:w-[var(--sidebar-width-collapsed)]" : "lg:w-[var(--sidebar-width)] xl:w-[var(--sidebar-width-xl)]"
           )}
         >
@@ -393,7 +394,7 @@ export function SubtitleManagerShell({
                 href={APP_REPOSITORY_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="surface-transition focus-ring block h-10 w-10 shrink-0 bg-surface-subtle p-1.5 text-foreground-muted hover:text-foreground"
+                className="surface-transition ui-control rounded-lg focus-ring block h-10 w-10 shrink-0 bg-surface-subtle p-1.5 text-foreground-muted hover:text-foreground"
                 title={`Subtitle UI v${APP_VERSION}`}
                 aria-label={t("sidebar.githubAria", { version: APP_VERSION })}
               >
@@ -407,9 +408,7 @@ export function SubtitleManagerShell({
                 />
               </a>
               {!sidebarCollapsed ? (
-                <p className="min-w-0 truncate text-xs text-foreground-muted" title={`Subtitle UI v${APP_VERSION}`}>
-                  {`v${APP_VERSION}`}
-                </p>
+                <div className="min-w-0" title={`Subtitle UI v${APP_VERSION}`}><p className="text-sm font-semibold">Subtitle UI</p><p className="text-xs text-muted-foreground">{`v${APP_VERSION}`}</p></div>
               ) : null}
             </div>
 
@@ -423,10 +422,10 @@ export function SubtitleManagerShell({
                   aria-label={item.label}
                   title={item.label}
                   className={cn(
-                    "group surface-transition flex h-10 w-full items-center overflow-hidden whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60",
+                    "ui-control focus-ring-inset rounded-lg group surface-transition flex h-10 w-full items-center overflow-hidden whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60",
                     sidebarCollapsed ? "justify-center gap-0 px-0" : "justify-start gap-3 px-3",
                     shell.activeTab === item.key
-                      ? "bg-surface-strong text-foreground"
+                      ? "bg-selection text-selection-foreground"
                       : "text-foreground-muted hover:bg-surface-subtle hover:text-foreground"
                   )}
                   disabled={subtitleActions.uploading || model.dashboard.pending.tabSwitch}
@@ -434,8 +433,8 @@ export function SubtitleManagerShell({
                 >
                   <span
                     className={cn(
-                      "flex h-5 w-5 shrink-0 items-center justify-center text-foreground-subtle group-hover:text-foreground",
-                      shell.activeTab === item.key && "text-foreground"
+                      "flex h-5 w-5 shrink-0 items-center justify-center text-current",
+                      shell.activeTab === item.key && "text-selection-foreground"
                     )}
                   >
                     {item.icon}

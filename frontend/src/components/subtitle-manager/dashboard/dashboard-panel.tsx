@@ -41,7 +41,7 @@ function SettingsSection({
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-1.5">
-        <h2 className="text-display text-sm font-semibold uppercase tracking-section text-foreground-muted">{title}</h2>
+        <h2 className="text-display text-sm font-semibold text-foreground-muted">{title}</h2>
         {help ? <DialogHelpTip text={help} /> : null}
       </div>
       <div className="space-y-2">{children}</div>
@@ -87,7 +87,7 @@ function StatusSummaryBar({
     <div
       className={cn(
         "surface-panel flex items-start gap-2 p-3 sm:items-center sm:gap-4",
-        isPending && "animate-pulse-soft"
+        isPending && "is-pending"
       )}
     >
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
@@ -173,7 +173,7 @@ export function DashboardPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 gap-2 p-3 sm:p-4 lg:h-full">
+    <div className="flex min-h-0 flex-1 gap-2 p-3 sm:p-4 lg:p-6 lg:h-full">
       {onToggleSidebar && sidebarToggleLabel ? (
         <Button
           type="button"
@@ -200,7 +200,7 @@ export function DashboardPanel({
 
           <div className="animate-fade-in-up space-y-6">
             <div className="space-y-1">
-              <h1 className="text-display text-lg font-semibold uppercase tracking-section text-foreground">{t("settings.title")}</h1>
+              <h1 className="text-display text-[22px] leading-[30px] font-semibold text-foreground">{t("settings.title")}</h1>
             </div>
 
             <div className="grid gap-6">

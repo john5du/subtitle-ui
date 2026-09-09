@@ -107,11 +107,11 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
             />
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
-                <h2 className="min-w-0 max-w-full truncate text-lg font-semibold tracking-tight sm:text-xl">{selectedMovieTitle}</h2>
+                <h2 className="min-w-0 max-w-full break-words text-lg font-semibold leading-[26px]">{selectedMovieTitle}</h2>
                 {selectedVideo.year ? (
                   <span className="shrink-0 text-sm text-muted-foreground">{selectedVideo.year}</span>
                 ) : null}
-                <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px] normal-case tracking-normal">
+                <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-xs normal-case tracking-normal">
                   {t("tv.subtitleCount", { count: selectedVideo.subtitles.length })}
                 </Badge>
                 {canShowEmbedded ? (
@@ -187,7 +187,7 @@ export const MovieSubtitleDrawer = forwardRef<SubtitleDetailsPanelHandle, MovieS
           </div>
         ) : (
           <div className="min-w-0 space-y-2">
-            <h2 className="min-w-0 max-w-full truncate text-lg font-semibold tracking-tight sm:text-xl">{selectedMovieTitle}</h2>
+            <h2 className="min-w-0 max-w-full break-words text-lg font-semibold leading-[26px]">{selectedMovieTitle}</h2>
           </div>
         )}
       </div>

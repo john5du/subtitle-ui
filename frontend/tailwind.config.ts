@@ -9,12 +9,18 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-sans)", "PingFang SC", "Microsoft YaHei", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"]
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)"
       },
       colors: {
+        sidebar: "var(--sidebar)",
+        selection: { DEFAULT: "var(--selection)", foreground: "var(--selection-foreground)" },
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
@@ -23,6 +29,8 @@ const config: Config = {
         foreground: "var(--foreground)",
         primary: {
           DEFAULT: "var(--primary)",
+          hover: "var(--primary-hover)",
+          pressed: "var(--primary-pressed)",
           foreground: "var(--primary-foreground)"
         },
         secondary: {

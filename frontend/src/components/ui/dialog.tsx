@@ -56,7 +56,7 @@ const DialogOverlay = React.forwardRef<
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const dialogCloseClassName =
-  "absolute right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] flex h-10 w-10 items-center justify-center bg-transparent p-0 text-foreground-muted transition-colors hover:text-foreground focus-ring-inset sm:right-4 sm:top-4 sm:h-auto sm:w-auto sm:p-1.5";
+  "ui-control rounded-md absolute right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] flex h-10 w-10 items-center justify-center bg-transparent p-0 text-foreground-muted transition-colors hover:text-foreground focus-ring-inset sm:right-4 sm:top-4 sm:h-auto sm:w-auto sm:p-1.5";
 
 function DialogCloseLabel() {
   const { t } = useI18n();
@@ -65,11 +65,11 @@ function DialogCloseLabel() {
 
 /** Centered modal on sm+; bottom sheet on mobile. */
 const dialogContentBaseClassName =
-  "fixed z-50 flex w-full flex-col gap-4 border border-border bg-background " +
+  "fixed z-50 flex w-full flex-col gap-4 border border-border bg-popover text-popover-foreground shadow-[var(--shadow-dialog)] " +
   "inset-x-0 bottom-0 max-h-[min(92dvh,100%)] rounded-t-2xl border-b-0 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] " +
   "data-[state=open]:animate-slide-in-up data-[state=closed]:animate-slide-out-down " +
-  "sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border-b sm:p-6 sm:pb-6 " +
-  "sm:data-[state=open]:animate-fade-in-fast sm:data-[state=closed]:animate-fade-out-fast";
+  "sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-[var(--radius-dialog)] sm:border-b sm:p-6 sm:pb-6 " +
+  "sm:data-[state=open]:animate-dialog-in sm:data-[state=closed]:animate-dialog-out";
 
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   size?: DialogSize;
@@ -118,7 +118,7 @@ const DialogDrawerContent = React.forwardRef<
       data-dialog-content="true"
       data-dialog-drawer-size={size}
       className={cn(
-        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden border-l border-border bg-background data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right",
+        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden border-l border-border bg-popover text-popover-foreground shadow-[var(--shadow-dialog)] data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right",
         dialogDrawerSizeClassName[size],
         className
       )}
@@ -127,7 +127,7 @@ const DialogDrawerContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         data-slot="close"
-        className="absolute right-5 top-5 z-50 flex h-10 w-10 items-center justify-center bg-transparent p-0 text-foreground-muted transition-colors hover:text-foreground focus-ring-inset sm:h-auto sm:w-auto sm:p-1.5"
+        className="ui-control rounded-md absolute right-5 top-5 z-50 flex h-10 w-10 items-center justify-center bg-transparent p-0 text-foreground-muted transition-colors hover:text-foreground focus-ring-inset sm:h-auto sm:w-auto sm:p-1.5"
       >
         <X className="h-4 w-4" />
         <DialogCloseLabel />
@@ -166,7 +166,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("pr-10 text-lg font-normal leading-none tracking-tight", className)}
+    className={cn("min-w-0 [overflow-wrap:anywhere] pr-10 text-lg font-semibold leading-[26px]", className)}
     {...props}
   />
 ));

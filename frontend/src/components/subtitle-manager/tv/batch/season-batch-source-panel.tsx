@@ -151,10 +151,11 @@ export function SeasonBatchSourcePanel({
                     key={item.sid}
                     type="button"
                     disabled={!item.installable || busy || batchPreparing || uploading}
+                    aria-pressed={selected}
                     onClick={() => setSelectedSubhdSid(item.sid)}
                     className={cn(
                       "flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm transition-colors",
-                      selected ? "border-primary bg-primary/5" : "border-border hover:bg-surface-hover",
+                      selected ? "border-primary bg-selection text-selection-foreground" : "border-border hover:bg-surface-hover",
                       !item.installable && "opacity-50"
                     )}
                   >

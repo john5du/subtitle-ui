@@ -73,11 +73,11 @@ export function MappingRow({
         </div>
 
         <div className="min-w-0 space-y-2 border-t border-border pt-3 xl:w-[320px] xl:shrink-0 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0">
-          <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
+          <p className="text-caption font-semibold text-foreground-muted">
             {t("common.episode")}
           </p>
           <Select value={selectValue} onValueChange={(value) => onSelectionChange(row.id, value)} disabled={disabled}>
-            <SelectTrigger size="sm" className="w-full min-w-0 [&>span]:min-w-0 [&>span]:truncate">
+            <SelectTrigger size="sm" className="w-full min-w-0 [&>span]:min-w-0 [&>span]:whitespace-normal [&>span]:line-clamp-none h-auto min-h-9">
               <SelectValue placeholder={t("batch.chooseEpisode")} />
             </SelectTrigger>
             <SelectContent className="max-h-72">
@@ -93,7 +93,7 @@ export function MappingRow({
                     className="overflow-hidden"
                     textValue={label}
                   >
-                    <span className="block truncate">{label}</span>
+                    <span className="block whitespace-normal break-words">{label}</span>
                   </SelectItem>
                 );
               })}

@@ -33,7 +33,7 @@ export function LibraryViewToggle({
   ];
 
   return (
-    <div className="surface-subtle hidden h-9 items-center rounded-md p-0.5 md:inline-flex">
+    <div className="surface-subtle hidden md:inline-flex min-h-9 items-center rounded-md p-0.5">
       {items.map((item) => {
         const active = item.value === value;
         return (
@@ -45,7 +45,7 @@ export function LibraryViewToggle({
             className={cn(
               "h-8 w-8 border border-transparent",
               active
-                ? "border-input bg-surface-hover text-foreground hover:bg-surface-hover"
+                ? "bg-selection text-selection-foreground hover:bg-selection"
                 : "text-foreground-muted hover:text-foreground"
             )}
             aria-pressed={active}

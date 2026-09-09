@@ -41,18 +41,21 @@ export function LoginPage({
   }
 
   return (
-    <div className="relative flex min-h-full flex-col items-center justify-center p-4">
-      <form className="flex w-full max-w-xs flex-col items-center gap-5" onSubmit={handleSubmit}>
+    <div className="flex min-h-full flex-col items-center px-4 py-8">
+      <form className="surface-panel my-auto flex w-full max-w-[420px] flex-col items-stretch gap-5 p-6 sm:p-8" onSubmit={handleSubmit}>
         <Image
           src="/icon.svg"
           alt="Subtitle UI"
-          width={112}
-          height={112}
+          width={56}
+          height={56}
           priority
-          className="h-[112px] w-[112px]"
+          className="h-14 w-14"
         />
-        <h1 className="sr-only">{t("auth.loginTitle")}</h1>
-        <p className="sr-only">{t("auth.loginDescription")}</p>
+        <div className="space-y-2">
+          <h1 className="text-[22px] font-semibold leading-[30px]">{t("auth.loginTitle")}</h1>
+          <p className="text-sm text-muted-foreground">{t("auth.loginDescription")}</p>
+        </div>
+        <label htmlFor="admin-token" className="-mb-3 text-sm font-medium">{t("auth.tokenLabel")}</label>
         <Input
           id="admin-token"
           type="password"
@@ -61,11 +64,13 @@ export function LoginPage({
           value={token}
           disabled={submitting}
           aria-label={t("auth.tokenLabel")}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? "login-error" : undefined}
           placeholder={t("auth.tokenPlaceholder")}
           className="w-full"
           onChange={(event) => setToken(event.target.value)}
         />
-        {error ? <p className="w-full text-center text-sm text-destructive">{error}</p> : null}
+        {error ? <p id="login-error" role="alert" className="w-full text-sm text-destructive-muted">{error}</p> : null}
         <Button type="submit" disabled={submitting} className="w-full">
           {submitting ? (
             <span className="inline-flex items-center gap-2">
@@ -77,7 +82,7 @@ export function LoginPage({
           )}
         </Button>
       </form>
-      <p className="absolute bottom-4 text-xs text-muted-foreground">{`v${APP_VERSION}`}</p>
+      <p className="mt-6 text-xs text-muted-foreground">{`v${APP_VERSION}`}</p>
     </div>
   );
 }

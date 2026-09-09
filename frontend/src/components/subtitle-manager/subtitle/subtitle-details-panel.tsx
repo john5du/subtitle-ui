@@ -148,7 +148,7 @@ export const SubtitleDetailsPanel = forwardRef<SubtitleDetailsPanelHandle, Subti
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-2">
               {showPanelTitle && panelTitle ? (
-                embedded ? <h3 className="text-lg font-normal leading-none tracking-tight">{panelTitle}</h3> : <CardTitle>{panelTitle}</CardTitle>
+                embedded ? <h3 className="text-lg font-semibold leading-[26px]">{panelTitle}</h3> : <CardTitle>{panelTitle}</CardTitle>
               ) : null}
               {selectedVideo && !embedded ? (
                 <div className="flex flex-wrap items-center gap-2">

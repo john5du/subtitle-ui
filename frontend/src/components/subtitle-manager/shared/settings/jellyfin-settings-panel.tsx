@@ -165,6 +165,7 @@ export function JellyfinSettingsPanel() {
           <SettingsLabel>{t("jellyfin.url")}</SettingsLabel>
           <Input
             size="sm"
+            aria-label={t("jellyfin.url")}
             value={draftUrl}
             placeholder={t("jellyfin.urlPlaceholder")}
             disabled={busy || !draftEnabled}
@@ -182,6 +183,7 @@ export function JellyfinSettingsPanel() {
           size="sm"
           type="password"
           autoComplete="off"
+          aria-label={t("jellyfin.apiKey")}
           value={draftApiKey}
           placeholder={apiKeySet ? t("jellyfin.apiKeyConfiguredPlaceholder") : t("jellyfin.apiKeyPlaceholder")}
           disabled={busy || !draftEnabled}
@@ -196,6 +198,7 @@ export function JellyfinSettingsPanel() {
         <SettingsLabel help={t("jellyfin.pathMapHint")}>{t("jellyfin.pathMap")}</SettingsLabel>
         <Input
           size="sm"
+          aria-label={t("jellyfin.pathMap")}
           value={draftPathMap}
           placeholder={t("jellyfin.pathMapPlaceholder")}
           disabled={busy || !draftEnabled}
@@ -211,9 +214,9 @@ export function JellyfinSettingsPanel() {
           <SpinnerIcon className="h-4 w-4" />
         </div>
       )}
-      {error && <p className="break-words text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="break-words text-sm text-destructive-muted">{error}</p>}
 
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
         <TestConnectionButton
           testing={testing}
           disabled={busy || !canTest}

@@ -144,7 +144,7 @@ export function TvSubtitleDrawer({
         <div className="min-w-0 space-y-2">
           {selectedSeriesPrimaryTitle ? (
             <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
-              <h2 className="min-w-0 max-w-full truncate text-lg font-semibold tracking-tight sm:text-xl" title={selectedSeriesFullTitle}>
+              <h2 className="min-w-0 max-w-full break-words text-lg font-semibold leading-[26px]" title={selectedSeriesFullTitle}>
                 {selectedSeriesPrimaryTitle}
                 {selectedSeriesTitle.secondaryTitle ? (
                   <span className="ml-2 align-baseline text-sm font-medium text-muted-foreground sm:text-base">
@@ -153,7 +153,7 @@ export function TvSubtitleDrawer({
                 ) : null}
               </h2>
               {selectedSeries ? (
-                <Badge variant="secondary" className="shrink-0 whitespace-nowrap px-1.5 py-0 text-[10px] normal-case tracking-normal" title={selectedSeriesCoverageLabel}>
+                <Badge variant="secondary" className="shrink-0 whitespace-nowrap px-1.5 py-0 text-xs normal-case tracking-normal" title={selectedSeriesCoverageLabel}>
                   {selectedSeriesCoverageLabel}
                 </Badge>
               ) : null}

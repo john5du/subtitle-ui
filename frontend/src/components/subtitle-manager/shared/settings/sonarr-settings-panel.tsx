@@ -158,6 +158,7 @@ export function SonarrSettingsPanel() {
           <SettingsLabel>{t("sonarr.url")}</SettingsLabel>
           <Input
             size="sm"
+            aria-label={t("sonarr.url")}
             value={draftUrl}
             placeholder={t("sonarr.urlPlaceholder")}
             disabled={busy || !draftEnabled}
@@ -175,6 +176,7 @@ export function SonarrSettingsPanel() {
           size="sm"
           type="password"
           autoComplete="off"
+          aria-label={t("sonarr.apiKey")}
           value={draftApiKey}
           placeholder={apiKeySet ? t("sonarr.apiKeyConfiguredPlaceholder") : t("sonarr.apiKeyPlaceholder")}
           disabled={busy || !draftEnabled}
@@ -190,9 +192,9 @@ export function SonarrSettingsPanel() {
           <SpinnerIcon className="h-4 w-4" />
         </div>
       )}
-      {error && <p className="break-words text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="break-words text-sm text-destructive-muted">{error}</p>}
 
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
         <TestConnectionButton
           testing={testing}
           disabled={busy || !canTest}

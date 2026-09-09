@@ -498,7 +498,6 @@ export function useSeasonBatchWorkspace({
       setBatchBlockingError("");
       const result = await onInstallSubHDSeason({ cacheToken: subhdCacheToken, mappings });
       setBatchResult(result);
-      onComplete?.(result);
       return;
     }
 
@@ -539,7 +538,6 @@ export function useSeasonBatchWorkspace({
     setBatchBlockingError("");
     const result = await onUploadBatch(items);
     setBatchResult(result);
-    onComplete?.(result);
   }
 
   const filterActions: { key: SeasonBatchMappingFilter; label: string; count: number }[] = [

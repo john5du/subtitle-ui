@@ -2,15 +2,16 @@
 
 import { memo, useEffect, useState } from "react";
 import Image from "next/image";
+import { Film } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 function PosterPlaceholder({ className }: { className?: string }) {
   return (
     <div
-      className={cn("border border-border bg-surface-subtle", className ?? "h-[72px] w-[48px]")}
+      className={cn("flex items-center justify-center rounded-lg border border-border bg-surface-subtle text-muted-foreground", className ?? "h-[72px] w-[48px]")}
       aria-hidden
-    />
+    ><Film className="h-6 w-6" /></div>
   );
 }
 

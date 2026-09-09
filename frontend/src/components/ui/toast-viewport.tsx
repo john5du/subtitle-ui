@@ -93,7 +93,7 @@ export function ToastViewport() {
             key={toast.id}
             role="status"
             aria-live="polite"
-            className="animate-scale-in pointer-events-auto overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-xl"
+            className="animate-scale-in pointer-events-auto overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-[var(--shadow-menu)]"
           >
             <div className="flex">
               <div className={cn("w-1 shrink-0", toneAccent(toast.level))} />
@@ -109,7 +109,7 @@ export function ToastViewport() {
                   <button
                     type="button"
                     onClick={() => dismiss(toast.id)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="ui-control flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     aria-label="Dismiss"
                   >
                     <X className="h-3.5 w-3.5" />

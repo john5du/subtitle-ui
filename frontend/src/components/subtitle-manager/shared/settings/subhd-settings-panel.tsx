@@ -117,7 +117,8 @@ export function SubHDSettingsPanel() {
           <div className="flex items-center gap-2">
             <Input
               size="sm"
-              value={draftBaseUrl}
+              aria-label={t("subhd.baseUrl")}
+            value={draftBaseUrl}
               placeholder={t("subhd.baseUrlPlaceholder")}
               disabled={loading || saving || !draftEnabled}
               className="min-w-0 flex-1"
@@ -148,6 +149,7 @@ export function SubHDSettingsPanel() {
         <SettingsLabel help={t("subhd.proxyHint")}>{t("subhd.proxy")}</SettingsLabel>
         <Input
           size="sm"
+          aria-label={t("subhd.proxy")}
           value={draftProxy}
           placeholder={t("subhd.proxyPlaceholder")}
           disabled={loading || saving || !draftEnabled}
@@ -163,7 +165,7 @@ export function SubHDSettingsPanel() {
           <SpinnerIcon className="h-4 w-4" />
         </div>
       )}
-      {error && <p className="break-words text-sm text-destructive">{error}</p>}
+      {error && <p role="alert" className="break-words text-sm text-destructive-muted">{error}</p>}
 
       <div className="flex justify-end">
         <SaveSettingsButton

@@ -18,14 +18,14 @@ export function SettingsActionRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 p-3",
+        "flex flex-col items-stretch justify-between gap-3 p-3 sm:flex-row sm:items-center",
         settingsRowMinClassName,
         !bare && "surface-panel",
         className
       )}
     >
       <p className="min-w-0 shrink text-sm font-semibold text-foreground">{label}</p>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2 sm:shrink-0">{children}</div>
     </div>
   );
 }

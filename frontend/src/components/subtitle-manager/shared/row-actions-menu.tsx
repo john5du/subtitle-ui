@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { ExternalLink, MoreHorizontal } from "lucide-react";
 import { createPortal } from "react-dom";
 
@@ -57,16 +57,19 @@ export function RowActionsMenu({
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
         setOpen(false);
+        triggerRef.current?.focus();
       }
     }
 
     document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
+    window.addEventListener("keydown", handleEscape, true);
 
     return () => {
       document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("keydown", handleEscape, true);
     };
   }, [open]);
 
@@ -141,6 +144,25 @@ export function RowActionsMenu({
     };
   }, [open, menuDirection, items.length]);
 
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => {
+      menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open, withinDialog]);
+
+  function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const entries = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)'));
+    if (!entries.length) return;
+    const index = entries.indexOf(document.activeElement as HTMLElement);
+    const next = event.key === "Home" ? 0 : event.key === "End" ? entries.length - 1
+      : (index + (event.key === "ArrowDown" ? 1 : -1) + entries.length) % entries.length;
+    entries[next]?.focus();
+  }
+
   const menuItems = items.map((item, index) => {
     const showDivider = item.external && index > 0 && !items[index - 1]?.external;
     if (item.href && !item.disabled) {
@@ -148,11 +170,13 @@ export function RowActionsMenu({
         <a
           key={item.label}
           href={item.href}
+          role="menuitem"
           target={item.external ? "_blank" : undefined}
           rel={item.external ? "noreferrer" : undefined}
           className={cn(
-            "surface-transition flex w-full items-center justify-between px-3 py-2.5 text-[13px] font-medium text-popover-foreground hover:bg-surface-hover hover:text-popover-foreground",
-            showDivider && "mt-1 border-t border-border pt-3"
+            "focus-ring-inset rounded-sm surface-transition flex w-full items-center justify-between px-3 py-2.5 text-sm font-medium text-popover-foreground hover:bg-surface-hover hover:text-popover-foreground",
+            (showDivider || item.destructive) && "mt-1 border-t border-border pt-3",
+            item.destructive && "text-destructive-muted hover:bg-destructive-soft hover:text-destructive-muted"
           )}
           onClick={() => setOpen(false)}
         >
@@ -169,8 +193,9 @@ export function RowActionsMenu({
         role="menuitem"
         disabled={item.disabled}
         className={cn(
-          "surface-transition flex w-full items-center justify-between px-3 py-2.5 text-left text-[13px] font-medium text-popover-foreground hover:bg-surface-hover hover:text-popover-foreground disabled:cursor-not-allowed disabled:text-foreground-subtle disabled:opacity-60",
-          showDivider && "mt-1 border-t border-border pt-3"
+          "focus-ring-inset rounded-sm surface-transition flex w-full items-center justify-between px-3 py-2.5 text-left text-sm font-medium text-popover-foreground hover:bg-surface-hover hover:text-popover-foreground disabled:cursor-not-allowed disabled:text-foreground-subtle disabled:opacity-60",
+          (showDivider || item.destructive) && "mt-1 border-t border-border pt-3",
+          item.destructive && "text-destructive-muted hover:bg-destructive-soft hover:text-destructive-muted"
         )}
         onClick={() => {
           if (item.disabled) {
@@ -189,9 +214,11 @@ export function RowActionsMenu({
     <div
       ref={menuRef}
       role="menu"
+      aria-label={label}
+      onKeyDown={handleMenuKeyDown}
       style={{ maxHeight: `${menuMaxHeight}px` }}
       className={cn(
-        "animate-fade-in-fast absolute right-0 z-[90] min-w-[210px] overflow-y-auto overscroll-contain border border-border bg-popover p-1.5 text-popover-foreground",
+        "animate-fade-in-fast absolute right-0 z-[90] min-w-[210px] rounded-lg shadow-[var(--shadow-menu)] overflow-y-auto overscroll-contain border border-border bg-popover p-1.5 text-popover-foreground",
         resolvedDirection === "up" ? "bottom-full mb-1" : "top-full mt-1"
       )}
     >
@@ -203,6 +230,8 @@ export function RowActionsMenu({
     <div
       ref={menuRef}
       role="menu"
+      aria-label={label}
+      onKeyDown={handleMenuKeyDown}
       style={{
         left: `${menuPosition.left}px`,
         width: `${menuPosition.width}px`,
@@ -211,7 +240,7 @@ export function RowActionsMenu({
         bottom: menuPosition.bottom !== undefined ? `${menuPosition.bottom}px` : undefined
       }}
       className={cn(
-        "animate-fade-in-fast fixed z-[130] min-w-[210px] overflow-y-auto overscroll-contain border border-border bg-popover p-1.5 text-popover-foreground",
+        "animate-fade-in-fast fixed z-[130] min-w-[210px] rounded-lg shadow-[var(--shadow-menu)] overflow-y-auto overscroll-contain border border-border bg-popover p-1.5 text-popover-foreground",
         resolvedDirection === "up" ? "origin-bottom-right" : "origin-top-right"
       )}
     >

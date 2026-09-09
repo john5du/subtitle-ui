@@ -4,7 +4,7 @@ All modal dialogs use `DialogContent` / `AlertDialogContent` with a **size** pro
 
 Side drawers use `DialogDrawerContent` with its own size scale (`md` | `lg` | `xl`) — see [Drawers](#drawers) below. Modal `DialogContent` is already a bottom sheet on mobile.
 
-Broader UI density / list shells: [`frontend-ui.md`](./frontend-ui.md).
+Broader UI density / list shells: [`frontend-ui.md`](./frontend-ui.md). Visual language: [`frontend-style-guide.md`](./frontend-style-guide.md) (desktop modals use 12px radius, popover surface, and dialog shadow).
 
 ## Size groups (modals)
 

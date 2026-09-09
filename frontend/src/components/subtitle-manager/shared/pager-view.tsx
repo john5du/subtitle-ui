@@ -56,8 +56,8 @@ export function PagerView({
   const summaryArgs = { page: pager.page, totalPages, total: pager.total };
 
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 flex justify-center sm:inset-x-4 sm:bottom-4">
-      <div className="pointer-events-auto flex w-full max-w-[720px] items-center justify-between gap-2 border border-border bg-card/90 px-3 py-2.5 shadow-lg backdrop-blur sm:w-auto sm:min-w-[420px]">
+    <div className="flex shrink-0 justify-center border-t border-border px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="flex w-full max-w-[720px] flex-wrap items-center justify-between gap-2 rounded-lg bg-card sm:w-auto sm:min-w-[420px]">
         <Button
           type="button"
           variant="outline"

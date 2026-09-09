@@ -34,7 +34,7 @@ export function DialogTitleWithHelp({
   return (
     <>
       <DialogTitle className={cn("flex items-center gap-1.5", className)}>
-        <span>{title}</span>
+        <span className="min-w-0 [overflow-wrap:anywhere]">{title}</span>
         <DialogHelpTip text={help} label={helpLabel ?? help} />
       </DialogTitle>
       {srDescription ? <DialogDescription className="sr-only">{a11yText}</DialogDescription> : null}

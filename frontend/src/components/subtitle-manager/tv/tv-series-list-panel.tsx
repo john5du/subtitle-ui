@@ -64,22 +64,22 @@ function SkeletonRows({ rows = 4 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, index) => (
         <TableRow key={`skeleton-${index}`} aria-hidden>
           <TableCell className="py-3">
-            <div className="h-14 w-10 animate-pulse-soft bg-surface-hover" />
+            <div className="h-14 w-10 is-pending bg-surface-hover" />
           </TableCell>
           <TableCell>
-            <div className="h-4 w-40 animate-pulse-soft bg-surface-hover" />
+            <div className="h-4 w-40 is-pending bg-surface-hover" />
           </TableCell>
           <TableCell>
-            <div className="h-4 w-12 animate-pulse-soft bg-surface-hover" />
+            <div className="h-4 w-12 is-pending bg-surface-hover" />
           </TableCell>
           <TableCell className="hidden md:table-cell">
-            <div className="h-4 w-24 animate-pulse-soft bg-surface-hover" />
+            <div className="h-4 w-24 is-pending bg-surface-hover" />
           </TableCell>
           <TableCell className="text-right">
-            <div className="ml-auto h-4 w-6 animate-pulse-soft bg-surface-hover" />
+            <div className="ml-auto h-4 w-6 is-pending bg-surface-hover" />
           </TableCell>
           <TableCell className="text-right">
-            <div className="ml-auto h-4 w-6 animate-pulse-soft bg-surface-hover" />
+            <div className="ml-auto h-4 w-6 is-pending bg-surface-hover" />
           </TableCell>
         </TableRow>
       ))}
@@ -206,10 +206,10 @@ export const TvSeriesListPanel = memo(function TvSeriesListPanel({
                     <TableCell className="w-[76px] py-2">
                       <PosterThumbnail src={row.posterUrl} />
                     </TableCell>
-                    <TableCell className="max-w-[260px] truncate font-medium" title={displayTitle}>
+                    <TableCell className="max-w-[260px] font-medium" title={displayTitle}>
                       <button
                         type="button"
-                        className="block w-full truncate text-left font-medium"
+                        className="block w-full break-words text-left font-medium"
                         disabled={operationLocked}
                         onClick={(event) => {
                           event.stopPropagation();

@@ -70,7 +70,7 @@ export function EmbeddedSubtitlesSummary({ videoId, jellyfinEnabled, className }
     <Badge
       variant={hasChinese ? "success" : "secondary"}
       className={cn(
-        "shrink-0 px-1.5 py-0 text-[10px] font-normal normal-case tracking-normal",
+        "shrink-0 px-1.5 py-0 text-xs font-normal normal-case tracking-normal",
         !hasChinese && "text-muted-foreground",
         className
       )}

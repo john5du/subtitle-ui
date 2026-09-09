@@ -104,6 +104,36 @@ export function SeasonBatchMappingBody(props: MappingPanelProps) {
         </Button>
       </div>
 
+      {batchResult ? (
+        <WorkspaceSection icon={batchResult.errors.length ? <CircleAlert className="h-4 w-4 text-warning" /> : <CircleCheck className="h-4 w-4 text-success" />} title={t("batch.resultsTitle")}>
+          <div role="status" className="space-y-4">
+            <div className="surface-panel px-4 py-3 text-sm">
+              {t("batch.result", {
+                success: batchResult.success,
+                total: batchResult.total,
+                failed: batchResult.failed
+              })}
+            </div>
+            {batchResult.errors.length > 0 ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <CircleAlert className="h-4 w-4" />
+                  {t("batch.resultErrorsTitle")}
+                </div>
+                <div className="space-y-2">
+                  {batchResult.errors.map((item) => (
+                    <div key={item} className="surface-panel px-4 py-3 text-sm break-all">
+                      {item}
+                    </div>
+                  ))}
+
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </WorkspaceSection>
+      ) : null}
+
       {batchNotices.length > 0 ? (
         <div className="surface-panel px-4 py-3">
           <div className="flex items-start gap-3">
@@ -125,7 +155,9 @@ export function SeasonBatchMappingBody(props: MappingPanelProps) {
                 key={item.key}
                 type="button"
                 size="sm"
-                variant={batchFilter === item.key ? "default" : "outline"}
+                variant="outline"
+                aria-pressed={batchFilter === item.key}
+                className={batchFilter === item.key ? "border-primary bg-selection text-selection-foreground hover:bg-selection" : undefined}
                 disabled={batchRows.length === 0}
                 onClick={() => setBatchFilter(item.key)}
               >
@@ -149,14 +181,14 @@ export function SeasonBatchMappingBody(props: MappingPanelProps) {
           ) : null}
         </div>
 
-        <div className={cn("space-y-3", batchPreparing && "animate-pulse-soft")}>
+        <div className={cn("space-y-3", batchPreparing && "is-pending")}>
           {filteredBatchRows.length > 0 ? (
             filteredBatchRows.map((row) => (
               <MappingRow
                 key={row.id}
                 row={row}
                 videos={batchCandidates}
-                disabled={busy || batchPreparing || uploading}
+                disabled={busy || batchPreparing || uploading || Boolean(batchResult)}
                 t={t}
                 onSelectionChange={updateBatchRowSelection}
               />
@@ -169,39 +201,7 @@ export function SeasonBatchMappingBody(props: MappingPanelProps) {
         </div>
       </div>
 
-      {batchResult ? (
-        <WorkspaceSection icon={<CircleCheck className="h-4 w-4" />} title={t("batch.resultsTitle")}>
-          <div className="space-y-4">
-            <div className="surface-panel px-4 py-3 text-sm">
-              {t("batch.result", {
-                success: batchResult.success,
-                total: batchResult.total,
-                failed: batchResult.failed
-              })}
-            </div>
-            {batchResult.errors.length > 0 ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <CircleAlert className="h-4 w-4" />
-                  {t("batch.resultErrorsTitle")}
-                </div>
-                <div className="space-y-2">
-                  {batchResult.errors.slice(0, 6).map((item) => (
-                    <div key={item} className="surface-panel px-4 py-3 text-sm break-all">
-                      {item}
-                    </div>
-                  ))}
-                  {batchResult.errors.length > 6 ? (
-                    <p className="text-xs text-muted-foreground">
-                      {t("batch.summary.more", { count: batchResult.errors.length - 6 })}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </WorkspaceSection>
-      ) : null}
+
     </>
   );
 }
@@ -227,6 +227,7 @@ export function SeasonBatchMappingFooter(props: MappingPanelProps) {
     sourceMode,
     subhdCacheToken,
     submitSeasonBatch,
+    batchResult,
     onComplete
   } = props;
 
@@ -235,13 +236,13 @@ export function SeasonBatchMappingFooter(props: MappingPanelProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         {showBatchLanguageSelector ? (
           <div className="space-y-2 sm:w-[180px]">
-            <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
+            <p className="text-caption font-semibold text-foreground-muted">
               {t("common.language")}
             </p>
             <Select
               value={batchLanguagePreference === "any" ? batchLanguageOptions[0] : batchLanguagePreference}
               onValueChange={(value) => setBatchLanguagePreference(value as BatchLanguagePreference)}
-              disabled={busy || batchPreparing || batchRawEntries.length === 0}
+              disabled={Boolean(batchResult) || busy || batchPreparing || batchRawEntries.length === 0}
             >
               <SelectTrigger size="sm" className="w-full">
                 <SelectValue placeholder={t("common.language")} />
@@ -259,11 +260,11 @@ export function SeasonBatchMappingFooter(props: MappingPanelProps) {
 
         {showBatchFormatSelector ? (
           <div className="space-y-2 sm:w-[140px]">
-            <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">{t("common.format")}</p>
+            <p className="text-caption font-semibold text-foreground-muted">{t("common.format")}</p>
             <Select
               value={batchFormatPreference === "any" ? batchFormatOptions[0] : batchFormatPreference}
               onValueChange={(value) => setBatchFormatPreference(normalizeSubtitleFormat(value))}
-              disabled={busy || batchPreparing || batchRawEntries.length === 0}
+              disabled={Boolean(batchResult) || busy || batchPreparing || batchRawEntries.length === 0}
             >
               <SelectTrigger size="sm" className="w-full">
                 <SelectValue placeholder={t("common.format")} />
@@ -280,14 +281,15 @@ export function SeasonBatchMappingFooter(props: MappingPanelProps) {
         ) : null}
 
         <div className="space-y-2 sm:w-[140px]">
-          <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">{t("batch.label")}</p>
+          <p className="text-caption font-semibold text-foreground-muted">{t("batch.label")}</p>
           <Input
             size="sm"
+            aria-label={t("batch.label")}
             value={batchLabel}
             maxLength={32}
             placeholder="zh&en"
             className="w-full"
-            disabled={busy || batchPreparing}
+            disabled={Boolean(batchResult) || busy || batchPreparing}
             onChange={(event) => setBatchLabel(event.target.value)}
           />
         </div>
@@ -295,12 +297,12 @@ export function SeasonBatchMappingFooter(props: MappingPanelProps) {
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:space-x-2 sm:gap-0">
         <Button type="button" variant="outline" disabled={busy || batchPreparing || uploading} onClick={() => onComplete?.()}>
-          {t("common.cancel")}
+          {t(batchResult ? "common.close" : "common.cancel")}
         </Button>
         <Button
           type="button"
           variant="default"
-          disabled={busy || batchPreparing || batchSummary.mapped === 0 || (sourceMode === "subhd" && !subhdCacheToken)}
+          disabled={Boolean(batchResult) || busy || batchPreparing || batchSummary.mapped === 0 || (sourceMode === "subhd" && !subhdCacheToken)}
           onClick={() => void submitSeasonBatch()}
         >
           {sourceMode === "subhd" ? t("batch.subhd.installMapped") : t("common.upload")}

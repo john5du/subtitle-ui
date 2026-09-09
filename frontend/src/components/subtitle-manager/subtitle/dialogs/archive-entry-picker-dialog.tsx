@@ -83,7 +83,7 @@ export function ArchiveEntryPickerDialog({
 
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
             <p className="shrink-0 text-sm font-semibold">{t("details.archiveSubtitleFiles")}</p>
-            <div className={cn("min-h-0 flex-1 overflow-auto", zipLoading && "animate-pulse-soft")}>
+            <div className={cn("min-h-0 flex-1 overflow-auto", zipLoading && "is-pending")}>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -99,7 +99,8 @@ export function ArchiveEntryPickerDialog({
                     return (
                       <TableRow
                         key={entry.id}
-                        className={cn(checked && "bg-surface-hover")}
+                        data-state={checked ? "selected" : undefined}
+                        className={cn(checked && "bg-selection")}
                         onClick={() => {
                           if (busy || uploading || zipLoading) {
                             return;

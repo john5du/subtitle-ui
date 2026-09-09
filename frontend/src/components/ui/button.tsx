@@ -5,19 +5,19 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "surface-transition focus-ring inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-mono text-sm uppercase tracking-button disabled:pointer-events-none disabled:opacity-50",
+  "ui-control surface-transition focus-ring inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-sans font-medium text-sm disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border-input bg-transparent text-foreground hover:bg-surface-strong hover:text-foreground",
-        secondary: "border-border bg-surface-subtle text-foreground hover:bg-surface-hover",
-        ghost: "border-transparent text-foreground hover:bg-surface-strong hover:text-foreground",
-        link: "border-transparent text-foreground underline-offset-4 hover:text-foreground-muted"
+        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-pressed",
+        destructive: "border-transparent bg-destructive text-destructive-foreground hover:brightness-95 active:brightness-90",
+        outline: "border-input bg-transparent text-foreground hover:bg-surface-strong hover:text-foreground active:bg-surface-hover",
+        secondary: "border-border bg-surface-subtle text-foreground hover:bg-surface-hover active:bg-surface-strong",
+        ghost: "border-transparent text-foreground hover:bg-surface-strong hover:text-foreground active:bg-surface-hover",
+        link: "border-transparent text-selection-foreground underline-offset-4 hover:text-foreground-muted"
       },
       size: {
-        default: "h-10 px-6 py-2",
+        default: "min-h-10 px-4 py-2",
         sm: "h-9 px-4",
         lg: "h-11 px-8",
         icon: "h-10 w-10",

@@ -68,7 +68,7 @@ export function LibraryListShell({
 
   return (
     <Card className="surface-panel flex h-full flex-col" aria-busy={busy || undefined}>
-      <CardHeader className="space-y-3">
+      <CardHeader className="space-y-3 p-3 sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="hidden items-center gap-2 lg:flex">
             {onToggleSidebar && sidebarToggleLabel ? (
@@ -95,14 +95,14 @@ export function LibraryListShell({
               {busy ? <SpinnerIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
           </div>
-          <div className="flex w-full min-w-0 items-center gap-2 sm:justify-end xl:w-auto">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:justify-end xl:w-auto">
             <ClearableSearchInput
               value={draftQuery}
               onChange={setDraftQuery}
               aria-label={searchAriaLabel}
               placeholder={searchPlaceholder}
             />
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
               {sortControl}
               {viewToggle}
             </div>
@@ -112,7 +112,7 @@ export function LibraryListShell({
 
       <CardContent className="relative flex min-h-0 flex-1 flex-col p-0">
         <ScrollArea viewportRef={scrollViewportRef} className={cn("min-h-0 flex-1", scrollSoft && "surface-subtle")}>
-          <div className={cn(showPager && "pb-20")}>{children}</div>
+          <div className={cn(showPager && "pb-3")}>{children}</div>
         </ScrollArea>
         <PagerView pager={pager} onSetPage={onSetPage} disabled={pending} />
       </CardContent>

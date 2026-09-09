@@ -255,7 +255,7 @@ export function SubHDDownloadDialog({
                         key={item.sid}
                         className={cn(
                           "surface-panel flex flex-col gap-2 p-3 sm:flex-row sm:items-start sm:justify-between",
-                          rowDownloading && "animate-pulse-soft"
+                          rowDownloading && "is-pending"
                         )}
                       >
                         <div className="min-w-0 flex-1 space-y-1.5">
@@ -330,7 +330,7 @@ export function SubHDDownloadDialog({
 
           {showFallback ? (
             <div className="space-y-2 border-t border-border pt-3">
-              <p className="text-caption font-semibold uppercase tracking-section text-foreground-muted">
+              <p className="text-caption font-semibold text-foreground-muted">
                 {t("download.fallbackSection")}
               </p>
               <div className="flex flex-wrap gap-2">
