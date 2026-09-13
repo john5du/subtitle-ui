@@ -7,9 +7,9 @@ const config = [
   ...fixupConfigRules(nextTypescript),
   {
     rules: {
-      "react-hooks/refs": "off",
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/immutability": "off"
+      "react-hooks/refs": "error",
+      "react-hooks/set-state-in-effect": "error",
+      "react-hooks/immutability": "error"
     }
   }
 ];

@@ -46,6 +46,7 @@ export function AuthGate({ children }: { children: (props: { authRequired: boole
   }, [t]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Auth bootstrap starts a network request and must expose its loading state.
     void bootstrap();
   }, [bootstrap]);
 

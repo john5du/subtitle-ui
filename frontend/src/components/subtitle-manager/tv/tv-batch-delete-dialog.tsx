@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
 import { subtitleLanguageDisplayText } from "@/lib/subtitle-language";
@@ -93,29 +93,15 @@ export function TvBatchDeleteDialog({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    if (!open) {
-      setSelectedKeys(new Set());
-      setConfirmOpen(false);
-      setDeleting(false);
-      return;
-    }
-
-    const next = new Set<string>();
-    const preferredSeason =
-      seasonOptions.find((option) => option.value === initialSeason)?.season ??
-      null;
-    if (preferredSeason != null) {
-      for (const row of buildRows(seriesVideos)) {
-        if (row.season === preferredSeason) {
-          next.add(row.key);
-        }
-      }
-    }
-    setSelectedKeys(next);
+  const [selectionSource, setSelectionSource] = useState({ open, seriesVideos, seasonOptions, initialSeason, initialized: false });
+  if (!selectionSource.initialized || selectionSource.open !== open || selectionSource.seriesVideos !== seriesVideos ||
+      selectionSource.seasonOptions !== seasonOptions || selectionSource.initialSeason !== initialSeason) {
+    setSelectionSource({ open, seriesVideos, seasonOptions, initialSeason, initialized: true });
+    const preferredSeason = seasonOptions.find((option) => option.value === initialSeason)?.season;
+    setSelectedKeys(new Set(open && preferredSeason != null ? rows.filter((row) => row.season === preferredSeason).map((row) => row.key) : []));
     setConfirmOpen(false);
     setDeleting(false);
-  }, [open, seriesVideos, seasonOptions, initialSeason]);
+  }
 
   const selectedCount = selectedKeys.size;
   const allSelected = rows.length > 0 && selectedCount === rows.length;

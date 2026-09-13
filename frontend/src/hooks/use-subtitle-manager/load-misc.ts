@@ -9,18 +9,25 @@ import {
 import { pickDefaultTvDirectory } from "@/lib/subtitle-manager/path-utils";
 
 import { DEFAULT_LOG_PAGE_SIZE } from "./state";
+import { createLatestLoad } from "./latest-load";
 import type { ControllerRuntime } from "./controller-runtime";
 
 export function createMiscLoadActions(runtime: ControllerRuntime) {
   const { setters, beginLoadChannel, endLoadChannel, reportRequestError } = runtime;
 
-  async function loadVersionInfo() {
-    try {
-      const payload = await requestPayload<VersionInfo>("/api/version");
-      setters.setVersionInfo(payload);
-    } catch (error) {
-      reportRequestError("error.loadVersionInfo", error);
-    }
+  const versionRequests = createLatestLoad<VersionInfo>();
+  const scanRequests = createLatestLoad<ReturnType<typeof normalizeScanStatus>>();
+  const directoryRequests = createLatestLoad<ReturnType<typeof normalizeDirectoryScanResult>>();
+  const logRequests = createLatestLoad<ReturnType<typeof normalizeLogsPage>>();
+  let logsSuspended = 0;
+
+  function loadVersionInfo() {
+    return versionRequests.run({
+      key: "version",
+      fetch: (signal) => requestPayload<VersionInfo>("/api/version", { signal }),
+      commit: setters.setVersionInfo,
+      onError: (error) => reportRequestError("error.loadVersionInfo", error)
+    });
   }
 
   async function loadVideoById(videoId: string, hint?: Partial<Video>) {
@@ -28,57 +35,65 @@ export function createMiscLoadActions(runtime: ControllerRuntime) {
     return normalizeVideo(payload, hint);
   }
 
-  async function loadScanStatus() {
-    try {
-      const payload = await requestPayload<unknown>("/api/scan/status");
-      setters.setScanStatus(normalizeScanStatus(payload));
-    } catch (error) {
-      reportRequestError("error.loadScanStatus", error);
-    }
+  function loadScanStatus() {
+    return scanRequests.run({
+      key: "scan",
+      fetch: async (signal) => normalizeScanStatus(await requestPayload<unknown>("/api/scan/status", { signal })),
+      commit: setters.setScanStatus,
+      onError: (error) => reportRequestError("error.loadScanStatus", error)
+    });
   }
 
   async function loadDirectoryScanResult() {
-    try {
-      const payload = await requestPayload<unknown>("/api/scan/directories");
-      const parsed = normalizeDirectoryScanResult(payload);
-      setters.setDirectoryScan(parsed);
-
-      const defaultDir = pickDefaultTvDirectory(parsed);
-      if (defaultDir) {
-        setters.setSelectedTvDirPath(defaultDir);
-      }
-      return defaultDir;
-    } catch (error) {
-      reportRequestError("error.loadDirectoryScan", error);
-      return "";
-    }
+    const result = await directoryRequests.run({
+      key: "directories",
+      fetch: async (signal) => normalizeDirectoryScanResult(await requestPayload<unknown>("/api/scan/directories", { signal })),
+      commit: (parsed) => {
+        setters.setDirectoryScan(parsed);
+        const defaultDir = pickDefaultTvDirectory(parsed);
+        if (defaultDir) setters.setSelectedTvDirPath(defaultDir);
+      },
+      onError: (error) => reportRequestError("error.loadDirectoryScan", error)
+    });
+    return result.status === "success" ? { status: "success" as const, data: pickDefaultTvDirectory(result.data) } : result;
   }
 
   async function loadLogs(options: { page?: number } = {}) {
+    if (logsSuspended) return { status: "cancelled" as const };
     const state = runtime.state;
     const page = options.page || state.logsPager.page || 1;
     const pageSize = state.logsPager.pageSize || DEFAULT_LOG_PAGE_SIZE;
 
-    beginLoadChannel("logs");
-    try {
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("pageSize", String(pageSize));
+    return logRequests.run({
+      key: `${page}:${pageSize}`,
+      onStart: () => beginLoadChannel("logs"),
+      onEnd: () => endLoadChannel("logs"),
+      onError: (error) => reportRequestError("error.loadLogs", error),
+      fetch: async (signal) => {
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("pageSize", String(pageSize));
 
-      const payload = await requestPayload<unknown>(`/api/logs?${params.toString()}`);
-      const pageData = normalizeLogsPage(payload, page, pageSize);
-      setters.setLogs(pageData.items);
-      setters.setLogsPager({
-        page: pageData.page,
-        pageSize: pageData.pageSize,
-        total: pageData.total,
-        totalPages: pageData.totalPages
-      });
-    } catch (error) {
-      reportRequestError("error.loadLogs", error);
-    } finally {
-      endLoadChannel("logs");
-    }
+        const payload = await requestPayload<unknown>(`/api/logs?${params.toString()}`, { signal });
+        return normalizeLogsPage(payload, page, pageSize);
+      },
+      commit: (pageData) => {
+        setters.setLogs(pageData.items);
+        setters.setLogsPager({
+          page: pageData.page,
+          pageSize: pageData.pageSize,
+          total: pageData.total,
+          totalPages: pageData.totalPages
+        });
+      }
+    });
+  }
+
+  // Reject loads throughout DELETE, including requests from mutation refreshes.
+  function suspendLogs() {
+    logsSuspended += 1;
+    logRequests.invalidate();
+    return () => { logsSuspended = Math.max(0, logsSuspended - 1); };
   }
 
   return {
@@ -86,6 +101,13 @@ export function createMiscLoadActions(runtime: ControllerRuntime) {
     loadVideoById,
     loadScanStatus,
     loadDirectoryScanResult,
-    loadLogs
+    loadLogs,
+    suspendLogs,
+    cancelMiscLoads: () => {
+      versionRequests.invalidate();
+      scanRequests.invalidate();
+      directoryRequests.invalidate();
+      logRequests.invalidate();
+    }
   };
 }

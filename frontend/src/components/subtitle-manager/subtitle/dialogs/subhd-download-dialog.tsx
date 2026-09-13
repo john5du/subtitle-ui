@@ -111,6 +111,7 @@ export function SubHDDownloadDialog({
     if (!open || !video) {
       return;
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Opening a search session resets its draft and starts the provider request.
     setQuery("");
     setPage(null);
     setError("");

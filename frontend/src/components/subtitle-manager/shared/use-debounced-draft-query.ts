@@ -8,14 +8,14 @@ export function useDebouncedDraftQuery(
 ): [string, (value: string) => void] {
   const [draftQuery, setDraftQuery] = useState(query);
   const lastPublishedRef = useRef(query);
-  const draftQueryRef = useRef(draftQuery);
-  draftQueryRef.current = draftQuery;
+  const [previousQuery, setPreviousQuery] = useState(query);
+  if (query !== previousQuery) {
+    setPreviousQuery(query);
+    setDraftQuery(query);
+  }
 
   useEffect(() => {
-    if (query !== draftQueryRef.current) {
-      setDraftQuery(query);
-      lastPublishedRef.current = query;
-    }
+    lastPublishedRef.current = query;
   }, [query]);
 
   useEffect(() => {

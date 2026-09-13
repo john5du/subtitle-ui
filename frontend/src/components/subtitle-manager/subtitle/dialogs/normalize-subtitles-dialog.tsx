@@ -127,11 +127,9 @@ export function NormalizeSubtitlesDialog({ open, onOpenChange, scope, onApplied 
     setStatusPopoverKey(key);
   }
 
-  useEffect(() => {
-    if (!open) {
-      closeStatusBubble();
-    }
-  }, [open]);
+  if (!open && (statusPopoverKey !== null || statusBubble !== null)) {
+    closeStatusBubble();
+  }
 
   useEffect(() => {
     if (!statusBubble) {

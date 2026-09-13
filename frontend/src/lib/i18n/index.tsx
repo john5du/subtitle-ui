@@ -115,6 +115,7 @@ export function I18nProvider({
     document.documentElement.lang = nextLocale;
 
     if (nextLocale !== locale) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile the bootstrap/localStorage locale after hydration.
       setLocale(nextLocale);
     }
   }, [initialLocale, locale]);

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCommittedValue } from "@/hooks/use-committed-value";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Dialog,
@@ -71,37 +72,25 @@ export function VideoSubtitlePreviewDialog({
   const selectedSubtitleKey = selectedSubtitle
     ? `${selectedSubtitle.id}|${selectedSubtitle.format}|${selectedSubtitle.modTime}|${selectedSubtitle.size}`
     : "";
-  const selectedSubtitleRef = useRef(selectedSubtitle);
-  selectedSubtitleRef.current = selectedSubtitle;
+  const getSelectedSubtitle = useCommittedValue(selectedSubtitle);
   const sessionKey = open && videoId ? videoId : "";
-  const sessionInitRef = useRef("");
-
-  useEffect(() => {
-    if (!sessionKey) {
-      sessionInitRef.current = "";
-      setSelectedSubtitleId("__none__");
-      setSubtitleBlobUrl("");
-      setSubtitleStatus("idle");
-      setSubtitleError("");
-      setPlayerError("");
-      return;
-    }
-    if (sessionInitRef.current === sessionKey) {
-      return;
-    }
-    sessionInitRef.current = sessionKey;
-    const preferred =
-      (initialSubtitleId && subtitles.some((s) => s.id === initialSubtitleId) && initialSubtitleId) ||
-      subtitles[0]?.id ||
-      "__none__";
+  const [previousSession, setPreviousSession] = useState("");
+  if (previousSession !== sessionKey) {
+    setPreviousSession(sessionKey);
+    const preferred = sessionKey
+      ? (initialSubtitleId && subtitles.some((s) => s.id === initialSubtitleId) && initialSubtitleId) || subtitles[0]?.id || "__none__"
+      : "__none__";
     setSelectedSubtitleId(preferred);
+    setSubtitleBlobUrl("");
+    setSubtitleStatus("idle");
+    setSubtitleError("");
     setPlayerError("");
-  }, [sessionKey, initialSubtitleId, subtitles]);
+  }
 
   useEffect(() => {
     const controller = new AbortController();
     let createdUrl = "";
-    const track = selectedSubtitleRef.current;
+    const track = getSelectedSubtitle();
 
     async function loadSubtitle() {
       setSubtitleBlobUrl("");
@@ -157,7 +146,7 @@ export function VideoSubtitlePreviewDialog({
         window.setTimeout(() => URL.revokeObjectURL(toRevoke), 30_000);
       }
     };
-  }, [open, videoId, selectedSubtitleKey]);
+  }, [open, videoId, selectedSubtitleKey, getSelectedSubtitle]);
 
   const title = video?.title || video?.fileName || t("playback.previewTitle");
   // Wait for subtitle settle (ready/empty/error/unsupported/none) so first paint can include VTT.

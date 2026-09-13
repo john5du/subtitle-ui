@@ -27,6 +27,7 @@ import type {
   Video
 } from "@/lib/types";
 import type { LocalizedText } from "@/lib/subtitle-manager/messages";
+import type { LoadActions } from "./controller-load";
 
 export type SortOrder = "asc" | "desc";
 export type MovieSortBy = "year" | "title" | "updatedAt" | "subtitleCount";
@@ -64,18 +65,6 @@ export interface SubtitleManagerState {
 export interface SubtitleManagerRefs {
   pendingUploadsRef: MutableRefObject<number>;
   pendingLoadChannelsRef: MutableRefObject<Record<LoadChannel, number>>;
-  loadedMovieListSignatureRef: MutableRefObject<string>;
-  requestedMovieListSignatureRef: MutableRefObject<string>;
-  pendingMovieListRequestRef: MutableRefObject<{ signature: string; promise: Promise<void>; controller: AbortController } | null>;
-  pendingTvEpisodesPathRef: MutableRefObject<string>;
-  pendingTvEpisodesRequestRef: MutableRefObject<{ path: string; promise: Promise<Video[]>; controller: AbortController } | null>;
-  loadedTvSeriesSignatureRef: MutableRefObject<string>;
-  requestedTvSeriesSignatureRef: MutableRefObject<string>;
-  pendingTvSeriesRequestRef: MutableRefObject<{ signature: string; promise: Promise<TvSeriesSummary[]>; controller: AbortController } | null>;
-  skipMovieQueryRef: MutableRefObject<boolean>;
-  skipTvQueryRef: MutableRefObject<boolean>;
-  skipMovieSortRef: MutableRefObject<boolean>;
-  skipTvSortRef: MutableRefObject<boolean>;
   logsDialogOpenRef: MutableRefObject<boolean>;
 }
 
@@ -111,7 +100,7 @@ export interface SubtitleManagerSetters {
 
 export interface SubtitleManagerStateApi {
   state: SubtitleManagerState;
-  stateRef: MutableRefObject<SubtitleManagerState>;
+  getState: () => SubtitleManagerState;
   setters: SubtitleManagerSetters;
   refs: SubtitleManagerRefs;
 }
@@ -227,16 +216,11 @@ export interface SubtitleManagerResult {
   actions: SubtitleManagerActions;
 }
 
-export interface SubtitleManagerController extends SubtitleManagerActions {
+export interface SubtitleManagerController extends SubtitleManagerActions,
+  Pick<LoadActions, "loadVersionInfo" | "loadScanStatus" | "loadDirectoryScanResult" | "loadLogs" | "loadMovieVideos" | "loadTvSeriesPage" | "refreshTvVideosForPath"> {
+  cancelLoads: () => void;
   finishBootstrapping: () => void;
-  loadVersionInfo: () => Promise<void>;
-  loadScanStatus: () => Promise<void>;
-  loadDirectoryScanResult: () => Promise<string>;
-  loadLogs: (options?: { page?: number }) => Promise<void>;
   clearLogs: () => Promise<boolean>;
-  loadMovieVideos: (options?: { page?: number; pageSize?: number; force?: boolean; quiet?: boolean }) => Promise<void>;
-  loadTvSeriesPage: (options?: { page?: number; pageSize?: number; force?: boolean; quiet?: boolean }) => Promise<TvSeriesSummary[]>;
-  refreshTvVideosForPath: (seriesPath: string) => Promise<Video[]>;
   loadMovieWorkspace: () => Promise<void>;
   loadTvWorkspace: (seriesPath?: string) => Promise<Video[]>;
   selectMovieVideo: (video: Video) => void;

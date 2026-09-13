@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useReducer, useRef } from "react";
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import type { Dispatch, SetStateAction } from "react";
+
+import { useCommittedValue } from "@/hooks/use-committed-value";
 
 import type {
   ActiveTab,
@@ -62,7 +64,7 @@ function createDefaultPager(pageSize = DEFAULT_PAGE_SIZE): Pager {
   };
 }
 
-function createInitialState(): SubtitleManagerState {
+export function createInitialState(): SubtitleManagerState {
   return {
     activeTab: "tv",
     movieVideos: [],
@@ -142,7 +144,7 @@ function applyVideoPatch(list: Video[], video: Video) {
   return next;
 }
 
-function reducer(state: SubtitleManagerState, action: StateAction): SubtitleManagerState {
+export function reducer(state: SubtitleManagerState, action: StateAction): SubtitleManagerState {
   switch (action.type) {
     case "setActiveTab": {
       const activeTab = resolveUpdate(state.activeTab, action.value);
@@ -265,8 +267,7 @@ function createSetter<T>(dispatch: Dispatch<StateAction>, type: StateAction["typ
 
 export function useSubtitleManagerState(): SubtitleManagerStateApi {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
-  const stateRef = useRef(state);
-  stateRef.current = state;
+  const getState = useCommittedValue(state);
 
   const pendingUploadsRef = useRef(0);
   const pendingLoadChannelsRef = useRef<Record<LoadChannel, number>>({
@@ -275,80 +276,55 @@ export function useSubtitleManagerState(): SubtitleManagerStateApi {
     tvEpisodes: 0,
     logs: 0
   });
-  const loadedMovieListSignatureRef = useRef("");
-  const requestedMovieListSignatureRef = useRef("");
-  const pendingMovieListRequestRef = useRef<{ signature: string; promise: Promise<void>; controller: AbortController } | null>(null);
-  const pendingTvEpisodesPathRef = useRef("");
-  const pendingTvEpisodesRequestRef = useRef<{ path: string; promise: Promise<Video[]>; controller: AbortController } | null>(null);
-  const loadedTvSeriesSignatureRef = useRef("");
-  const requestedTvSeriesSignatureRef = useRef("");
-  const pendingTvSeriesRequestRef = useRef<{ signature: string; promise: Promise<TvSeriesSummary[]>; controller: AbortController } | null>(
-    null
-  );
-  const skipMovieQueryRef = useRef(true);
-  const skipTvQueryRef = useRef(true);
-  const skipMovieSortRef = useRef(true);
-  const skipTvSortRef = useRef(true);
   const logsDialogOpenRef = useRef(false);
 
   const refs = useMemo<SubtitleManagerRefs>(
     () => ({
       pendingUploadsRef,
       pendingLoadChannelsRef,
-      loadedMovieListSignatureRef,
-      requestedMovieListSignatureRef,
-      pendingMovieListRequestRef,
-      pendingTvEpisodesPathRef,
-      pendingTvEpisodesRequestRef,
-      loadedTvSeriesSignatureRef,
-      requestedTvSeriesSignatureRef,
-      pendingTvSeriesRequestRef,
-      skipMovieQueryRef,
-      skipTvQueryRef,
-      skipMovieSortRef,
-      skipTvSortRef,
       logsDialogOpenRef
     }),
     []
   );
 
-  const setters = useMemo(
-    () => ({
-      setActiveTab: createSetter<ActiveTab>(dispatch, "setActiveTab"),
-      setMovieVideos: createSetter<Video[]>(dispatch, "setMovieVideos"),
-      patchMovieVideo: (video: Video) => dispatch({ type: "patchMovieVideo", video }),
-      setSelectedVideoIdByType: createSetter<Record<MediaType, string>>(dispatch, "setSelectedVideoIdByType"),
-      setTvEpisodes: createSetter<Video[]>(dispatch, "setTvEpisodes"),
-      patchTvEpisode: (video: Video) => dispatch({ type: "patchTvEpisode", video }),
-      setTvEpisodesPath: createSetter<string>(dispatch, "setTvEpisodesPath"),
-      setTvVideosRequestedPath: createSetter<string>(dispatch, "setTvVideosRequestedPath"),
-      setSelectedTvDirPath: createSetter<string>(dispatch, "setSelectedTvDirPath"),
-      setSelectedTvSeason: createSetter<string>(dispatch, "setSelectedTvSeason"),
-      setTvSeriesRows: createSetter<TvSeriesSummary[]>(dispatch, "setTvSeriesRows"),
-      setTvSeriesPager: createSetter<Pager>(dispatch, "setTvSeriesPager"),
-      setQueryByType: createSetter<Record<MediaType, string>>(dispatch, "setQueryByType"),
-      setMoviePager: createSetter<Pager>(dispatch, "setMoviePager"),
-      setMovieSortBy: createSetter<MovieSortBy>(dispatch, "setMovieSortBy"),
-      setMovieSortOrder: createSetter<SortOrder>(dispatch, "setMovieSortOrder"),
-      setTvSeriesSortBy: createSetter<TvSeriesSortBy>(dispatch, "setTvSeriesSortBy"),
-      setTvSeriesSortOrder: createSetter<SortOrder>(dispatch, "setTvSeriesSortOrder"),
-      setPending: createSetter<UiPendingState>(dispatch, "setPending"),
-      setUploading: createSetter<boolean>(dispatch, "setUploading"),
-      setUploadingMessageState: createSetter<LocalizedText>(dispatch, "setUploadingMessageState"),
-      setScanStatus: createSetter<ScanStatus | null>(dispatch, "setScanStatus"),
-      setLogs: createSetter<OperationLog[]>(dispatch, "setLogs"),
-      setLogsPager: createSetter<Pager>(dispatch, "setLogsPager"),
-      setDirectoryScan: createSetter<DirectoryScanResult>(dispatch, "setDirectoryScan"),
-      setVersionInfo: createSetter<VersionInfo | null>(dispatch, "setVersionInfo"),
-      setLoadedTabs: createSetter<Record<ActiveTab, boolean>>(dispatch, "setLoadedTabs")
-    }),
-    []
-  );
+  const setters = useMemo(() => createStateSetters(dispatch), []);
 
   return {
     state,
-    stateRef: stateRef as MutableRefObject<SubtitleManagerState>,
+    getState,
     setters,
     refs
+  };
+}
+
+export function createStateSetters(dispatch: Dispatch<StateAction>) {
+  return {
+    setActiveTab: createSetter<ActiveTab>(dispatch, "setActiveTab"),
+    setMovieVideos: createSetter<Video[]>(dispatch, "setMovieVideos"),
+    patchMovieVideo: (video: Video) => dispatch({ type: "patchMovieVideo", video }),
+    setSelectedVideoIdByType: createSetter<Record<MediaType, string>>(dispatch, "setSelectedVideoIdByType"),
+    setTvEpisodes: createSetter<Video[]>(dispatch, "setTvEpisodes"),
+    patchTvEpisode: (video: Video) => dispatch({ type: "patchTvEpisode", video }),
+    setTvEpisodesPath: createSetter<string>(dispatch, "setTvEpisodesPath"),
+    setTvVideosRequestedPath: createSetter<string>(dispatch, "setTvVideosRequestedPath"),
+    setSelectedTvDirPath: createSetter<string>(dispatch, "setSelectedTvDirPath"),
+    setSelectedTvSeason: createSetter<string>(dispatch, "setSelectedTvSeason"),
+    setTvSeriesRows: createSetter<TvSeriesSummary[]>(dispatch, "setTvSeriesRows"),
+    setTvSeriesPager: createSetter<Pager>(dispatch, "setTvSeriesPager"),
+    setQueryByType: createSetter<Record<MediaType, string>>(dispatch, "setQueryByType"),
+    setMoviePager: createSetter<Pager>(dispatch, "setMoviePager"),
+    setMovieSortBy: createSetter<MovieSortBy>(dispatch, "setMovieSortBy"),
+    setMovieSortOrder: createSetter<SortOrder>(dispatch, "setMovieSortOrder"),
+    setTvSeriesSortBy: createSetter<TvSeriesSortBy>(dispatch, "setTvSeriesSortBy"),
+    setTvSeriesSortOrder: createSetter<SortOrder>(dispatch, "setTvSeriesSortOrder"),
+    setPending: createSetter<UiPendingState>(dispatch, "setPending"),
+    setUploading: createSetter<boolean>(dispatch, "setUploading"),
+    setUploadingMessageState: createSetter<LocalizedText>(dispatch, "setUploadingMessageState"),
+    setScanStatus: createSetter<ScanStatus | null>(dispatch, "setScanStatus"),
+    setLogs: createSetter<OperationLog[]>(dispatch, "setLogs"),
+    setLogsPager: createSetter<Pager>(dispatch, "setLogsPager"),
+    setDirectoryScan: createSetter<DirectoryScanResult>(dispatch, "setDirectoryScan"),
+    setVersionInfo: createSetter<VersionInfo | null>(dispatch, "setVersionInfo"),
+    setLoadedTabs: createSetter<Record<ActiveTab, boolean>>(dispatch, "setLoadedTabs")
   };
 }

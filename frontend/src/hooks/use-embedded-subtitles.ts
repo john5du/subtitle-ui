@@ -43,6 +43,7 @@ export function useEmbeddedSubtitles(videoId: string | undefined, jellyfinEnable
 
   useEffect(() => {
     if (!videoId || !jellyfinEnabled) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize the request state with Jellyfin availability and its external cache.
       setState({ status: "idle" });
       return;
     }

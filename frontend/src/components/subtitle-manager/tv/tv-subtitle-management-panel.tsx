@@ -150,12 +150,15 @@ export function TvSubtitleManagementPanel({
     }
   }, [selectedSeries, seasonNumber, t]);
 
-  useEffect(() => {
+  const [previousSeriesPath, setPreviousSeriesPath] = useState(selectedSeries?.path);
+  if (previousSeriesPath !== selectedSeries?.path) {
+    setPreviousSeriesPath(selectedSeries?.path);
     setActiveStep("episodes");
-  }, [selectedSeries?.path]);
+  }
 
   useEffect(() => {
     const controller = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Start the cancellable Sonarr request and expose its loading state.
     void refreshCompleteness(controller.signal);
     return () => controller.abort();
   }, [refreshCompleteness]);

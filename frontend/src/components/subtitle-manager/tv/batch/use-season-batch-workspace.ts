@@ -1,3 +1,4 @@
+import { useCommittedValue } from "@/hooks/use-committed-value";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from "react";
 
 import { useI18n } from "@/lib/i18n";
@@ -83,15 +84,16 @@ export function useSeasonBatchWorkspace({
     [selectedSeason, selectedSeries, seasonVideos, subhdQuery]
   );
 
-  useEffect(() => {
-    if (!subhdEnabled && sourceMode === "subhd") {
-      setSourceMode("local");
-    }
-  }, [sourceMode, subhdEnabled]);
+  if (!subhdEnabled && sourceMode === "subhd") {
+    setSourceMode("local");
+  }
 
-  useEffect(() => {
-    setSubhdQuery(buildDefaultSeasonQuery(selectedSeries, selectedSeason, seasonVideos));
-  }, [selectedSeries, selectedSeason, seasonVideos]);
+  const defaultQuery = buildDefaultSeasonQuery(selectedSeries, selectedSeason, seasonVideos);
+  const [previousDefaultQuery, setPreviousDefaultQuery] = useState(defaultQuery);
+  if (previousDefaultQuery !== defaultQuery) {
+    setPreviousDefaultQuery(defaultQuery);
+    setSubhdQuery(defaultQuery);
+  }
 
   useEffect(() => {
     autoSearchStartedRef.current = false;
@@ -107,62 +109,35 @@ export function useSeasonBatchWorkspace({
   const showBatchLanguageSelector = batchLanguageOptions.length > 1;
   const showBatchFormatSelector = batchFormatOptions.length > 1;
 
-  useEffect(() => {
-    if (batchLanguageOptions.length <= 1) {
-      if (batchLanguageOptions[0] && batchLanguagePreference !== batchLanguageOptions[0] && batchLanguagePreference !== "any") {
-        setBatchLanguagePreference(batchLanguageOptions[0]);
-      }
-      return;
-    }
+  const preferredLanguage = batchLanguageOptions.length <= 1
+    ? (batchLanguagePreference === "any" ? "any" : batchLanguageOptions[0] || batchLanguagePreference)
+    : (batchLanguagePreference !== "any" && batchLanguageOptions.includes(batchLanguagePreference) ? batchLanguagePreference : batchLanguageOptions[0]);
+  if (preferredLanguage !== batchLanguagePreference) setBatchLanguagePreference(preferredLanguage);
+  const normalizedFormat = normalizeSubtitleFormat(batchFormatPreference);
+  const preferredFormat = batchFormatOptions.length <= 1 ? "any"
+    : (batchFormatOptions.includes(normalizedFormat) ? normalizedFormat : batchFormatOptions[0]);
+  if (preferredFormat !== batchFormatPreference) setBatchFormatPreference(preferredFormat);
 
-    if (batchLanguagePreference === "any" || !batchLanguageOptions.includes(batchLanguagePreference)) {
-      setBatchLanguagePreference(batchLanguageOptions[0]);
-    }
-  }, [batchLanguageOptions, batchLanguagePreference]);
-
-  useEffect(() => {
-    if (batchFormatOptions.length <= 1) {
-      if (batchFormatPreference !== "any") {
-        setBatchFormatPreference("any");
-      }
-      return;
-    }
-
-    const normalized = normalizeSubtitleFormat(batchFormatPreference);
-    if (batchFormatPreference === "any" || !batchFormatOptions.includes(normalized)) {
-      setBatchFormatPreference(batchFormatOptions[0]);
-      return;
-    }
-
-    if (normalized !== batchFormatPreference) {
-      setBatchFormatPreference(normalized);
-    }
-  }, [batchFormatOptions, batchFormatPreference]);
-
-  useEffect(() => {
+  const generatedRows = useMemo(() => {
     if (batchCandidates.length === 0 || batchRawEntries.length === 0) {
-      setBatchRows([]);
-      return;
+      return [];
     }
 
     const defaultSeason = seasonNumber > 0 ? seasonNumber : 0;
 
     // SubHD prepare: trust server suggestedMappings (prefs already applied server-side).
     if (sourceMode === "subhd" && subhdCacheToken) {
-      setBatchRows(
-        buildSeasonBatchRowViews(
-          buildSeasonBatchRowsFromSubHDSuggestions(batchRawEntries, subhdSuggestions, defaultSeason),
-          batchCandidates
-        )
+      return buildSeasonBatchRowViews(
+        buildSeasonBatchRowsFromSubHDSuggestions(batchRawEntries, subhdSuggestions, defaultSeason),
+        batchCandidates
       );
-      return;
     }
 
     // Local upload: FE still owns preference filtering + S/E auto-map.
     const effectiveLanguagePreference = showBatchLanguageSelector ? batchLanguagePreference : "any";
     const effectiveFormatPreference = showBatchFormatSelector ? normalizeSubtitleFormat(batchFormatPreference) : "any";
     const preferred = applyBatchEntryPreferences(batchRawEntries, effectiveLanguagePreference, effectiveFormatPreference);
-    setBatchRows(buildSeasonBatchRowViews(buildSeasonBatchRows(batchCandidates, preferred.entries, defaultSeason), batchCandidates));
+    return buildSeasonBatchRowViews(buildSeasonBatchRows(batchCandidates, preferred.entries, defaultSeason), batchCandidates);
   }, [
     batchCandidates,
     batchRawEntries,
@@ -175,6 +150,13 @@ export function useSeasonBatchWorkspace({
     subhdSuggestions,
     seasonNumber
   ]);
+
+  // Preserve manual mappings until their actual inputs change, without an effect cascade.
+  const [previousGeneratedRows, setPreviousGeneratedRows] = useState(generatedRows);
+  if (previousGeneratedRows !== generatedRows) {
+    setPreviousGeneratedRows(generatedRows);
+    setBatchRows(generatedRows);
+  }
 
   const batchSummary = useMemo(() => summarizeSeasonBatchRows(batchRows), [batchRows]);
   const filteredBatchRows = useMemo(() => filterSeasonBatchRowViews(batchRows, batchFilter), [batchRows, batchFilter]);
@@ -370,8 +352,7 @@ export function useSeasonBatchWorkspace({
     }
   }
 
-  const searchSubHDSeasonRef = useRef(searchSubHDSeason);
-  searchSubHDSeasonRef.current = searchSubHDSeason;
+  const getSearchSubHDSeason = useCommittedValue(searchSubHDSeason);
   const selectedSeriesKey = selectedSeries?.key ?? "";
   const autoSearchQuery = useMemo(
     () => buildDefaultSeasonQuery(selectedSeries, selectedSeason, seasonVideos),
@@ -385,8 +366,8 @@ export function useSeasonBatchWorkspace({
     autoSearchStartedRef.current = true;
     setSourceMode("subhd");
     setSubhdQuery(autoSearchQuery);
-    void searchSubHDSeasonRef.current(autoSearchQuery);
-  }, [autoSearchOnMount, subhdEnabled, selectedSeriesKey, selectedSeason, autoSearchQuery]);
+    void getSearchSubHDSeason()(autoSearchQuery);
+  }, [autoSearchOnMount, subhdEnabled, selectedSeriesKey, selectedSeason, autoSearchQuery, getSearchSubHDSeason]);
 
   async function prepareSelectedSubHDPack() {
     if (!onPrepareSubHDSeason) {

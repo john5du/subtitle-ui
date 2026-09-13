@@ -215,6 +215,8 @@ const ManagementDialogs = memo(function ManagementDialogs({
     [dialogs]
   );
 
+  const { movieDetailsRef } = dialogs;
+
   return (
     <>
       <Dialog
@@ -223,7 +225,7 @@ const ManagementDialogs = memo(function ManagementDialogs({
       >
         <DialogDrawerContent size="md" className="p-0">
           <MovieSubtitleDrawer
-            ref={dialogs.movieDetailsRef}
+            ref={movieDetailsRef}
             selectedVideo={movie.selectedVideo}
             emptyText={movieEmptyText}
             onUpload={subtitleActions.uploadSubtitle}

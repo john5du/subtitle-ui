@@ -42,7 +42,8 @@ export function createSubtitleBatchActions(
       return [];
     }
 
-    return requestTvVideosForPath(targetDir);
+    const result = await requestTvVideosForPath(targetDir);
+    return result.status === "success" ? result.data : [];
   }
 
   async function removeSubtitlesBatch(items: BatchSubtitleDeleteItem[]): Promise<BatchSubtitleUploadResult> {

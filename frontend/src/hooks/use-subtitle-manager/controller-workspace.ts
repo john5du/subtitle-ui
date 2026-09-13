@@ -35,6 +35,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
   } = load;
 
   async function clearLogs() {
+    const resumeLogs = load.suspendLogs();
     beginLoadChannel("logs");
     try {
       await requestPayload<unknown>("/api/logs", { method: "DELETE" });
@@ -51,6 +52,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       reportRequestError("error.clearLogs", error);
       return false;
     } finally {
+      resumeLogs();
       endLoadChannel("logs");
     }
   }
@@ -61,7 +63,8 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
 
     try {
       if (tab === "dashboard") {
-        await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadVersionInfo()]);
+        const results = await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadVersionInfo()]);
+        if (results.some((result) => result.status !== "success")) return;
         setters.setLoadedTabs((prev) => ({ ...prev, dashboard: true }));
         return;
       }
@@ -70,8 +73,10 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
         if (!runtime.state.loadedTabs.tv) {
           const defaultDir = runtime.state.directoryScan.generatedAt
             ? runtime.state.selectedTvDirPath
-            : await loadDirectoryScanResult();
-          const seriesRows = await loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1 });
+            : await loadDirectoryScanResult().then((result) => result.status === "success" ? result.data : "");
+          const result = await loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1 });
+          if (result.status !== "success") return;
+          const seriesRows = result.data.items;
           const targetDir = resolveTvInitialPath({
             seriesRows,
             selectedPath: runtime.state.selectedTvDirPath,
@@ -91,7 +96,8 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
         return;
       }
 
-      await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1 });
+      const result = await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1 });
+      if (result.status !== "success") return;
       setters.setLoadedTabs((prev) => ({ ...prev, movie: true }));
     } finally {
       setters.setPending((prev) => ({ ...prev, tabSwitch: false }));
@@ -155,34 +161,42 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     }
   }
 
+  let refreshGeneration = 0;
+
   async function refreshActiveTab() {
-    setters.setPending((prev) => ({ ...prev, refreshTab: runtime.state.activeTab }));
+    const generation = ++refreshGeneration;
+    const tab = runtime.state.activeTab;
+    setters.setPending((prev) => ({ ...prev, refreshTab: tab }));
     try {
-      if (runtime.state.activeTab === "dashboard") {
-        await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadVersionInfo()]);
+      if (tab === "dashboard") {
+        const results = await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadVersionInfo()]);
+        if (results.some((result) => result.status !== "success")) return;
         notifySuccess(runtime.t("toast.dashboardRefreshedTitle"));
         return;
       }
 
-      if (runtime.state.activeTab === "tv") {
+      if (tab === "tv") {
         const targetDir =
           runtime.selectors.selectedTvSeries?.path ||
           runtime.state.selectedTvDirPath ||
           runtime.selectors.tvRootPath ||
           runtime.state.directoryScan.tvRoot ||
           "";
-        await Promise.all([
+        const results = await Promise.all([
           loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1, force: true }),
           refreshTvVideosForPath(targetDir)
         ]);
+        if (results.some((result) => result.status !== "success")) return;
         notifySuccess(runtime.t("toast.tvRefreshedTitle"));
         return;
       }
 
-      await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1, force: true });
-      notifySuccess(runtime.t("toast.movieRefreshedTitle"));
+      const result = await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1, force: true });
+      if (result.status === "success") notifySuccess(runtime.t("toast.movieRefreshedTitle"));
     } finally {
-      setters.setPending((prev) => ({ ...prev, refreshTab: null }));
+      if (generation === refreshGeneration) {
+        setters.setPending((prev) => ({ ...prev, refreshTab: null }));
+      }
     }
   }
 
@@ -207,7 +221,8 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     }
 
     setters.setSelectedTvDirPath(selectedPath);
-    return requestTvVideosForPath(selectedPath);
+    const result = await requestTvVideosForPath(selectedPath);
+    return result.status === "success" ? result.data : [];
   }
 
   function setMoviePage(nextPage: number) {

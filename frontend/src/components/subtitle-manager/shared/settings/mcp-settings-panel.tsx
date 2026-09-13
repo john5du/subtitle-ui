@@ -31,10 +31,12 @@ export function MCPSettingsPanel() {
   const endpoint = config?.endpoint || "/mcp";
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Hydrate the browser-only token after the static HTML has mounted.
     setToken(getAdminToken());
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Resolve the endpoint against the browser origin after hydration.
     setFullUrl(resolveMcpAbsoluteUrl(endpoint));
   }, [endpoint]);
 

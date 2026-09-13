@@ -1,5 +1,6 @@
 "use client";
 
+import { useCommittedValue } from "@/hooks/use-committed-value";
 import { useEffect, useRef } from "react";
 
 import { cn } from "@/lib/utils";
@@ -92,13 +93,10 @@ export function ArtPlayerHost({
   const artRef = useRef<ArtInstance | null>(null);
   const hlsRef = useRef<{ destroy: () => void } | null>(null);
   const generationRef = useRef(0);
-  const onErrorRef = useRef(onError);
-  const subtitleUrlRef = useRef(subtitleUrl);
-  const subtitleNameRef = useRef(subtitleName);
+  const getOnError = useCommittedValue(onError);
+  const getSubtitleUrl = useCommittedValue(subtitleUrl);
+  const getSubtitleName = useCommittedValue(subtitleName);
   const syncSubtitleRef = useRef<() => void>(() => {});
-  onErrorRef.current = onError;
-  subtitleUrlRef.current = subtitleUrl;
-  subtitleNameRef.current = subtitleName;
 
   useEffect(() => {
     if (!url || !containerRef.current) {
@@ -162,7 +160,7 @@ export function ArtPlayerHost({
                   hls.attachMedia(video);
                   hls.on(HlsCtor.Events.ERROR, (_event, data) => {
                     if (data?.fatal) {
-                      onErrorRef.current?.(
+                      getOnError()?.(
                         typeof data.type === "string"
                           ? `HLS error: ${data.type}`
                           : "HLS playback failed"
@@ -207,12 +205,12 @@ export function ArtPlayerHost({
         if (!mediaReady || generation !== generationRef.current) {
           return;
         }
-        const nextUrl = subtitleUrlRef.current;
+        const nextUrl = getSubtitleUrl();
         if (nextUrl === appliedSubtitleUrl) {
           return;
         }
         appliedSubtitleUrl = nextUrl;
-        applySubtitle(art, nextUrl, subtitleNameRef.current);
+        applySubtitle(art, nextUrl, getSubtitleName());
       }
       syncSubtitleRef.current = syncSubtitle;
 
@@ -317,7 +315,7 @@ export function ArtPlayerHost({
           message =
             "Browser cannot decode this stream (container/codec). If audio is missing, ensure Jellyfin can transcode audio to AAC for preview.";
         }
-        onErrorRef.current?.(message);
+        getOnError()?.(message);
       });
     })();
 
@@ -343,7 +341,7 @@ export function ArtPlayerHost({
         }
       }
     };
-  }, [url, streamKind, lang]);
+  }, [url, streamKind, lang, getOnError, getSubtitleUrl, getSubtitleName]);
 
   useEffect(() => {
     syncSubtitleRef.current();

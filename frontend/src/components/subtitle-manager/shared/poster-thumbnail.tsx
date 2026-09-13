@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { memo, useState } from "react";
 import Image from "next/image";
 import { Film } from "lucide-react";
 
@@ -32,9 +32,11 @@ export const PosterThumbnail = memo(function PosterThumbnail({
   const frameClassName = className ?? "h-[72px] w-[48px]";
   const resolvedImageClassName = imageClassName ?? "h-full w-full";
 
-  useEffect(() => {
+  const [previousSrc, setPreviousSrc] = useState(src);
+  if (previousSrc !== src) {
+    setPreviousSrc(src);
     setFailed(false);
-  }, [src]);
+  }
 
   if (!src || failed) {
     return <PosterPlaceholder className={frameClassName} />;

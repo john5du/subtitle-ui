@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useImperativeHandle, useRef, useState, type ChangeEvent, type Ref } from "react";
+import { useCallback, useImperativeHandle, useRef, useState, type ChangeEvent, type Ref } from "react";
 
 import { useI18n } from "@/lib/i18n";
 import { emitToast } from "@/lib/toast";
@@ -125,7 +125,9 @@ export function useSubtitleFileWorkflow({
     setPreviewTruncated(false);
   }
 
-  useEffect(() => {
+  const [previousVideoId, setPreviousVideoId] = useState(selectedVideo?.id);
+  if (previousVideoId !== selectedVideo?.id) {
+    setPreviousVideoId(selectedVideo?.id);
     resetUploadState();
     resetZipPickState();
     resetPreviewState();
@@ -135,7 +137,7 @@ export function useSubtitleFileWorkflow({
     setPendingOffsetSubtitle(null);
     setOffsetSeconds("");
     setPendingReplace(null);
-  }, [selectedVideo?.id]);
+  }
 
   function openUploadPicker() {
     if (busy || zipLoading) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { buildApiURL } from "@/lib/api";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
@@ -102,9 +102,12 @@ export function useVideoStreamUrl(videoId: string | null | undefined, enabled: b
     [videoId, enabled, clearRenewTimer]
   );
 
-  reloadRef.current = reload;
+  useLayoutEffect(() => {
+    reloadRef.current = reload;
+  }, [reload]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Start the cancellable stream-ticket request and expose its loading/idle state.
     void reload();
     return () => {
       requestIdRef.current += 1;

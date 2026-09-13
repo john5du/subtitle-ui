@@ -1,49 +1,30 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useState } from "react";
 
+import { useCommittedValue } from "@/hooks/use-committed-value";
 import { useI18n } from "@/lib/i18n";
-import type {
-  ActiveTab,
-  BatchSubtitleDeleteItem,
-  BatchSubtitleUploadItem,
-  SubHDDownloadOptions,
-  SubHDSeasonInstallOptions,
-  SubHDSeasonPrepareOptions,
-  Subtitle,
-  SubtitleReplaceOptions,
-  SubtitleSourceEncoding,
-  SubtitleUploadOptions,
-  Video
-} from "@/lib/types";
 import { formatTimeWithLocale, resolveLocalizedText } from "@/lib/subtitle-manager/messages";
 
 import { createSubtitleManagerController } from "./controller";
 import { useSubtitleManagerEffects } from "./effects";
 import { useSubtitleManagerSelectors } from "./selectors";
 import { useSubtitleManagerState } from "./state";
-import type { MovieSortBy, SubtitleManagerController, SubtitleManagerResult, TvSeriesSortBy } from "./types";
+import type { SubtitleManagerController, SubtitleManagerResult } from "./types";
 
 export function useSubtitleManager(): SubtitleManagerResult {
   const { locale, t } = useI18n();
   const stateApi = useSubtitleManagerState();
-  const { state, stateRef } = stateApi;
+  const { state, getState } = stateApi;
   const selectors = useSubtitleManagerSelectors({ state, t });
-  const selectorsRef = useRef(selectors);
-  selectorsRef.current = selectors;
-  const tRef = useRef(t);
-  tRef.current = t;
-
-  const controllerRef = useRef<SubtitleManagerController | null>(null);
-  if (!controllerRef.current) {
-    controllerRef.current = createSubtitleManagerController({
-      stateApi,
-      getState: () => stateRef.current,
-      getSelectors: () => selectorsRef.current,
-      getT: () => tRef.current
-    });
-  }
-  const controller = controllerRef.current;
+  const getSelectors = useCommittedValue(selectors);
+  const getT = useCommittedValue(t);
+  const [controller] = useState<SubtitleManagerController>(() => createSubtitleManagerController({
+    stateApi,
+    getState,
+    getSelectors,
+    getT
+  }));
 
   useSubtitleManagerEffects({
     stateApi,
@@ -53,92 +34,18 @@ export function useSubtitleManager(): SubtitleManagerResult {
 
   const uploadingMessage = useMemo(() => resolveLocalizedText(state.uploadingMessageState, t), [state.uploadingMessageState, t]);
   const formatTime = useCallback((value: string | undefined | null) => formatTimeWithLocale(locale, value), [locale]);
-  const setMovieQuery = useCallback((value: string) => controller.setMovieQuery(value), [controller]);
-  const setTvQuery = useCallback((value: string) => controller.setTvQuery(value), [controller]);
-  const selectMovieVideo = useCallback((video: Video) => controller.selectMovieVideo(video), [controller]);
-  const selectTvVideo = useCallback((video: Video) => controller.selectTvVideo(video), [controller]);
-  const setMoviePage = useCallback((nextPage: number) => controller.setMoviePage(nextPage), [controller]);
-  const setMoviePageSize = useCallback((pageSize: number) => controller.setMoviePageSize(pageSize), [controller]);
-  const setTvPage = useCallback((nextPage: number) => controller.setTvPage(nextPage), [controller]);
-  const setTvPageSize = useCallback((pageSize: number) => controller.setTvPageSize(pageSize), [controller]);
-  const setLogsPage = useCallback((nextPage: number) => controller.setLogsPage(nextPage), [controller]);
-  const setLogsDialogOpen = useCallback((open: boolean) => controller.setLogsDialogOpen(open), [controller]);
-  const refreshLogs = useCallback((page = 1) => controller.loadLogs({ page }), [controller]);
-  const setMovieSortBy = useCallback((value: MovieSortBy) => controller.setMovieSortBy(value), [controller]);
-  const toggleMovieSortOrder = useCallback(() => controller.toggleMovieSortOrder(), [controller]);
-  const setTvSeriesSortBy = useCallback((value: TvSeriesSortBy) => controller.setTvSeriesSortBy(value), [controller]);
-  const toggleTvSeriesSortOrder = useCallback(() => controller.toggleTvSeriesSortOrder(), [controller]);
-  const loadMovieWorkspace = useCallback(() => controller.loadMovieWorkspace(), [controller]);
-  const loadTvWorkspace = useCallback((seriesPath?: string) => controller.loadTvWorkspace(seriesPath), [controller]);
-  const selectTvDirectory = useCallback((path: string) => controller.selectTvDirectory(path), [controller]);
-  const setSelectedTvSeason = useCallback((value: string) => controller.setSelectedTvSeason(value), [controller]);
-  const loadTvBatchCandidates = useCallback(() => controller.loadTvBatchCandidates(), [controller]);
-  const switchTab = useCallback((tab: ActiveTab) => controller.switchTab(tab), [controller]);
-  const triggerScan = useCallback(() => controller.triggerScan(), [controller]);
-  const refreshActiveTab = useCallback(() => controller.refreshActiveTab(), [controller]);
-  const clearLogs = useCallback(() => controller.clearLogs(), [controller]);
-  const uploadSubtitle = useCallback(
-    (video: Video, file: File, label: string, options?: SubtitleUploadOptions) => controller.uploadSubtitle(video, file, label, options),
-    [controller]
-  );
-  const replaceSubtitle = useCallback(
-    (video: Video, subtitle: Subtitle, file: File, options?: SubtitleReplaceOptions) =>
-      controller.replaceSubtitle(video, subtitle, file, options),
-    [controller]
-  );
-  const convertSubtitleToAss = useCallback(
-    (video: Video, subtitle: Subtitle, sourceEncoding?: SubtitleSourceEncoding) =>
-      controller.convertSubtitleToAss(video, subtitle, sourceEncoding),
-    [controller]
-  );
-  const offsetSubtitleTiming = useCallback(
-    (video: Video, subtitle: Subtitle, offsetMs: number) => controller.offsetSubtitleTiming(video, subtitle, offsetMs),
-    [controller]
-  );
-  const removeSubtitle = useCallback(
-    (video: Video, subtitle: Subtitle) => controller.removeSubtitle(video, subtitle),
-    [controller]
-  );
-  const removeSubtitlesBatch = useCallback(
-    (items: BatchSubtitleDeleteItem[]) => controller.removeSubtitlesBatch(items),
-    [controller]
-  );
-  const previewSubtitle = useCallback(
-    (video: Video, subtitle: Subtitle) => controller.previewSubtitle(video, subtitle),
-    [controller]
-  );
-  const searchSubHDSubtitles = useCallback(
-    (video: Video, opts?: { query?: string; page?: number }) => controller.searchSubHDSubtitles(video, opts),
-    [controller]
-  );
-  const searchSubHDSeasonPacks = useCallback(
-    (video: Video, opts?: { query?: string; season?: number }) => controller.searchSubHDSeasonPacks(video, opts),
-    [controller]
-  );
-  const downloadSubHDSubtitle = useCallback(
-    (video: Video, sid: string, options?: SubHDDownloadOptions) => controller.downloadSubHDSubtitle(video, sid, options),
-    [controller]
-  );
-  const uploadBatchSubtitles = useCallback(
-    (items: BatchSubtitleUploadItem[]) => controller.uploadBatchSubtitles(items),
-    [controller]
-  );
-  const prepareSubHDSeasonPack = useCallback(
-    (options: SubHDSeasonPrepareOptions) => controller.prepareSubHDSeasonPack(options),
-    [controller]
-  );
-  const installSubHDSeasonPack = useCallback(
-    (options: SubHDSeasonInstallOptions) => controller.installSubHDSeasonPack(options),
-    [controller]
-  );
-  const refreshVideoAfterMutation = useCallback(
-    (video: Video) => controller.refreshVideoAfterMutation(video),
-    [controller]
-  );
-  const refreshSeriesVideos = useCallback(
-    (seriesPath: string) => controller.refreshSeriesVideos(seriesPath),
-    [controller]
-  );
+  // Controller methods are stable for the lifetime of this manager; forward them directly.
+  const {
+    setMovieQuery, setTvQuery, selectMovieVideo, selectTvVideo, setMoviePage, setMoviePageSize,
+    setTvPage, setTvPageSize, setLogsPage, setLogsDialogOpen, setMovieSortBy, toggleMovieSortOrder,
+    setTvSeriesSortBy, toggleTvSeriesSortOrder, loadMovieWorkspace, loadTvWorkspace,
+    selectTvDirectory, setSelectedTvSeason, loadTvBatchCandidates, switchTab, triggerScan,
+    refreshActiveTab, clearLogs, uploadSubtitle, replaceSubtitle, convertSubtitleToAss,
+    offsetSubtitleTiming, removeSubtitle, removeSubtitlesBatch, previewSubtitle,
+    searchSubHDSubtitles, searchSubHDSeasonPacks, downloadSubHDSubtitle, uploadBatchSubtitles,
+    prepareSubHDSeasonPack, installSubHDSeasonPack, refreshVideoAfterMutation, refreshSeriesVideos
+  } = controller;
+  const refreshLogs = useCallback(async (page = 1) => { await controller.loadLogs({ page }); }, [controller]);
 
   return {
     core: {

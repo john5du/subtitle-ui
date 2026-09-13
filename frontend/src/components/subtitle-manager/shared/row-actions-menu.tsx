@@ -25,7 +25,6 @@ export function RowActionsMenu({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [withinDialog, setWithinDialog] = useState(false);
   const [resolvedDirection, setResolvedDirection] = useState<"up" | "down">(menuDirection);
   const [menuMaxHeight, setMenuMaxHeight] = useState(240);
@@ -38,10 +37,6 @@ export function RowActionsMenu({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -73,11 +68,9 @@ export function RowActionsMenu({
     };
   }, [open]);
 
-  useEffect(() => {
-    if (disabled && open) {
-      setOpen(false);
-    }
-  }, [disabled, open]);
+  if (disabled && open) {
+    setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) {
@@ -270,7 +263,7 @@ export function RowActionsMenu({
         {triggerIcon ?? <MoreHorizontal className="h-4 w-4" />}
       </Button>
       {inlineMenu}
-      {mounted && portalMenu ? createPortal(portalMenu, document.body) : null}
+      {portalMenu ? createPortal(portalMenu, document.body) : null}
     </div>
   );
 }

@@ -79,6 +79,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const storedTheme = readStoredTheme();
     const resolved = resolveTheme(storedTheme);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Hydrate persisted theme and OS preference after the static HTML has mounted.
     setThemeState(storedTheme);
     setResolvedTheme(resolved);
     applyResolvedTheme(resolved);

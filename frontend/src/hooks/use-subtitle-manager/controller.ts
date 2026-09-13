@@ -30,6 +30,7 @@ export function createSubtitleManagerController({
   const subtitles = createSubtitleActions(runtime, load);
 
   return {
+    cancelLoads: () => { load.cancelMovieLoads(); load.cancelTvLoads(); load.cancelMiscLoads(); },
     finishBootstrapping: runtime.finishBootstrapping,
     loadVersionInfo: load.loadVersionInfo,
     loadScanStatus: load.loadScanStatus,

@@ -5,10 +5,13 @@ import { normalizeForCompare } from "@/lib/subtitle-manager/path-utils";
 
 import { DEFAULT_PAGE_SIZE } from "./state";
 import { buildRequestSignature, type ControllerRuntime } from "./controller-runtime";
-import { isAbortError } from "./load-utils";
+import { createLatestLoad, loaded } from "./latest-load";
 
 export function createTvLoadActions(runtime: ControllerRuntime) {
-  const { setters, refs, beginLoadChannel, endLoadChannel, reportRequestError } = runtime;
+  const { setters, beginLoadChannel, endLoadChannel, reportRequestError } = runtime;
+
+  const seriesRequests = createLatestLoad<ReturnType<typeof normalizeTvSeriesPage>>();
+  const episodeRequests = createLatestLoad<Video[]>();
 
   async function loadTvSeriesPage(options: { page?: number; pageSize?: number; force?: boolean; quiet?: boolean } = {}) {
     const state = runtime.state;
@@ -18,27 +21,14 @@ export function createTvLoadActions(runtime: ControllerRuntime) {
     const signature = buildRequestSignature(["tv-series", page, pageSize, state.tvSeriesSortBy, state.tvSeriesSortOrder, query.trim()]);
     const quiet = Boolean(options.quiet) && state.tvSeriesRows.length > 0;
 
-    if (!options.force && refs.loadedTvSeriesSignatureRef.current === signature) {
-      return state.tvSeriesRows;
-    }
-
-    const pendingRequest = refs.pendingTvSeriesRequestRef.current;
-    if (pendingRequest && pendingRequest.signature === signature) {
-      return pendingRequest.promise;
-    }
-
-    if (pendingRequest) {
-      pendingRequest.controller.abort();
-    }
-
-    refs.requestedTvSeriesSignatureRef.current = signature;
-    const controller = new AbortController();
-
-    const promise = (async () => {
-      if (!quiet) {
-        beginLoadChannel("tvSeriesList");
-      }
-      try {
+    return seriesRequests.run({
+      key: signature,
+      force: options.force,
+      cached: () => ({ items: runtime.state.tvSeriesRows, ...runtime.state.tvSeriesPager }),
+      onStart: () => { if (!quiet) beginLoadChannel("tvSeriesList"); },
+      onEnd: () => { if (!quiet) endLoadChannel("tvSeriesList"); },
+      onError: (error) => reportRequestError("error.loadTvSeries", error),
+      fetch: async (signal) => {
         const params = new URLSearchParams();
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
@@ -48,12 +38,10 @@ export function createTvLoadActions(runtime: ControllerRuntime) {
           params.set("q", query.trim());
         }
 
-        const payload = await requestPayload<unknown>(`/api/tv/series?${params.toString()}`, { signal: controller.signal });
-        if (refs.requestedTvSeriesSignatureRef.current !== signature) {
-          return [];
-        }
-
-        const pageData = normalizeTvSeriesPage(payload, page, pageSize);
+        const payload = await requestPayload<unknown>(`/api/tv/series?${params.toString()}`, { signal });
+        return normalizeTvSeriesPage(payload, page, pageSize);
+      },
+      commit: (pageData) => {
         setters.setTvSeriesRows(pageData.items);
         setters.setTvSeriesPager({
           page: pageData.page,
@@ -61,28 +49,8 @@ export function createTvLoadActions(runtime: ControllerRuntime) {
           total: pageData.total,
           totalPages: pageData.totalPages
         });
-        refs.loadedTvSeriesSignatureRef.current = signature;
-        return pageData.items;
-      } catch (error) {
-        if (isAbortError(error)) {
-          return [];
-        }
-        if (refs.requestedTvSeriesSignatureRef.current === signature) {
-          reportRequestError("error.loadTvSeries", error);
-        }
-        return [];
-      } finally {
-        if (refs.pendingTvSeriesRequestRef.current?.signature === signature) {
-          refs.pendingTvSeriesRequestRef.current = null;
-        }
-        if (!quiet) {
-          endLoadChannel("tvSeriesList");
-        }
       }
-    })();
-
-    refs.pendingTvSeriesRequestRef.current = { signature, promise, controller };
-    return promise;
+    });
   }
 
   async function listAllTvVideos(directoryPath = "", signal?: AbortSignal) {
@@ -115,78 +83,34 @@ export function createTvLoadActions(runtime: ControllerRuntime) {
     return videos;
   }
 
-  async function loadTvEpisodesForSeries(seriesPath: string, signal?: AbortSignal) {
+  async function requestTvVideosForPath(seriesPath: string, options: { force?: boolean } = {}) {
     const directory = seriesPath.trim();
+    setters.setTvVideosRequestedPath(directory);
     if (!directory) {
+      episodeRequests.invalidate();
       setters.setTvEpisodes([]);
       setters.setTvEpisodesPath("");
-      refs.pendingTvEpisodesPathRef.current = "";
       setters.setSelectedVideoIdByType((prev) => ({ ...prev, tv: "" }));
-      return [];
+      return loaded<Video[]>([]);
     }
 
-    refs.pendingTvEpisodesPathRef.current = directory;
-    beginLoadChannel("tvEpisodes");
-    try {
-      const videos = await listAllTvVideos(directory, signal);
-      if (signal?.aborted) {
-        throw new DOMException("Aborted", "AbortError");
-      }
-      setters.setTvEpisodes(videos);
-      setters.setTvEpisodesPath(directory);
-      setters.setSelectedVideoIdByType((prev) => ({
-        ...prev,
-        tv: videos.some((video) => video.id === prev.tv) ? prev.tv : videos.length > 0 ? videos[0].id : ""
-      }));
-      return videos;
-    } catch (error) {
-      if (isAbortError(error)) {
-        return [];
-      }
-      reportRequestError("error.loadTvEpisodes", error);
-      return [];
-    } finally {
-      if (normalizeForCompare(refs.pendingTvEpisodesPathRef.current) === normalizeForCompare(directory)) {
-        refs.pendingTvEpisodesPathRef.current = "";
-      }
-      endLoadChannel("tvEpisodes");
-    }
-  }
-
-  async function requestTvVideosForPath(seriesPath: string, options: { force?: boolean } = {}) {
-    const state = runtime.state;
-    const directory = seriesPath.trim();
-    if (!directory) {
-      setters.setTvVideosRequestedPath("");
-      return [];
-    }
-
-    setters.setTvVideosRequestedPath(directory);
-
-    const targetNorm = normalizeForCompare(directory);
-    const loadedNorm = normalizeForCompare(state.tvEpisodesPath);
-    if (!options.force && targetNorm && targetNorm === loadedNorm) {
-      return state.tvEpisodes;
-    }
-
-    const pendingRequest = refs.pendingTvEpisodesRequestRef.current;
-    if (pendingRequest && normalizeForCompare(pendingRequest.path) === targetNorm) {
-      return pendingRequest.promise;
-    }
-
-    if (pendingRequest) {
-      pendingRequest.controller.abort();
-    }
-
-    const controller = new AbortController();
-    const promise = loadTvEpisodesForSeries(directory, controller.signal).finally(() => {
-      const current = refs.pendingTvEpisodesRequestRef.current;
-      if (current && normalizeForCompare(current.path) === targetNorm) {
-        refs.pendingTvEpisodesRequestRef.current = null;
+    return episodeRequests.run({
+      key: normalizeForCompare(directory),
+      force: options.force,
+      cached: () => runtime.state.tvEpisodes,
+      onStart: () => beginLoadChannel("tvEpisodes"),
+      onEnd: () => endLoadChannel("tvEpisodes"),
+      onError: (error) => reportRequestError("error.loadTvEpisodes", error),
+      fetch: (signal) => listAllTvVideos(directory, signal),
+      commit: (videos) => {
+        setters.setTvEpisodes(videos);
+        setters.setTvEpisodesPath(directory);
+        setters.setSelectedVideoIdByType((prev) => ({
+          ...prev,
+          tv: videos.some((video) => video.id === prev.tv) ? prev.tv : videos[0]?.id || ""
+        }));
       }
     });
-    refs.pendingTvEpisodesRequestRef.current = { path: directory, promise, controller };
-    return promise;
   }
 
   function shouldRefreshTvVideosForPath(seriesPath: string) {
@@ -204,7 +128,7 @@ export function createTvLoadActions(runtime: ControllerRuntime) {
   async function refreshTvVideosForPath(seriesPath: string) {
     const directory = seriesPath.trim();
     if (!directory || !shouldRefreshTvVideosForPath(directory)) {
-      return [];
+      return loaded<Video[]>([]);
     }
 
     return requestTvVideosForPath(directory, { force: true });
@@ -213,9 +137,9 @@ export function createTvLoadActions(runtime: ControllerRuntime) {
   return {
     loadTvSeriesPage,
     listAllTvVideos,
-    loadTvEpisodesForSeries,
     requestTvVideosForPath,
     shouldRefreshTvVideosForPath,
-    refreshTvVideosForPath
+    refreshTvVideosForPath,
+    cancelTvLoads: () => { seriesRequests.invalidate(); episodeRequests.invalidate(); }
   };
 }

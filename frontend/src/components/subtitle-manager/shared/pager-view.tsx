@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type KeyboardEvent } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -21,9 +21,11 @@ export function PagerView({
   const [jumpDraft, setJumpDraft] = useState(String(pager.page));
   const jumpInputId = useId();
 
-  useEffect(() => {
+  const [previousPage, setPreviousPage] = useState(pager.page);
+  if (previousPage !== pager.page) {
+    setPreviousPage(pager.page);
     setJumpDraft(String(pager.page));
-  }, [pager.page]);
+  }
 
   if (totalPages <= 1 && pager.total <= 0) {
     return null;

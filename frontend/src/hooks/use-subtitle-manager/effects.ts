@@ -17,9 +17,7 @@ export function useSubtitleManagerEffects({
   selectors,
   controller
 }: UseSubtitleManagerEffectsParams) {
-  const { state, setters, refs } = stateApi;
-  const controllerRef = useRef(controller);
-  controllerRef.current = controller;
+  const { state, setters } = stateApi;
 
   const {
     setSelectedTvDirPath,
@@ -100,56 +98,45 @@ export function useSubtitleManagerEffects({
     });
   }, [selectors.sortedTvVideos, setSelectedVideoIdByType]);
 
-  useEffect(() => {
-    if (refs.skipMovieQueryRef.current) {
-      refs.skipMovieQueryRef.current = false;
-      return;
-    }
-
-    void controllerRef.current.loadMovieVideos({ page: 1 });
-  }, [refs.skipMovieQueryRef, state.queryByType.movie]);
+  const movieQueryKey = JSON.stringify([state.queryByType.movie, state.movieSortBy, state.movieSortOrder]);
+  const tvQueryKey = JSON.stringify([state.queryByType.tv, state.tvSeriesSortBy, state.tvSeriesSortOrder]);
+  const previousMovieQuery = useRef(movieQueryKey);
+  const previousTvQuery = useRef(tvQueryKey);
 
   useEffect(() => {
-    if (refs.skipTvQueryRef.current) {
-      refs.skipTvQueryRef.current = false;
-      return;
-    }
-
-    void controllerRef.current.loadTvSeriesPage({ page: 1 });
-  }, [refs.skipTvQueryRef, state.queryByType.tv]);
+    if (previousMovieQuery.current === movieQueryKey) return;
+    previousMovieQuery.current = movieQueryKey;
+    void controller.loadMovieVideos({ page: 1 });
+  }, [controller, movieQueryKey]);
 
   useEffect(() => {
-    if (refs.skipMovieSortRef.current) {
-      refs.skipMovieSortRef.current = false;
-      return;
-    }
-
-    void controllerRef.current.loadMovieVideos({ page: 1 });
-  }, [refs.skipMovieSortRef, state.movieSortBy, state.movieSortOrder]);
+    if (previousTvQuery.current === tvQueryKey) return;
+    previousTvQuery.current = tvQueryKey;
+    void controller.loadTvSeriesPage({ page: 1 });
+  }, [controller, tvQueryKey]);
 
   useEffect(() => {
-    if (refs.skipTvSortRef.current) {
-      refs.skipTvSortRef.current = false;
-      return;
-    }
-
-    void controllerRef.current.loadTvSeriesPage({ page: 1 });
-  }, [refs.skipTvSortRef, state.tvSeriesSortBy, state.tvSeriesSortOrder]);
-
-  useEffect(() => {
+    let active = true;
     void (async () => {
       try {
-        await Promise.all([
-          controllerRef.current.loadScanStatus(),
-          controllerRef.current.loadDirectoryScanResult(),
-          controllerRef.current.loadVersionInfo()
+        const results = await Promise.all([
+          controller.loadScanStatus(),
+          controller.loadDirectoryScanResult(),
+          controller.loadVersionInfo()
         ]);
-        setLoadedTabs((prev) => ({ ...prev, dashboard: true }));
-        await controllerRef.current.loadTvSeriesPage({ page: 1 });
-        setLoadedTabs((prev) => ({ ...prev, tv: true }));
+        if (!active) return;
+        if (results.every((result) => result.status === "success")) {
+          setLoadedTabs((prev) => ({ ...prev, dashboard: true }));
+        }
+        const tvResult = await controller.loadTvSeriesPage({ page: 1 });
+        if (active && tvResult.status === "success") setLoadedTabs((prev) => ({ ...prev, tv: true }));
       } finally {
-        controllerRef.current.finishBootstrapping();
+        if (active) controller.finishBootstrapping();
       }
     })();
-  }, [setLoadedTabs]);
+    return () => {
+      active = false;
+      controller.cancelLoads();
+    };
+  }, [controller, setLoadedTabs]);
 }

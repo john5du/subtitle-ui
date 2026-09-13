@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
@@ -105,7 +105,7 @@ export function TvSubtitleDrawer({
   onRefreshSeriesVideos
 }: TvSubtitleDrawerProps) {
   const { t, locale } = useI18n();
-  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const batchDialogOpen = drawerMode === "batch" && Boolean(selectedSeries);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const selectedSeriesTitle = tvSeriesDisplayTitleParts(selectedSeries, locale);
   const selectedSeriesPrimaryTitle = selectedSeriesTitle.title || selectedSeries?.path || "";
@@ -116,14 +116,7 @@ export function TvSubtitleDrawer({
     : "";
   const seasonLabel = seasonOptions.find((option) => option.value === selectedSeason)?.label || selectedSeason;
 
-  useEffect(() => {
-    if (drawerMode === "batch" && selectedSeries) {
-      setBatchDialogOpen(true);
-    }
-  }, [drawerMode, selectedSeries]);
-
   function openSeasonBatch() {
-    setBatchDialogOpen(true);
     onModeChange("batch");
   }
 
@@ -132,10 +125,7 @@ export function TvSubtitleDrawer({
   }
 
   function handleBatchDialogOpenChange(open: boolean) {
-    setBatchDialogOpen(open);
-    if (!open) {
-      onModeChange("manage");
-    }
+    onModeChange(open ? "batch" : "manage");
   }
 
   return (

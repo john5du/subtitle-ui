@@ -82,80 +82,65 @@ export function useSubtitleManagerScreenModel() {
     ],
     [t]
   );
+  const movieSelectVideo = movie.selectVideo;
+  const movieLoadWorkspace = movie.loadWorkspace;
+  const tvSelectSeries = tv.selectSeries;
+  const tvLoadWorkspace = tv.loadWorkspace;
+  const selectedTvSeries = tv.selectedSeries;
   const selectedMovie = movie.selectedVideo;
   const selectedTvVideo = tv.selectedVideo;
   const showTvScanPrompt = tv.showScanPrompt;
-  const selectedMovieRef = useRef(selectedMovie);
-  const selectedTvSeriesRef = useRef(tv.selectedSeries);
-  const movieSelectVideoRef = useRef(movie.selectVideo);
-  const movieLoadWorkspaceRef = useRef(movie.loadWorkspace);
-  const tvSelectVideoRef = useRef(tv.selectVideo);
-  const tvSelectSeriesRef = useRef(tv.selectSeries);
-  const tvLoadWorkspaceRef = useRef(tv.loadWorkspace);
-  selectedMovieRef.current = selectedMovie;
-  selectedTvSeriesRef.current = tv.selectedSeries;
-  movieSelectVideoRef.current = movie.selectVideo;
-  movieLoadWorkspaceRef.current = movie.loadWorkspace;
-  tvSelectVideoRef.current = tv.selectVideo;
-  tvSelectSeriesRef.current = tv.selectSeries;
-  tvLoadWorkspaceRef.current = tv.loadWorkspace;
-
-  const handleMovieSelect = useCallback((video: Video) => {
-    movieSelectVideoRef.current(video);
-  }, []);
-
-  const handleTvSelect = useCallback((video: Video) => {
-    tvSelectVideoRef.current(video);
-  }, []);
+  const handleMovieSelect = movie.selectVideo;
+  const handleTvSelect = tv.selectVideo;
 
   const openMovieUploadPicker = useCallback((video?: Video) => {
-    const targetVideo = video || selectedMovieRef.current;
+    const targetVideo = video || selectedMovie;
     if (!targetVideo) return;
-    movieSelectVideoRef.current(targetVideo);
+    movieSelectVideo(targetVideo);
     setPendingMovieUploadPick(true);
     setMovieManagerOpen(true);
-    void movieLoadWorkspaceRef.current();
-  }, []);
+    void movieLoadWorkspace();
+  }, [movieSelectVideo, movieLoadWorkspace, selectedMovie]);
 
   const openMovieManager = useCallback((video?: Video) => {
-    const targetVideo = video || selectedMovieRef.current;
+    const targetVideo = video || selectedMovie;
     if (!targetVideo) return;
-    movieSelectVideoRef.current(targetVideo);
+    movieSelectVideo(targetVideo);
     setMovieManagerOpen(true);
-    void movieLoadWorkspaceRef.current();
-  }, []);
+    void movieLoadWorkspace();
+  }, [movieSelectVideo, movieLoadWorkspace, selectedMovie]);
 
   const openTvManager = useCallback(() => {
-    const targetSeries = selectedTvSeriesRef.current;
+    const targetSeries = selectedTvSeries;
     if (!targetSeries) return;
-    tvSelectSeriesRef.current(targetSeries.path);
+    tvSelectSeries(targetSeries.path);
     setTvDrawerMode("manage");
     setTvDrawerOpen(true);
-    void tvLoadWorkspaceRef.current(targetSeries.path);
-  }, []);
+    void tvLoadWorkspace(targetSeries.path);
+  }, [selectedTvSeries, tvSelectSeries, tvLoadWorkspace]);
 
   const openTvManagerForSeries = useCallback((path: string) => {
-    tvSelectSeriesRef.current(path);
+    tvSelectSeries(path);
     setTvDrawerMode("manage");
     setTvDrawerOpen(true);
-    void tvLoadWorkspaceRef.current(path);
-  }, []);
+    void tvLoadWorkspace(path);
+  }, [tvSelectSeries, tvLoadWorkspace]);
 
   const openTvBatchDialog = useCallback(() => {
-    const targetSeries = selectedTvSeriesRef.current;
+    const targetSeries = selectedTvSeries;
     if (!targetSeries) return;
-    tvSelectSeriesRef.current(targetSeries.path);
+    tvSelectSeries(targetSeries.path);
     setTvDrawerMode("batch");
     setTvDrawerOpen(true);
-    void tvLoadWorkspaceRef.current(targetSeries.path);
-  }, []);
+    void tvLoadWorkspace(targetSeries.path);
+  }, [selectedTvSeries, tvSelectSeries, tvLoadWorkspace]);
 
   const openTvBatchDialogForSeries = useCallback((path: string) => {
-    tvSelectSeriesRef.current(path);
+    tvSelectSeries(path);
     setTvDrawerMode("batch");
     setTvDrawerOpen(true);
-    void tvLoadWorkspaceRef.current(path);
-  }, []);
+    void tvLoadWorkspace(path);
+  }, [tvSelectSeries, tvLoadWorkspace]);
 
   const toggleSidebarCollapsed = useCallback(() => {
     setSidebarCollapsed((current) => !current);

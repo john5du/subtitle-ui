@@ -1,5 +1,6 @@
 "use client";
 
+import { useCommittedValue } from "@/hooks/use-committed-value";
 import { useEffect, useRef, useState } from "react";
 
 import { cardGridColumnsFromWidth } from "./card-grid";
@@ -9,14 +10,14 @@ const RESIZE_DEBOUNCE_MS = 150;
 export function useCardGridColumns(enabled: boolean, onColumnsChange?: (columns: number) => void) {
   const measureRef = useRef<HTMLDivElement | null>(null);
   const [columns, setColumns] = useState(0);
-  const onColumnsChangeRef = useRef(onColumnsChange);
+  const getOnColumnsChange = useCommittedValue(onColumnsChange);
   const lastColumnsRef = useRef(0);
-  onColumnsChangeRef.current = onColumnsChange;
+
+  if (!enabled && columns !== 0) setColumns(0);
 
   useEffect(() => {
     if (!enabled) {
       lastColumnsRef.current = 0;
-      setColumns(0);
       return;
     }
 
@@ -34,7 +35,7 @@ export function useCardGridColumns(enabled: boolean, onColumnsChange?: (columns:
       }
       lastColumnsRef.current = next;
       setColumns(next);
-      onColumnsChangeRef.current?.(next);
+      getOnColumnsChange()?.(next);
     };
 
     const observer = new ResizeObserver((entries) => {
@@ -44,13 +45,13 @@ export function useCardGridColumns(enabled: boolean, onColumnsChange?: (columns:
     });
 
     observer.observe(el);
-    publish(el.clientWidth);
+    // ResizeObserver delivers the initial measurement as well as subsequent changes.
 
     return () => {
       window.clearTimeout(timer);
       observer.disconnect();
     };
-  }, [enabled]);
+  }, [enabled, getOnColumnsChange]);
 
   return { measureRef, columns };
 }
