@@ -45,7 +45,7 @@ export function useCardGridColumns(enabled: boolean, onColumnsChange?: (columns:
     });
 
     observer.observe(el);
-    // ResizeObserver delivers the initial measurement as well as subsequent changes.
+    publish(el.clientWidth);
 
     return () => {
       window.clearTimeout(timer);

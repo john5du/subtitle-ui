@@ -188,6 +188,17 @@ describe("logs and refresh outcomes", () => {
     expect(h.successes).toHaveLength(1);
   });
 
+  test("a superseded dashboard refresh stays silent even when requests coalesce", async () => {
+    const h = harness(); const requests = deferredFetch(); h.setters.setActiveTab("dashboard");
+    const first = h.workspace.refreshActiveTab();
+    const second = h.workspace.refreshActiveTab();
+    expect(requests).toHaveLength(3);
+    requests.forEach((request) => request.reply(page("fresh")));
+    await Promise.all([first, second]);
+    expect(h.successes).toHaveLength(1);
+    expect(h.state.pending.refreshTab).toBeNull();
+  });
+
   test("loads can restart after effect cleanup while the cancelled response is still pending", async () => {
     const h = harness(); const requests = deferredFetch();
     const first = h.load.loadTvSeriesPage(); h.load.cancelTvLoads();

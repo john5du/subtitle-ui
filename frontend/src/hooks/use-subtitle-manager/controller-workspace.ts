@@ -170,6 +170,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     try {
       if (tab === "dashboard") {
         const results = await Promise.all([loadScanStatus(), loadDirectoryScanResult(), loadVersionInfo()]);
+        if (generation !== refreshGeneration) return;
         if (results.some((result) => result.status !== "success")) return;
         notifySuccess(runtime.t("toast.dashboardRefreshedTitle"));
         return;
@@ -186,12 +187,14 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
           loadTvSeriesPage({ page: runtime.state.tvSeriesPager.page || 1, force: true }),
           refreshTvVideosForPath(targetDir)
         ]);
+        if (generation !== refreshGeneration) return;
         if (results.some((result) => result.status !== "success")) return;
         notifySuccess(runtime.t("toast.tvRefreshedTitle"));
         return;
       }
 
       const result = await loadMovieVideos({ page: runtime.selectors.moviePager.page || 1, force: true });
+      if (generation !== refreshGeneration) return;
       if (result.status === "success") notifySuccess(runtime.t("toast.movieRefreshedTitle"));
     } finally {
       if (generation === refreshGeneration) {
