@@ -118,7 +118,7 @@ const DialogDrawerContent = React.forwardRef<
       data-dialog-content="true"
       data-dialog-drawer-size={size}
       className={cn(
-        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden border-l border-border bg-popover text-popover-foreground shadow-[var(--shadow-dialog)] data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right",
+        "fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-screen max-w-none flex-col isolate overflow-hidden contain-paint border-l border-border bg-popover text-popover-foreground shadow-[var(--shadow-dialog)] data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right",
         dialogDrawerSizeClassName[size],
         className
       )}

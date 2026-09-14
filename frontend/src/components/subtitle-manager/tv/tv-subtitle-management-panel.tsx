@@ -496,7 +496,7 @@ export function TvSubtitleManagementPanel({
       <>
         <div className={cn("tv-workspace flex h-full w-full min-h-0 flex-col overflow-hidden", className)}>
           <div className="tv-workspace-wide min-h-0 flex-1 overflow-hidden">
-            <div className="min-h-0 w-[260px] shrink-0 overflow-hidden border-r border-border">{episodesPane}</div>
+            <div className="flex h-full min-h-0 w-[260px] shrink-0 flex-col overflow-hidden border-r border-border">{episodesPane}</div>
             <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{subtitlesPane}</div>
           </div>
 
