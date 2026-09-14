@@ -46,9 +46,20 @@ type Config struct {
 	// MCPEnabled is the env bootstrap for Streamable MCP at /mcp (Bearer ADMIN_TOKEN).
 	// Default false; DB setting mcp.enabled overrides at runtime (settings UI).
 	MCPEnabled bool
+	// ScanAutoEnabled is the env bootstrap for interval full-library incremental scans.
+	// Default true; DB setting scan.auto_enabled overrides at runtime (settings UI).
+	ScanAutoEnabled bool
+	// ScanInterval is how long to wait between automatic full-library scans (default 1h).
+	ScanInterval time.Duration
 	// LegacyMediaRoot is true when only deprecated MEDIA_ROOT was used to set both roots.
 	LegacyMediaRoot bool
 }
+
+const (
+	DefaultScanInterval = time.Hour
+	MinScanInterval     = time.Minute
+	MaxScanInterval     = 168 * time.Hour
+)
 
 // IsProduction reports whether APP_ENV/ENV is production (or prod).
 // Used to refuse insecure defaults such as the default admin token.
@@ -107,6 +118,8 @@ func Load() Config {
 		StreamTicketTTL:       parseDuration(os.Getenv("STREAM_TICKET_TTL"), 15*time.Minute),
 		MCPConfirmSecret:      strings.TrimSpace(os.Getenv("MCP_CONFIRM_SECRET")),
 		MCPEnabled:            parseBool(os.Getenv("MCP_ENABLED")),
+		ScanAutoEnabled:       parseBoolDefaultTrue(os.Getenv("SCAN_AUTO_ENABLED")),
+		ScanInterval:          clampScanInterval(parseDuration(os.Getenv("SCAN_INTERVAL"), DefaultScanInterval)),
 		LegacyMediaRoot:       legacyOnly,
 	}
 
@@ -248,6 +261,20 @@ func parseDuration(raw string, fallback time.Duration) time.Duration {
 	d, err := time.ParseDuration(trimmed)
 	if err != nil || d <= 0 {
 		return fallback
+	}
+	return d
+}
+
+func clampScanInterval(d time.Duration) time.Duration {
+	if d < MinScanInterval {
+		if d > 0 {
+			log.Printf("SCAN_INTERVAL below %s, using %s", MinScanInterval, MinScanInterval)
+		}
+		return MinScanInterval
+	}
+	if d > MaxScanInterval {
+		log.Printf("SCAN_INTERVAL above %s, using %s", MaxScanInterval, MaxScanInterval)
+		return MaxScanInterval
 	}
 	return d
 }

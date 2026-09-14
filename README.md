@@ -25,6 +25,7 @@ A Go + Next.js web application for managing subtitle files alongside a Jellyfin-
 - **Sonarr (optional)** — TV season completeness vs local files; queue missing EpisodeSearch.
 - **Jellyfin (optional)** — notify library after subtitle changes; embedded track list; video play-preview via stream-ticket proxy (progressive or HLS).
 - **Posters** — reads `poster.*` / `folder.*` / `fanart.*` / `<base>-poster.*` next to the video (or at series root for TV) in `.jpg` / `.png` / `.bmp`.
+- **Automatic library scan** — startup full scan plus interval incremental rescan (default on, 1h; Settings / `GET|PUT /api/config/scan`).
 - **Dashboard** — scan status, discovered directory summary, recent operation log, provider settings (SubHD / Sonarr / Jellyfin).
 - **i18n** — English and 简体中文; preference persisted in `localStorage`.
 - **Theme** — light / dark / follow system, persisted in `localStorage`.
@@ -91,6 +92,7 @@ Streamable MCP on the same process (default **off**):
 ### Config
 
 - `GET|PUT /api/config/subtitle-conversion` — `{ assTemplate, defaultAssTemplate, sourceEncodingDefault, updatedAt }`
+- `GET|PUT /api/config/scan` — `{ enabled, interval }` (Go duration, 1m–168h; default on / `1h`)
 - `GET|PUT /api/config/subhd` — `{ enabled, baseUrl, proxy }`
 - `GET|PUT /api/config/sonarr` — `{ enabled, url, apiKey }` (`apiKey` empty on GET + `apiKeySet`; empty PUT keeps stored key)
 - `POST /api/config/sonarr/test`
@@ -376,6 +378,8 @@ Core:
 - `CORS_ALLOWED_ORIGINS` comma-separated allowed origins for mutating cross-origin API requests
 - `ADMIN_TOKEN` admin API token (default `change-me` when unset). The insecure default is rejected unless you set a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true` (`./scripts/dev-up.sh` sets the opt-in when unset). Bearer required on `/api/*` and `/mcp` except public paths listed under Backend API (health, poster, ticket stream/HLS). The UI stores the token in `localStorage`.
 - `MCP_ENABLED` default off; set `true` to enable Streamable MCP at `/mcp` on startup (also toggle via Settings / `PUT /api/config/mcp`)
+- `SCAN_AUTO_ENABLED` default on; set `false` to disable interval full-library incremental scans (startup still scans once). Runtime `GET/PUT /api/config/scan` `{ enabled, interval }` overrides env without restart (Settings UI).
+- `SCAN_INTERVAL` default `1h` (Go duration, clamped 1m–168h)
 - `TRUST_FORWARDED_HEADERS` set to `1`, `true`, `yes`, or `on` to build absolute poster URLs from `X-Forwarded-Proto` / `X-Forwarded-Host`
 - `NEXT_PUBLIC_API_BASE` (frontend dev) — overrides the API host, e.g. `http://localhost:9307`
 

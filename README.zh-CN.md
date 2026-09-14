@@ -25,6 +25,7 @@ English version: [`README.md`](./README.md)
 - **Sonarr（可选）** — 对照本机扫描结果展示缺集，并可触发 EpisodeSearch。
 - **Jellyfin（可选）** — 字幕变更后通知媒体库；内嵌字幕轨列表；通过 stream-ticket 代理播放预览（progressive / HLS）。
 - **海报** — 自动识别视频旁的 `poster.*` / `folder.*` / `fanart.*` / `<base>-poster.*`，支持 `.jpg` / `.png` / `.bmp`（剧集在剧根目录）。
+- **自动扫描媒体库** — 启动全库扫描 + 按间隔增量扫描（默认开启，1 小时；设置页 / `GET|PUT /api/config/scan`）。
 - **仪表盘** — 扫描状态、已发现目录统计、最近操作日志，以及 SubHD / Sonarr / Jellyfin 配置。
 - **多语言** — 英文与简体中文，选项保存在 `localStorage`。
 - **主题** — 浅色 / 深色 / 跟随系统，选项保存在 `localStorage`。
@@ -91,6 +92,7 @@ git push origin main
 ### 配置
 
 - `GET|PUT /api/config/subtitle-conversion` — `{ assTemplate, defaultAssTemplate, sourceEncodingDefault, updatedAt }`
+- `GET|PUT /api/config/scan` — `{ enabled, interval }`（Go duration，1m–168h；默认开 / `1h`）
 - `GET|PUT /api/config/subhd` — `{ enabled, baseUrl, proxy }`
 - `GET|PUT /api/config/sonarr` — `{ enabled, url, apiKey }`（GET 不返回完整 key，仅 `apiKeySet`；PUT 空 key 保留已存密钥）
 - `POST /api/config/sonarr/test`
@@ -376,6 +378,8 @@ volumes:
 - `CORS_ALLOWED_ORIGINS` 逗号分隔的允许来源列表，用于跨来源写入类 API 请求
 - `ADMIN_TOKEN` 管理员 API 令牌（未设置时默认 `change-me`）。不安全默认值会被拒绝，除非改为强密钥，或（仅非 production）设置 `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true`（`./scripts/dev-up.sh` 在未设置时会自动打开该开关）。除「后端 API」一节列出的公开路径外，全部 `/api/*` 与 `/mcp` 需 Bearer（health、poster、带 ticket 的 stream/HLS）。前端登录页会把令牌保存在 `localStorage`。
 - `MCP_ENABLED` 默认关闭；设为 `true` 启动时开启 `/mcp`（也可在设置页 / `PUT /api/config/mcp` 开关）
+- `SCAN_AUTO_ENABLED` 默认开启；设为 `false` 关闭间隔全库增量扫描（启动仍会扫一次）。运行时 `GET/PUT /api/config/scan` `{ enabled, interval }` 覆盖 env，无需重启（设置页）
+- `SCAN_INTERVAL` 默认 `1h`（Go duration，限制 1m–168h）
 - `TRUST_FORWARDED_HEADERS` 设置为 `1`、`true`、`yes` 或 `on` 后，会基于 `X-Forwarded-Proto` / `X-Forwarded-Host` 生成绝对海报 URL
 - `NEXT_PUBLIC_API_BASE`（前端开发）— 覆盖 API 主机地址，例如 `http://localhost:9307`
 

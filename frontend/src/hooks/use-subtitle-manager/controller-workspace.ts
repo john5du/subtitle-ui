@@ -104,6 +104,23 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     }
   }
 
+  async function reloadLibraryAfterScan() {
+    const targetDir =
+      runtime.selectors.selectedTvSeries?.path ||
+      runtime.state.selectedTvDirPath ||
+      runtime.state.tvEpisodesPath ||
+      runtime.selectors.tvRootPath ||
+      "";
+    await Promise.all([
+      loadMovieVideos({ force: true }),
+      loadTvSeriesPage({ force: true }),
+      refreshTvVideosForPath(targetDir),
+      loadLogs(),
+      loadScanStatus({ quiet: true }),
+      loadDirectoryScanResult({ preserveSelection: true, force: true })
+    ]);
+  }
+
   async function triggerScan() {
     setters.setPending((prev) => ({ ...prev, scan: true }));
 
@@ -131,18 +148,13 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
       const normalizedStatus = normalizeScanStatus(statusPayload);
       setters.setScanStatus(normalizedStatus);
 
-      const targetDir = defaultDir || runtime.selectors.tvRootPath || discovered.tvRoot || "";
-      await Promise.all([
-        loadMovieVideos({ page: 1, force: true }),
-        loadTvSeriesPage({ page: 1, force: true }),
-        refreshTvVideosForPath(
-          runtime.selectors.selectedTvSeries?.path ||
-            runtime.state.selectedTvDirPath ||
-            runtime.state.tvEpisodesPath ||
-            targetDir
-        ),
-        loadLogs({ page: 1 })
-      ]);
+      const scanError = normalizedStatus?.error?.trim();
+      if (scanError) {
+        reportRequestError("error.scanFailed", new Error(scanError));
+        return;
+      }
+
+      await reloadLibraryAfterScan();
 
       const warningCount = discovered.errors.length;
       const videoCount = normalizedStatus?.videoCount ?? 0;
@@ -337,6 +349,7 @@ export function createWorkspaceActions(runtime: ControllerRuntime, load: LoadAct
     clearLogs,
     switchTab,
     triggerScan,
+    reloadLibraryAfterScan,
     refreshActiveTab,
     loadMovieWorkspace,
     loadTvWorkspace,

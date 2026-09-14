@@ -15,6 +15,35 @@ func TestParseBoolDefaultTrue(t *testing.T) {
 	}
 }
 
+func TestLoadScanAutoDefaults(t *testing.T) {
+	t.Setenv("SCAN_AUTO_ENABLED", "")
+	t.Setenv("SCAN_INTERVAL", "")
+	cfg := Load()
+	if !cfg.ScanAutoEnabled {
+		t.Fatal("empty SCAN_AUTO_ENABLED should default true")
+	}
+	if cfg.ScanInterval != DefaultScanInterval {
+		t.Fatalf("interval=%s want %s", cfg.ScanInterval, DefaultScanInterval)
+	}
+
+	t.Setenv("SCAN_AUTO_ENABLED", "false")
+	t.Setenv("SCAN_INTERVAL", "15m")
+	cfg = Load()
+	if cfg.ScanAutoEnabled {
+		t.Fatal("SCAN_AUTO_ENABLED=false should disable")
+	}
+	if cfg.ScanInterval != 15*time.Minute {
+		t.Fatalf("interval=%s want 15m", cfg.ScanInterval)
+	}
+
+	t.Setenv("SCAN_AUTO_ENABLED", "true")
+	t.Setenv("SCAN_INTERVAL", "30s")
+	cfg = Load()
+	if cfg.ScanInterval != MinScanInterval {
+		t.Fatalf("30s should clamp to %s, got %s", MinScanInterval, cfg.ScanInterval)
+	}
+}
+
 func TestParseDurationAndPositiveInt(t *testing.T) {
 	if parseDuration("", 3*time.Second) != 3*time.Second {
 		t.Fatal("empty duration fallback")

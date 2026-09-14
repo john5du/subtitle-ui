@@ -131,6 +131,31 @@ func (s *Server) handleJellyfinConfigTest(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, result)
 }
 
+func (s *Server) handleScanConfig(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		cfg, err := s.service.GetScanConfig()
+		if err != nil {
+			s.writeAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	case http.MethodPut:
+		var req appdomain.ScanConfigUpdate
+		if !decodeJSONBody(w, r, &req) {
+			return
+		}
+		cfg, err := s.service.UpdateScanConfig(req)
+		if err != nil {
+			s.writeAppError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
 func (s *Server) handleMCPConfig(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:

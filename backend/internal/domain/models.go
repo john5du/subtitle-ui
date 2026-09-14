@@ -172,6 +172,19 @@ type MCPConfigUpdate struct {
 	Enabled bool `json:"enabled"`
 }
 
+// ScanConfig is effective automatic library-scan settings (DB overrides env).
+type ScanConfig struct {
+	Enabled   bool      `json:"enabled"`
+	Interval  string    `json:"interval"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// ScanConfigUpdate is the PUT body for automatic scan settings.
+type ScanConfigUpdate struct {
+	Enabled  bool   `json:"enabled"`
+	Interval string `json:"interval"`
+}
+
 type SubHDConfig struct {
 	Enabled        bool      `json:"enabled"`
 	BaseURL        string    `json:"baseUrl"`

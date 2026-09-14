@@ -15,6 +15,80 @@ import (
 	"subtitle-ui/backend/internal/subtitle"
 )
 
+func TestScanConfigDefaultsAndUpdate(t *testing.T) {
+	base := t.TempDir()
+	movieRoot := filepath.Join(base, "movies")
+	tvRoot := filepath.Join(base, "tv")
+	if err := os.MkdirAll(movieRoot, 0o755); err != nil {
+		t.Fatalf("mkdir movie root: %v", err)
+	}
+	if err := os.MkdirAll(tvRoot, 0o755); err != nil {
+		t.Fatalf("mkdir tv root: %v", err)
+	}
+
+	svc, err := NewService(config.Config{
+		MovieMediaRoot:  movieRoot,
+		TVMediaRoot:     tvRoot,
+		DatabaseURL:     store.TestDSN(t),
+		ScanAutoEnabled: true,
+		ScanInterval:    time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	defer func() {
+		_ = svc.Close()
+	}()
+
+	cfg, err := svc.GetScanConfig()
+	if err != nil {
+		t.Fatalf("get scan config: %v", err)
+	}
+	if !cfg.Enabled {
+		t.Fatalf("expected scan enabled by default")
+	}
+	if cfg.Interval != "1h" {
+		t.Fatalf("unexpected interval: %q", cfg.Interval)
+	}
+
+	saved, err := svc.UpdateScanConfig(domain.ScanConfigUpdate{Enabled: false, Interval: "30m"})
+	if err != nil {
+		t.Fatalf("update scan: %v", err)
+	}
+	if saved.Enabled || saved.Interval != "30m" {
+		t.Fatalf("unexpected saved config: %+v", saved)
+	}
+
+	saved, err = svc.UpdateScanConfig(domain.ScanConfigUpdate{Enabled: true, Interval: "90m"})
+	if err != nil {
+		t.Fatalf("update scan 90m: %v", err)
+	}
+	if !saved.Enabled || saved.Interval != "90m" {
+		t.Fatalf("expected 90m, got %+v", saved)
+	}
+
+	_, err = svc.UpdateScanConfig(domain.ScanConfigUpdate{Enabled: true, Interval: "nope"})
+	if err == nil || !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("expected invalid interval, got %v", err)
+	}
+	_, err = svc.UpdateScanConfig(domain.ScanConfigUpdate{Enabled: true, Interval: "30s"})
+	if err == nil || !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("expected interval below min, got %v", err)
+	}
+	_, err = svc.UpdateScanConfig(domain.ScanConfigUpdate{Enabled: true, Interval: ""})
+	if err == nil || !errors.Is(err, ErrBadRequest) {
+		t.Fatalf("expected required interval, got %v", err)
+	}
+
+	again, err := svc.GetScanConfig()
+	if err != nil {
+		t.Fatalf("get after rejected updates: %v", err)
+	}
+	if !again.Enabled || again.Interval != "90m" {
+		t.Fatalf("rejected updates must not persist, got %+v", again)
+	}
+}
+
 func TestMCPConfigDefaultsAndUpdate(t *testing.T) {
 	base := t.TempDir()
 	movieRoot := filepath.Join(base, "movies")

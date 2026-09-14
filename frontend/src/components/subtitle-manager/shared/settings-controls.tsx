@@ -4,5 +4,6 @@ export {
   SubHDSettingsPanel,
   SonarrSettingsPanel,
   JellyfinSettingsPanel,
-  MCPSettingsPanel
+  MCPSettingsPanel,
+  ScanSettingsPanel
 } from "./settings";

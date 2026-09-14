@@ -27,6 +27,7 @@ cd frontend && bun run build   # static export → frontend/out
 - Local env: `dev-up` / `dev-restart` load `scripts/.env` then `scripts/.env.local` via `scripts/lib/load-env.sh` (shell-exported vars win). Real `scripts/.env` is gitignored; commit only `scripts/.env.example`.
 - Local FE→BE mutating requests need CORS. `dev-up` sets `CORS_ALLOWED_ORIGINS` for `localhost:3300` / `127.0.0.1:3300` when unset. Reuse of an already-running backend does **not** refresh env — use `dev-restart`.
 - Optional FE API override: `NEXT_PUBLIC_API_BASE=http://localhost:9307`.
+- Auto scan (default **on**, 1h): env `SCAN_AUTO_ENABLED` / `SCAN_INTERVAL`; runtime `GET/PUT /api/config/scan` `{ enabled, interval }` (DB overrides env, no restart); Settings UI. Startup still scans once; ticker waits one interval then full-library incremental `RunScan`. Overlap with manual/MCP scan skips (`scan already running`). Interval 1m–168h.
 - MCP (Streamable HTTP, default **off**): embedded in the Go process for AI agents.
   - Endpoint: `POST/GET http://host:9307/mcp` with `Authorization: Bearer <ADMIN_TOKEN>` (same token as REST); disabled → 503
   - Env bootstrap: `MCP_ENABLED=true` to start on; runtime `GET/PUT /api/config/mcp` `{ enabled, endpoint }` (DB overrides env, no restart); Settings UI

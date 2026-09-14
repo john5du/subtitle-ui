@@ -13,6 +13,7 @@ import (
 	"subtitle-ui/backend/internal/api"
 	"subtitle-ui/backend/internal/app"
 	"subtitle-ui/backend/internal/config"
+	"subtitle-ui/backend/internal/domain"
 	"subtitle-ui/backend/internal/version"
 )
 
@@ -87,9 +88,17 @@ func main() {
 	}()
 
 	go func() {
-		initialStatus := service.RunScan(rootCtx)
+		initialStatus := service.RunScan(app.WithOpAudit(rootCtx, domain.OpSourceSystem, "startup_scan"))
 		log.Printf("initial scan: videos=%d error=%q", initialStatus.VideoCount, initialStatus.Error)
 	}()
+	if scanCfg, err := service.GetScanConfig(); err != nil {
+		log.Printf("auto scan: config: %v", err)
+	} else if scanCfg.Enabled {
+		log.Printf("auto scan: enabled interval=%s", scanCfg.Interval)
+	} else {
+		log.Printf("auto scan: disabled")
+	}
+	service.StartScanScheduler(rootCtx)
 
 	select {
 	case <-rootCtx.Done():

@@ -115,6 +115,43 @@ export function useSubtitleManagerEffects({
     void controller.loadTvSeriesPage({ page: 1 });
   }, [controller, tvQueryKey]);
 
+  const wasScanRunning = useRef(false);
+  const scanStatusHydrated = useRef(false);
+  const lastFinishedAtRef = useRef<string | undefined>(undefined);
+  const scanRunning = Boolean(state.scanStatus?.running);
+  const scanFinishedAt = state.scanStatus?.lastFinishedAt;
+  const hasScanStatus = Boolean(state.scanStatus);
+
+  useEffect(() => {
+    const intervalMs = scanRunning ? 2000 : 5000;
+    const timer = window.setInterval(() => {
+      void controller.loadScanStatus({ quiet: true });
+    }, intervalMs);
+    return () => window.clearInterval(timer);
+  }, [controller, scanRunning]);
+
+  useEffect(() => {
+    if (!scanStatusHydrated.current) {
+      if (!hasScanStatus) {
+        return;
+      }
+      scanStatusHydrated.current = true;
+      wasScanRunning.current = scanRunning;
+      lastFinishedAtRef.current = scanFinishedAt;
+      return;
+    }
+
+    const finishedChanged = Boolean(scanFinishedAt && scanFinishedAt !== lastFinishedAtRef.current);
+    const runningStopped = wasScanRunning.current && !scanRunning;
+    if (!state.pending.scan && (runningStopped || finishedChanged)) {
+      void controller.reloadLibraryAfterScan();
+    }
+    wasScanRunning.current = scanRunning;
+    if (scanFinishedAt) {
+      lastFinishedAtRef.current = scanFinishedAt;
+    }
+  }, [controller, hasScanStatus, scanFinishedAt, scanRunning, state.pending.scan]);
+
   useEffect(() => {
     let active = true;
     void (async () => {

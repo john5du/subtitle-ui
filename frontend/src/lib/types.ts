@@ -195,6 +195,12 @@ export interface MCPConfig {
   updatedAt?: string;
 }
 
+export interface ScanConfig {
+  enabled: boolean;
+  interval: string;
+  updatedAt?: string;
+}
+
 export interface SubHDConfig {
   enabled: boolean;
   baseUrl: string;

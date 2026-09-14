@@ -4,3 +4,4 @@ export { SubHDSettingsPanel } from "./subhd-settings-panel";
 export { SonarrSettingsPanel } from "./sonarr-settings-panel";
 export { JellyfinSettingsPanel } from "./jellyfin-settings-panel";
 export { MCPSettingsPanel } from "./mcp-settings-panel";
+export { ScanSettingsPanel } from "./scan-settings-panel";

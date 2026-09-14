@@ -47,6 +47,8 @@ const (
 	settingJellyfinAPIKey  = "jellyfin.api_key"
 	settingJellyfinPathMap = "jellyfin.path_map"
 	settingMCPEnabled      = "mcp.enabled"
+	settingScanAutoEnabled = "scan.auto_enabled"
+	settingScanInterval    = "scan.interval"
 )
 
 type scanStatus struct {
@@ -72,6 +74,10 @@ type Service struct {
 
 	scanRunMu sync.Mutex
 	scan      scanStatus
+
+	scanSchedMu     sync.Mutex
+	scanSchedCancel context.CancelFunc
+	scanSchedParent context.Context
 
 	dirScanMu   sync.RWMutex
 	lastDirScan domain.DirectoryScanResult
@@ -193,6 +199,7 @@ func (s *Service) rebuildSubHDClient(enabled bool, baseURL, proxy string) {
 }
 
 func (s *Service) Close() error {
+	s.stopScanScheduler()
 	return s.store.Close()
 }
 

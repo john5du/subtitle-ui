@@ -42,6 +42,7 @@ export function createSubtitleManagerController({
     refreshTvVideosForPath: load.refreshTvVideosForPath,
     switchTab: workspace.switchTab,
     triggerScan: workspace.triggerScan,
+    reloadLibraryAfterScan: workspace.reloadLibraryAfterScan,
     refreshActiveTab: workspace.refreshActiveTab,
     loadMovieWorkspace: workspace.loadMovieWorkspace,
     loadTvWorkspace: workspace.loadTvWorkspace,

@@ -20,6 +20,7 @@ import {
   JellyfinSettingsPanel,
   LocaleSelect,
   MCPSettingsPanel,
+  ScanSettingsPanel,
   SonarrSettingsPanel,
   SubHDSettingsPanel,
   SubtitleConversionSettingsPanel
@@ -213,6 +214,10 @@ export function DashboardPanel({
                     <ThemeToggle />
                   </SettingsActionRow>
                 </div>
+              </SettingsSection>
+
+              <SettingsSection title={t("settings.scan")} help={t("scan.settingsDescription")}>
+                <ScanSettingsPanel />
               </SettingsSection>
 
               <SettingsSection title={t("settings.subhd")} help={t("subhd.settingsDescription")}>

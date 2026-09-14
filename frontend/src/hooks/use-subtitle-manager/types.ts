@@ -218,6 +218,7 @@ export interface SubtitleManagerResult {
 
 export interface SubtitleManagerController extends SubtitleManagerActions,
   Pick<LoadActions, "loadVersionInfo" | "loadScanStatus" | "loadDirectoryScanResult" | "loadLogs" | "loadMovieVideos" | "loadTvSeriesPage" | "refreshTvVideosForPath"> {
+  reloadLibraryAfterScan: () => Promise<void>;
   cancelLoads: () => void;
   finishBootstrapping: () => void;
   clearLogs: () => Promise<boolean>;

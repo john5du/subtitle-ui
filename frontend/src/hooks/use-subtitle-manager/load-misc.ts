@@ -35,21 +35,29 @@ export function createMiscLoadActions(runtime: ControllerRuntime) {
     return normalizeVideo(payload, hint);
   }
 
-  function loadScanStatus() {
+  function loadScanStatus(options: { quiet?: boolean } = {}) {
     return scanRequests.run({
       key: "scan",
       fetch: async (signal) => normalizeScanStatus(await requestPayload<unknown>("/api/scan/status", { signal })),
       commit: setters.setScanStatus,
-      onError: (error) => reportRequestError("error.loadScanStatus", error)
+      onError: (error) => {
+        if (!options.quiet) {
+          reportRequestError("error.loadScanStatus", error);
+        }
+      }
     });
   }
 
-  async function loadDirectoryScanResult() {
+  async function loadDirectoryScanResult(options: { preserveSelection?: boolean; force?: boolean } = {}) {
     const result = await directoryRequests.run({
       key: "directories",
+      force: options.force,
       fetch: async (signal) => normalizeDirectoryScanResult(await requestPayload<unknown>("/api/scan/directories", { signal })),
       commit: (parsed) => {
         setters.setDirectoryScan(parsed);
+        if (options.preserveSelection) {
+          return;
+        }
         const defaultDir = pickDefaultTvDirectory(parsed);
         if (defaultDir) setters.setSelectedTvDirPath(defaultDir);
       },
