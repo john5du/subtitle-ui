@@ -46,6 +46,10 @@ type Client struct {
 	cachedUserID string // auto-resolved when userID empty
 	pathIDMu     sync.Mutex
 	pathIDCache  map[string]pathIDCacheEntry // key: normalized compare path
+
+	playbackMu       sync.Mutex
+	playbackCache    *playbackCache
+	playbackInflight *playbackInflight
 }
 
 // ErrDisabled is returned when Jellyfin is not configured.

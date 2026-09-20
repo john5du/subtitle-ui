@@ -39,6 +39,7 @@ func (s *Server) handleVideos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.attachVideoPosterURLs(r, pageData.Items)
+	s.service.AttachJellyfinPlayback(r.Context(), pageData.Items)
 	writeJSON(w, http.StatusOK, pageData)
 }
 
@@ -61,7 +62,9 @@ func (s *Server) handleVideoRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.attachVideoPosterURL(r, &video)
-		writeJSON(w, http.StatusOK, video)
+		items := []appdomain.Video{video}
+		s.service.AttachJellyfinPlayback(r.Context(), items)
+		writeJSON(w, http.StatusOK, items[0])
 		return
 
 	case len(segments) == 2 && segments[1] == "poster" && r.Method == http.MethodGet:

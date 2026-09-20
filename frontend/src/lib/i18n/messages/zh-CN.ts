@@ -137,7 +137,7 @@ export const zhCNMessages: MessageDictionary = {
   "sonarr.testConnectionOk": "Sonarr 连接正常",
   "sonarr.testConnectionFailed": "Sonarr 连接失败",
 
-  "jellyfin.settingsDescription": "字幕变更后通知 Jellyfin 快速识别外挂字幕。保存后立即生效。",
+  "jellyfin.settingsDescription": "字幕变更后通知 Jellyfin 快速识别外挂字幕。电影与分集的已看/在看标记来自该 Jellyfin 用户的播放记录（本页预览不记账）。保存后立即生效。",
   "jellyfin.enabled": "启用",
   "jellyfin.enabledOn": "开",
   "jellyfin.enabledOff": "关",
@@ -443,6 +443,8 @@ export const zhCNMessages: MessageDictionary = {
   "details.previewEmpty": "字幕内容为空。",
   "details.previewTruncated": "内容过长，仅显示前 {count} 个字符。",
 
+  "playback.played": "已看完",
+  "playback.inProgress": "在看",
   "playback.previewTitle": "视频预览",
   "playback.previewTitleWithName": "视频预览：{name}",
   "playback.subtitleTrack": "字幕轨",

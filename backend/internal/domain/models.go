@@ -15,28 +15,35 @@ const (
 )
 
 type Video struct {
-	ID                  string     `json:"id"`
-	Path                string     `json:"path"`
-	Directory           string     `json:"directory"`
-	FileName            string     `json:"fileName"`
-	Title               string     `json:"title"`
-	OriginalTitle       string     `json:"originalTitle,omitempty"`
-	Year                string     `json:"year,omitempty"`
-	ImdbID              string     `json:"imdbId,omitempty"`
-	TmdbID              string     `json:"tmdbId,omitempty"`
-	MediaType           string     `json:"mediaType"`
-	MetadataSource      string     `json:"metadataSource"`
-	SeriesTitle         string     `json:"seriesTitle,omitempty"`
-	SeriesOriginalTitle string     `json:"seriesOriginalTitle,omitempty"`
-	SeriesImdbID        string     `json:"seriesImdbId,omitempty"`
-	SeriesTmdbID        string     `json:"seriesTmdbId,omitempty"`
-	PosterPath          string     `json:"-"`
-	PosterURL           string     `json:"posterUrl,omitempty"`
-	FileSize            int64      `json:"-"`
-	FileModTime         time.Time  `json:"-"`
-	ScanFingerprint     string     `json:"-"`
-	Subtitles           []Subtitle `json:"subtitles"`
-	UpdatedAt           time.Time  `json:"updatedAt"`
+	ID                  string         `json:"id"`
+	Path                string         `json:"path"`
+	Directory           string         `json:"directory"`
+	FileName            string         `json:"fileName"`
+	Title               string         `json:"title"`
+	OriginalTitle       string         `json:"originalTitle,omitempty"`
+	Year                string         `json:"year,omitempty"`
+	ImdbID              string         `json:"imdbId,omitempty"`
+	TmdbID              string         `json:"tmdbId,omitempty"`
+	MediaType           string         `json:"mediaType"`
+	MetadataSource      string         `json:"metadataSource"`
+	SeriesTitle         string         `json:"seriesTitle,omitempty"`
+	SeriesOriginalTitle string         `json:"seriesOriginalTitle,omitempty"`
+	SeriesImdbID        string         `json:"seriesImdbId,omitempty"`
+	SeriesTmdbID        string         `json:"seriesTmdbId,omitempty"`
+	PosterPath          string         `json:"-"`
+	PosterURL           string         `json:"posterUrl,omitempty"`
+	FileSize            int64          `json:"-"`
+	FileModTime         time.Time      `json:"-"`
+	ScanFingerprint     string         `json:"-"`
+	Subtitles           []Subtitle     `json:"subtitles"`
+	UpdatedAt           time.Time      `json:"updatedAt"`
+	Playback            *VideoPlayback `json:"playback,omitempty"`
+}
+
+// VideoPlayback is Jellyfin UserData for a movie/episode (omitted when unknown).
+type VideoPlayback struct {
+	Played     bool `json:"played"`
+	InProgress bool `json:"inProgress"`
 }
 
 type Subtitle struct {

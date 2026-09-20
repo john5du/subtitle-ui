@@ -135,7 +135,7 @@ export const enMessages = {
   "sonarr.testConnectionOk": "Sonarr connection OK",
   "sonarr.testConnectionFailed": "Sonarr connection failed",
 
-  "jellyfin.settingsDescription": "Notify Jellyfin after subtitle changes so external tracks appear quickly. Changes apply immediately.",
+  "jellyfin.settingsDescription": "Notify Jellyfin after subtitle changes so external tracks appear quickly. Watched and in-progress badges on movies and episodes use this Jellyfin user's play state (in-app preview does not record it). Changes apply immediately.",
   "jellyfin.enabled": "Enabled",
   "jellyfin.enabledOn": "On",
   "jellyfin.enabledOff": "Off",
@@ -441,6 +441,8 @@ export const enMessages = {
   "details.previewEmpty": "Subtitle content is empty.",
   "details.previewTruncated": "Content is too long. Showing the first {count} characters.",
 
+  "playback.played": "Watched",
+  "playback.inProgress": "In progress",
   "playback.previewTitle": "Video preview",
   "playback.previewTitleWithName": "Video preview: {name}",
   "playback.subtitleTrack": "Subtitle",

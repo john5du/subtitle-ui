@@ -12,6 +12,7 @@ import { CARD_GRID_CLASS, cardGridPageSize } from "../shared/card-grid";
 import { EmptyPanel } from "../shared/empty-panel";
 import { LibraryListShell } from "../shared/library-list-shell";
 import { LibraryPosterCard } from "../shared/library-poster-card";
+import { PlaybackStatusMark } from "../shared/playback-status-mark";
 import { LibrarySortControl, type LibrarySortOption } from "../shared/library-sort-control";
 import { LibraryViewToggle } from "../shared/library-view-toggle";
 import { PosterThumbnail } from "../shared/poster-thumbnail";
@@ -178,7 +179,10 @@ export const MovieListPanel = memo(function MovieListPanel({
                   }}
                 >
                   <TableCell className="w-[76px] py-2">
-                    <PosterThumbnail src={video.posterUrl} />
+                    <div className="relative w-fit overflow-hidden rounded-lg">
+                      <PosterThumbnail src={video.posterUrl} />
+                      <PlaybackStatusMark playback={video.playback} variant="overlay" />
+                    </div>
                   </TableCell>
                   <TableCell className="max-w-[260px] font-medium" title={video.title}>
                     <button
@@ -226,6 +230,7 @@ export const MovieListPanel = memo(function MovieListPanel({
                     subtitle={video.year}
                     posterUrl={video.posterUrl}
                     badge={video.subtitles.length}
+                    status={<PlaybackStatusMark playback={video.playback} variant="overlay" />}
                     ariaLabel={title || t("info.movie")}
                     operationLocked={operationLocked}
                     onOpen={() => onOpenManager(video)}

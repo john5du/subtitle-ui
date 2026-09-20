@@ -9,7 +9,8 @@ import type {
   TvSeriesPage,
   TvSeriesSummary,
   Video,
-  VideoPage
+  VideoPage,
+  VideoPlayback
 } from "@/lib/types";
 
 import { isRecord } from "./api-client";
@@ -46,8 +47,21 @@ export function normalizeVideo(payload: unknown, hint?: Partial<Video>): Video {
     seriesTmdbId: typeof body.seriesTmdbId === "string" ? body.seriesTmdbId : hint?.seriesTmdbId,
     posterUrl: typeof body.posterUrl === "string" ? body.posterUrl : hint?.posterUrl,
     subtitles,
-    updatedAt: typeof body.updatedAt === "string" ? body.updatedAt : hint?.updatedAt || ""
+    updatedAt: typeof body.updatedAt === "string" ? body.updatedAt : hint?.updatedAt || "",
+    playback: normalizePlayback(body.playback) ?? hint?.playback
   };
+}
+
+export function normalizePlayback(payload: unknown): VideoPlayback | undefined {
+  if (!isRecord(payload)) {
+    return undefined;
+  }
+  const played = Boolean(payload.played);
+  const inProgress = Boolean(payload.inProgress);
+  if (!played && !inProgress) {
+    return undefined;
+  }
+  return { played, inProgress: played ? false : inProgress };
 }
 
 export function normalizePagedVideosResponse(payload: unknown, fallbackPage: number, fallbackPageSize: number): VideoPage {

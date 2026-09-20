@@ -9,6 +9,7 @@ export interface LibraryPosterCardProps {
   subtitle?: string | number | null;
   posterUrl?: string;
   badge: ReactNode;
+  status?: ReactNode;
   ariaLabel: string;
   operationLocked: boolean;
   onOpen: () => void;
@@ -19,6 +20,7 @@ export const LibraryPosterCard = memo(function LibraryPosterCard({
   subtitle,
   posterUrl,
   badge,
+  status,
   ariaLabel,
   operationLocked,
   onOpen
@@ -40,6 +42,7 @@ export const LibraryPosterCard = memo(function LibraryPosterCard({
               imageClassName="h-full w-full"
               sizes="(max-width: 420px) 100vw, (max-width: 768px) 50vw, 220px"
             />
+            {status}
             <span
               className="poster-badge absolute bottom-2 right-2 min-w-6 px-1.5 py-0.5 text-center text-xs font-medium leading-[18px] rounded-sm"
               aria-hidden

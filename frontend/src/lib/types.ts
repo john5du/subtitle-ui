@@ -75,6 +75,11 @@ export interface Subtitle {
   sourceDetail?: string;
 }
 
+export interface VideoPlayback {
+  played: boolean;
+  inProgress: boolean;
+}
+
 export interface Video {
   id: string;
   path: string;
@@ -94,6 +99,7 @@ export interface Video {
   posterUrl?: string;
   subtitles: Subtitle[];
   updatedAt: string;
+  playback?: VideoPlayback;
 }
 
 export interface VideoPage {

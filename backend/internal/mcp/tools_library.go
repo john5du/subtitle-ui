@@ -34,8 +34,8 @@ type listTVSeriesIn struct {
 func registerLibraryTools(s *mcp.Server, svc *app.Service) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_videos",
-		Description: "List library videos (movies/TV episodes) with pagination. Use mediaType=tv and dir=<series path> for episodes of a series. Check subtitles[] on each item for existing sidecar files.",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in listVideosIn) (*mcp.CallToolResult, domain.VideoPage, error) {
+		Description: "List library videos (movies/TV episodes) with pagination. Use mediaType=tv and dir=<series path> for episodes of a series. Check subtitles[] on each item for existing sidecar files. When Jellyfin is enabled, items may include playback {played, inProgress} from that user's watch state.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in listVideosIn) (*mcp.CallToolResult, domain.VideoPage, error) {
 		page := in.Page
 		if page < 1 {
 			page = 1
@@ -48,18 +48,21 @@ func registerLibraryTools(s *mcp.Server, svc *app.Service) {
 		if err != nil {
 			return nil, domain.VideoPage{}, err
 		}
+		svc.AttachJellyfinPlayback(ctx, pageData.Items)
 		return nil, pageData, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_video",
-		Description: "Get one video by id including full subtitles[] list (path, language, format, source).",
-	}, func(_ context.Context, _ *mcp.CallToolRequest, in getVideoIn) (*mcp.CallToolResult, domain.Video, error) {
+		Description: "Get one video by id including full subtitles[] list (path, language, format, source). When Jellyfin is enabled, may include playback {played, inProgress}.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in getVideoIn) (*mcp.CallToolResult, domain.Video, error) {
 		video, err := svc.GetVideo(in.VideoID)
 		if err != nil {
 			return nil, domain.Video{}, err
 		}
-		return nil, video, nil
+		items := []domain.Video{video}
+		svc.AttachJellyfinPlayback(ctx, items)
+		return nil, items[0], nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

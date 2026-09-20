@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import type { SubtitleDetailsPanelProps } from "../types";
 import { InlinePending, PanelLoadingOverlay } from "../shared/pending-state";
+import { PlaybackStatusMark } from "../shared/playback-status-mark";
 import { NormalizeSubtitlesDialog, type NormalizeDialogScope } from "../subtitle/dialogs/normalize-subtitles-dialog";
 import { SubtitleDetailsPanel } from "../subtitle/subtitle-details-panel";
 import { formatSeasonEpisodeText, parseVideoSeasonEpisode } from "./batch-utils";
@@ -373,7 +374,10 @@ export function TvSubtitleManagementPanel({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">
-                        <div className="font-mono text-xs font-medium tabular-nums text-muted-foreground">{episodeCode}</div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="font-mono text-xs font-medium tabular-nums text-muted-foreground">{episodeCode}</div>
+                          <PlaybackStatusMark playback={video.playback} variant="pill" />
+                        </div>
                         <div className="break-words text-sm font-medium leading-snug">{video.title || "-"}</div>
                       </div>
                       <div className="shrink-0 pt-0.5 text-right text-xs tabular-nums text-muted-foreground">

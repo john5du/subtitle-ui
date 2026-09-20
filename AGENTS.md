@@ -74,14 +74,15 @@ cd frontend && bun run build   # static export → frontend/out
   - `POST /api/tv/series/sonarr/search` JSON `{ path|key, season, episodes?, allMissing? }` — queues Sonarr `EpisodeSearch`
   - Match order: series path → `series_tmdb_id` → `series_imdb_id`
   - Present set is local scan (not Sonarr `hasFile`). UI: TV season/episode panel only.
-- Jellyfin (optional; subtitle notify + video play-preview stream proxy):
-  - Env bootstrap: `JELLYFIN_URL` (e.g. `http://127.0.0.1:8096`), `JELLYFIN_API_KEY`, optional `JELLYFIN_ENABLED=false`, `JELLYFIN_PATH_MAP=local:jellyfin,...`, optional `JELLYFIN_USER_ID` (PlaybackInfo user; empty auto-picks admin via `GET /Users`)
+- Jellyfin (optional; subtitle notify + video play-preview stream proxy + watch badges):
+  - Env bootstrap: `JELLYFIN_URL` (e.g. `http://127.0.0.1:8096`), `JELLYFIN_API_KEY`, optional `JELLYFIN_ENABLED=false`, `JELLYFIN_PATH_MAP=local:jellyfin,...`, optional `JELLYFIN_USER_ID` (PlaybackInfo + watch-state user; empty auto-picks admin via `GET /Users`)
   - Runtime config (DB overrides env, no restart): `GET/PUT /api/config/jellyfin` `{ enabled, url, apiKey, pathMap }`
   - Settings UI on dashboard config page
   - Enabled when URL+key set (unless explicitly disabled)
   - After subtitle upload/replace/delete/convert/offset/normalize (and SubHD install via those paths): async `POST /Library/Media/Updated` with mapped video path; on failure fallback `Items/{id}/Refresh?metadataRefreshMode=ValidationOnly`
   - Path map required when subtitle-ui and Jellyfin see different bind-mount roots; failures only log (`jellyfin_notify` op), never fail the subtitle write
   - Video preview: backend proxies static stream only (see stream-ticket above); no Sessions/Playing progress
+  - Watch state (read-only, not stored in DB): `GET /api/videos` and `GET /api/videos/{id}` (and MCP `list_videos` / `get_video`) may include `playback: { played, inProgress }` from `GET /Users/{userId}/Items` (`Filters=IsPlayed` + `IsResumable`, Path+UserData, ~2m memory cache). UI: movie list + TV episode rows only. Fail-open if Jellyfin is off/slow. Same user as PlaybackInfo.
   - Embedded subtitle languages (read-only): `GET /api/videos/{id}/subtitles/embedded` → `{ tracks: [{ index, language, title, displayTitle, codec, isForced, isDefault, isText }] }` via JF `PlaybackInfo` MediaStreams (`IsExternal=false`); 503 if Jellyfin off
 
 ## Layout
@@ -98,7 +99,7 @@ cd frontend && bun run build   # static export → frontend/out
 | `backend/internal/archive` | zip/7z/rar list + extract (pure-Go; used by upload/SubHD) |
 | `backend/internal/provider/subhd` | SubHD search/download client (on by default) |
 | `backend/internal/provider/sonarr` | Optional Sonarr client (series match, episode list, EpisodeSearch) |
-| `backend/internal/provider/jellyfin` | Optional Jellyfin client (media updated + item refresh + PlaybackInfo stream) |
+| `backend/internal/provider/jellyfin` | Optional Jellyfin client (media updated + item refresh + PlaybackInfo stream + UserData watch state) |
 | `backend/internal/config` | Env config |
 | `backend/internal/version` | `const Value` — release source of truth (with FE package version) |
 | `frontend/src/app` | Next App Router shell |
