@@ -30,6 +30,9 @@ type Video struct {
 	SeriesOriginalTitle string         `json:"seriesOriginalTitle,omitempty"`
 	SeriesImdbID        string         `json:"seriesImdbId,omitempty"`
 	SeriesTmdbID        string         `json:"seriesTmdbId,omitempty"`
+	SeriesKey           string         `json:"-"`
+	SeriesPath          string         `json:"-"`
+	SeriesTitleSortKey  string         `json:"-"`
 	PosterPath          string         `json:"-"`
 	PosterURL           string         `json:"posterUrl,omitempty"`
 	FileSize            int64          `json:"-"`
@@ -193,11 +196,23 @@ type ScanConfigUpdate struct {
 }
 
 type SubHDConfig struct {
-	Enabled        bool      `json:"enabled"`
-	BaseURL        string    `json:"baseUrl"`
-	Proxy          string    `json:"proxy"`
-	DefaultBaseURL string    `json:"defaultBaseUrl"`
-	UpdatedAt      time.Time `json:"updatedAt"`
+	Enabled        bool             `json:"enabled"`
+	BaseURL        string           `json:"baseUrl"`
+	Proxy          string           `json:"proxy"`
+	DefaultBaseURL string           `json:"defaultBaseUrl"`
+	UpdatedAt      time.Time        `json:"updatedAt"`
+	Parse          *SubHDParseStats `json:"parse,omitempty"`
+}
+
+// SubHDParseStats is process-lifetime SubHD HTML parse telemetry.
+type SubHDParseStats struct {
+	Searches       int64      `json:"searches"`
+	ParseOK        int64      `json:"parseOk"`
+	EmptyResults   int64      `json:"emptyResults"`
+	LayoutWarnings int64      `json:"layoutWarnings"`
+	CardWarnings   int64      `json:"cardWarnings"`
+	LastWarning    string     `json:"lastWarning,omitempty"`
+	LastWarningAt  *time.Time `json:"lastWarningAt,omitempty"`
 }
 
 type SubHDConfigUpdate struct {

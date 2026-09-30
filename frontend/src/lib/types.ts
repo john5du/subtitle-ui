@@ -207,12 +207,23 @@ export interface ScanConfig {
   updatedAt?: string;
 }
 
+export interface SubHDParseStats {
+  searches: number;
+  parseOk: number;
+  emptyResults: number;
+  layoutWarnings: number;
+  cardWarnings: number;
+  lastWarning?: string;
+  lastWarningAt?: string;
+}
+
 export interface SubHDConfig {
   enabled: boolean;
   baseUrl: string;
   proxy: string;
   defaultBaseUrl: string;
   updatedAt?: string;
+  parse?: SubHDParseStats;
 }
 
 export interface SonarrConfig {

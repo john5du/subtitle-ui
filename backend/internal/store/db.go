@@ -147,7 +147,10 @@ func (s *Store) videoUpsertSuffix() string {
   file_mod_time = excluded.file_mod_time,
   scan_fingerprint = excluded.scan_fingerprint,
   updated_at = excluded.updated_at,
-  title_sort_key = excluded.title_sort_key`
+  title_sort_key = excluded.title_sort_key,
+  series_key = excluded.series_key,
+  series_path = excluded.series_path,
+  series_title_sort_key = excluded.series_title_sort_key`
 }
 
 func (s *Store) subtitleUpsertSuffix() string {

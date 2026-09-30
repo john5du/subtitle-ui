@@ -43,6 +43,10 @@ type Config struct {
 	StreamTicketTTL time.Duration
 	// MCPConfirmSecret signs MCP confirm tokens. Empty → StreamTicketSecret, then AdminToken.
 	MCPConfirmSecret string
+	// SettingsSecret encrypts stored provider API keys. Empty → AdminToken.
+	// Decrypt always tries SettingsSecret then AdminToken so rotating this key
+	// (or migrating off ADMIN_TOKEN) does not lock existing ciphertext.
+	SettingsSecret string
 	// MCPEnabled is the env bootstrap for Streamable MCP at /mcp (Bearer ADMIN_TOKEN).
 	// Default false; DB setting mcp.enabled overrides at runtime (settings UI).
 	MCPEnabled bool
@@ -117,6 +121,7 @@ func Load() Config {
 		StreamTicketSecret:    strings.TrimSpace(os.Getenv("STREAM_TICKET_SECRET")),
 		StreamTicketTTL:       parseDuration(os.Getenv("STREAM_TICKET_TTL"), 15*time.Minute),
 		MCPConfirmSecret:      strings.TrimSpace(os.Getenv("MCP_CONFIRM_SECRET")),
+		SettingsSecret:        strings.TrimSpace(os.Getenv("SETTINGS_SECRET")),
 		MCPEnabled:            parseBool(os.Getenv("MCP_ENABLED")),
 		ScanAutoEnabled:       parseBoolDefaultTrue(os.Getenv("SCAN_AUTO_ENABLED")),
 		ScanInterval:          clampScanInterval(parseDuration(os.Getenv("SCAN_INTERVAL"), DefaultScanInterval)),

@@ -406,6 +406,7 @@ Jellyfin (optional; subtitle notify + stream preview; enabled when URL+key set u
 - `JELLYFIN_USER_ID` optional PlaybackInfo user GUID; empty auto-picks an admin
 - `STREAM_TICKET_SECRET` required in production; empty in development falls back to `ADMIN_TOKEN`
 - `STREAM_TICKET_TTL` default `15m`
+- `SETTINGS_SECRET` encrypts stored provider API keys; empty falls back to `ADMIN_TOKEN` (decrypt tries both)
 
 See also `scripts/.env.example` and agent-oriented detail in [`AGENTS.md`](./AGENTS.md). Frontend UI conventions: [`docs/frontend-ui.md`](./docs/frontend-ui.md), [`docs/frontend-dialogs.md`](./docs/frontend-dialogs.md).
 

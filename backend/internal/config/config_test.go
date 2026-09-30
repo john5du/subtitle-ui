@@ -199,6 +199,14 @@ func TestLoadLegacyMediaRoot(t *testing.T) {
 	}
 }
 
+func TestLoadSettingsSecret(t *testing.T) {
+	t.Setenv("SETTINGS_SECRET", " settings-key ")
+	cfg := Load()
+	if cfg.SettingsSecret != "settings-key" {
+		t.Fatalf("SettingsSecret=%q", cfg.SettingsSecret)
+	}
+}
+
 func TestLoadExplicitChangeMeIsDefault(t *testing.T) {
 	t.Setenv("APP_ENV", "development")
 	t.Setenv("ADMIN_TOKEN", DefaultAdminToken)

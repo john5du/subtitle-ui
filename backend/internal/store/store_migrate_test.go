@@ -56,7 +56,7 @@ func TestConcurrentOpenAppliesMigrationsOnce(t *testing.T) {
 	defer func() {
 		_ = verify.Close()
 	}()
-	for version := 1; version <= 11; version++ {
+	for version := 1; version <= 13; version++ {
 		applied, err := verify.isMigrationApplied(version)
 		if err != nil {
 			t.Fatalf("check migration v%d: %v", version, err)
@@ -145,6 +145,9 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
 		{table: "videos", name: "original_title"},
 		{table: "videos", name: "title_sort_key"},
 		{table: "videos", name: "file_size"},
+		{table: "videos", name: "series_key"},
+		{table: "videos", name: "series_path"},
+		{table: "videos", name: "series_title_sort_key"},
 		{table: "operation_logs", name: "meta"},
 	} {
 		has, err := st.hasColumn(column.table, column.name)

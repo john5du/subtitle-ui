@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n";
-import { emitToast } from "@/lib/toast";
 import type { SubHDConfig } from "@/lib/types";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { Button } from "@/components/ui/button";
@@ -13,93 +12,42 @@ import { Switch } from "@/components/ui/switch";
 
 import { SpinnerIcon } from "../pending-state";
 import { SaveSettingsButton, SettingsLabel } from "./settings-shared";
+import { useSettingsForm } from "./use-settings-form";
 
 export function SubHDSettingsPanel() {
   const { t } = useI18n();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const { load, save, loading, saving, error, setError } = useSettingsForm();
   const [config, setConfig] = useState<SubHDConfig | null>(null);
   const [draftEnabled, setDraftEnabled] = useState(true);
   const [draftBaseUrl, setDraftBaseUrl] = useState("");
   const [draftProxy, setDraftProxy] = useState("");
-  const [error, setError] = useState("");
+
+  function applyConfig(next: SubHDConfig) {
+    setConfig(next);
+    setDraftEnabled(Boolean(next.enabled));
+    setDraftBaseUrl(next.baseUrl || next.defaultBaseUrl || "");
+    setDraftProxy(next.proxy || "");
+  }
 
   useEffect(() => {
     let cancelled = false;
-
-    async function loadConfig() {
-      setLoading(true);
-      setError("");
-      try {
-        const next = await requestPayload<SubHDConfig>("/api/config/subhd");
-        if (cancelled) {
-          return;
-        }
-        setConfig(next);
-        setDraftEnabled(Boolean(next.enabled));
-        setDraftBaseUrl(next.baseUrl || next.defaultBaseUrl || "");
-        setDraftProxy(next.proxy || "");
-      } catch (loadError) {
-        if (cancelled) {
-          return;
-        }
-        const message = loadError instanceof Error ? loadError.message : String(loadError);
-        setError(message);
-        emitToast({
-          level: "error",
-          message: t("subhd.settingsLoadFailed"),
-          detail: message
-        });
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+    void load(async () => {
+      const next = await requestPayload<SubHDConfig>("/api/config/subhd");
+      if (cancelled) {
+        return;
       }
-    }
-
-    void loadConfig();
+      applyConfig(next);
+    }, "subhd.settingsLoadFailed", () => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [load]);
 
-  async function saveConfig() {
-    setSaving(true);
-    setError("");
-    try {
-      const next = await requestPayload<SubHDConfig>("/api/config/subhd", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: draftEnabled,
-          baseUrl: draftBaseUrl.trim(),
-          proxy: draftProxy.trim()
-        })
-      });
-      setConfig(next);
-      setDraftEnabled(Boolean(next.enabled));
-      setDraftBaseUrl(next.baseUrl || next.defaultBaseUrl || "");
-      setDraftProxy(next.proxy || "");
-      emitToast({
-        level: "success",
-        message: t("subhd.settingsSavedTitle")
-      });
-    } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : String(saveError);
-      setError(message);
-      emitToast({
-        level: "error",
-        message: t("subhd.settingsSaveFailed"),
-        detail: message
-      });
-    } finally {
-      setSaving(false);
-    }
-  }
+  const parse = config?.parse;
+  const parseWarningCount = (parse?.layoutWarnings || 0) + (parse?.cardWarnings || 0);
 
   return (
     <div className="surface-panel space-y-4 p-3 sm:p-4">
-
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <SettingsLabel>{t("subhd.enabled")}</SettingsLabel>
@@ -118,7 +66,7 @@ export function SubHDSettingsPanel() {
             <Input
               size="sm"
               aria-label={t("subhd.baseUrl")}
-            value={draftBaseUrl}
+              value={draftBaseUrl}
               placeholder={t("subhd.baseUrlPlaceholder")}
               disabled={loading || saving || !draftEnabled}
               className="min-w-0 flex-1"
@@ -160,6 +108,30 @@ export function SubHDSettingsPanel() {
         />
       </div>
 
+      {parse && (
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <SettingsLabel help={t("subhd.parseHint")}>{t("subhd.parseStats")}</SettingsLabel>
+          <p>
+            {t("subhd.parseCounts", {
+              searches: parse.searches,
+              ok: parse.parseOk,
+              empty: parse.emptyResults
+            })}
+          </p>
+          {parseWarningCount > 0 ? (
+            <p role="status" className="text-destructive-muted">
+              {t("subhd.parseWarnings", {
+                layout: parse.layoutWarnings,
+                cards: parse.cardWarnings,
+                last: parse.lastWarning || "—"
+              })}
+            </p>
+          ) : (
+            <p>{t("subhd.parseHealthy")}</p>
+          )}
+        </div>
+      )}
+
       {loading && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <SpinnerIcon className="h-4 w-4" />
@@ -173,10 +145,20 @@ export function SubHDSettingsPanel() {
           disabled={loading || saving}
           label={t("subhd.saveSettings")}
           savingLabel={t("common.saving")}
-          onClick={() => void saveConfig()}
+          onClick={() => void save(async () => {
+            const next = await requestPayload<SubHDConfig>("/api/config/subhd", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                enabled: draftEnabled,
+                baseUrl: draftBaseUrl.trim(),
+                proxy: draftProxy.trim()
+              })
+            });
+            applyConfig(next);
+          }, "subhd.settingsSaveFailed", "subhd.settingsSavedTitle")}
         />
       </div>
     </div>
   );
 }
-

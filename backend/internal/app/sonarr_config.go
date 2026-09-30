@@ -39,7 +39,11 @@ func (s *Service) UpdateSonarrConfig(req domain.SonarrConfigUpdate) (domain.Sona
 	if err != nil {
 		return domain.SonarrConfig{}, err
 	}
-	storedAPIKey, apiKey, apiKeySet := s.keepOrSealAPIKey(apiKey, existing.APIKey, s.rawAppSetting(settingSonarrAPIKey))
+	storedAPIKey, apiKey, apiKeySet, err := s.keepOrSealAPIKey(apiKey, existing.APIKey, s.rawAppSetting(settingSonarrAPIKey))
+	if err != nil {
+		s.recordOp("config_sonarr", systemOperationVideoID, "", "", "error", err.Error())
+		return domain.SonarrConfig{}, err
+	}
 
 	if req.Enabled {
 		if normalizedURL == "" {
@@ -50,17 +54,13 @@ func (s *Service) UpdateSonarrConfig(req domain.SonarrConfigUpdate) (domain.Sona
 		}
 	}
 
-	enabledValue := "false"
-	if req.Enabled {
-		enabledValue = "true"
-	}
-	updatedAt := time.Now().UTC()
-	if err := s.store.SetAppSettings(map[string]string{
+	enabledValue := storedEnabledFlag(req.Enabled)
+	updatedAt, err := s.persistAppSettings("config_sonarr", map[string]string{
 		settingSonarrEnabled: enabledValue,
 		settingSonarrURL:     normalizedURL,
 		settingSonarrAPIKey:  storedAPIKey,
-	}, updatedAt); err != nil {
-		s.recordOp("config_sonarr", systemOperationVideoID, "", "", "error", err.Error())
+	})
+	if err != nil {
 		return domain.SonarrConfig{}, err
 	}
 

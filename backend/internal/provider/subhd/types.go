@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"subtitle-ui/backend/internal/archive"
 )
@@ -54,17 +55,17 @@ func (e *MultipleEntriesError) Unwrap() error {
 
 // SearchResult is one subtitle listing from SubHD search HTML.
 type SearchResult struct {
-	SID        string   `json:"sid"`
-	Title      string   `json:"title"`
-	Version    string   `json:"version"`
-	Langs      []string `json:"langs,omitempty"`
-	Format     string   `json:"format,omitempty"`
-	SourceTag  string   `json:"sourceTag,omitempty"`
-	Size       string   `json:"size,omitempty"`
-	Downloads  string   `json:"downloads,omitempty"`
-	Publisher  string   `json:"publisher,omitempty"`
-	DoubanID   string   `json:"doubanId,omitempty"`
-	Installable bool    `json:"installable"`
+	SID         string   `json:"sid"`
+	Title       string   `json:"title"`
+	Version     string   `json:"version"`
+	Langs       []string `json:"langs,omitempty"`
+	Format      string   `json:"format,omitempty"`
+	SourceTag   string   `json:"sourceTag,omitempty"`
+	Size        string   `json:"size,omitempty"`
+	Downloads   string   `json:"downloads,omitempty"`
+	Publisher   string   `json:"publisher,omitempty"`
+	DoubanID    string   `json:"doubanId,omitempty"`
+	Installable bool     `json:"installable"`
 }
 
 // SearchPage is a parsed search response.
@@ -80,11 +81,13 @@ type SearchPage struct {
 
 // ParseStats is cumulative SubHD HTML parse telemetry (process lifetime).
 type ParseStats struct {
-	Searches       int64 `json:"searches"`
-	ParseOK        int64 `json:"parseOk"`
-	EmptyResults   int64 `json:"emptyResults"`
-	LayoutWarnings int64 `json:"layoutWarnings"`
-	CardWarnings   int64 `json:"cardWarnings"`
+	Searches       int64      `json:"searches"`
+	ParseOK        int64      `json:"parseOk"`
+	EmptyResults   int64      `json:"emptyResults"`
+	LayoutWarnings int64      `json:"layoutWarnings"`
+	CardWarnings   int64      `json:"cardWarnings"`
+	LastWarning    string     `json:"lastWarning,omitempty"`
+	LastWarningAt  *time.Time `json:"lastWarningAt,omitempty"`
 }
 
 // DownloadedFile is raw payload from SubHD CDN after download API.

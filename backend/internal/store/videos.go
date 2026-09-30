@@ -44,7 +44,7 @@ func (s *Store) ListVideos(query string, mediaType string, directory string, pag
 }
 
 // ListAllVideos returns every video of the optional media type in one query (no page limit).
-// Used for scan diffs and TV series aggregation; prefer ListVideos for API paging.
+// Used for scan diffs; prefer ListVideos / ListTVSeriesPage for API paging.
 func (s *Store) ListAllVideos(mediaType string) ([]domain.Video, error) {
 	return s.listAllVideos(mediaType, true)
 }
@@ -79,7 +79,7 @@ func (s *Store) SubtitleCountsByVideo() (map[string]int, error) {
 }
 
 func (s *Store) videosSelectQuery(query string, mediaType string, directory string) (string, []any, []string) {
-	baseQuery := `SELECT id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at FROM videos`
+	baseQuery := `SELECT id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at, series_key, series_path, series_title_sort_key FROM videos`
 	args := []any{}
 	conditions := make([]string, 0, 2)
 
@@ -139,7 +139,7 @@ func (s *Store) queryVideosOpt(baseQuery string, args []any, withSubtitles bool)
 
 func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 	row := s.queryRow(
-		`SELECT id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at FROM videos WHERE id = ?`,
+		`SELECT id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at, series_key, series_path, series_title_sort_key FROM videos WHERE id = ?`,
 		videoID,
 	)
 
@@ -171,6 +171,9 @@ func (s *Store) GetVideo(videoID string) (domain.Video, bool, error) {
 		&fileModRaw,
 		&fingerprint,
 		&updatedRaw,
+		&video.SeriesKey,
+		&video.SeriesPath,
+		&video.SeriesTitleSortKey,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Video{}, false, nil
@@ -576,6 +579,9 @@ func scanVideoRow(rows *sql.Rows) (domain.Video, error) {
 		&fileModRaw,
 		&fingerprint,
 		&updatedRaw,
+		&video.SeriesKey,
+		&video.SeriesPath,
+		&video.SeriesTitleSortKey,
 	); err != nil {
 		return domain.Video{}, err
 	}

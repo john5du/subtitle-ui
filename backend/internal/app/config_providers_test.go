@@ -183,6 +183,9 @@ func TestSubHDConfigDefaultsAndUpdate(t *testing.T) {
 	if cfg.Proxy != "" {
 		t.Fatalf("expected empty proxy, got %q", cfg.Proxy)
 	}
+	if cfg.Parse == nil {
+		t.Fatal("expected parse telemetry on GET")
+	}
 
 	saved, err := svc.UpdateSubHDConfig(domain.SubHDConfigUpdate{
 		Enabled: false,

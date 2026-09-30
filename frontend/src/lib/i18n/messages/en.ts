@@ -115,6 +115,11 @@ export const enMessages = {
   "subhd.settingsSaveFailed": "Save SubHD config failed",
   "subhd.settingsSavedTitle": "SubHD config saved",
   "subhd.saveSettings": "Save",
+  "subhd.parseStats": "Search HTML parse",
+  "subhd.parseHint": "Counters since process start. Layout warnings mean SubHD HTML may have changed and in-app search can return empty results.",
+  "subhd.parseCounts": "Searches {searches} · parsed {ok} · empty {empty}",
+  "subhd.parseWarnings": "Layout warnings {layout}, unparsed cards {cards}. Last: {last}",
+  "subhd.parseHealthy": "No HTML layout warnings this process.",
 
   "sonarr.settingsDescription": "Configure Sonarr for TV season completeness and missing-episode search. Changes apply immediately.",
   "sonarr.enabled": "Enabled",

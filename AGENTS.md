@@ -47,10 +47,11 @@ cd frontend && bun run build   # static export → frontend/out
   - Forces browser-friendly audio when needed (e.g. EAC3→AAC on Jellyfin); video may stay copy
   - Upstream media statuses 2xx / 404 / 416 passed through on progressive/segments; no playback progress reporting
   - `STREAM_TICKET_SECRET` is required in production; development falls back to `ADMIN_TOKEN`. `STREAM_TICKET_TTL` defaults to 15m.
+  - `SETTINGS_SECRET` encrypts stored Sonarr/Jellyfin API keys. Empty → `ADMIN_TOKEN`. Decrypt tries SETTINGS_SECRET then ADMIN_TOKEN (safe to rotate). Encrypt failure is an error (never stores plaintext).
 - SubHD auto-download (backend, default **on**):
   - Env bootstrap: `SUBHD_ENABLED=false` to disable; `SUBHD_BASE_URL`; `SUBHD_PROXY=socks5://host:port`
-  - Runtime config (DB overrides env, no restart): `GET/PUT /api/config/subhd` `{ enabled, baseUrl, proxy }`
-  - Settings UI on dashboard config page
+  - Runtime config (DB overrides env, no restart): `GET/PUT /api/config/subhd` `{ enabled, baseUrl, proxy }` (GET also includes `parse` HTML telemetry)
+  - Settings UI on dashboard config page (shows parse warnings when SubHD markup drifts)
   - `SUBHD_MIN_INTERVAL=3s` (download API throttle)
   - `SUBHD_SEARCH_MAX_PAGES=1`
   - `GET /api/videos/{id}/subtitles/providers/subhd/search?q=&page=`
@@ -118,13 +119,14 @@ cd frontend && bun run build   # static export → frontend/out
 - DB: PostgreSQL only. `DATABASE_URL` is required. Local default: `docker compose up -d postgres` (dev-only, binds `127.0.0.1:5432`; credentials in `scripts/.env.example`). `dev-up` starts it and waits for health when `DATABASE_URL` is unset.
 - `ADMIN_TOKEN`: admin API token (default `change-me` when unset). Rejected unless set to a strong secret, or (non-production only) `ALLOW_INSECURE_DEFAULT_ADMIN_TOKEN=true`. `./scripts/dev-up.sh` sets the opt-in when unset. Bearer required on `/api/*` and `/mcp` except public paths: `GET /api/health`, `GET /api/videos/{id}/poster`, and ticket media `GET|HEAD` `.../stream`, `.../hls/master`, `.../hls/seg` (ticket query param; `POST .../stream-ticket` still needs Bearer). FE login page stores token in `localStorage` (`subtitle-ui:admin-token`).
 - Sonarr/Jellyfin GET config never returns full API keys (`apiKey` empty + `apiKeySet`); empty `apiKey` on PUT/test keeps the stored key.
+- `SETTINGS_SECRET` encrypts those stored keys. Empty → `ADMIN_TOKEN`. Decrypt tries SETTINGS_SECRET then ADMIN_TOKEN. Encrypt errors fail the save (no plaintext fallback).
 - Media roots must be **writable** (subtitle write/replace/backup in place).
 - Scanner requires a parseable NFO: movies `{base}.nfo` / `movie.nfo`; TV also walks up for `tvshow.nfo`. Accepts NFO if any of title / originaltitle / year / imdb / tmdb is non-empty; empty title → video basename; year optional. No usable NFO → video skipped.
 - Subtitle replace/delete/offset backup existing files before mutating.
 
 ## Release / version
 
-- Push to `main` triggers `.github/workflows/docker-publish.yml`: `go test ./backend/...` → resolve patch bump → build/push `ghcr.io/john5du/subtitle-ui` → commit version sync → tag.
+- Push to `main` triggers `.github/workflows/docker-publish.yml`: `go test ./backend/...` + frontend `bun test` / lint / typecheck → resolve patch bump → build/push `ghcr.io/john5du/subtitle-ui` → commit version sync → tag.
 - Keep **in sync**: `backend/internal/version/version.go` (`const Value`) and `frontend/package.json` `version`. Mismatch fails the release job.
 - Bot commits `chore: sync version files…` do not re-release.
 - Prefer Conventional Commits. Do not push casual WIP to `main`.

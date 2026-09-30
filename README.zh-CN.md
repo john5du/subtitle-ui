@@ -406,6 +406,7 @@ Jellyfin（可选；字幕通知 + 播放预览；URL+key 已配置则启用，�
 - `JELLYFIN_USER_ID` 可选 PlaybackInfo 用户 GUID；空则自动选管理员
 - `STREAM_TICKET_SECRET` 生产环境必填；开发环境留空则回落到 `ADMIN_TOKEN`
 - `STREAM_TICKET_TTL` 默认 `15m`
+- `SETTINGS_SECRET` 加密存储的第三方 API key；留空则回落到 `ADMIN_TOKEN`（解密会依次尝试两者）
 
 更多示例见 `scripts/.env.example`；面向开发代理的细节见 [`AGENTS.md`](./AGENTS.md)。前端 UI 约定：[`docs/frontend-ui.md`](./docs/frontend-ui.md)、[`docs/frontend-dialogs.md`](./docs/frontend-dialogs.md)。
 

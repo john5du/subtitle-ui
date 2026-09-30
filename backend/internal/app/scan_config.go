@@ -20,16 +20,12 @@ func (s *Service) UpdateScanConfig(req domain.ScanConfigUpdate) (domain.ScanConf
 	if err != nil {
 		return domain.ScanConfig{}, err
 	}
-	enabledValue := "false"
-	if req.Enabled {
-		enabledValue = "true"
-	}
-	updatedAt := time.Now().UTC()
-	if err := s.store.SetAppSettings(map[string]string{
+	enabledValue := storedEnabledFlag(req.Enabled)
+	updatedAt, err := s.persistAppSettings("config_scan", map[string]string{
 		settingScanAutoEnabled: enabledValue,
 		settingScanInterval:    canonical,
-	}, updatedAt); err != nil {
-		s.recordOp("config_scan", systemOperationVideoID, "", "", "error", err.Error())
+	})
+	if err != nil {
 		return domain.ScanConfig{}, err
 	}
 

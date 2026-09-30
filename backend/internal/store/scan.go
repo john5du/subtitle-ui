@@ -103,8 +103,8 @@ func (s *Store) SaveScanReconcileCtx(ctx context.Context, found []domain.Video, 
 
 		_, err = s.execTx(
 			tx,
-			`INSERT INTO videos(id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at, title_sort_key)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.videoUpsertSuffix(),
+			`INSERT INTO videos(id, path, directory, file_name, title, original_title, year, imdb_id, tmdb_id, media_type, metadata_source, series_title, series_original_title, series_imdb_id, series_tmdb_id, poster_path, file_size, file_mod_time, scan_fingerprint, updated_at, title_sort_key, series_key, series_path, series_title_sort_key)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.videoUpsertSuffix(),
 			video.ID,
 			video.Path,
 			video.Directory,
@@ -126,6 +126,9 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.videoUp
 			video.ScanFingerprint,
 			videoUpdatedAt.UTC().Format(time.RFC3339Nano),
 			textsort.SortKey(video.Title),
+			strings.TrimSpace(video.SeriesKey),
+			strings.TrimSpace(video.SeriesPath),
+			strings.TrimSpace(video.SeriesTitleSortKey),
 		)
 		if err != nil {
 			return err

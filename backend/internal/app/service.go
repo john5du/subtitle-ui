@@ -111,6 +111,18 @@ func (s *Service) SubHDParseStats() (subhd.ParseStats, bool) {
 	return subhd.ParseStats{}, false
 }
 
+func domainSubHDParseStats(stats subhd.ParseStats) domain.SubHDParseStats {
+	return domain.SubHDParseStats{
+		Searches:       stats.Searches,
+		ParseOK:        stats.ParseOK,
+		EmptyResults:   stats.EmptyResults,
+		LayoutWarnings: stats.LayoutWarnings,
+		CardWarnings:   stats.CardWarnings,
+		LastWarning:    stats.LastWarning,
+		LastWarningAt:  stats.LastWarningAt,
+	}
+}
+
 func NewService(cfg config.Config) (*Service, error) {
 	st, err := store.Open(cfg.DatabaseURL)
 	if err != nil {
@@ -164,6 +176,10 @@ func NewService(cfg config.Config) (*Service, error) {
 		_ = st.Close()
 		return nil, err
 	}
+	if err := svc.backfillTVSeriesKeys(); err != nil {
+		_ = st.Close()
+		return nil, err
+	}
 	return svc, nil
 }
 
@@ -194,6 +210,9 @@ func (s *Service) rebuildSubHDClient(enabled bool, baseURL, proxy string) {
 		MinInterval: s.cfg.SubHDMinInterval,
 	})
 	s.subhdMu.Lock()
+	if st, ok := s.subhd.(interface{ ParseStats() subhd.ParseStats }); ok {
+		client.RestoreParseStats(st.ParseStats())
+	}
 	s.subhd = client
 	s.subhdMu.Unlock()
 }

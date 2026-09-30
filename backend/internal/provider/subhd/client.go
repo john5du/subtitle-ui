@@ -40,6 +40,8 @@ type Client struct {
 	parseEmpty          atomic.Int64
 	parseLayoutWarnings atomic.Int64
 	parseCardWarnings   atomic.Int64
+	parseLastWarning    atomic.Value
+	parseLastWarningAt  atomic.Int64
 }
 
 // New creates a SubHD client. When disabled, methods return ErrDisabled.
@@ -179,12 +181,38 @@ func (c *Client) ParseStats() ParseStats {
 	if c == nil {
 		return ParseStats{}
 	}
-	return ParseStats{
+	stats := ParseStats{
 		Searches:       c.parseSearches.Load(),
 		ParseOK:        c.parseOK.Load(),
 		EmptyResults:   c.parseEmpty.Load(),
 		LayoutWarnings: c.parseLayoutWarnings.Load(),
 		CardWarnings:   c.parseCardWarnings.Load(),
+	}
+	if warning, ok := c.parseLastWarning.Load().(string); ok {
+		stats.LastWarning = warning
+	}
+	if at := c.parseLastWarningAt.Load(); at > 0 {
+		t := time.Unix(0, at).UTC()
+		stats.LastWarningAt = &t
+	}
+	return stats
+}
+
+// RestoreParseStats copies telemetry onto this client (used when rebuilding the HTTP client).
+func (c *Client) RestoreParseStats(stats ParseStats) {
+	if c == nil {
+		return
+	}
+	c.parseSearches.Store(stats.Searches)
+	c.parseOK.Store(stats.ParseOK)
+	c.parseEmpty.Store(stats.EmptyResults)
+	c.parseLayoutWarnings.Store(stats.LayoutWarnings)
+	c.parseCardWarnings.Store(stats.CardWarnings)
+	if stats.LastWarning != "" {
+		c.parseLastWarning.Store(stats.LastWarning)
+	}
+	if stats.LastWarningAt != nil && !stats.LastWarningAt.IsZero() {
+		c.parseLastWarningAt.Store(stats.LastWarningAt.UTC().UnixNano())
 	}
 }
 
@@ -193,6 +221,10 @@ func (c *Client) recordSearchParse(itemCount int, warning string) {
 		return
 	}
 	c.parseSearches.Add(1)
+	if warning != "" {
+		c.parseLastWarning.Store(warning)
+		c.parseLastWarningAt.Store(time.Now().UTC().UnixNano())
+	}
 	switch warning {
 	case WarningHTMLLayout:
 		c.parseLayoutWarnings.Add(1)

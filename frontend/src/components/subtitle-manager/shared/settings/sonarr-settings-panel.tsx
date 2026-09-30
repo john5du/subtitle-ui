@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 
 import { useI18n } from "@/lib/i18n";
-import { emitToast } from "@/lib/toast";
 import type { ConnectionTestResult, SonarrConfig } from "@/lib/types";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { Input } from "@/components/ui/input";
@@ -11,137 +10,37 @@ import { Switch } from "@/components/ui/switch";
 
 import { SpinnerIcon } from "../pending-state";
 import { SaveSettingsButton, SettingsLabel, TestConnectionButton } from "./settings-shared";
+import { useSettingsForm } from "./use-settings-form";
 
 export function SonarrSettingsPanel() {
   const { t } = useI18n();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
+  const { load, save, test, loading, saving, testing, error, setError, busy } = useSettingsForm();
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [draftUrl, setDraftUrl] = useState("");
   const [draftApiKey, setDraftApiKey] = useState("");
   const [apiKeySet, setApiKeySet] = useState(false);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-
-    async function loadConfig() {
-      setLoading(true);
-      setError("");
-      try {
-        const next = await requestPayload<SonarrConfig>("/api/config/sonarr");
-        if (cancelled) {
-          return;
-        }
-        setDraftEnabled(Boolean(next.enabled));
-        setDraftUrl(next.url || "");
-        setDraftApiKey("");
-        setApiKeySet(Boolean(next.apiKeySet));
-      } catch (loadError) {
-        if (cancelled) {
-          return;
-        }
-        const message = loadError instanceof Error ? loadError.message : String(loadError);
-        setError(message);
-        emitToast({
-          level: "error",
-          message: t("sonarr.settingsLoadFailed"),
-          detail: message
-        });
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+    void load(async () => {
+      const next = await requestPayload<SonarrConfig>("/api/config/sonarr");
+      if (cancelled) {
+        return;
       }
-    }
-
-    void loadConfig();
-    return () => {
-      cancelled = true;
-    };
-  }, [t]);
-
-  async function saveConfig() {
-    setSaving(true);
-    setError("");
-    try {
-      const next = await requestPayload<SonarrConfig>("/api/config/sonarr", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: draftEnabled,
-          url: draftUrl.trim(),
-          apiKey: draftApiKey.trim()
-        })
-      });
       setDraftEnabled(Boolean(next.enabled));
       setDraftUrl(next.url || "");
       setDraftApiKey("");
       setApiKeySet(Boolean(next.apiKeySet));
-      emitToast({
-        level: "success",
-        message: t("sonarr.settingsSavedTitle")
-      });
-    } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : String(saveError);
-      setError(message);
-      emitToast({
-        level: "error",
-        message: t("sonarr.settingsSaveFailed"),
-        detail: message
-      });
-    } finally {
-      setSaving(false);
-    }
-  }
+    }, "sonarr.settingsLoadFailed", () => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
 
-  async function testConnection() {
-    setTesting(true);
-    setError("");
-    try {
-      const result = await requestPayload<ConnectionTestResult>("/api/config/sonarr/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: true,
-          url: draftUrl.trim(),
-          apiKey: draftApiKey.trim()
-        })
-      });
-      if (result.ok) {
-        emitToast({
-          level: "success",
-          message: t("sonarr.testConnectionOk")
-        });
-      } else {
-        const detail = result.message || t("sonarr.testConnectionFailed");
-        setError(detail);
-        emitToast({
-          level: "error",
-          message: t("sonarr.testConnectionFailed"),
-          detail
-        });
-      }
-    } catch (testError) {
-      const message = testError instanceof Error ? testError.message : String(testError);
-      setError(message);
-      emitToast({
-        level: "error",
-        message: t("sonarr.testConnectionFailed"),
-        detail: message
-      });
-    } finally {
-      setTesting(false);
-    }
-  }
-
-  const busy = loading || saving || testing;
   const canTest = Boolean(draftUrl.trim() && (draftApiKey.trim() || apiKeySet));
 
   return (
     <div className="surface-panel space-y-4 p-3 sm:p-4">
-
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <SettingsLabel>{t("sonarr.enabled")}</SettingsLabel>
@@ -200,17 +99,38 @@ export function SonarrSettingsPanel() {
           disabled={busy || !canTest}
           label={t("sonarr.testConnection")}
           testingLabel={t("sonarr.testingConnection")}
-          onClick={() => void testConnection()}
+          onClick={() => void test(async () => requestPayload<ConnectionTestResult>("/api/config/sonarr/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              enabled: true,
+              url: draftUrl.trim(),
+              apiKey: draftApiKey.trim()
+            })
+          }), "sonarr.testConnectionFailed", "sonarr.testConnectionOk")}
         />
         <SaveSettingsButton
           saving={saving}
           disabled={busy}
           label={t("sonarr.saveSettings")}
           savingLabel={t("common.saving")}
-          onClick={() => void saveConfig()}
+          onClick={() => void save(async () => {
+            const next = await requestPayload<SonarrConfig>("/api/config/sonarr", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                enabled: draftEnabled,
+                url: draftUrl.trim(),
+                apiKey: draftApiKey.trim()
+              })
+            });
+            setDraftEnabled(Boolean(next.enabled));
+            setDraftUrl(next.url || "");
+            setDraftApiKey("");
+            setApiKeySet(Boolean(next.apiKeySet));
+          }, "sonarr.settingsSaveFailed", "sonarr.settingsSavedTitle")}
         />
       </div>
     </div>
   );
 }
-

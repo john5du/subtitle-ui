@@ -518,7 +518,32 @@ func TestSearchRecordsLayoutWarning(t *testing.T) {
 	if page.Warning != WarningHTMLLayout {
 		t.Fatalf("want layout warning, got %q items=%d", page.Warning, len(page.Items))
 	}
-	if c.ParseStats().LayoutWarnings != 1 {
-		t.Fatalf("stats %+v", c.ParseStats())
+	stats := c.ParseStats()
+	if stats.LayoutWarnings != 1 || stats.LastWarning != WarningHTMLLayout || stats.LastWarningAt == nil {
+		t.Fatalf("stats %+v", stats)
+	}
+
+	cloned := New(Options{Enabled: true, BaseURL: srv.URL, HTTPClient: srv.Client()})
+	cloned.RestoreParseStats(stats)
+	restored := cloned.ParseStats()
+	if restored.Searches != stats.Searches || restored.LayoutWarnings != stats.LayoutWarnings || restored.LastWarning != stats.LastWarning {
+		t.Fatalf("restore %+v want %+v", restored, stats)
+	}
+}
+
+func TestRestoreParseStats(t *testing.T) {
+	at := time.Now().UTC()
+	c := New(Options{Enabled: true})
+	c.RestoreParseStats(ParseStats{
+		Searches:       4,
+		ParseOK:        2,
+		EmptyResults:   1,
+		LayoutWarnings: 1,
+		LastWarning:    WarningHTMLLayout,
+		LastWarningAt:  &at,
+	})
+	got := c.ParseStats()
+	if got.Searches != 4 || got.ParseOK != 2 || got.EmptyResults != 1 || got.LayoutWarnings != 1 || got.LastWarning != WarningHTMLLayout || got.LastWarningAt == nil {
+		t.Fatalf("stats %+v", got)
 	}
 }

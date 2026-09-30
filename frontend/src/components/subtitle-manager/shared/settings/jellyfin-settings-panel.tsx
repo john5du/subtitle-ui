@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 
 import { setJellyfinEnabledCache } from "@/hooks/use-jellyfin-enabled";
 import { useI18n } from "@/lib/i18n";
-import { emitToast } from "@/lib/toast";
 import type { ConnectionTestResult, JellyfinConfig } from "@/lib/types";
 import { requestPayload } from "@/lib/subtitle-manager/api-client";
 import { Input } from "@/components/ui/input";
@@ -12,139 +11,35 @@ import { Switch } from "@/components/ui/switch";
 
 import { SpinnerIcon } from "../pending-state";
 import { SaveSettingsButton, SettingsLabel, TestConnectionButton } from "./settings-shared";
+import { useSettingsForm } from "./use-settings-form";
 
 export function JellyfinSettingsPanel() {
   const { t } = useI18n();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
+  const { load, save, test, loading, saving, testing, error, setError, busy } = useSettingsForm();
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [draftUrl, setDraftUrl] = useState("");
   const [draftApiKey, setDraftApiKey] = useState("");
   const [apiKeySet, setApiKeySet] = useState(false);
   const [draftPathMap, setDraftPathMap] = useState("");
-  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-
-    async function loadConfig() {
-      setLoading(true);
-      setError("");
-      try {
-        const next = await requestPayload<JellyfinConfig>("/api/config/jellyfin");
-        if (cancelled) {
-          return;
-        }
-        setDraftEnabled(Boolean(next.enabled));
-        setDraftUrl(next.url || "");
-        setDraftApiKey("");
-        setApiKeySet(Boolean(next.apiKeySet));
-        setDraftPathMap(next.pathMap || "");
-      } catch (loadError) {
-        if (cancelled) {
-          return;
-        }
-        const message = loadError instanceof Error ? loadError.message : String(loadError);
-        setError(message);
-        emitToast({
-          level: "error",
-          message: t("jellyfin.settingsLoadFailed"),
-          detail: message
-        });
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+    void load(async () => {
+      const next = await requestPayload<JellyfinConfig>("/api/config/jellyfin");
+      if (cancelled) {
+        return;
       }
-    }
-
-    void loadConfig();
-    return () => {
-      cancelled = true;
-    };
-  }, [t]);
-
-  async function saveConfig() {
-    setSaving(true);
-    setError("");
-    try {
-      const next = await requestPayload<JellyfinConfig>("/api/config/jellyfin", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: draftEnabled,
-          url: draftUrl.trim(),
-          apiKey: draftApiKey.trim(),
-          pathMap: draftPathMap.trim()
-        })
-      });
       setDraftEnabled(Boolean(next.enabled));
       setDraftUrl(next.url || "");
       setDraftApiKey("");
       setApiKeySet(Boolean(next.apiKeySet));
       setDraftPathMap(next.pathMap || "");
-      setJellyfinEnabledCache(Boolean(next.enabled));
-      emitToast({
-        level: "success",
-        message: t("jellyfin.settingsSavedTitle")
-      });
-    } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : String(saveError);
-      setError(message);
-      emitToast({
-        level: "error",
-        message: t("jellyfin.settingsSaveFailed"),
-        detail: message
-      });
-    } finally {
-      setSaving(false);
-    }
-  }
+    }, "jellyfin.settingsLoadFailed", () => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
 
-  async function testConnection() {
-    setTesting(true);
-    setError("");
-    try {
-      const result = await requestPayload<ConnectionTestResult>("/api/config/jellyfin/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: true,
-          url: draftUrl.trim(),
-          apiKey: draftApiKey.trim(),
-          pathMap: draftPathMap.trim()
-        })
-      });
-      if (result.ok) {
-        emitToast({
-          level: "success",
-          message: t("jellyfin.testConnectionOk"),
-          detail: result.message && result.message !== "ok" ? result.message : undefined
-        });
-      } else {
-        const detail = result.message || t("jellyfin.testConnectionFailed");
-        setError(detail);
-        emitToast({
-          level: "error",
-          message: t("jellyfin.testConnectionFailed"),
-          detail
-        });
-      }
-    } catch (testError) {
-      const message = testError instanceof Error ? testError.message : String(testError);
-      setError(message);
-      emitToast({
-        level: "error",
-        message: t("jellyfin.testConnectionFailed"),
-        detail: message
-      });
-    } finally {
-      setTesting(false);
-    }
-  }
-
-  const busy = loading || saving || testing;
   const canTest = Boolean(draftUrl.trim() && (draftApiKey.trim() || apiKeySet));
 
   return (
@@ -222,14 +117,40 @@ export function JellyfinSettingsPanel() {
           disabled={busy || !canTest}
           label={t("jellyfin.testConnection")}
           testingLabel={t("jellyfin.testingConnection")}
-          onClick={() => void testConnection()}
+          onClick={() => void test(async () => requestPayload<ConnectionTestResult>("/api/config/jellyfin/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              enabled: true,
+              url: draftUrl.trim(),
+              apiKey: draftApiKey.trim(),
+              pathMap: draftPathMap.trim()
+            })
+          }), "jellyfin.testConnectionFailed", "jellyfin.testConnectionOk")}
         />
         <SaveSettingsButton
           saving={saving}
           disabled={busy}
           label={t("jellyfin.saveSettings")}
           savingLabel={t("common.saving")}
-          onClick={() => void saveConfig()}
+          onClick={() => void save(async () => {
+            const next = await requestPayload<JellyfinConfig>("/api/config/jellyfin", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                enabled: draftEnabled,
+                url: draftUrl.trim(),
+                apiKey: draftApiKey.trim(),
+                pathMap: draftPathMap.trim()
+              })
+            });
+            setDraftEnabled(Boolean(next.enabled));
+            setDraftUrl(next.url || "");
+            setDraftApiKey("");
+            setApiKeySet(Boolean(next.apiKeySet));
+            setDraftPathMap(next.pathMap || "");
+            setJellyfinEnabledCache(Boolean(next.enabled));
+          }, "jellyfin.settingsSaveFailed", "jellyfin.settingsSavedTitle")}
         />
       </div>
     </div>

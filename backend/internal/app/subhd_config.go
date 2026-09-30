@@ -11,7 +11,15 @@ import (
 
 // GetSubHDConfig returns effective SubHD settings (DB overrides env).
 func (s *Service) GetSubHDConfig() (domain.SubHDConfig, error) {
-	return s.resolveSubHDConfig()
+	cfg, err := s.resolveSubHDConfig()
+	if err != nil {
+		return domain.SubHDConfig{}, err
+	}
+	if stats, ok := s.SubHDParseStats(); ok {
+		parsed := domainSubHDParseStats(stats)
+		cfg.Parse = &parsed
+	}
+	return cfg, nil
 }
 
 // UpdateSubHDConfig persists SubHD settings and hot-reloads the client.
@@ -29,17 +37,13 @@ func (s *Service) UpdateSubHDConfig(req domain.SubHDConfigUpdate) (domain.SubHDC
 		return domain.SubHDConfig{}, fmt.Errorf("%w: %s", ErrBadRequest, err.Error())
 	}
 
-	enabledValue := "false"
-	if req.Enabled {
-		enabledValue = "true"
-	}
-	updatedAt := time.Now().UTC()
-	if err := s.store.SetAppSettings(map[string]string{
+	enabledValue := storedEnabledFlag(req.Enabled)
+	updatedAt, err := s.persistAppSettings("config_subhd", map[string]string{
 		settingSubHDEnabled: enabledValue,
 		settingSubHDBaseURL: normalizedBase,
 		settingSubHDProxy:   normalizedProxy,
-	}, updatedAt); err != nil {
-		s.recordOp("config_subhd", systemOperationVideoID, "", "", "error", err.Error())
+	})
+	if err != nil {
 		return domain.SubHDConfig{}, err
 	}
 
@@ -58,13 +62,18 @@ func (s *Service) UpdateSubHDConfig(req domain.SubHDConfigUpdate) (domain.SubHDC
 		fmt.Sprintf("enabled=%s base_url=%s proxy=%s", enabledValue, normalizedBase, proxyState),
 	)
 
-	return domain.SubHDConfig{
+	cfg := domain.SubHDConfig{
 		Enabled:        req.Enabled,
 		BaseURL:        normalizedBase,
 		Proxy:          normalizedProxy,
 		DefaultBaseURL: s.envSubHDBaseURL(),
 		UpdatedAt:      updatedAt,
-	}, nil
+	}
+	if stats, ok := s.SubHDParseStats(); ok {
+		parsed := domainSubHDParseStats(stats)
+		cfg.Parse = &parsed
+	}
+	return cfg, nil
 }
 
 // applyStoredSubHDConfig reloads DB overrides onto the SubHD client (startup).

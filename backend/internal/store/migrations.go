@@ -451,6 +451,37 @@ CREATE TABLE IF NOT EXISTS mcp_confirm_nonces (
 		}
 	}
 
+	applied, err = s.isMigrationApplied(13)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		for _, column := range []struct {
+			name      string
+			statement string
+		}{
+			{name: "series_key", statement: `ALTER TABLE videos ADD COLUMN series_key TEXT NOT NULL DEFAULT ''`},
+			{name: "series_path", statement: `ALTER TABLE videos ADD COLUMN series_path TEXT NOT NULL DEFAULT ''`},
+			{name: "series_title_sort_key", statement: `ALTER TABLE videos ADD COLUMN series_title_sort_key TEXT NOT NULL DEFAULT ''`},
+		} {
+			has, err := s.hasColumn("videos", column.name)
+			if err != nil {
+				return err
+			}
+			if !has {
+				if _, err := s.exec(column.statement); err != nil {
+					return fmt.Errorf("apply migration v13 %s: %w", column.name, err)
+				}
+			}
+		}
+		if _, err := s.exec(`CREATE INDEX IF NOT EXISTS idx_videos_media_type_series_key ON videos(media_type, series_key)`); err != nil {
+			return fmt.Errorf("apply migration v13 idx_videos_media_type_series_key: %w", err)
+		}
+		if _, err := s.exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 13, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

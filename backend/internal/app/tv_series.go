@@ -2,12 +2,10 @@ package app
 
 import (
 	"path/filepath"
-	"sort"
-	"strconv"
 	"strings"
-	"time"
 
 	"subtitle-ui/backend/internal/domain"
+	"subtitle-ui/backend/internal/store"
 	"subtitle-ui/backend/internal/textsort"
 )
 
@@ -22,43 +20,20 @@ func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortBy 
 		pageSize = 200
 	}
 
-	videos, err := s.store.ListAllVideosMeta(domain.MediaTypeTV)
-	if err != nil {
-		return domain.TVSeriesPage{}, err
-	}
-	counts, err := s.store.SubtitleCountsByVideo()
+	rows, total, err := s.store.ListTVSeriesPage(query, page, pageSize, sortBy, sortOrder)
 	if err != nil {
 		return domain.TVSeriesPage{}, err
 	}
 
-	rows := buildTVSeriesSummaries(videos, counts, s.cfg.TVMediaRoot)
-	rows = filterTVSeriesSummaries(rows, query)
-	sortTVSeriesSummaries(rows, sortBy, sortOrder)
-
-	total := len(rows)
 	totalPages := 0
 	if total > 0 {
 		totalPages = (total + pageSize - 1) / pageSize
 	}
-
-	start := (page - 1) * pageSize
-	if start >= total {
-		return domain.TVSeriesPage{
-			Items:      []domain.TVSeriesSummary{},
-			Total:      total,
-			Page:       page,
-			PageSize:   pageSize,
-			TotalPages: totalPages,
-		}, nil
+	if rows == nil {
+		rows = []domain.TVSeriesSummary{}
 	}
-
-	end := start + pageSize
-	if end > total {
-		end = total
-	}
-
 	return domain.TVSeriesPage{
-		Items:      rows[start:end],
+		Items:      rows,
 		Total:      total,
 		Page:       page,
 		PageSize:   pageSize,
@@ -66,200 +41,75 @@ func (s *Service) ListTVSeriesPage(query string, page int, pageSize int, sortBy 
 	}, nil
 }
 
-func buildTVSeriesSummaries(videos []domain.Video, subtitleCounts map[string]int, tvRootPath string) []domain.TVSeriesSummary {
-	type group struct {
-		item        domain.TVSeriesSummary
-		latestYear  int
-		updatedTime time.Time
+func (s *Service) backfillTVSeriesKeys() error {
+	videos, err := s.store.ListAllVideosMeta(domain.MediaTypeTV)
+	if err != nil {
+		return err
 	}
-	bySeries := make(map[string]*group, 128)
-
-	for _, video := range videos {
-		key, seriesPath, fallbackTitle := resolveTVSeriesFromVideo(video, tvRootPath)
-		seriesTitle := strings.TrimSpace(video.SeriesTitle)
-		seriesOriginalTitle := strings.TrimSpace(video.SeriesOriginalTitle)
-		item, ok := bySeries[key]
-		if !ok {
-			item = &group{
-				item: domain.TVSeriesSummary{
-					Key:             key,
-					Path:            seriesPath,
-					Title:           firstNonEmpty(seriesTitle, seriesOriginalTitle, fallbackTitle, video.Title, "Unknown"),
-					OriginalTitle:   seriesOriginalTitle,
-					ImdbID:          strings.TrimSpace(video.SeriesImdbID),
-					TmdbID:          strings.TrimSpace(video.SeriesTmdbID),
-					UpdatedAt:       video.UpdatedAt.UTC().Format(time.RFC3339Nano),
-					VideoCount:      0,
-					NoSubtitleCount: 0,
-				},
-				latestYear:  0,
-				updatedTime: video.UpdatedAt.UTC(),
-			}
-			bySeries[key] = item
-		}
-		if seriesTitle != "" {
-			item.item.Title = seriesTitle
-		}
-		if seriesOriginalTitle != "" {
-			item.item.OriginalTitle = seriesOriginalTitle
-		}
-		if imdbID := strings.TrimSpace(video.SeriesImdbID); imdbID != "" {
-			item.item.ImdbID = imdbID
-		}
-		if tmdbID := strings.TrimSpace(video.SeriesTmdbID); tmdbID != "" {
-			item.item.TmdbID = tmdbID
-		}
-
-		item.item.VideoCount += 1
-		subCount := len(video.Subtitles)
-		if subtitleCounts != nil {
-			subCount = subtitleCounts[video.ID]
-		}
-		if subCount == 0 {
-			item.item.NoSubtitleCount += 1
-		}
-		if item.item.PosterVideoID == "" && strings.TrimSpace(video.PosterPath) != "" {
-			item.item.PosterVideoID = video.ID
-		}
-
-		if year := parseYearNumber(video.Year); year > item.latestYear {
-			item.latestYear = year
-			item.item.LatestEpisodeYear = strconv.Itoa(year)
-		}
-
-		if video.UpdatedAt.After(item.updatedTime) {
-			item.updatedTime = video.UpdatedAt.UTC()
-			item.item.UpdatedAt = video.UpdatedAt.UTC().Format(time.RFC3339Nano)
-		}
-	}
-
-	rows := make([]domain.TVSeriesSummary, 0, len(bySeries))
-	for _, row := range bySeries {
-		rows = append(rows, row.item)
-	}
-	return rows
+	return s.store.UpdateTVSeriesKeys(collectTVSeriesKeyUpdates(videos, s.cfg.TVMediaRoot))
 }
 
-func filterTVSeriesSummaries(items []domain.TVSeriesSummary, query string) []domain.TVSeriesSummary {
-	needle := strings.TrimSpace(strings.ToLower(query))
-	if needle == "" {
-		return items
+func (s *Service) syncSkippedTVSeriesKeys(found []domain.Video, rebuilt []domain.Video, previousByPath map[string]domain.Video) error {
+	rebuiltIDs := make(map[string]struct{}, len(rebuilt))
+	for _, video := range rebuilt {
+		rebuiltIDs[video.ID] = struct{}{}
 	}
-
-	filtered := make([]domain.TVSeriesSummary, 0, len(items))
-	for _, item := range items {
-		if strings.Contains(strings.ToLower(item.Title), needle) ||
-			strings.Contains(strings.ToLower(item.OriginalTitle), needle) ||
-			strings.Contains(strings.ToLower(item.Path), needle) ||
-			strings.Contains(strings.ToLower(item.ImdbID), needle) ||
-			strings.Contains(strings.ToLower(item.TmdbID), needle) {
-			filtered = append(filtered, item)
+	skipped := make([]domain.Video, 0)
+	for _, video := range found {
+		if _, ok := rebuiltIDs[video.ID]; ok {
+			continue
 		}
-	}
-	return filtered
-}
-
-func normalizeTVSeriesSortBy(sortBy string) string {
-	switch strings.ToLower(strings.TrimSpace(sortBy)) {
-	case "title":
-		return "title"
-	case "updatedat", "updated_at":
-		return "updatedAt"
-	case "videocount", "video_count":
-		return "videoCount"
-	case "nosubtitlecount", "no_subtitle_count":
-		return "noSubtitleCount"
-	case "year", "latestyear", "latest_year", "latestepisodeyear":
-		return "year"
-	default:
-		return "year"
-	}
-}
-
-func compareTVSeriesTieBreak(a, b domain.TVSeriesSummary) bool {
-	if textsort.Less(a.Title, b.Title) {
-		return true
-	}
-	if textsort.Less(b.Title, a.Title) {
-		return false
-	}
-	return strings.ToLower(a.Path) < strings.ToLower(b.Path)
-}
-
-func sortTVSeriesSummaries(items []domain.TVSeriesSummary, sortBy string, sortOrder string) {
-	order := normalizeSortOrder(sortOrder)
-	field := normalizeTVSeriesSortBy(sortBy)
-	asc := order == "asc"
-
-	sort.Slice(items, func(i int, j int) bool {
-		a := items[i]
-		b := items[j]
-
-		switch field {
-		case "title":
-			lessAB := textsort.Less(a.Title, b.Title)
-			lessBA := textsort.Less(b.Title, a.Title)
-			if lessAB != lessBA {
-				if asc {
-					return lessAB
-				}
-				return lessBA
+		if prev, ok := previousByPath[video.Path]; ok {
+			video.SeriesKey = prev.SeriesKey
+			video.SeriesPath = prev.SeriesPath
+			video.SeriesTitleSortKey = prev.SeriesTitleSortKey
+			if video.MediaType == "" {
+				video.MediaType = prev.MediaType
 			}
-			return strings.ToLower(a.Path) < strings.ToLower(b.Path)
-		case "updatedAt":
-			timeA, errA := time.Parse(time.RFC3339Nano, a.UpdatedAt)
-			if errA != nil {
-				timeA, errA = time.Parse(time.RFC3339, a.UpdatedAt)
-			}
-			timeB, errB := time.Parse(time.RFC3339Nano, b.UpdatedAt)
-			if errB != nil {
-				timeB, errB = time.Parse(time.RFC3339, b.UpdatedAt)
-			}
-			hasA := errA == nil && !timeA.IsZero()
-			hasB := errB == nil && !timeB.IsZero()
-			if hasA != hasB {
-				return hasA
-			}
-			if hasA && hasB && !timeA.Equal(timeB) {
-				if asc {
-					return timeA.Before(timeB)
-				}
-				return timeA.After(timeB)
-			}
-			return compareTVSeriesTieBreak(a, b)
-		case "videoCount":
-			if a.VideoCount != b.VideoCount {
-				if asc {
-					return a.VideoCount < b.VideoCount
-				}
-				return a.VideoCount > b.VideoCount
-			}
-			return compareTVSeriesTieBreak(a, b)
-		case "noSubtitleCount":
-			if a.NoSubtitleCount != b.NoSubtitleCount {
-				if asc {
-					return a.NoSubtitleCount < b.NoSubtitleCount
-				}
-				return a.NoSubtitleCount > b.NoSubtitleCount
-			}
-			return compareTVSeriesTieBreak(a, b)
-		default:
-			yearA := parseYearNumber(a.LatestEpisodeYear)
-			yearB := parseYearNumber(b.LatestEpisodeYear)
-			hasYearA := yearA > 0
-			hasYearB := yearB > 0
-			if hasYearA != hasYearB {
-				return hasYearA
-			}
-			if hasYearA && hasYearB && yearA != yearB {
-				if asc {
-					return yearA < yearB
-				}
-				return yearA > yearB
-			}
-			return compareTVSeriesTieBreak(a, b)
 		}
-	})
+		skipped = append(skipped, video)
+	}
+	return s.store.UpdateTVSeriesKeys(collectTVSeriesKeyUpdates(skipped, s.cfg.TVMediaRoot))
+}
+
+func collectTVSeriesKeyUpdates(videos []domain.Video, tvRootPath string) []store.TVSeriesKeyUpdate {
+	updates := make([]store.TVSeriesKeyUpdate, 0)
+	for i := range videos {
+		beforeKey := videos[i].SeriesKey
+		beforePath := videos[i].SeriesPath
+		beforeSort := videos[i].SeriesTitleSortKey
+		annotateVideoSeriesFields(&videos[i], tvRootPath)
+		if videos[i].SeriesKey == beforeKey && videos[i].SeriesPath == beforePath && videos[i].SeriesTitleSortKey == beforeSort {
+			continue
+		}
+		if strings.TrimSpace(videos[i].SeriesKey) == "" {
+			continue
+		}
+		updates = append(updates, store.TVSeriesKeyUpdate{
+			VideoID:            videos[i].ID,
+			SeriesKey:          videos[i].SeriesKey,
+			SeriesPath:         videos[i].SeriesPath,
+			SeriesTitleSortKey: videos[i].SeriesTitleSortKey,
+		})
+	}
+	return updates
+}
+
+func annotateVideoSeriesFields(video *domain.Video, tvRootPath string) {
+	if video == nil {
+		return
+	}
+	if video.MediaType != domain.MediaTypeTV {
+		video.SeriesKey = ""
+		video.SeriesPath = ""
+		video.SeriesTitleSortKey = ""
+		return
+	}
+	key, seriesPath, fallback := resolveTVSeriesFromVideo(*video, tvRootPath)
+	video.SeriesKey = key
+	video.SeriesPath = seriesPath
+	title := firstNonEmpty(video.SeriesTitle, video.SeriesOriginalTitle, fallback, video.Title, "Unknown")
+	video.SeriesTitleSortKey = textsort.SortKey(title)
 }
 
 func resolveTVSeriesFromVideo(video domain.Video, tvRootPath string) (string, string, string) {
@@ -324,18 +174,6 @@ func computeTVSeriesKeyFromDir(videoDir string, tvRootPath string) string {
 	return tvSeriesKeyFromPath(seriesPath, filepath.Base(seriesPath))
 }
 
-func parseYearNumber(raw string) int {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return 0
-	}
-	year, err := strconv.Atoi(trimmed)
-	if err != nil || year <= 0 {
-		return 0
-	}
-	return year
-}
-
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if trimmed := strings.TrimSpace(value); trimmed != "" {
@@ -343,13 +181,4 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-
-func normalizeSortOrder(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "asc":
-		return "asc"
-	default:
-		return "desc"
-	}
 }

@@ -117,6 +117,11 @@ export const zhCNMessages: MessageDictionary = {
   "subhd.settingsSaveFailed": "保存 SubHD 配置失败",
   "subhd.settingsSavedTitle": "SubHD 配置已保存",
   "subhd.saveSettings": "保存",
+  "subhd.parseStats": "搜索页解析",
+  "subhd.parseHint": "计数从进程启动累计。布局告警表示 SubHD 页面结构可能已变，站内搜索可能返回空结果。",
+  "subhd.parseCounts": "搜索 {searches} · 解析成功 {ok} · 空结果 {empty}",
+  "subhd.parseWarnings": "布局告警 {layout}，卡片未解析 {cards}。最近：{last}",
+  "subhd.parseHealthy": "当前进程没有 HTML 布局告警。",
 
   "sonarr.settingsDescription": "配置 Sonarr 以启用剧集完整度对比与缺失集搜索。保存后立即生效。",
   "sonarr.enabled": "启用",

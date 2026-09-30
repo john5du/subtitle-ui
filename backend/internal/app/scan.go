@@ -171,9 +171,14 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 			result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
 		}
 	} else {
+		for i := range result.rebuilt {
+			annotateVideoSeriesFields(&result.rebuilt[i], s.cfg.TVMediaRoot)
+		}
 		saveErr = s.store.SaveScanReconcileCtx(ctx, result.found, result.rebuilt, started, finished, "", result.replaceScopes)
 		if saveErr != nil {
 			result.err = combineErrors(result.err, prefixedError("persist scan result", saveErr))
+		} else if keyErr := s.syncSkippedTVSeriesKeys(result.found, result.rebuilt, previousByPath); keyErr != nil {
+			result.err = combineErrors(result.err, prefixedError("series keys", keyErr))
 		}
 	}
 

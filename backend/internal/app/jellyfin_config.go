@@ -54,7 +54,11 @@ func (s *Service) UpdateJellyfinConfig(req domain.JellyfinConfigUpdate) (domain.
 	if err != nil {
 		return domain.JellyfinConfig{}, err
 	}
-	storedAPIKey, apiKey, apiKeySet := s.keepOrSealAPIKey(apiKey, existing.APIKey, s.rawAppSetting(settingJellyfinAPIKey))
+	storedAPIKey, apiKey, apiKeySet, err := s.keepOrSealAPIKey(apiKey, existing.APIKey, s.rawAppSetting(settingJellyfinAPIKey))
+	if err != nil {
+		s.recordOp("config_jellyfin", systemOperationVideoID, "", "", "error", err.Error())
+		return domain.JellyfinConfig{}, err
+	}
 
 	if req.Enabled {
 		if normalizedURL == "" {
@@ -65,18 +69,14 @@ func (s *Service) UpdateJellyfinConfig(req domain.JellyfinConfigUpdate) (domain.
 		}
 	}
 
-	enabledValue := "false"
-	if req.Enabled {
-		enabledValue = "true"
-	}
-	updatedAt := time.Now().UTC()
-	if err := s.store.SetAppSettings(map[string]string{
+	enabledValue := storedEnabledFlag(req.Enabled)
+	updatedAt, err := s.persistAppSettings("config_jellyfin", map[string]string{
 		settingJellyfinEnabled: enabledValue,
 		settingJellyfinURL:     normalizedURL,
 		settingJellyfinAPIKey:  storedAPIKey,
 		settingJellyfinPathMap: pathMapStored,
-	}, updatedAt); err != nil {
-		s.recordOp("config_jellyfin", systemOperationVideoID, "", "", "error", err.Error())
+	})
+	if err != nil {
 		return domain.JellyfinConfig{}, err
 	}
 

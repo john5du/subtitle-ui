@@ -16,15 +16,11 @@ func (s *Service) GetMCPConfig() (domain.MCPConfig, error) {
 
 // UpdateMCPConfig persists MCP enabled flag and hot-reloads the gate.
 func (s *Service) UpdateMCPConfig(req domain.MCPConfigUpdate) (domain.MCPConfig, error) {
-	enabledValue := "false"
-	if req.Enabled {
-		enabledValue = "true"
-	}
-	updatedAt := time.Now().UTC()
-	if err := s.store.SetAppSettings(map[string]string{
+	enabledValue := storedEnabledFlag(req.Enabled)
+	updatedAt, err := s.persistAppSettings("config_mcp", map[string]string{
 		settingMCPEnabled: enabledValue,
-	}, updatedAt); err != nil {
-		s.recordOp("config_mcp", systemOperationVideoID, "", "", "error", err.Error())
+	})
+	if err != nil {
 		return domain.MCPConfig{}, err
 	}
 

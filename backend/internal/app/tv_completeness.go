@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -188,43 +189,41 @@ func (s *Service) resolveTVSeriesLocal(path string, key string) (tvSeriesLocalMe
 	}
 	path = strings.TrimSpace(path)
 	key = strings.TrimSpace(key)
-	rows := buildTVSeriesSummaries(videos, nil, s.cfg.TVMediaRoot)
-
-	var summary *domain.TVSeriesSummary
-	for i := range rows {
-		row := &rows[i]
-		if key != "" && strings.EqualFold(row.Key, key) {
-			summary = row
-			break
-		}
-		if path != "" && pathsEqualLoose(row.Path, path) {
-			summary = row
-			break
-		}
-	}
-	if summary == nil {
-		return tvSeriesLocalMeta{}, nil, nil
-	}
 
 	seriesVideos := make([]domain.Video, 0)
-	for _, v := range videos {
-		vk, seriesPath, _ := resolveTVSeriesFromVideo(v, s.cfg.TVMediaRoot)
-		if summary.Key != "" && vk == summary.Key {
-			seriesVideos = append(seriesVideos, v)
+	var meta tvSeriesLocalMeta
+	for i := range videos {
+		annotateVideoSeriesFields(&videos[i], s.cfg.TVMediaRoot)
+		matched := false
+		if key != "" && strings.EqualFold(videos[i].SeriesKey, key) {
+			matched = true
+		} else if path != "" && pathsEqualLoose(videos[i].SeriesPath, path) {
+			matched = true
+		}
+		if !matched {
 			continue
 		}
-		if pathsEqualLoose(seriesPath, summary.Path) {
-			seriesVideos = append(seriesVideos, v)
+		seriesVideos = append(seriesVideos, videos[i])
+		if st := strings.TrimSpace(videos[i].SeriesTitle); st != "" {
+			meta.Title = st
+		} else if meta.Title == "" {
+			meta.Title = firstNonEmpty(videos[i].SeriesOriginalTitle, filepath.Base(videos[i].SeriesPath), videos[i].Title, "Unknown")
+		}
+		if tmdbID := strings.TrimSpace(videos[i].SeriesTmdbID); tmdbID != "" {
+			meta.TmdbID = tmdbID
+		}
+		if imdbID := strings.TrimSpace(videos[i].SeriesImdbID); imdbID != "" {
+			meta.ImdbID = imdbID
+		}
+		if meta.Key == "" {
+			meta.Key = videos[i].SeriesKey
+			meta.Path = videos[i].SeriesPath
 		}
 	}
-
-	return tvSeriesLocalMeta{
-		Key:    summary.Key,
-		Path:   summary.Path,
-		TmdbID: summary.TmdbID,
-		ImdbID: summary.ImdbID,
-		Title:  summary.Title,
-	}, seriesVideos, nil
+	if len(seriesVideos) == 0 {
+		return tvSeriesLocalMeta{}, nil, nil
+	}
+	return meta, seriesVideos, nil
 }
 
 func localEpisodeNumbers(videos []domain.Video, season int) map[int]struct{} {
