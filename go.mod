@@ -7,9 +7,9 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/mozillazg/go-pinyin v0.21.0
-	github.com/nwaples/rardecode/v2 v2.4.1
-	golang.org/x/net v0.59.0
-	golang.org/x/text v0.42.0
+	github.com/nwaples/rardecode/v2 v2.4.2
+	golang.org/x/net v0.61.0
+	golang.org/x/text v0.43.0
 )
 
 require (
@@ -31,7 +31,7 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 )
