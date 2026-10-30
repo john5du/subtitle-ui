@@ -1,7 +1,7 @@
 {
   "name": "subtitle",
   "private": true,
-  "version": "0.13.16",
+  "version": "0.13.17",
   "type": "module",
   "packageManager": "bun@1.4.4",
   "scripts": {
