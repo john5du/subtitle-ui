@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/bodgit/sevenzip v1.6.5
-	github.com/jackc/pgx/v5 v5.11.0
+	github.com/jackc/pgx/v5 v5.12.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/mozillazg/go-pinyin v0.21.0
 	github.com/nwaples/rardecode/v2 v2.4.5
