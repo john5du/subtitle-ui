@@ -272,6 +272,13 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			return err
 		}
 	}
+	var seriesKey string
+	if scanErr := s.queryRowTx(tx, `SELECT series_key FROM videos WHERE id = ?`, videoID).Scan(&seriesKey); scanErr != nil {
+		return scanErr
+	}
+	if err = s.refreshTVSeriesTx(tx, []string{seriesKey}); err != nil {
+		return err
+	}
 	err = tx.Commit()
 	return err
 }

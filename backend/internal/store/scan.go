@@ -71,9 +71,11 @@ func (s *Store) SaveScanReconcileCtx(ctx context.Context, found []domain.Video, 
 		foundPaths[normalizeScanPath(video.Path)] = struct{}{}
 	}
 
-	if err = s.deleteMissingVideosForScanScopesTx(tx, replaceScopes, foundPaths); err != nil {
+	deletedKeys, err := s.deleteMissingVideosForScanScopesTx(tx, replaceScopes, foundPaths)
+	if err != nil {
 		return err
 	}
+	affectedSeries := append([]string{}, deletedKeys...)
 
 	for _, video := range rebuilt {
 		exists, dbUpdatedAt, lockErr := s.lockVideoRowTx(tx, video.ID)
@@ -81,6 +83,15 @@ func (s *Store) SaveScanReconcileCtx(ctx context.Context, found []domain.Video, 
 			err = lockErr
 			return err
 		}
+		if exists {
+			var oldKey string
+			if scanErr := s.queryRowTx(tx, `SELECT series_key FROM videos WHERE id = ?`, video.ID).Scan(&oldKey); scanErr != nil {
+				err = scanErr
+				return err
+			}
+			affectedSeries = append(affectedSeries, oldKey)
+		}
+		affectedSeries = append(affectedSeries, video.SeriesKey)
 		// A subtitle write that finished after this scan started must not be
 		// clobbered by a stale on-disk snapshot collected earlier in the walk.
 		skipSubtitles := exists && dbUpdatedAt.After(startedAt.UTC())
@@ -165,22 +176,27 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`+s.subtitleUpsertSuffix(),
 		}
 	}
 
+	if err = s.refreshTVSeriesTx(tx, affectedSeries); err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	return err
 }
 
-func (s *Store) deleteMissingVideosForScanScopesTx(tx *sql.Tx, replaceScopes []string, foundPaths map[string]struct{}) error {
-	rows, err := s.queryTx(tx, `SELECT id, path FROM videos`)
+func (s *Store) deleteMissingVideosForScanScopesTx(tx *sql.Tx, replaceScopes []string, foundPaths map[string]struct{}) ([]string, error) {
+	rows, err := s.queryTx(tx, `SELECT id, path, series_key FROM videos`)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
 
 	ids := make([]string, 0, 64)
+	seriesKeys := make([]string, 0, 16)
 	for rows.Next() {
-		var id, path string
-		if err := rows.Scan(&id, &path); err != nil {
-			return err
+		var id, path, seriesKey string
+		if err := rows.Scan(&id, &path, &seriesKey); err != nil {
+			return nil, err
 		}
 		if len(replaceScopes) > 0 && !pathUnderAnyScope(path, replaceScopes) {
 			continue
@@ -189,17 +205,18 @@ func (s *Store) deleteMissingVideosForScanScopesTx(tx *sql.Tx, replaceScopes []s
 			continue
 		}
 		ids = append(ids, id)
+		seriesKeys = append(seriesKeys, seriesKey)
 	}
 	if err := rows.Err(); err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, id := range ids {
 		if _, err := s.execTx(tx, `DELETE FROM videos WHERE id = ?`, id); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return seriesKeys, nil
 }
 
 func pathUnderAnyScope(path string, scopes []string) bool {

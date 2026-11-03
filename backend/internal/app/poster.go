@@ -12,7 +12,7 @@ import (
 
 var posterExtensions = []string{".jpg", ".png", ".bmp"}
 
-func (s *Service) assignPosterPaths(videos []domain.Video) []domain.Video {
+func (s *Service) assignPosterPaths(videos []domain.Video, movieCache map[string]string, tvCache map[string]string) []domain.Video {
 	if len(videos) == 0 {
 		return videos
 	}
@@ -20,8 +20,12 @@ func (s *Service) assignPosterPaths(videos []domain.Video) []domain.Video {
 	out := make([]domain.Video, len(videos))
 	copy(out, videos)
 
-	movieCache := make(map[string]string, len(out))
-	tvCache := make(map[string]string, len(out))
+	if movieCache == nil {
+		movieCache = make(map[string]string, len(out))
+	}
+	if tvCache == nil {
+		tvCache = make(map[string]string, len(out))
+	}
 
 	for i := range out {
 		switch normalizePosterMediaType(out[i].MediaType) {

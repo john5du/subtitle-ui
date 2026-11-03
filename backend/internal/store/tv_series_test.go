@@ -169,6 +169,72 @@ func TestListTVSeriesPageUsesLatestNonEmptyTitleAndMatchingSortKey(t *testing.T)
 	}
 }
 
+func TestTVSeriesSummaryTracksSubtitlesAndDeletion(t *testing.T) {
+	st, err := Open(TestDSN(t))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+
+	now := time.Now().UTC()
+	root := filepath.Join(t.TempDir(), "tv")
+	dir := filepath.Join(root, "Show", "Season 1")
+	video := domain.Video{
+		ID:                 "E1",
+		Path:               filepath.Join(dir, "Show S01E01.mkv"),
+		Directory:          dir,
+		FileName:           "Show S01E01.mkv",
+		Title:              "Pilot",
+		Year:               "2024",
+		MediaType:          domain.MediaTypeTV,
+		SeriesTitle:        "Show",
+		SeriesKey:          "key-show",
+		SeriesPath:         filepath.Join(root, "Show"),
+		SeriesTitleSortKey: textsort.SortKey("Show"),
+		UpdatedAt:          now,
+	}
+	if err := st.SaveScanResult([]domain.Video{video}, now, now.Add(time.Second), "", nil); err != nil {
+		t.Fatalf("save scan: %v", err)
+	}
+	page, total, err := st.ListTVSeriesPage("", 1, 10, "title", "asc")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if total != 1 || len(page) != 1 || page[0].NoSubtitleCount != 1 || page[0].VideoCount != 1 {
+		t.Fatalf("expected one series missing subtitles, total=%d page=%+v", total, page)
+	}
+
+	if err := st.UpdateVideoSubtitles(video.ID, []domain.Subtitle{{
+		ID:       "sub-1",
+		Path:     filepath.Join(dir, "Show S01E01.zh.srt"),
+		FileName: "Show S01E01.zh.srt",
+		Language: "zh",
+		Format:   "srt",
+		Size:     8,
+		ModTime:  now,
+	}}, now.Add(time.Minute)); err != nil {
+		t.Fatalf("update subtitles: %v", err)
+	}
+	page, _, err = st.ListTVSeriesPage("", 1, 10, "title", "asc")
+	if err != nil {
+		t.Fatalf("list after subtitle: %v", err)
+	}
+	if len(page) != 1 || page[0].NoSubtitleCount != 0 {
+		t.Fatalf("expected subtitle count to clear, page=%+v", page)
+	}
+
+	if err := st.SaveScanResult(nil, now, now.Add(2*time.Second), "", nil); err != nil {
+		t.Fatalf("delete scan: %v", err)
+	}
+	page, total, err = st.ListTVSeriesPage("", 1, 10, "title", "asc")
+	if err != nil {
+		t.Fatalf("list after delete: %v", err)
+	}
+	if total != 0 || len(page) != 0 {
+		t.Fatalf("expected series row removed, total=%d page=%+v", total, page)
+	}
+}
+
 func titles(items []domain.TVSeriesSummary) []string {
 	out := make([]string, 0, len(items))
 	for _, item := range items {

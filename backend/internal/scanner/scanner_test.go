@@ -11,7 +11,7 @@ import (
 
 func scanFound(t *testing.T, sc *Scanner, root string, mediaType string) []domain.Video {
 	t.Helper()
-	result, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, mediaType, nil, nil)
+	result, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, mediaType, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("scan failed: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestScanDirectoriesIncrementalSkipsUnchanged(t *testing.T) {
 	}
 
 	sc := New()
-	firstResult, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, "movie", nil, nil)
+	firstResult, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, "movie", nil, nil, nil)
 	if err != nil {
 		t.Fatalf("first scan: %v", err)
 	}
@@ -229,6 +229,7 @@ func TestScanDirectoriesIncrementalSkipsUnchanged(t *testing.T) {
 		func(videoPath string, mediaType string) (string, int64, time.Time, error) {
 			return ComputeMediaFingerprint(videoPath, mediaType, "")
 		},
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("incremental scan: %v", err)
@@ -251,6 +252,7 @@ func TestScanDirectoriesIncrementalSkipsUnchanged(t *testing.T) {
 		func(videoPath string, mediaType string) (string, int64, time.Time, error) {
 			return ComputeMediaFingerprint(videoPath, mediaType, "")
 		},
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("incremental scan after sub: %v", err)
@@ -285,7 +287,7 @@ func TestScanWalkPermissionErrorSkipsUnreadableDir(t *testing.T) {
 	}
 
 	sc := New()
-	result, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, domain.MediaTypeMovie, nil, nil)
+	result, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, domain.MediaTypeMovie, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("unreadable nested dir should not abort scan: %v", err)
 	}
@@ -308,7 +310,7 @@ func TestScanWalkPermissionErrorKeepsPreviousVideos(t *testing.T) {
 	writeMovieFixture(t, badDir, "hidden")
 
 	sc := New()
-	first, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, domain.MediaTypeMovie, nil, nil)
+	first, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, domain.MediaTypeMovie, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("initial scan: %v", err)
 	}
@@ -329,12 +331,58 @@ func TestScanWalkPermissionErrorKeepsPreviousVideos(t *testing.T) {
 		t.Skip("platform allows reading chmod 0 directory")
 	}
 
-	second, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, domain.MediaTypeMovie, previous, nil)
+	second, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, domain.MediaTypeMovie, previous, nil, nil)
 	if err != nil {
 		t.Fatalf("rescan: %v", err)
 	}
 	if len(second.Found) != 2 {
 		t.Fatalf("expected previous hidden video retained, got %d videos", len(second.Found))
+	}
+}
+
+func TestScanSharedDirectoryReadsDirOnce(t *testing.T) {
+	root := t.TempDir()
+	season := filepath.Join(root, "Show", "Season 1")
+	if err := os.MkdirAll(season, 0o755); err != nil {
+		t.Fatalf("mkdir season: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "Show", "tvshow.nfo"), []byte(`<tvshow><title>Show</title><year>2024</year></tvshow>`), 0o644); err != nil {
+		t.Fatalf("write series nfo: %v", err)
+	}
+	for _, ep := range []string{"Show S01E01", "Show S01E02"} {
+		if err := os.WriteFile(filepath.Join(season, ep+".mkv"), []byte("v"), 0o644); err != nil {
+			t.Fatalf("write video: %v", err)
+		}
+		nfo := `<episodedetails><title>` + ep + `</title><year>2024</year></episodedetails>`
+		if err := os.WriteFile(filepath.Join(season, ep+".nfo"), []byte(nfo), 0o644); err != nil {
+			t.Fatalf("write nfo: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(season, ep+".zh.srt"), []byte("sub"), 0o644); err != nil {
+			t.Fatalf("write sub: %v", err)
+		}
+	}
+
+	var reads []string
+	sc := New()
+	sc.readDir = func(name string) ([]os.DirEntry, error) {
+		reads = append(reads, filepath.Clean(name))
+		return os.ReadDir(name)
+	}
+	result, err := sc.ScanDirectoriesIncrementalCtx(t.Context(), []string{root}, domain.MediaTypeTV, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if len(result.Found) != 2 {
+		t.Fatalf("expected 2 episodes, got %d", len(result.Found))
+	}
+	seasonReads := 0
+	for _, read := range reads {
+		if read == filepath.Clean(season) {
+			seasonReads++
+		}
+	}
+	if seasonReads != 1 {
+		t.Fatalf("season dir reads=%d, want 1 (%v)", seasonReads, reads)
 	}
 }
 

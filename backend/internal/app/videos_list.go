@@ -1,10 +1,7 @@
 package app
 
 import (
-	"sort"
-	"strconv"
 	"strings"
-	"time"
 
 	"subtitle-ui/backend/internal/domain"
 	"subtitle-ui/backend/internal/version"
@@ -66,6 +63,10 @@ func (s *Service) listAllVideos() ([]domain.Video, error) {
 	return s.listAllVideosByType("")
 }
 
+func (s *Service) listAllVideosMeta() ([]domain.Video, error) {
+	return s.store.ListAllVideosMeta("")
+}
+
 func (s *Service) listAllVideosByType(mediaType string) ([]domain.Video, error) {
 	return s.store.ListAllVideos(mediaType)
 }
@@ -76,89 +77,40 @@ type videoChanges struct {
 	Updated int
 }
 
+// calculateVideoChanges compares scan fingerprints. Disk changes that the
+// scanner treats as a rebuild (subtitles, NFO, poster, video file) are part of
+// the fingerprint, so the scan log does not need to load subtitle rows.
 func calculateVideoChanges(before []domain.Video, current []domain.Video) videoChanges {
-	beforeSignatures := make(map[string]string, len(before))
+	beforeFP := make(map[string]string, len(before))
 	for _, video := range before {
-		beforeSignatures[video.ID] = videoContentSignature(video)
+		beforeFP[video.ID] = video.ScanFingerprint
 	}
 
-	currentSignatures := make(map[string]string, len(current))
+	currentFP := make(map[string]string, len(current))
 	for _, video := range current {
-		currentSignatures[video.ID] = videoContentSignature(video)
+		currentFP[video.ID] = video.ScanFingerprint
 	}
 
 	changes := videoChanges{}
-	for id, currentSig := range currentSignatures {
-		beforeSig, ok := beforeSignatures[id]
+	for id, currentSig := range currentFP {
+		beforeSig, ok := beforeFP[id]
 		if !ok {
 			changes.Added++
+			continue
+		}
+		// An empty fingerprint means the row has not been fingerprinted yet, or
+		// fingerprinting failed. Do not treat filling it in as a content update.
+		if strings.TrimSpace(beforeSig) == "" || strings.TrimSpace(currentSig) == "" {
 			continue
 		}
 		if beforeSig != currentSig {
 			changes.Updated++
 		}
 	}
-	for id := range beforeSignatures {
-		if _, ok := currentSignatures[id]; !ok {
+	for id := range beforeFP {
+		if _, ok := currentFP[id]; !ok {
 			changes.Removed++
 		}
 	}
 	return changes
-}
-
-func videoContentSignature(video domain.Video) string {
-	var b strings.Builder
-	b.Grow(256)
-	b.WriteString(strings.ToLower(strings.TrimSpace(video.Path)))
-	b.WriteString("|")
-	b.WriteString(strings.TrimSpace(video.Title))
-	b.WriteString("|")
-	b.WriteString(strings.TrimSpace(video.OriginalTitle))
-	b.WriteString("|")
-	b.WriteString(strings.TrimSpace(video.Year))
-	b.WriteString("|")
-	b.WriteString(strings.TrimSpace(video.ImdbID))
-	b.WriteString("|")
-	b.WriteString(strings.TrimSpace(video.TmdbID))
-	b.WriteString("|")
-	b.WriteString(strings.ToLower(strings.TrimSpace(video.MediaType)))
-	b.WriteString("|")
-	b.WriteString(strings.TrimSpace(video.MetadataSource))
-	b.WriteString("|")
-	b.WriteString(strings.TrimSpace(video.SeriesTitle))
-	b.WriteString("|")
-	b.WriteString(strings.TrimSpace(video.SeriesOriginalTitle))
-	b.WriteString("|")
-	b.WriteString(strings.TrimSpace(video.SeriesImdbID))
-	b.WriteString("|")
-	b.WriteString(strings.TrimSpace(video.SeriesTmdbID))
-	b.WriteString("|")
-	b.WriteString(strings.ToLower(strings.TrimSpace(video.PosterPath)))
-
-	subs := append([]domain.Subtitle(nil), video.Subtitles...)
-	sort.Slice(subs, func(i int, j int) bool {
-		if !strings.EqualFold(subs[i].Path, subs[j].Path) {
-			return strings.ToLower(subs[i].Path) < strings.ToLower(subs[j].Path)
-		}
-		return strings.ToLower(subs[i].FileName) < strings.ToLower(subs[j].FileName)
-	})
-	for _, sub := range subs {
-		b.WriteString("|")
-		b.WriteString(strings.ToLower(strings.TrimSpace(sub.Path)))
-		b.WriteString(":")
-		b.WriteString(strings.TrimSpace(sub.FileName))
-		b.WriteString(":")
-		b.WriteString(strings.TrimSpace(sub.Language))
-		b.WriteString(":")
-		b.WriteString(strings.TrimSpace(sub.Format))
-		b.WriteString(":")
-		b.WriteString(strconv.FormatInt(sub.Size, 10))
-		b.WriteString(":")
-		b.WriteString(sub.ModTime.UTC().Format(time.RFC3339Nano))
-		b.WriteString(":")
-		b.WriteString(strings.TrimSpace(sub.Source))
-		b.WriteString(":")
-		b.WriteString(strings.TrimSpace(sub.SourceDetail))
-	}
-	return b.String()
 }

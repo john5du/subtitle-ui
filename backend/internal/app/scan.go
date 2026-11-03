@@ -28,7 +28,7 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	}
 	defer s.scanRunMu.Unlock()
 
-	beforeVideos, beforeErr := s.listAllVideos()
+	beforeVideos, beforeErr := s.listAllVideosMeta()
 	if beforeErr != nil {
 		return domain.ScanStatus{Error: beforeErr.Error()}
 	}
@@ -65,6 +65,13 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 		found := make([]domain.Video, 0, 256)
 		rebuilt := make([]domain.Video, 0, 64)
 		skipped := 0
+		moviePosterCache := make(map[string]string)
+		tvPosterCache := make(map[string]string)
+		dirIndex := scanner.NewDirIndex()
+		resolveFingerprint := func(videoPath string, mediaType string) (string, int64, time.Time, error) {
+			poster := s.discoverPosterPathForScan(videoPath, mediaType, moviePosterCache, tvPosterCache)
+			return dirIndex.ComputeMediaFingerprint(videoPath, mediaType, poster)
+		}
 
 		var movieScanErr error
 		if len(movieTargets) > 0 {
@@ -73,7 +80,8 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 				movieTargets,
 				domain.MediaTypeMovie,
 				previousByPath,
-				s.resolveVideoScanFingerprint,
+				resolveFingerprint,
+				dirIndex,
 			)
 			movieScanErr = err
 			found = append(found, movieResult.Found...)
@@ -92,7 +100,8 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 				tvTargets,
 				domain.MediaTypeTV,
 				previousByPath,
-				s.resolveVideoScanFingerprint,
+				resolveFingerprint,
+				dirIndex,
 			)
 			tvScanErr = err
 			found = append(found, tvResult.Found...)
@@ -104,9 +113,9 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 			}
 		}
 
-		rebuilt = s.assignPosterPaths(rebuilt)
+		rebuilt = s.assignPosterPaths(rebuilt, moviePosterCache, tvPosterCache)
 		for i := range rebuilt {
-			fp, size, modTime, fpErr := s.resolveVideoScanFingerprint(rebuilt[i].Path, rebuilt[i].MediaType)
+			fp, size, modTime, fpErr := dirIndex.ComputeMediaFingerprint(rebuilt[i].Path, rebuilt[i].MediaType, rebuilt[i].PosterPath)
 			if fpErr == nil {
 				rebuilt[i].ScanFingerprint = fp
 				rebuilt[i].FileSize = size
@@ -182,7 +191,7 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 		}
 	}
 
-	currentVideos, currentErr := s.listAllVideos()
+	currentVideos, currentErr := s.listAllVideosMeta()
 	if currentErr != nil {
 		result.err = combineErrors(result.err, prefixedError("load current videos", currentErr))
 		currentVideos = result.found
@@ -226,12 +235,7 @@ func (s *Service) RunFileScan(ctx context.Context, movieDirs []string, tvDirs []
 	return status
 }
 
-func (s *Service) resolveVideoScanFingerprint(videoPath string, mediaType string) (string, int64, time.Time, error) {
-	posterPath := s.discoverPosterPathForScan(videoPath, mediaType)
-	return scanner.ComputeMediaFingerprint(videoPath, mediaType, posterPath)
-}
-
-func (s *Service) discoverPosterPathForScan(videoPath string, mediaType string) string {
+func (s *Service) discoverPosterPathForScan(videoPath string, mediaType string, movieCache map[string]string, tvCache map[string]string) string {
 	absPath, err := filepath.Abs(videoPath)
 	if err != nil {
 		return ""
@@ -242,12 +246,17 @@ func (s *Service) discoverPosterPathForScan(videoPath string, mediaType string) 
 		FileName:  filepath.Base(absPath),
 		MediaType: mediaType,
 	}
-	cache := make(map[string]string, 1)
+	if movieCache == nil {
+		movieCache = make(map[string]string)
+	}
+	if tvCache == nil {
+		tvCache = make(map[string]string)
+	}
 	switch normalizePosterMediaType(mediaType) {
 	case domain.MediaTypeTV:
-		return s.findTVPosterPath(stub, cache)
+		return s.findTVPosterPath(stub, tvCache)
 	default:
-		return s.findMoviePosterPath(stub, cache)
+		return s.findMoviePosterPath(stub, movieCache)
 	}
 }
 

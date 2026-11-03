@@ -482,7 +482,79 @@ CREATE TABLE IF NOT EXISTS mcp_confirm_nonces (
 		}
 	}
 
+	applied, err = s.isMigrationApplied(14)
+	if err != nil {
+		return err
+	}
+	if !applied {
+		if err := s.ensurePgTrgm(); err != nil {
+			return fmt.Errorf("apply migration v14 pg_trgm: %w", err)
+		}
+		if _, err := s.exec(`CREATE TABLE IF NOT EXISTS tv_series (
+  series_key TEXT PRIMARY KEY,
+  path TEXT NOT NULL DEFAULT '',
+  title TEXT NOT NULL DEFAULT '',
+  original_title TEXT NOT NULL DEFAULT '',
+  imdb_id TEXT NOT NULL DEFAULT '',
+  tmdb_id TEXT NOT NULL DEFAULT '',
+  latest_year INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT '',
+  video_count INTEGER NOT NULL DEFAULT 0,
+  no_subtitle_count INTEGER NOT NULL DEFAULT 0,
+  poster_video_id TEXT NOT NULL DEFAULT '',
+  title_sort_key TEXT NOT NULL DEFAULT ''
+)`); err != nil {
+			return fmt.Errorf("apply migration v14 tv_series: %w", err)
+		}
+		if err := s.rebuildAllTVSeries(); err != nil {
+			return fmt.Errorf("apply migration v14 backfill tv_series: %w", err)
+		}
+		for _, statement := range []string{
+			`CREATE INDEX IF NOT EXISTS idx_tv_series_title_sort_key ON tv_series(title_sort_key)`,
+			`CREATE INDEX IF NOT EXISTS idx_tv_series_latest_year ON tv_series(latest_year)`,
+			`CREATE INDEX IF NOT EXISTS idx_tv_series_updated_at ON tv_series(updated_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_tv_series_video_count ON tv_series(video_count)`,
+			`CREATE INDEX IF NOT EXISTS idx_tv_series_no_subtitle_count ON tv_series(no_subtitle_count)`,
+			`CREATE INDEX IF NOT EXISTS idx_tv_series_title_trgm ON tv_series USING gin (lower(title) public.gin_trgm_ops)`,
+			`CREATE INDEX IF NOT EXISTS idx_tv_series_original_title_trgm ON tv_series USING gin (lower(original_title) public.gin_trgm_ops)`,
+			`CREATE INDEX IF NOT EXISTS idx_tv_series_path_trgm ON tv_series USING gin (lower(path) public.gin_trgm_ops)`,
+		} {
+			if _, err := s.exec(statement); err != nil {
+				return fmt.Errorf("apply migration v14 index: %w", err)
+			}
+		}
+		if _, err := s.exec(`INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)`, 14, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+// ensurePgTrgm installs pg_trgm once per database. The schema migrate lock is
+// per-schema, so parallel test schemas (or two processes) would otherwise race
+// CREATE EXTENSION.
+func (s *Store) ensurePgTrgm() error {
+	ctx := context.Background()
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('subtitle-ui/pg_trgm', 0))`); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public`); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) backfillTitleSortKeys() error {

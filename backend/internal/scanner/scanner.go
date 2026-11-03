@@ -39,7 +39,10 @@ var subtitleExtensions = map[string]struct{}{
 
 var errMetadataNotFound = errors.New("metadata nfo not found")
 
-type Scanner struct{}
+type Scanner struct {
+	// readDir lists a directory. Tests replace it to count listings. Production uses os.ReadDir.
+	readDir func(string) ([]os.DirEntry, error)
+}
 
 type ScanStats struct {
 	Found   int
@@ -54,20 +57,33 @@ type IncrementalScanResult struct {
 }
 
 func New() *Scanner {
-	return &Scanner{}
+	return &Scanner{readDir: os.ReadDir}
+}
+
+func (s *Scanner) newDirIndex() *DirIndex {
+	if s == nil || s.readDir == nil {
+		return NewDirIndex()
+	}
+	return newDirIndex(s.readDir)
 }
 
 // ScanDirectoriesIncrementalCtx walks roots and reuses previous rows when
 // resolveFingerprint matches the stored ScanFingerprint. previous is keyed by
 // absolute path. resolveFingerprint must return the same fingerprint that will
-// be stored after a rebuild (including poster component).
+// be stored after a rebuild (including poster component). index caches directory
+// listings for this walk; nil builds one from the scanner. Pass the same index
+// the fingerprint callback uses so each directory is listed once.
 func (s *Scanner) ScanDirectoriesIncrementalCtx(
 	ctx context.Context,
 	roots []string,
 	mediaType string,
 	previous map[string]domain.Video,
 	resolveFingerprint func(videoPath string, mediaType string) (string, int64, time.Time, error),
+	index *DirIndex,
 ) (IncrementalScanResult, error) {
+	if index == nil {
+		index = s.newDirIndex()
+	}
 	uniqueRoots := uniqueAbsDirectories(roots)
 	out := IncrementalScanResult{
 		Found:   make([]domain.Video, 0, 128),
@@ -125,7 +141,7 @@ func (s *Scanner) ScanDirectoriesIncrementalCtx(
 
 			dir := filepath.Dir(videoPath)
 			base := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
-			if !hasMetadataSidecar(dir, base, mediaType) {
+			if !index.hasMetadataSidecar(dir, base, mediaType) {
 				return nil
 			}
 
@@ -147,7 +163,7 @@ func (s *Scanner) ScanDirectoriesIncrementalCtx(
 				}
 			}
 
-			video, buildErr := s.buildVideo(videoPath, mediaType)
+			video, buildErr := s.buildVideo(videoPath, mediaType, index)
 			if buildErr != nil {
 				if errors.Is(buildErr, errMetadataNotFound) {
 					return nil
@@ -263,46 +279,32 @@ func (s *Scanner) ScanSubtitlesForVideo(videoPath string) ([]domain.Subtitle, er
 	if err != nil {
 		return nil, err
 	}
+	return s.scanSubtitles(videoAbs, s.newDirIndex())
+}
 
+func (s *Scanner) scanSubtitles(videoAbs string, index *DirIndex) ([]domain.Subtitle, error) {
+	if index == nil {
+		index = s.newDirIndex()
+	}
 	dir := filepath.Dir(videoAbs)
-	videoName := filepath.Base(videoAbs)
-	videoBase := strings.TrimSuffix(videoName, filepath.Ext(videoName))
-
-	entries, err := os.ReadDir(dir)
+	videoBase := strings.TrimSuffix(filepath.Base(videoAbs), filepath.Ext(videoAbs))
+	files, err := index.subtitleFiles(videoAbs)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]domain.Subtitle, 0, 8)
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		ext := strings.ToLower(filepath.Ext(entry.Name()))
-		if !isSubtitleExt(ext) {
-			continue
-		}
-
-		nameBase := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
-		if nameBase != videoBase && !strings.HasPrefix(nameBase, videoBase+".") &&
-			!strings.HasPrefix(nameBase, videoBase+"_") && !strings.HasPrefix(nameBase, videoBase+"-") {
-			continue
-		}
-
-		subPath := filepath.Join(dir, entry.Name())
-		info, statErr := entry.Info()
-		if statErr != nil {
-			continue
-		}
-
+	out := make([]domain.Subtitle, 0, len(files))
+	for _, file := range files {
+		ext := strings.ToLower(filepath.Ext(file.name))
+		subPath := filepath.Join(dir, file.name)
 		out = append(out, domain.Subtitle{
 			ID:       makeID(videoAbs + "::" + subPath),
 			Path:     subPath,
-			FileName: entry.Name(),
-			Language: subtitle.InferSidecarLanguageLabel(videoBase, entry.Name()),
+			FileName: file.name,
+			Language: subtitle.InferSidecarLanguageLabel(videoBase, file.name),
 			Format:   strings.TrimPrefix(ext, "."),
-			Size:     info.Size(),
-			ModTime:  info.ModTime(),
+			Size:     file.info.Size(),
+			ModTime:  file.info.ModTime(),
 			Source:   domain.SubtitleSourceDirectory,
 		})
 	}
@@ -310,11 +312,10 @@ func (s *Scanner) ScanSubtitlesForVideo(videoPath string) ([]domain.Subtitle, er
 	sort.Slice(out, func(i int, j int) bool {
 		return out[i].FileName < out[j].FileName
 	})
-
 	return out, nil
 }
 
-func (s *Scanner) buildVideo(path string, mediaType string) (domain.Video, error) {
+func (s *Scanner) buildVideo(path string, mediaType string, index *DirIndex) (domain.Video, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return domain.Video{}, err
@@ -348,7 +349,7 @@ func (s *Scanner) buildVideo(path string, mediaType string) (domain.Video, error
 		year = seriesMetadata.Year
 	}
 
-	subtitles, err := s.ScanSubtitlesForVideo(absPath)
+	subtitles, err := s.scanSubtitles(absPath, index)
 	if err != nil {
 		log.Printf("scan subtitles for %s: %v", absPath, err)
 		subtitles = nil
